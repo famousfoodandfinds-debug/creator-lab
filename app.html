@@ -873,7 +873,7 @@ function handleForgotPassword() {
   msg.textContent = "Sending reset link...";
   msg.className = "auth-msg";
   sb.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.href
+    redirectTo: window.location.origin + "/app.html"
   }).then(function(result) {
     if (result.error) {
       msg.textContent = result.error.message;
