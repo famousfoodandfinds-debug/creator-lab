@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Something I Built For You, Psych Lab</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --black: #080808;
+  --surface: #111111;
+  --surface2: #181818;
+  --border: rgba(255,255,255,0.07);
+  --border-md: rgba(255,255,255,0.14);
+  --border-strong: rgba(255,255,255,0.25);
+  --silver: #C0C0C0;
+  --silver-bright: #E8E8E8;
+  --silver-dim: rgba(192,192,192,0.12);
+  --white: #F0F0F0;
+  --white-dim: rgba(240,240,240,0.55);
+  --muted: #666666;
+  --green: #2DC98A;
+  --gold: #D4AF37;
+  --gold-dim: rgba(212,175,55,0.1);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Instrument Sans', sans-serif;
+  background: var(--black);
+  color: var(--white);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+/* GRAIN */
+body::after {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 999;
+  opacity: 0.35;
+}
+
+.page { max-width: 680px; margin: 0 auto; padding: 60px 24px 80px; }
+
+/* HEADER */
+.header { text-align: center; margin-bottom: 56px; animation: fadeUp 0.6s ease both; }
+.logo { width: 200px; height: 100px; object-fit: contain; mix-blend-mode: lighten; display: block; margin: 0 auto 32px; }
+.from-label {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--silver); margin-bottom: 20px;
+}
+.from-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); }
+
+/* LETTER */
+.letter { animation: fadeUp 0.6s ease 0.1s both; }
+.letter-head {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(28px, 5vw, 42px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--white);
+  margin-bottom: 28px;
+}
+.letter-head em { font-style: italic; color: var(--silver-bright); }
+
+.letter-body {
+  font-size: 16px;
+  line-height: 1.8;
+  color: var(--white-dim);
+  font-weight: 300;
+  margin-bottom: 20px;
+}
+.letter-body strong { color: var(--white); font-weight: 500; }
+
+.letter-highlight {
+  background: var(--surface);
+  border-left: 3px solid var(--silver);
+  border-radius: 0 8px 8px 0;
+  padding: 20px 24px;
+  margin: 32px 0;
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--white);
+  font-style: italic;
+  font-family: 'Playfair Display', serif;
+  font-weight: 400;
+}
+
+.signature {
+  margin-top: 32px;
+  font-size: 15px;
+  color: var(--white-dim);
+  font-weight: 300;
+}
+.signature strong { color: var(--white); font-weight: 600; font-size: 17px; display: block; margin-top: 4px; }
+
+/* DIVIDER */
+.divider {
+  display: flex; align-items: center; gap: 16px;
+  margin: 56px 0;
+  animation: fadeUp 0.6s ease 0.2s both;
+}
+.divider-line { flex: 1; height: 1px; background: var(--border-md); }
+.divider-logo { width: 32px; height: 32px; object-fit: contain; mix-blend-mode: lighten; opacity: 0.6; }
+
+/* WHAT IT IS */
+.tool-section { animation: fadeUp 0.6s ease 0.25s both; }
+.tool-label {
+  font-size: 10px; font-weight: 600; letter-spacing: 0.18em;
+  text-transform: uppercase; color: var(--silver); margin-bottom: 12px;
+}
+.tool-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(26px, 4vw, 38px);
+  font-weight: 700;
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  color: var(--white);
+  margin-bottom: 12px;
+}
+.tool-title em { font-style: italic; color: var(--silver-bright); }
+.tool-sub {
+  font-size: 15px; color: var(--white-dim); font-weight: 300;
+  line-height: 1.65; margin-bottom: 36px;
+}
+
+/* FEATURE LIST */
+.features { display: flex; flex-direction: column; gap: 12px; margin-bottom: 40px; }
+.feature {
+  display: flex; align-items: flex-start; gap: 16px;
+  background: var(--surface); border: 1px solid var(--border-md);
+  border-radius: 12px; padding: 18px 20px;
+  transition: border-color 0.2s;
+}
+.feature:hover { border-color: var(--border-strong); }
+.feature-icon {
+  width: 36px; height: 36px; border-radius: 9px;
+  background: var(--silver-dim); display: flex; align-items: center;
+  justify-content: center; font-size: 16px; flex-shrink: 0;
+}
+.feature-text { flex: 1; }
+.feature-title { font-size: 14px; font-weight: 600; color: var(--white); margin-bottom: 4px; }
+.feature-desc { font-size: 13px; color: var(--white-dim); line-height: 1.55; font-weight: 300; }
+
+/* PSYCHOLOGY PILLS */
+.psych-wrap { margin-bottom: 40px; }
+.psych-label { font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 12px; }
+.psych-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.pill {
+  background: var(--surface); border: 1px solid var(--border-md);
+  border-radius: 999px; padding: 6px 14px;
+  font-size: 12px; font-weight: 500; color: var(--silver);
+  letter-spacing: 0.03em;
+}
+
+/* REVEAL CARD */
+.reveal-card {
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 20px;
+  padding: 36px 32px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  animation: fadeUp 0.6s ease 0.35s both;
+}
+.reveal-card::before {
+  content: '';
+  position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(232,232,232,0.4), transparent);
+}
+.reveal-badge {
+  display: inline-block;
+  background: var(--gold-dim); border: 1px solid rgba(212,175,55,0.3);
+  border-radius: 999px; padding: 4px 14px;
+  font-size: 10px; font-weight: 600; color: var(--gold);
+  letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 16px;
+}
+.reveal-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 26px; font-weight: 700; color: var(--white);
+  line-height: 1.2; margin-bottom: 12px; letter-spacing: -0.01em;
+}
+.reveal-title em { font-style: italic; color: var(--silver-bright); }
+.reveal-sub {
+  font-size: 14px; color: var(--white-dim); font-weight: 300;
+  line-height: 1.65; max-width: 420px; margin: 0 auto 24px;
+}
+.reveal-details {
+  display: flex; gap: 0; justify-content: center;
+  border: 1px solid var(--border-md); border-radius: 12px;
+  overflow: hidden; margin-bottom: 8px;
+}
+.reveal-detail {
+  flex: 1; padding: 16px 12px; text-align: center;
+  border-right: 1px solid var(--border-md);
+}
+.reveal-detail:last-child { border-right: none; }
+.reveal-detail-label { font-size: 10px; font-weight: 600; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px; }
+.reveal-detail-value { font-size: 15px; font-weight: 600; color: var(--white); }
+.reveal-note { font-size: 12px; color: var(--muted); margin-top: 16px; }
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 500px) {
+  .page { padding: 40px 20px 60px; }
+  .reveal-details { flex-direction: column; }
+  .reveal-detail { border-right: none; border-bottom: 1px solid var(--border-md); }
+  .reveal-detail:last-child { border-bottom: none; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <img class="logo" src="https://i.ibb.co/TDxsM31g/Psych-Lab-Cropped.png" alt="Psych Lab">
+    <div class="from-label"><span class="from-dot"></span> A note from Coach Ammie</div>
+  </div>
+
+  <!-- LETTER -->
+  <div class="letter">
+    <h1 class="letter-head">I built something for<br><em>this community.</em></h1>
+
+    <p class="letter-body">
+      Coach Alycia's buyer psychology calls are so valuable. Every time I watch the replay I see the concepts clicking in real time. People get excited, they understand it, and then they sit down to actually write a script and the blank page wins.
+    </p>
+
+    <p class="letter-body">
+      Not because they don't understand it. Understanding psychology and applying it in real time are two completely different skills. One lives in your head. The other lives in your hands.
+    </p>
+
+    <div class="letter-highlight">
+      "I kept seeing people say they just weren't in a place yet to get it, to recognize the patterns or create them on their own. So I built a tool that does both. It helps you create the content and learn the psychology at the same time."
+    </div>
+
+    <p class="letter-body">
+      Psych Lab is a script generator built entirely around buyer psychology. Every hook, every body line, every CTA is tied to a specific psychological trigger. The tool shows you which one and why. You don't just get a script. You get a master class every time you generate one.
+    </p>
+
+    <p class="letter-body">
+      I want to walk the community through it properly on a call. I'll show you exactly how it works, what it produces, and how to use it to level up your content every single day.
+    </p>
+
+    <p class="letter-body">
+      One thing I want to be upfront about: <strong>Psych Lab is $25 a month. Cancel anytime.</strong> I built this tool, I maintain it, and there are real costs behind every script it generates. I priced it below what it's worth because I wanted it to be affordable for our members. On the reveal call I'll walk you through everything so you can decide for yourself if it makes sense for where you are right now. No pressure either way.
+    </p>
+
+    <div class="signature">
+      With love for this community,
+      <strong>Coach Ammie</strong>
+    </div>
+  </div>
+
+  <!-- DIVIDER -->
+  <div class="divider">
+    <div class="divider-line"></div>
+    <img class="divider-logo" src="https://i.ibb.co/TDxsM31g/Psych-Lab-Cropped.png" alt="">
+    <div class="divider-line"></div>
+  </div>
+
+  <!-- WHAT IT DOES -->
+  <div class="tool-section">
+    <div class="tool-label">What is Psych Lab</div>
+    <h2 class="tool-title">The science behind<br><em>scripts that convert.</em></h2>
+    <p class="tool-sub">A script generation tool built on the same buyer psychology principles Coach Alycia has been teaching, now applied automatically to every product you promote.</p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="feature-icon">🧠</div>
+        <div class="feature-text">
+          <div class="feature-title">Psychology-first script building</div>
+          <div class="feature-desc">Every script starts by identifying the buyer desire angle, who this product speaks to and what they're really buying. Hooks, body lines, and CTAs are built around that angle, not around the product features.</div>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">⚡</div>
+        <div class="feature-text">
+          <div class="feature-title">Batch generate up to 5 scripts at once</div>
+          <div class="feature-desc">Select multiple buyer angles and generate a complete script for each one in a single click. Enough content for a full posting day from one product.</div>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📱</div>
+        <div class="feature-text">
+          <div class="feature-title">On-screen text for every hook</div>
+          <div class="feature-desc">Every hook comes with 3 on-screen text options written to stop the scroll visually, before the viewer processes a single spoken word.</div>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">📊</div>
+        <div class="feature-text">
+          <div class="feature-title">Daily posting tracker and streak</div>
+          <div class="feature-desc">Set your daily goal, mark videos as posted, and track your streak. The tool is built for consistency, not just content creation.</div>
+        </div>
+      </div>
+      <div class="feature">
+        <div class="feature-icon">✨</div>
+        <div class="feature-text">
+          <div class="feature-title">Caption and product description included</div>
+          <div class="feature-desc">Every script comes with a ready-to-post caption and SEO-optimized product description, written for the algorithm, not just the viewer.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PSYCH TRIGGERS -->
+    <div class="psych-wrap">
+      <div class="psych-label">The 15 buyer psychology triggers built in</div>
+      <div class="psych-pills">
+        <span class="pill">Curiosity Loop</span>
+        <span class="pill">Pain Relief</span>
+        <span class="pill">Identity Trigger</span>
+        <span class="pill">Scarcity & FOMO</span>
+        <span class="pill">Social Proof</span>
+        <span class="pill">Skepticism Disarm</span>
+        <span class="pill">Desired Transformation</span>
+        <span class="pill">Feature to Feeling</span>
+        <span class="pill">Value Reframe</span>
+        <span class="pill">Legacy & Emotion</span>
+        <span class="pill">Friction Removal</span>
+        <span class="pill">Soft Close</span>
+        <span class="pill">Direct Close</span>
+        <span class="pill">Quality Proof</span>
+        <span class="pill">Multi-Use Reveal</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- REVEAL CARD -->
+  <div class="reveal-card">
+    <div class="reveal-badge">Coming Soon</div>
+    <div class="reveal-title">The reveal call is<br><em>coming up.</em></div>
+    <div class="reveal-sub">Famous will walk the community through Psych Lab live, how it works, what it produces, and how to use it alongside Coach Alycia's buyer psychology framework.</div>
+    <div class="reveal-details">
+      <div class="reveal-detail">
+        <div class="reveal-detail-label">What</div>
+        <div class="reveal-detail-value">Live Reveal Call</div>
+      </div>
+      <div class="reveal-detail">
+        <div class="reveal-detail-label">Who</div>
+        <div class="reveal-detail-value">Evolution Pro</div>
+      </div>
+      <div class="reveal-detail">
+        <div class="reveal-detail-label">Details</div>
+        <div class="reveal-detail-value">Coming Soon</div>
+      </div>
+    </div>
+    <div class="reveal-note">Date and time will be announced in the community. Stay tuned.</div>
+  </div>
+
+</div>
+</body>
+</html>
