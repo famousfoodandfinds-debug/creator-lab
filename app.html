@@ -2309,7 +2309,7 @@ function renderOnboarding() {
   title.innerHTML = "Welcome to <em>Psych Lab</em>";
   var sub = document.createElement("div");
   sub.className = "onboarding-sub";
-  sub.textContent = "Complete these 5 steps to get the most out of your tool. Takes less than 10 minutes.";
+  sub.textContent = "Complete these 4 steps to get the most out of your tool. Takes less than 5 minutes.";
   wrap.appendChild(title);
   wrap.appendChild(sub);
 
@@ -2318,7 +2318,7 @@ function renderOnboarding() {
   prog.className = "onboarding-progress";
   var progFill = document.createElement("div");
   progFill.className = "onboarding-progress-fill";
-  progFill.style.width = (onboardingStep / 5 * 100) + "%";
+  progFill.style.width = (onboardingStep / 4 * 100) + "%";
   prog.appendChild(progFill);
   wrap.appendChild(prog);
 
@@ -2326,8 +2326,7 @@ function renderOnboarding() {
     { num: 1, text: "Set your daily posting goal" },
     { num: 2, text: "Generate your first product script bank" },
     { num: 3, text: "Build your first script" },
-    { num: 4, text: "Mark your first video as Posted" },
-    { num: 5, text: "Run your first Self Audit" }
+    { num: 4, text: "Mark your first video as Posted" }
   ];
 
   var stepsWrap = document.createElement("div");
