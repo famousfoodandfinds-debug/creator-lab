@@ -873,7 +873,7 @@ function handleForgotPassword() {
   msg.textContent = "Sending reset link...";
   msg.className = "auth-msg";
   sb.auth.resetPasswordForEmail(email, {
-    redirectTo: window.location.origin + "/app.html"
+    redirectTo: "https://psychscriptlab.netlify.app/app.html"
   }).then(function(result) {
     if (result.error) {
       msg.textContent = result.error.message;
@@ -1001,6 +1001,33 @@ function signOut() {
     document.getElementById("mainContent").innerHTML = '<div class="state-box"><div class="state-icon">🗝️</div><div class="state-title">Your Script Bank</div><div class="state-desc">Sign in to get started.</div></div>';
   });
 }
+
+// Check for password recovery token in URL on load
+(function() {
+  var hash = window.location.hash;
+  var params = new URLSearchParams(window.location.search);
+  // Handle token_hash based recovery (newer Supabase)
+  var tokenHash = params.get("token_hash") || (hash && hash.match(/token_hash=([^&]+)/) && hash.match(/token_hash=([^&]+)/)[1]);
+  var type = params.get("type") || (hash && hash.match(/type=([^&]+)/) && hash.match(/type=([^&]+)/)[1]);
+  if (tokenHash && type === "recovery") {
+    sb.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" }).then(function(result) {
+      if (result.error) {
+        console.log("OTP verify error:", result.error.message);
+      }
+      // onAuthStateChange will fire PASSWORD_RECOVERY event
+    });
+    return;
+  }
+  // Handle access_token based recovery (older Supabase)
+  var accessToken = hash && hash.match(/access_token=([^&]+)/) && hash.match(/access_token=([^&]+)/)[1];
+  var hashType = hash && hash.match(/type=([^&]+)/) && hash.match(/type=([^&]+)/)[1];
+  if (accessToken && hashType === "recovery") {
+    sb.auth.setSession({ access_token: accessToken, refresh_token: "" }).then(function() {
+      // onAuthStateChange will fire PASSWORD_RECOVERY event
+    });
+    return;
+  }
+})();
 
 // Check session on load
 sb.auth.getSession().then(function(result) {
