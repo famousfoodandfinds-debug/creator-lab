@@ -666,7 +666,7 @@ textarea::placeholder { color: var(--muted2); }
 <script>
 var SUPABASE_URL = "https://ysacpditbxcrairmypsp.supabase.co";
 var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYWNwZGl0YnhjcmFpcm15cHNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjU4MjYsImV4cCI6MjA4OTM0MTgyNn0.U8W_KpDkYCT-jVBbXneAP1q_W9ChfhTi69DD0SS6G3o";
-var API_KEY = "REPLACE_WITH_KEY"; // Key moved to Netlify env variable
+// API calls routed through /api/claude Netlify function
 
 var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 var currentUser = null;
@@ -1342,9 +1342,9 @@ function generatePrecloseLines(parsed, callback) {
     " Generate exactly 6 pre-close lines. For each one also rate it as strong, solid, or test (confidence level)." +
     " Return ONLY valid JSON: {lines: [string array of 6 lines], conf: [string array of 6 ratings using only the words strong solid or test]}";
 
-  fetch("https://api.anthropic.com/v1/messages", {
+  fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000,
       messages: [{ role: "user", content: preclosePrompt }]
     })
@@ -1376,9 +1376,9 @@ function generateScreenTextOptions(hooksData, callback) {
 
   var screenPrompt = "You write on-screen text for TikTok videos. On-screen text appears as a visual overlay while the creator speaks the hook out loud. Your job is to write 3 options per hook that STOP THE SCROLL visually -- before the viewer even processes the spoken words.\n\nCRITICAL RULES:\n1. NEVER repeat, summarize, or echo the verbal hook in any way\n2. Each option must feel like a completely UNRELATED thought at first glance\n3. Must use YOU or YOUR -- make it feel personal and slightly confrontational\n4. Should create a curiosity gap or mild discomfort that demands resolution\n5. 3-5 words maximum -- punchy, not a sentence\n6. Think: what would make someone freeze mid-scroll before they even hear the words\n\nBAD examples (too similar to hook):\n- Hook says your containers leak -- BAD on-screen: Leaky containers fail\n- Hook says appliance purchase -- BAD on-screen: Your best purchase awaits\n\nGOOD examples (completely different angle):\n- Hook says your containers leak -- GOOD: Your fridge is lying / You are wasting money / This changes everything\n- Hook says customers love this -- GOOD: Your kitchen needs this / You had it wrong / Admit it\n\nHook lines to write on-screen text for:\n" + hookListText + "\n\nReturn ONLY valid JSON. Keys are hook numbers (1, 2, 3...), values are arrays of exactly 3 on-screen text options. No markdown, no explanation.";
 
-  fetch("https://api.anthropic.com/v1/messages", {
+  fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 2000,
       messages: [{ role: "user", content: screenPrompt }]
     })
@@ -1497,9 +1497,9 @@ function renderProductHub() {
       wrap2.appendChild(h); wrap2.appendChild(s); wrap2.appendChild(loading);
       mc.appendChild(wrap2);
       var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles. Product: " + currentProduct + ". Generate 5 distinct buyer desire angles. Return ONLY valid JSON: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience. NEVER use Social Media, Influencer, Viral, or any platform-related desire -- these are not buyer desires, they are discovery channels. TONE CALIBRATION -- before generating angles, read the product and classify it: (1) Fun/Lifestyle/Social product: entertaining accessories, cocktail tools, decorative items, beauty products, gifts, pool and party items. For these, angles must feel light, fun, social, indulgent -- think girls trip, pool day, backyard happy hour, the gift everyone asks about, the one they all want. Serious functional language like Reliable Performance or Extended Pleasure and Control does not fit these products. (2) Functional/Need product: vacuums, air purifiers, storage, kitchen appliances that solve a real problem. For these, angles should feel empowering and problem-solving. (3) Hybrid: premium cookware, quality home goods that are both aspirational and functional -- blend both tones. Match the energy of the angle to the energy of the product. A margarita tumbler should never get Reliable Performance Every Time as an angle.";
-      fetch("https://api.anthropic.com/v1/messages", {
+      fetch("/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
       })
       .then(function(r){ return r.json(); })
@@ -1701,9 +1701,9 @@ function processAllImages() {
     return { type: "image", source: { type: "base64", media_type: im.type || "image/jpeg", data: im.b64 } };
   });
   msgContent.push({ type: "text", text: "These are product listing screenshots. Extract all product details and write a 3-5 sentence description covering what it is, what it does, key features, and buyer highlights. Start with the brand name. Return only the description text." });
-  fetch("https://api.anthropic.com/v1/messages", {
+  fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000, messages: [{ role: "user", content: msgContent }] })
   })
   .then(function(r) { return r.text(); })
@@ -1793,9 +1793,9 @@ function generateOnScreenText(productDesc, hooks) {
   var hookContext = hookSamples.slice(0,2).join(" / ");
   var prompt = "For this TikTok Shop product: " + productDesc + " -- Write 6 text hooks (under 6 words each). These appear as on-screen text while the creator speaks. They must create a curiosity gap that makes the viewer stop scrolling -- not restate what is being said verbally. Use one of three mechanisms per line: (1) mild discomfort -- something slightly unsettling about the viewer's current situation, (2) surprising claim -- something they did not know or would not expect, (3) direct challenge -- questions their current behavior or assumption. NEVER restate the hook verbally. NEVER be generic or interchangeable with another product. Under 6 words. Examples of strong text hooks: your carpet is dirtier than you think, what's actually living in there, the one thing you keep skipping, never cleaning this way again, wait until you see what comes out, this is why nothing else worked, you have been doing this wrong. Return JSON only: {onScreenText:[6 strings]}";
 
-  fetch("https://api.anthropic.com/v1/messages", {
+  fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 300, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -1864,9 +1864,9 @@ function generate() {
 
   var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles for short-form video content. Product: " + product + ". Generate 5 distinct buyer desire angles. Each angle describes a specific type of person or real-life situation this product speaks to -- not a feature. Return ONLY valid JSON: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience. NEVER use Social Media, Influencer, Viral, or any platform-related desire -- these are not buyer desires, they are discovery channels. TONE CALIBRATION -- before generating angles, read the product and classify it: (1) Fun/Lifestyle/Social product: entertaining accessories, cocktail tools, decorative items, beauty products, gifts, pool and party items. For these, angles must feel light, fun, social, indulgent -- think girls trip, pool day, backyard happy hour, the gift everyone asks about, the one they all want. Serious functional language like Reliable Performance or Extended Pleasure and Control does not fit these products. (2) Functional/Need product: vacuums, air purifiers, storage, kitchen appliances that solve a real problem. For these, angles should feel empowering and problem-solving. (3) Hybrid: premium cookware, quality home goods that are both aspirational and functional -- blend both tones. Match the energy of the angle to the energy of the product. A margarita tumbler should never get Reliable Performance Every Time as an angle. focus is a short 4-8 word phrase. description is one sentence about who this buyer is and what they feel.";
 
-  fetch("https://api.anthropic.com/v1/messages", {
+  fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -1943,9 +1943,9 @@ function generateBatchScripts(angles) {
     " BANNED: price cost dollar worth deal value investment game-changer elevate transform unencumbered risk is on me verified units stock moving link in bio check it out guys gals ladies dermatologist recommended clinically proven doctor approved aerospace-grade military-grade advanced technology engineered technology cutting-edge next-generation revolutionary heritage intersection of design deliberate intentional as a lifestyle or identity word (intentional is only allowed as a design description like makes your space look intentional -- never as make your ritual feel intentional) crossed over ergonomic unboxing any brand besides the product. Only use alcohol words (beer wine whiskey cocktail) if the product itself is alcohol-related and the term is in the description. Never name any brand, platform, app, social network, celebrity, influencer, or public figure by name in any line. The only brand name allowed is the product brand itself. Never invent specs or stats not in the description. Pre-close must be a statement never a question. CTA must echo the specific hook frustration -- standalone CTAs with no setup are not acceptable." +
     " Return ONLY valid JSON: {scripts:[{angle:string,hook:string,body1:string,preClose:string,body2:string,cta:string}]}";
 
-  fetch("https://api.anthropic.com/v1/messages", {
+  fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000,
       messages: [{ role: "user", content: prompt }]
     })
@@ -2094,9 +2094,9 @@ function renderBatchResults(scripts, angles) {
     // Generate on-screen text for this specific script
     (function(section, loading, scriptText) {
       var screenPrompt = "You are writing text hooks for a TikTok Shop video. The creator will SPEAK this script: \"" + scriptText + "\" Write exactly 3 text hooks (under 6 words each) that appear on screen WHILE they speak. These must create a curiosity gap -- never restate what is said verbally, never be generic. Use one mechanism per hook: (1) mild discomfort about the viewer's current situation, (2) surprising claim they would not expect, (3) direct challenge to their current behavior. Under 6 words each. Examples: your carpet is dirtier than you think, what's actually living in there, you have been doing this wrong, this is why nothing worked, never going back after this. Return ONLY valid JSON: {options:[3 strings]}";
-      fetch("https://api.anthropic.com/v1/messages", {
+      fetch("/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 150, messages: [{ role: "user", content: screenPrompt }] })
       })
       .then(function(r){ return r.json(); })
@@ -2217,9 +2217,9 @@ function generateScriptBank() {
     showError("Request timed out. Please try again.");
   }, 55000);
 
-  fetch("https://api.anthropic.com/v1/messages", {
+  fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 3500, messages: [{ role: "user", content: prompt }] }),
     signal: controller.signal
   })
@@ -2431,9 +2431,9 @@ function generateUrgencyScripts(type) {
 
   var prompt = type === "sale" ? salePrompt : invPrompt;
 
-  fetch("https://api.anthropic.com/v1/messages", {
+  fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 900, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -2489,8 +2489,8 @@ function generateUrgencyScripts(type) {
 
       (function(section, loading, scriptText) {
         var screenPrompt = "You are writing text hooks for a TikTok Shop video. The creator will SPEAK this script: \"" + scriptText + "\" Write exactly 3 text hooks (under 6 words each) that appear on screen WHILE they speak. These must create a curiosity gap -- never restate what is spoken, never be generic. Use one mechanism per hook: (1) mild discomfort about their current situation, (2) surprising claim they did not know, (3) direct challenge to their behavior. Return ONLY valid JSON: {options:[3 strings]}";
-        fetch("https://api.anthropic.com/v1/messages", {
-          method:"POST", headers:{"Content-Type":"application/json","x-api-key":API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        fetch("/api/claude", {
+          method:"POST", headers:{"Content-Type":"application/json"},
           body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:150,messages:[{role:"user",content:screenPrompt}]})
         })
         .then(function(r){return r.json();})
@@ -2568,9 +2568,9 @@ function renderFocusPicker() {
 
   var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles. Product: " + currentProduct + ". Generate 5 distinct buyer desire angles. Return ONLY valid JSON: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience. NEVER use Social Media, Influencer, Viral, or any platform-related desire -- these are not buyer desires, they are discovery channels. TONE CALIBRATION -- before generating angles, read the product and classify it: (1) Fun/Lifestyle/Social product: entertaining accessories, cocktail tools, decorative items, beauty products, gifts, pool and party items. For these, angles must feel light, fun, social, indulgent -- think girls trip, pool day, backyard happy hour, the gift everyone asks about, the one they all want. Serious functional language like Reliable Performance or Extended Pleasure and Control does not fit these products. (2) Functional/Need product: vacuums, air purifiers, storage, kitchen appliances that solve a real problem. For these, angles should feel empowering and problem-solving. (3) Hybrid: premium cookware, quality home goods that are both aspirational and functional -- blend both tones. Match the energy of the angle to the energy of the product. A margarita tumbler should never get Reliable Performance Every Time as an angle.";
 
-  fetch("https://api.anthropic.com/v1/messages", {
+  fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -2605,8 +2605,8 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
         btnEl.innerHTML = "⟳ Loading..."; btnEl.style.opacity = "0.5";
         var existingNames = allFocuses.map(function(f){ return f.focus; }).join(", ");
         var refreshPrompt = "You are analyzing a TikTok Shop product to identify buyer desire angles. Product: " + currentProduct + ". Generate exactly 1 NEW buyer desire angle completely different from these: " + existingNames + ". TONE CALIBRATION: Match angle energy to product -- fun lifestyle products need light social angles, functional products need practical empowering angles. Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience.";
-        fetch("https://api.anthropic.com/v1/messages", {
-          method:"POST", headers:{"Content-Type":"application/json","x-api-key":API_KEY,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},
+        fetch("/api/claude", {
+          method:"POST", headers:{"Content-Type":"application/json"},
           body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:200,messages:[{role:"user",content:refreshPrompt}]})
         })
         .then(function(r){return r.json();})
@@ -2687,9 +2687,9 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
         var refreshPrompt = "You are analyzing a TikTok Shop product to identify buyer desire angles. Product: " + currentProduct + ". Generate exactly 1 NEW buyer desire angle that is completely different from these existing ones: " + existingFocusNames + ". " +
           "TONE CALIBRATION: Read the product and match the angle energy -- fun/lifestyle products need light social fun angles, functional products need empowering practical angles. " +
           "Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience. focus is 4-8 words. description is one sentence.";
-        fetch("https://api.anthropic.com/v1/messages", {
+        fetch("/api/claude", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 200, messages: [{ role: "user", content: refreshPrompt }] })
         })
         .then(function(r){ return r.json(); })
@@ -2785,9 +2785,9 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
         btnEl.innerHTML = "⟳ Loading..."; btnEl.style.opacity = "0.5";
         var existingFocusNames = focuses.map(function(f){ return f.focus; }).join(", ");
         var refreshPrompt = "You are analyzing a TikTok Shop product to identify buyer desire angles. Product: " + currentProduct + ". Generate exactly 1 NEW buyer desire angle completely different from these: " + existingFocusNames + ". TONE CALIBRATION: Match the angle energy to the product -- fun lifestyle products need light social angles, functional products need practical empowering angles. Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience.";
-        fetch("https://api.anthropic.com/v1/messages", {
+        fetch("/api/claude", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 200, messages: [{ role: "user", content: refreshPrompt }] })
         })
         .then(function(r){ return r.json(); })
@@ -3730,9 +3730,9 @@ function generateBody2AndPreclose(body1Line, hookLine) {
     " Multi-use reveal must read as a story beat not a list -- one fluid sentence showing the transition naturally." +
     " Return ONLY valid JSON: {preClose:[4 strings],body2:{\"Feature to feeling\":[2 strings],\"Quality proof\":[2 strings],\"Multi-use reveal\":[2 strings],\"Legacy and emotion\":[2 strings]}}";
 
-  fetch("https://api.anthropic.com/v1/messages", {
+  fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1200,
       messages: [{ role: "user", content: prompt }]
     })
@@ -3910,9 +3910,9 @@ function generateCTA(hookLine, body1Line, preCloseLine, body2Line) {
     " Generate across these categories: Scarcity (urgency from human behavior not inventory), Direct close (confident action verb, clean), Soft close (permission-giving for premium products), Community and trust (others already have it)." +
     " Return ONLY valid JSON: {cta:{\"Scarcity\":[3 strings],\"Direct close\":[3 strings],\"Soft close\":[2 strings],\"Community and trust\":[2 strings]}}";
 
-  fetch("https://api.anthropic.com/v1/messages", {
+  fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1200,
       messages: [{ role: "user", content: prompt }]
     })
@@ -4590,9 +4590,9 @@ function updateDonePanel(){
     var fullScriptForScreen = [picks.hook, picks.body1, picks.preClose, picks.body2, picks.cta].filter(Boolean).join(" ");
     var screenPrompt = "You are writing text hooks for a TikTok Shop video. The creator will SPEAK this script out loud: \"" + fullScriptForScreen + "\" Write exactly 3 text hooks (under 6 words each) that appear as on-screen text WHILE the creator speaks. These must create a curiosity gap and stop the scroll -- never restate what is spoken, never be generic or interchangeable with another product. Use one mechanism per hook: (1) mild discomfort about their current situation, (2) surprising claim they did not know, (3) direct challenge to their behavior or assumption. Under 6 words each. Examples of strong text hooks: your carpet is dirtier than you think, what's actually living in there, you have been doing this wrong, this is why nothing worked, never going back after this, the one thing you keep skipping. Return ONLY valid JSON: {options:[3 strings]}";
 
-    fetch("https://api.anthropic.com/v1/messages", {
+    fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-api-key": API_KEY, "anthropic-version": "2023-06-01", "anthropic-dangerous-direct-browser-access": "true" },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 200, messages: [{ role: "user", content: screenPrompt }] })
     })
     .then(function(r) { return r.json(); })
