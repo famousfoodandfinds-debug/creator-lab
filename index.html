@@ -1344,7 +1344,7 @@ function generatePrecloseLines(parsed, callback) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000,
       messages: [{ role: "user", content: preclosePrompt }]
     })
@@ -1378,7 +1378,7 @@ function generateScreenTextOptions(hooksData, callback) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 2000,
       messages: [{ role: "user", content: screenPrompt }]
     })
@@ -1499,7 +1499,7 @@ function renderProductHub() {
       var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles. Product: " + currentProduct + ". Generate 5 distinct buyer desire angles. Return ONLY valid JSON: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience. NEVER use Social Media, Influencer, Viral, or any platform-related desire -- these are not buyer desires, they are discovery channels. TONE CALIBRATION -- before generating angles, read the product and classify it: (1) Fun/Lifestyle/Social product: entertaining accessories, cocktail tools, decorative items, beauty products, gifts, pool and party items. For these, angles must feel light, fun, social, indulgent -- think girls trip, pool day, backyard happy hour, the gift everyone asks about, the one they all want. Serious functional language like Reliable Performance or Extended Pleasure and Control does not fit these products. (2) Functional/Need product: vacuums, air purifiers, storage, kitchen appliances that solve a real problem. For these, angles should feel empowering and problem-solving. (3) Hybrid: premium cookware, quality home goods that are both aspirational and functional -- blend both tones. Match the energy of the angle to the energy of the product. A margarita tumbler should never get Reliable Performance Every Time as an angle.";
       fetch("/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
         body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
       })
       .then(function(r){ return r.json(); })
@@ -1703,7 +1703,7 @@ function processAllImages() {
   msgContent.push({ type: "text", text: "These are product listing screenshots. Extract all product details and write a 3-5 sentence description covering what it is, what it does, key features, and buyer highlights. Start with the brand name. Return only the description text." });
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000, messages: [{ role: "user", content: msgContent }] })
   })
   .then(function(r) { return r.text(); })
@@ -1795,7 +1795,7 @@ function generateOnScreenText(productDesc, hooks) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 300, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -1866,10 +1866,13 @@ function generate() {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
   })
-  .then(function(r) { return r.json(); })
+  .then(function(r) {
+    if (r.status === 429) { showRateLimitError(); throw new Error("rate_limit"); }
+    return r.json();
+  })
   .then(function(data) {
     btn.disabled = false; btn.style.background = "var(--red)";
     btn.innerHTML = "🧠&nbsp; Generate Focus Angles";
@@ -1945,7 +1948,7 @@ function generateBatchScripts(angles) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000,
       messages: [{ role: "user", content: prompt }]
     })
@@ -2096,7 +2099,7 @@ function renderBatchResults(scripts, angles) {
       var screenPrompt = "You are writing text hooks for a TikTok Shop video. The creator will SPEAK this script: \"" + scriptText + "\" Write exactly 3 text hooks (under 6 words each) that appear on screen WHILE they speak. These must create a curiosity gap -- never restate what is said verbally, never be generic. Use one mechanism per hook: (1) mild discomfort about the viewer's current situation, (2) surprising claim they would not expect, (3) direct challenge to their current behavior. Under 6 words each. Examples: your carpet is dirtier than you think, what's actually living in there, you have been doing this wrong, this is why nothing worked, never going back after this. Return ONLY valid JSON: {options:[3 strings]}";
       fetch("/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
         body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 150, messages: [{ role: "user", content: screenPrompt }] })
       })
       .then(function(r){ return r.json(); })
@@ -2219,7 +2222,7 @@ function generateScriptBank() {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 3500, messages: [{ role: "user", content: prompt }] }),
     signal: controller.signal
   })
@@ -2433,7 +2436,7 @@ function generateUrgencyScripts(type) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 900, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -2490,7 +2493,7 @@ function generateUrgencyScripts(type) {
       (function(section, loading, scriptText) {
         var screenPrompt = "You are writing text hooks for a TikTok Shop video. The creator will SPEAK this script: \"" + scriptText + "\" Write exactly 3 text hooks (under 6 words each) that appear on screen WHILE they speak. These must create a curiosity gap -- never restate what is spoken, never be generic. Use one mechanism per hook: (1) mild discomfort about their current situation, (2) surprising claim they did not know, (3) direct challenge to their behavior. Return ONLY valid JSON: {options:[3 strings]}";
         fetch("/api/claude", {
-          method:"POST", headers:{"Content-Type":"application/json"},
+          method:"POST", headers:{"Content-Type":"application/json","x-user-id":(currentUser?currentUser.id:"")},
           body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:150,messages:[{role:"user",content:screenPrompt}]})
         })
         .then(function(r){return r.json();})
@@ -2570,7 +2573,7 @@ function renderFocusPicker() {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -2606,7 +2609,7 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
         var existingNames = allFocuses.map(function(f){ return f.focus; }).join(", ");
         var refreshPrompt = "You are analyzing a TikTok Shop product to identify buyer desire angles. Product: " + currentProduct + ". Generate exactly 1 NEW buyer desire angle completely different from these: " + existingNames + ". TONE CALIBRATION: Match angle energy to product -- fun lifestyle products need light social angles, functional products need practical empowering angles. Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience.";
         fetch("/api/claude", {
-          method:"POST", headers:{"Content-Type":"application/json"},
+          method:"POST", headers:{"Content-Type":"application/json","x-user-id":(currentUser?currentUser.id:"")},
           body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:200,messages:[{role:"user",content:refreshPrompt}]})
         })
         .then(function(r){return r.json();})
@@ -2689,7 +2692,7 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
           "Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience. focus is 4-8 words. description is one sentence.";
         fetch("/api/claude", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
           body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 200, messages: [{ role: "user", content: refreshPrompt }] })
         })
         .then(function(r){ return r.json(); })
@@ -2787,7 +2790,7 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
         var refreshPrompt = "You are analyzing a TikTok Shop product to identify buyer desire angles. Product: " + currentProduct + ". Generate exactly 1 NEW buyer desire angle completely different from these: " + existingFocusNames + ". TONE CALIBRATION: Match the angle energy to the product -- fun lifestyle products need light social angles, functional products need practical empowering angles. Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience.";
         fetch("/api/claude", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
           body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 200, messages: [{ role: "user", content: refreshPrompt }] })
         })
         .then(function(r){ return r.json(); })
@@ -3732,7 +3735,7 @@ function generateBody2AndPreclose(body1Line, hookLine) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1200,
       messages: [{ role: "user", content: prompt }]
     })
@@ -3912,7 +3915,7 @@ function generateCTA(hookLine, body1Line, preCloseLine, body2Line) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1200,
       messages: [{ role: "user", content: prompt }]
     })
@@ -4592,7 +4595,7 @@ function updateDonePanel(){
 
     fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
       body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 200, messages: [{ role: "user", content: screenPrompt }] })
     })
     .then(function(r) { return r.json(); })
@@ -5077,6 +5080,13 @@ function renderDailyMeter() {
     section.style.display = postingGoal > 0 ? "block" : "none";
     updateDailyMeter();
   }
+}
+
+function showRateLimitError() {
+  var mc = document.getElementById("mainContent");
+  if (mc) mc.innerHTML = "<div class='state-box'><div class='state-icon'>⏳</div><div class='state-title'>Daily limit reached</div><div class='state-desc'>You have used all 30 of your generations for today. Your limit resets at midnight. Come back tomorrow to keep creating.</div></div>";
+  var btn = document.getElementById("genBtn");
+  if (btn) { btn.disabled = false; btn.innerHTML = "🧠&nbsp; Generate Focus Angles"; }
 }
 
 function showError(msg) {
