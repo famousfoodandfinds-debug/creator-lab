@@ -1616,8 +1616,8 @@ function renderProductHub() {
         renderFocusOptions(freshWrap, null, focuses2);
         // Switch to batch mode
         setTimeout(function(){
-          var batchModeBtn = freshWrap.querySelector(".mode-btn:nth-child(2)");
-          if(batchModeBtn) batchModeBtn.click();
+          var modeBtns = freshWrap.querySelectorAll(".mode-btn");
+          if(modeBtns.length >= 2) modeBtns[1].click();
         }, 150);
       })
       .catch(function(){
@@ -1627,8 +1627,8 @@ function renderProductHub() {
         mc2.appendChild(freshWrap);
         renderFocusOptions(freshWrap, null, []);
         setTimeout(function(){
-          var batchModeBtn = freshWrap.querySelector(".mode-btn:nth-child(2)");
-          if(batchModeBtn) batchModeBtn.click();
+          var modeBtns = freshWrap.querySelectorAll(".mode-btn");
+          if(modeBtns.length >= 2) modeBtns[1].click();
         }, 150);
       });
     });
