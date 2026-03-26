@@ -2048,7 +2048,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
 
     " FINAL CHECK: Read every single line aloud in your head as if you are talking to your best friend. If it sounds like an ad, rewrite it. If it sounds like something a real person would actually say, keep it." +
 
-    " Return ONLY valid JSON: {scripts:[{angle:string,hook:string,body1:string,preClose:string,body2:string,cta:string,screenText:[string,string,string]}]}";
+    " For each script also generate: a caption (2-3 natural sentences a real person would post, includes a soft CTA) and 5 hashtags (no # symbol, mix of niche and broad). Return ONLY valid JSON: {scripts:[{angle:string,hook:string,body1:string,preClose:string,body2:string,cta:string,screenText:[string,string,string],caption:string,hashtags:[string,string,string,string,string]}]}";
 
   fetch("/api/claude", {
     method: "POST",
@@ -2237,6 +2237,48 @@ function renderBatchResults(scripts, angles) {
     btnRow.appendChild(copyBtn);
     btnRow.appendChild(postedBtn);
     card.appendChild(btnRow);
+
+    // Caption + hashtags
+    if(script.caption || (script.hashtags && script.hashtags.length)) {
+      var captionSection = document.createElement("div");
+      captionSection.style.cssText = "margin-top:10px;padding-top:10px;border-top:1px solid var(--border);";
+      var captionLbl = document.createElement("div");
+      captionLbl.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--green);margin-bottom:6px;";
+      captionLbl.textContent = "Caption + Hashtags";
+      captionSection.appendChild(captionLbl);
+      if(script.caption) {
+        var captionText = document.createElement("div");
+        captionText.style.cssText = "font-size:13px;color:var(--white-dim);line-height:1.7;font-weight:300;margin-bottom:8px;";
+        captionText.textContent = script.caption;
+        captionSection.appendChild(captionText);
+      }
+      if(script.hashtags && script.hashtags.length) {
+        var hashRow = document.createElement("div");
+        hashRow.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;";
+        script.hashtags.forEach(function(ht) {
+          var tag = document.createElement("div");
+          tag.style.cssText = "background:var(--surface2);border:1px solid var(--border-md);border-radius:999px;padding:4px 10px;font-size:11px;color:var(--green);cursor:pointer;";
+          tag.textContent = "#" + ht.replace(/^#+/, "");
+          tag.addEventListener("click", function(){ copyRaw("#" + ht.replace(/^#+/, "")); showToast("Copied"); });
+          hashRow.appendChild(tag);
+        });
+        captionSection.appendChild(hashRow);
+      }
+      var copyCaptionBtn = document.createElement("button");
+      copyCaptionBtn.style.cssText = "font-size:11px;color:var(--green);background:none;border:1px solid rgba(45,201,138,0.3);border-radius:999px;padding:4px 12px;cursor:pointer;font-family:'Instrument Sans',sans-serif;";
+      copyCaptionBtn.textContent = "Copy caption";
+      (function(cap, tags) {
+        copyCaptionBtn.addEventListener("click", function(){
+          var tagStr = tags ? tags.map(function(h){ return "#"+h.replace(/^#+/,""); }).join(" ") : "";
+          copyRaw((cap||"") + (tagStr ? "
+
+" + tagStr : ""));
+          showToast("Caption copied");
+        });
+      })(script.caption, script.hashtags);
+      captionSection.appendChild(copyCaptionBtn);
+      card.appendChild(captionSection);
+    }
 
     // On-screen text -- use screenText already returned by batch generation
     var screenOpts = script.screenText || [];
@@ -2922,15 +2964,33 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
     (function(focus, c, cardEl, rightEl, badgeEl, btnEl, index) {
       cardEl.addEventListener("click", function(e) {
         if(e.target === btnEl || btnEl.contains(e.target)) return;
-        if(selectedAngles.length >= 5){ showToast("Maximum 5 scripts"); return; }
-        selectedAngles.push(focuses[index]);
-        cardEl.classList.add("selected");
-        c.textContent = selectedAngles.length;
         var timesSelected = selectedAngles.filter(function(a){ return a.focus === focuses[index].focus; }).length;
-        if(timesSelected > 1){ c.textContent = "×" + timesSelected; c.style.fontSize = "10px"; }
-        batchGenBtn.disabled = false;
-        batchGenBtn.style.opacity = "1";
-        batchGenBtn.textContent = "\u26A1 Generate " + selectedAngles.length + " Script" + (selectedAngles.length !== 1 ? "s" : "");
+        if(timesSelected > 0) {
+          // Deselect -- remove last instance of this angle
+          var lastIdx = -1;
+          for(var i = selectedAngles.length - 1; i >= 0; i--) {
+            if(selectedAngles[i].focus === focuses[index].focus) { lastIdx = i; break; }
+          }
+          if(lastIdx > -1) selectedAngles.splice(lastIdx, 1);
+          timesSelected = selectedAngles.filter(function(a){ return a.focus === focuses[index].focus; }).length;
+          if(timesSelected === 0) {
+            cardEl.classList.remove("selected");
+            c.textContent = "";
+            c.style.fontSize = "11px";
+          } else {
+            c.textContent = "×" + timesSelected;
+          }
+        } else {
+          if(selectedAngles.length >= 5){ showToast("Maximum 5 scripts"); return; }
+          selectedAngles.push(focuses[index]);
+          cardEl.classList.add("selected");
+          c.textContent = selectedAngles.length;
+          var newTimesSelected = selectedAngles.filter(function(a){ return a.focus === focuses[index].focus; }).length;
+          if(newTimesSelected > 1){ c.textContent = "×" + newTimesSelected; c.style.fontSize = "10px"; }
+        }
+        batchGenBtn.disabled = selectedAngles.length === 0;
+        batchGenBtn.style.opacity = selectedAngles.length === 0 ? "0.5" : "1";
+        batchGenBtn.textContent = selectedAngles.length === 0 ? "\u26A1 Generate Scripts" : "\u26A1 Generate " + selectedAngles.length + " Script" + (selectedAngles.length !== 1 ? "s" : "");
       });
 
       btnEl.addEventListener("click", function(e) {
