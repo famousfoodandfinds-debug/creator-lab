@@ -2306,9 +2306,7 @@ function renderBatchResults(scripts, angles) {
       (function(cap, tags) {
         copyCaptionBtn.addEventListener("click", function(){
           var tagStr = tags ? tags.map(function(h){ return "#"+h.replace(/^#+/,""); }).join(" ") : "";
-          copyRaw((cap||"") + (tagStr ? "
-
-" + tagStr : ""));
+          copyRaw((cap||"") + (tagStr ? "\n\n" + tagStr : ""));
           showToast("Caption copied");
         });
       })(script.caption, script.hashtags);
