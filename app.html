@@ -2827,24 +2827,18 @@ function renderBatchAngleGrid(wrap, focuses) {
       })(desireBadge, psychPanel, f.desire);
     }
 
-    // + / - buttons
-    var controls = document.createElement("div");
-    controls.style.cssText = "position:absolute;bottom:10px;right:10px;display:flex;align-items:center;gap:8px;";
-    var minusBtn = document.createElement("button");
-    minusBtn.style.cssText = "width:30px;height:30px;border-radius:50%;border:1px solid var(--border-md);background:var(--surface2);color:var(--muted);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;";
-    minusBtn.textContent = "−";
-    minusBtn.disabled = true;
-    minusBtn.style.opacity = "0.3";
+    // + button (left circle) and - button (top right, hidden until selected)
     var plusBtn = document.createElement("button");
-    plusBtn.style.cssText = "width:30px;height:30px;border-radius:50%;border:1px solid var(--silver);background:var(--silver-dim);color:var(--silver-bright);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;";
+    plusBtn.style.cssText = "width:28px;height:28px;border-radius:50%;border:2px solid var(--border-md);background:transparent;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;margin-top:2px;";
     plusBtn.textContent = "+";
-    controls.appendChild(minusBtn);
-    controls.appendChild(plusBtn);
+    var minusBtn = document.createElement("button");
+    minusBtn.style.cssText = "position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:50%;border:1px solid var(--border-md);background:var(--surface2);color:var(--muted);font-size:16px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;transition:all 0.15s;";
+    minusBtn.textContent = "−";
 
-    card.appendChild(counter);
+    card.appendChild(plusBtn);
     card.appendChild(right);
     card.appendChild(psychPanel);
-    card.appendChild(controls);
+    card.appendChild(minusBtn);
     grid.appendChild(card);
 
     (function(f2, cnt, pBtn, mBtn, cardEl) {
