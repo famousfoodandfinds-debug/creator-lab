@@ -2827,25 +2827,27 @@ function renderBatchAngleGrid(wrap, focuses) {
       })(desireBadge, psychPanel, f.desire);
     }
 
-    // + button (left circle) and - button (top right, hidden until selected)
+    // Left side stack: + on top, count in middle, - underneath
+    var leftStack = document.createElement("div");
+    leftStack.style.cssText = "display:flex;flex-direction:column;align-items:center;gap:4px;flex-shrink:0;margin-top:2px;";
     var plusBtn = document.createElement("button");
-    plusBtn.style.cssText = "width:28px;height:28px;border-radius:50%;border:2px solid var(--border-md);background:transparent;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;margin-top:2px;";
+    plusBtn.style.cssText = "width:28px;height:28px;border-radius:50%;border:2px solid var(--border-md);background:transparent;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;";
     plusBtn.textContent = "+";
     var minusBtn = document.createElement("button");
-    minusBtn.style.cssText = "position:absolute;top:10px;right:10px;width:26px;height:26px;border-radius:50%;border:1px solid var(--border-md);background:var(--surface2);color:var(--muted);font-size:16px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;transition:all 0.15s;";
+    minusBtn.style.cssText = "width:28px;height:28px;border-radius:50%;border:2px solid var(--border-md);background:transparent;color:var(--muted);font-size:18px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;transition:all 0.15s;";
     minusBtn.textContent = "−";
+    leftStack.appendChild(plusBtn);
+    leftStack.appendChild(minusBtn);
 
-    card.appendChild(plusBtn);
+    card.appendChild(leftStack);
     card.appendChild(right);
     card.appendChild(psychPanel);
-    card.appendChild(minusBtn);
     grid.appendChild(card);
 
     (function(f2, cnt, pBtn, mBtn, cardEl) {
       var getCount = function() { return selectedAngles.filter(function(a){ return a.focus===f2.focus; }).length; };
       var updateUI = function() {
         var c = getCount();
-        // Plus button becomes counter when selected
         if(c === 0) {
           pBtn.textContent = "+";
           pBtn.style.borderColor = "var(--border-md)";
@@ -2858,9 +2860,11 @@ function renderBatchAngleGrid(wrap, focuses) {
           pBtn.style.color = "var(--gold)";
           pBtn.style.background = "var(--gold-dim)";
           mBtn.style.display = "flex";
+          mBtn.style.borderColor = "var(--border-md)";
+          mBtn.style.color = "var(--muted)";
         }
         cardEl.classList.toggle("selected", c > 0);
-        pBtn.disabled = selectedAngles.length >= 5 && c === selectedAngles.length; 
+        pBtn.disabled = selectedAngles.length >= 5 && c === selectedAngles.length;
         pBtn.style.opacity = (selectedAngles.length >= 5 && c < selectedAngles.length) ? "0.3" : "1";
         genBtn.disabled = selectedAngles.length === 0;
         genBtn.style.opacity = selectedAngles.length === 0 ? "0.5" : "1";
