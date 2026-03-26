@@ -2050,45 +2050,8 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     var parsed = JSON.parse(clean);
     var scripts = parsed.scripts || [];
 
-    // Second pass -- quality check each script against 4 conversion killers
-    var dotsEl = wrap.querySelector(".dots");
-    if(dotsEl) dotsEl.parentNode.querySelector(".loading-sub") && (dotsEl.parentNode.querySelector(".loading-sub").textContent = "Running quality check...");
-
-    var auditPrompt = "You are a buyer psychology editor. Review these short-form video scripts and fix any that fail the following seven checks." +
-      " THE THREE-PART BRAIN SCAN: Every viewer's brain asks three questions in the first second. The hook must pass all three." +
-      " BRAIN SCAN 1 -- RELEVANCE: Does this hook answer 'Is this for someone like me?' If the viewer cannot immediately see themselves in the hook, they scroll. Rewrite any hook that does not call out a specific person or feeling." +
-      " BRAIN SCAN 2 -- PROBLEM: Does this hook surface something the viewer actually feels? Not a feature, not a fact -- a felt problem. If the hook does not touch something the viewer recognizes in their own life, rewrite it." +
-      " BRAIN SCAN 3 -- URGENCY: Does this hook make the viewer feel they need to keep watching right now? If the viewer could scroll and feel fine about it, the hook has no urgency. Rewrite it to create a gap they must close." +
-      " CHECK 4 -- EXPLAINING INSTEAD OF TRIGGERING: The hook must create a feeling, not explain a product. If the hook describes features or walks through benefits, rewrite it to create tension or recognition instead." +
-      " CHECK 5 -- STARTING SLOW: The first word must hit hard. If the hook warms up before getting to the point, cut everything before the real moment." +
-      " CHECK 6 -- PRODUCT BEFORE DESIRE: The viewer must feel something before they know what the product is. If the hook reveals the product or its category before creating desire, rewrite it to lead with the person's feeling." +
-      " CHECK 7 -- TEXT THAT DESCRIBES INSTEAD OF HOOKS: On-screen text must be a pattern interrupt -- it must break the viewer's autopilot brain before they hear a word. If the screen text mentions the product, describes what is happening, or could be predicted from the video topic, rewrite it entirely. The best on-screen text feels unrelated to the product at first glance. Examples of what works: You've been lying to yourself. Your mother was right. This embarrassed me. If the current screen text could have been predicted by someone who knew the product, it is not a pattern interrupt -- rewrite it." +
-      " Also fix: any em dashes (replace with a comma or period), any semicolons (rewrite the sentence), any line that sounds like marketing copy rather than a real person talking." +
-      " Scripts to review: " + JSON.stringify(scripts) +
-      " Return ONLY valid JSON with the same structure: {scripts:[{angle,hook,body1,preClose,body2,cta,screenText}]}. Only change lines that fail a check. Do not change lines that already pass.";
-
-    fetch("/api/claude", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-      body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 6000,
-        messages: [{ role: "user", content: auditPrompt }]
-      })
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(auditData) {
-      var auditText = "";
-      auditData.content.forEach(function(b){ if(b.type==="text") auditText+=b.text; });
-      var auditClean = auditText.replace(/```json|```/g,"").trim();
-      try {
-        var audited = JSON.parse(auditClean);
-        renderBatchResults(audited.scripts || scripts, angles);
-      } catch(e) {
-        renderBatchResults(scripts, angles);
-      }
-    })
-    .catch(function() {
-      renderBatchResults(scripts, angles);
-    });
+    // Deliver scripts directly -- quality baked into generation prompt
+    renderBatchResults(scripts, angles);
   })
   .catch(function(err) {
     mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:14px;'>Something went wrong: " + (err.message||"Please try again") + "</div>";
