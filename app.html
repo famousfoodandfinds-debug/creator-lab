@@ -2757,18 +2757,31 @@ function renderBatchPicker() {
   })
   .then(function(data) {
     var focuses = [];
+    var rawText = "";
     try {
-      var t = "";
-      data.content.forEach(function(b){ if(b.type==="text") t+=b.text; });
-      var cleaned = t.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim();
+      data.content.forEach(function(b){ if(b.type==="text") rawText+=b.text; });
+      var cleaned = rawText.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim();
       focuses = JSON.parse(cleaned).focuses || [];
-    } catch(e) { console.log("Batch picker parse error:", e.message, t); }
+    } catch(e) {
+      // Show visible error on screen for debugging
+      if(loadingDiv.parentNode === wrap) wrap.removeChild(loadingDiv);
+      var errDiv = document.createElement("div");
+      errDiv.style.cssText = "padding:12px;background:rgba(255,0,0,0.1);border:1px solid red;border-radius:8px;font-size:12px;color:#ff6666;margin-bottom:12px;word-break:break-all;";
+      errDiv.textContent = "Parse error: " + e.message + " | Raw: " + rawText.substring(0, 200);
+      wrap.appendChild(errDiv);
+      renderBatchAngleGrid(wrap, []);
+      return;
+    }
     if(loadingDiv.parentNode === wrap) wrap.removeChild(loadingDiv);
     renderBatchAngleGrid(wrap, focuses);
   })
   .catch(function(e) {
     if(e.message === "rate_limit") return;
     if(loadingDiv.parentNode === wrap) wrap.removeChild(loadingDiv);
+    var errDiv = document.createElement("div");
+    errDiv.style.cssText = "padding:12px;background:rgba(255,0,0,0.1);border:1px solid red;border-radius:8px;font-size:12px;color:#ff6666;margin-bottom:12px;";
+    errDiv.textContent = "Network error: " + e.message;
+    wrap.appendChild(errDiv);
     renderBatchAngleGrid(wrap, []);
   });
 }
