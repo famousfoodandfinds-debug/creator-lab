@@ -2098,7 +2098,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     if(data.error) throw new Error(data.error.message);
     var text = "";
     data.content.forEach(function(b){ if(b.type==="text") text+=b.text; });
-    var clean = text.replace(/```json|```/g,"").trim();
+    var clean = text.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim();
     var parsed = JSON.parse(clean);
     var scripts = parsed.scripts || [];
 
@@ -2812,7 +2812,8 @@ function renderFocusPicker() {
     try {
       var t="";
       data.content.forEach(function(b){if(b.type==="text")t+=b.text;});
-      var parsed = JSON.parse(t.replace(/```json|```/g,"").trim());
+      var cleaned = t.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim();
+      var parsed = JSON.parse(cleaned);
       focuses = parsed.focuses || [];
     } catch(e) {
       console.log("Focus parse error:", e.message);
