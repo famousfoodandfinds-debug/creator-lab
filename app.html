@@ -2788,9 +2788,6 @@ function renderBatchAngleGrid(wrap, focuses) {
     card.style.position = "relative";
     card.style.paddingBottom = "48px";
 
-    var counter = document.createElement("div");
-    counter.style.cssText = "width:24px;height:24px;border-radius:50%;border:2px solid var(--border-md);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--muted);flex-shrink:0;margin-top:2px;transition:all 0.15s;";
-
     var right = document.createElement("div");
     right.style.cssText = "flex:1;min-width:0;";
     right.innerHTML = "<div style='display:flex;align-items:center;gap:8px;margin-bottom:3px;'>" +
@@ -2841,13 +2838,23 @@ function renderBatchAngleGrid(wrap, focuses) {
       var getCount = function() { return selectedAngles.filter(function(a){ return a.focus===f2.focus; }).length; };
       var updateUI = function() {
         var c = getCount();
-        cnt.textContent = c > 0 ? c : "";
-        cnt.style.borderColor = c > 0 ? "var(--gold)" : "var(--border-md)";
-        cnt.style.color = c > 0 ? "var(--gold)" : "var(--muted)";
-        cnt.style.background = c > 0 ? "var(--gold-dim)" : "transparent";
+        // Plus button becomes counter when selected
+        if(c === 0) {
+          pBtn.textContent = "+";
+          pBtn.style.borderColor = "var(--border-md)";
+          pBtn.style.color = "var(--muted)";
+          pBtn.style.background = "transparent";
+          mBtn.style.display = "none";
+        } else {
+          pBtn.textContent = c;
+          pBtn.style.borderColor = "var(--gold)";
+          pBtn.style.color = "var(--gold)";
+          pBtn.style.background = "var(--gold-dim)";
+          mBtn.style.display = "flex";
+        }
         cardEl.classList.toggle("selected", c > 0);
-        mBtn.disabled = c === 0; mBtn.style.opacity = c === 0 ? "0.3" : "1";
-        pBtn.disabled = selectedAngles.length >= 5; pBtn.style.opacity = selectedAngles.length >= 5 ? "0.3" : "1";
+        pBtn.disabled = selectedAngles.length >= 5 && c === selectedAngles.length; 
+        pBtn.style.opacity = (selectedAngles.length >= 5 && c < selectedAngles.length) ? "0.3" : "1";
         genBtn.disabled = selectedAngles.length === 0;
         genBtn.style.opacity = selectedAngles.length === 0 ? "0.5" : "1";
         genBtn.textContent = selectedAngles.length === 0 ? "⚡ Generate Scripts" : "⚡ Generate " + selectedAngles.length + " Script" + (selectedAngles.length !== 1 ? "s" : "");
@@ -2863,7 +2870,7 @@ function renderBatchAngleGrid(wrap, focuses) {
         for(var i=selectedAngles.length-1;i>=0;i--){ if(selectedAngles[i].focus===f2.focus){ selectedAngles.splice(i,1); break; } }
         updateUI();
       });
-    })(f, counter, plusBtn, minusBtn, card);
+    })(f, plusBtn, plusBtn, minusBtn, card);
   });
 
   wrap.appendChild(grid);
