@@ -2802,13 +2802,33 @@ function renderFocusPicker() {
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
   })
-  .then(function(r) { return r.json(); })
+  .then(function(r) {
+    if(r.status === 429) { showRateLimitError(); throw new Error("rate_limit"); }
+    if(!r.ok) { throw new Error("api_error_" + r.status); }
+    return r.json();
+  })
   .then(function(data) {
     var focuses = [];
-    try { var t=""; data.content.forEach(function(b){if(b.type==="text")t+=b.text;}); focuses=JSON.parse(t.replace(/```json|```/g,"").trim()).focuses||[]; } catch(e) {}
+    try {
+      var t="";
+      data.content.forEach(function(b){if(b.type==="text")t+=b.text;});
+      var parsed = JSON.parse(t.replace(/```json|```/g,"").trim());
+      focuses = parsed.focuses || [];
+    } catch(e) {
+      console.log("Focus parse error:", e.message);
+    }
+    if(focuses.length === 0) {
+      if(loading.parentNode === wrap) wrap.removeChild(loading);
+      var errNote = document.createElement("div");
+      errNote.style.cssText = "font-size:13px;color:var(--muted);margin-bottom:12px;padding:12px;background:var(--surface);border-radius:var(--radius-sm);";
+      errNote.textContent = "Could not load angles. Use the custom angle box below.";
+      wrap.insertBefore(errNote, loading.nextSibling || wrap.lastChild);
+    }
     renderFocusOptionsForBuilder(wrap, loading, focuses);
   })
-  .catch(function() { renderFocusOptionsForBuilder(wrap, loading, []); });
+  .catch(function(e) {
+    if(e.message !== "rate_limit") renderFocusOptionsForBuilder(wrap, loading, []);
+  });
 }
 
 function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
