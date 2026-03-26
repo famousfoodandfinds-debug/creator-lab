@@ -1614,11 +1614,22 @@ function renderProductHub() {
         freshWrap.style.cssText = "padding:16px;";
         mc2.appendChild(freshWrap);
         renderFocusOptions(freshWrap, null, focuses2);
-        // Switch to batch mode
+        // Switch to batch mode directly
         setTimeout(function(){
+          // Hide curated section, show batch section
+          var curated = freshWrap.querySelector(".mode-selector + div");
+          var sections = freshWrap.querySelectorAll(".mode-selector ~ div");
           var modeBtns = freshWrap.querySelectorAll(".mode-btn");
-          if(modeBtns.length >= 2) modeBtns[1].click();
-        }, 150);
+          if(modeBtns.length >= 2) {
+            modeBtns[0].classList.remove("selected");
+            modeBtns[1].classList.add("selected");
+          }
+          // Find and toggle sections by index
+          if(sections.length >= 2) {
+            sections[0].style.display = "none";
+            sections[1].style.display = "block";
+          }
+        }, 200);
       })
       .catch(function(){
         mc2.innerHTML = "";
@@ -1627,9 +1638,17 @@ function renderProductHub() {
         mc2.appendChild(freshWrap);
         renderFocusOptions(freshWrap, null, []);
         setTimeout(function(){
+          var sections = freshWrap.querySelectorAll(".mode-selector ~ div");
           var modeBtns = freshWrap.querySelectorAll(".mode-btn");
-          if(modeBtns.length >= 2) modeBtns[1].click();
-        }, 150);
+          if(modeBtns.length >= 2) {
+            modeBtns[0].classList.remove("selected");
+            modeBtns[1].classList.add("selected");
+          }
+          if(sections.length >= 2) {
+            sections[0].style.display = "none";
+            sections[1].style.display = "block";
+          }
+        }, 200);
       });
     });
     wrap.appendChild(batchBtn);
