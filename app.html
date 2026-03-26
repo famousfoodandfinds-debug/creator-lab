@@ -1959,24 +1959,35 @@ function generateBatchScripts(angles) {
     return "Script " + (i+1) + " angle: " + a.focus + " (" + a.desire + ") -- " + a.description + varNote;
   }).join(". ");
 
-  var prompt = "You are writing " + angles.length + " complete TikTok Shop affiliate scripts for the same product. Product: " + currentProduct + ". Price context: " + priceCtx + ". " + anglesText +
-    " For EACH script write hook, body1, preClose, body2, and cta aimed at its specific angle. Where scripts share the same angle, each variation must use a completely different hook opening, different body proof point, and different CTA phrasing -- never repeat the same lines." +
-    " CORE PRINCIPLE: Never sell the product. Sell the person the viewer becomes by owning it. Show them who they are after this purchase -- not the outcome, not the feature, the specific identity." +
-    " STAY IN DESCRIPTION: Only use details and specs explicitly in the product description. Never invent stats, percentages, or claims not stated." +
-    " HOOK: Under 15 words. Complete sentence with a subject. ONE frustration only -- never AND or BUT connecting two ideas. Also watch for the obvious consequence pattern: adding a second half that just explains the first. Wrong: Hidden dirt is in your home right now and you cannot see it -- hidden already means cannot see it, delete the second half. If your hook makes two points or the second half explains the first, cut to the stronger single idea. Natural ending optional -- only if earned. Never starts with It is, This is, Picture yourself, Imagine." +
-    " BODY 1: Under 25 words. One specific real thing from the description. Teach something the viewer did not know." +
-    " BODY 2: Under 30 words. Show who the viewer becomes -- the identity of the person who owns this, not the outcome. One connected human sentence. Never fragments. Never three short sentences in a row." +
-    " WORD LOGIC: Before using engineered, designed, crafted, vessel, optimized, elevated, curated, constructed -- ask what specific detail from the description earns that word. If no specific detail exists, replace the word with the actual detail instead. Vague impressive language is weaker than a real specific." +
-    " PRE-CLOSE: One honest human moment. Never an aphorism, never a life lesson, never philosophical. BELIEVABILITY RULE: The admission must match the real hesitation someone buying this product at this price would actually have. A $200 vacuum buyer worries about whether it outperforms their current one -- not whether they will forget to use it. A premium cookware buyer worries about whether they deserve it -- not whether they will lose motivation. Match the hesitation to the real psychology of that purchase. SINGLE BEAT: One thought only. Wrong: Consistency in the small things builds trust in yourself. Right: I kept putting it off because the one I had technically still worked and I did not want to spend the money just to end up with something similar." +
-    " PRE-CLOSE: One sentence. Human moment. Honest reflection. Slight vulnerability. Not urgency. Not philosophical ad copy. Not a CTA." +
-    " CTA: Action verb first. Second person. Under 12 words. Must end with: linked below, grab it below, tap the orange cart below, or grab yours below. Bookend the specific identity or frustration from the hook. Never say link in bio." +
-    " BANNED: price cost dollar worth deal value investment game-changer elevate transform unencumbered risk is on me verified units stock moving link in bio check it out guys gals ladies dermatologist recommended clinically proven doctor approved aerospace-grade military-grade advanced technology engineered technology cutting-edge next-generation revolutionary heritage intersection of design deliberate intentional as a lifestyle or identity word (intentional is only allowed as a design description like makes your space look intentional -- never as make your ritual feel intentional) crossed over ergonomic unboxing any brand besides the product. Only use alcohol words (beer wine whiskey cocktail) if the product itself is alcohol-related and the term is in the description. Never name any brand, platform, app, social network, celebrity, influencer, or public figure by name in any line. The only brand name allowed is the product brand itself. Never invent specs or stats not in the description. Pre-close must be a statement never a question. CTA must echo the specific hook frustration -- standalone CTAs with no setup are not acceptable." +
-    " Return ONLY valid JSON: {scripts:[{angle:string,hook:string,body1:string,preClose:string,body2:string,cta:string}]}";
+  var prompt = "You are an expert short-form video script writer specializing in buyer psychology. Write " + angles.length + " complete affiliate scripts for this product." +
+    " Product: " + currentProduct + ". Price context: " + priceCtx + ". Angles: " + anglesText + "." +
+
+    " VOICE AND NATURALNESS: Every line must sound like a real person talking -- not marketing copy, not an AI, not a brand. Read each line aloud in your head. If it sounds like an ad, rewrite it. The goal is for the viewer to think a real person is sharing something they genuinely love." +
+
+    " CORE LAW: Never sell the product. Sell who the viewer becomes by owning it. The product is irrelevant. The identity is everything." +
+
+    " HOOK (under 15 words): Must stop the scroll in the first second. One single tension -- never two ideas connected with and or but. Never start with It is, This is, Picture yourself, Imagine, or You deserve. The best hooks make the viewer feel seen before they know what the product is. Avoid hooks that simply describe a problem -- hooks that create a feeling of recognition are stronger. Never add a second clause that explains the first." +
+
+    " BODY 1 (under 25 words): One specific detail from the product description that surprises or teaches. Real specifics beat vague claims every time. Never invent specs not in the description." +
+
+    " PRE-CLOSE (one sentence): A private human thought -- the kind people have but rarely say out loud. Not a lesson, not wisdom, not urgency. The moment of honest hesitation before buying something you really want. It must match the actual psychology of this purchase at this price. Must be a statement, never a question." +
+
+    " BODY 2 (under 30 words): Paint the identity. One fluid sentence showing exactly who the viewer becomes after this purchase. Not what they gain -- who they are. Never use fragments. Never stack three short sentences." +
+
+    " CTA (under 12 words): Action verb first. Second person. Echo the specific feeling from the hook. End with one of: linked below, grab it below, tap the orange cart below, grab yours below. Never say link in bio." +
+
+    " ABSOLUTE BANNED WORDS AND PHRASES: price cost dollar worth deal value investment game-changer elevate transform intentional as an identity word (you can say the design looks intentional but never your ritual feels intentional) elevate your routine engineered technology cutting-edge next-generation revolutionary heritage crafted vessel unboxing guys gals ladies link in bio check it out dermatologist recommended clinically proven doctor approved. Never use em dashes. Never name any brand except the product brand itself. Never invent specs." +
+
+    " ON-SCREEN TEXT: These 3 options appear as visual overlays while the creator speaks. They must create a completely different feeling than the verbal hook -- not summarize it, not echo it. They stop the scroll visually before the viewer hears a word. Under 6 words. Slightly confrontational or uncomfortably accurate. Direct second-person address." +
+
+    " QUALITY CHECK before returning: Read every hook aloud. Does it sound like a real person? Is it under 15 words? One idea only? Does the pre-close feel genuinely human and not like a tagline? Does the CTA echo the hook? If any answer is no, rewrite that line." +
+
+    " Return ONLY valid JSON: {scripts:[{angle:string,hook:string,body1:string,preClose:string,body2:string,cta:string,screenText:[string,string,string]}]}";
 
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000,
+    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 6000,
       messages: [{ role: "user", content: prompt }]
     })
   })
