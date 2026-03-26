@@ -2259,51 +2259,34 @@ function renderBatchResults(scripts, angles) {
     btnRow.appendChild(postedBtn);
     card.appendChild(btnRow);
 
-    // On-screen text -- generate async for this script
-    var onScreenSection = document.createElement("div");
-    onScreenSection.style.cssText = "margin-top:10px;padding-top:10px;border-top:1px solid var(--border);";
-    var onScreenLbl = document.createElement("div");
-    onScreenLbl.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--purple);margin-bottom:6px;";
-    onScreenLbl.textContent = "Text Hook";
-    var onScreenLoading = document.createElement("div");
-    onScreenLoading.style.cssText = "font-size:11px;color:var(--muted);";
-    onScreenLoading.textContent = "Generating...";
-    onScreenSection.appendChild(onScreenLbl);
-    onScreenSection.appendChild(onScreenLoading);
-    card.appendChild(onScreenSection);
-
-    // Generate on-screen text for this specific script
-    (function(section, loading, scriptText) {
-      var screenPrompt = "You are writing text hooks for a TikTok Shop video. The creator will SPEAK this script: \"" + scriptText + "\" Write exactly 3 text hooks (under 6 words each) that appear on screen WHILE they speak. These must create a curiosity gap -- never restate what is said verbally, never be generic. Use one mechanism per hook: (1) mild discomfort about the viewer's current situation, (2) surprising claim they would not expect, (3) direct challenge to their current behavior. Under 6 words each. Examples: your carpet is dirtier than you think, what's actually living in there, you have been doing this wrong, this is why nothing worked, never going back after this. Return ONLY valid JSON: {options:[3 strings]}";
-      fetch("/api/claude", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 150, messages: [{ role: "user", content: screenPrompt }] })
-      })
-      .then(function(r){ return r.json(); })
-      .then(function(data){
-        var opts = [];
-        try { var t=""; data.content.forEach(function(b){if(b.type==="text")t+=b.text;}); opts=JSON.parse(t.replace(/```json|```/g,"").trim()).options||[]; } catch(e){}
-        section.removeChild(loading);
-        var grid = document.createElement("div");
-        grid.style.cssText = "display:flex;flex-direction:column;gap:5px;";
-        opts.forEach(function(opt){
-          var row = document.createElement("div");
-          row.style.cssText = "display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid rgba(144,144,240,0.2);border-radius:6px;padding:7px 10px;cursor:pointer;";
-          var txt = document.createElement("span");
-          txt.style.cssText = "font-size:12px;color:var(--white);font-weight:300;";
-          txt.textContent = opt;
-          var cp = document.createElement("span");
-          cp.style.cssText = "font-size:10px;color:var(--purple);flex-shrink:0;margin-left:8px;";
-          cp.textContent = "Copy";
-          row.appendChild(txt); row.appendChild(cp);
-          (function(o){ row.addEventListener("click",function(){ copyRaw(o); showToast("Text hook copied"); }); })(opt);
-          grid.appendChild(row);
-        });
-        section.appendChild(grid);
-      })
-      .catch(function(){ section.removeChild(loading); });
-    })(onScreenSection, onScreenLoading, fullText);
+    // On-screen text -- use screenText already returned by batch generation
+    var screenOpts = script.screenText || [];
+    if (screenOpts.length > 0) {
+      var onScreenSection = document.createElement("div");
+      onScreenSection.style.cssText = "margin-top:10px;padding-top:10px;border-top:1px solid var(--border);";
+      var onScreenLbl = document.createElement("div");
+      onScreenLbl.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--purple);margin-bottom:6px;";
+      onScreenLbl.textContent = "Text Hook";
+      var grid = document.createElement("div");
+      grid.style.cssText = "display:flex;flex-direction:column;gap:5px;";
+      screenOpts.forEach(function(opt){
+        if (!opt) return;
+        var row = document.createElement("div");
+        row.style.cssText = "display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid rgba(144,144,240,0.2);border-radius:6px;padding:7px 10px;cursor:pointer;";
+        var txt = document.createElement("span");
+        txt.style.cssText = "font-size:12px;color:var(--white);font-weight:300;";
+        txt.textContent = opt;
+        var cp = document.createElement("span");
+        cp.style.cssText = "font-size:10px;color:var(--purple);flex-shrink:0;margin-left:8px;";
+        cp.textContent = "Copy";
+        row.appendChild(txt); row.appendChild(cp);
+        (function(o){ row.addEventListener("click",function(){ copyRaw(o); showToast("Text hook copied"); }); })(opt);
+        grid.appendChild(row);
+      });
+      onScreenSection.appendChild(onScreenLbl);
+      onScreenSection.appendChild(grid);
+      card.appendChild(onScreenSection);
+    }
 
     wrap.appendChild(card);
   });
