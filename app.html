@@ -1545,40 +1545,56 @@ function renderProductHub() {
     batchBtn.innerHTML = "⚡ &nbsp;Batch Scripts &nbsp;<span style='font-weight:400;font-size:12px;'>-- generate 5 scripts at once</span>";
     batchBtn.addEventListener("click", function() {
       resetPicks();
-      // Go straight to batch mode on focus picker
-      var mc = document.getElementById("mainContent");
-      mc.innerHTML = "";
+      // Show loading state
+      var mc2 = document.getElementById("mainContent");
+      mc2.innerHTML = "";
       var wrap2 = document.createElement("div");
       wrap2.style.cssText = "padding:16px;";
       var h = document.createElement("div"); h.className="step-heading"; h.innerHTML="Pick your <em>Angles</em>";
       var s = document.createElement("div"); s.className="step-sub"; s.textContent="Select up to 5 angles for batch generation.";
-      var loading = document.createElement("div");
-      loading.style.cssText = "padding:16px 0;display:flex;align-items:center;gap:10px;";
-      loading.innerHTML = "<div class='dots'><div class='dot'></div><div class='dot'></div><div class='dot'></div></div><span style='font-size:13px;color:var(--muted);'>Loading angles...</span>";
-      wrap2.appendChild(h); wrap2.appendChild(s); wrap2.appendChild(loading);
-      mc.appendChild(wrap2);
-      var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles. Product: " + currentProduct + ". Generate 5 distinct buyer desire angles. Return ONLY valid JSON: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience. NEVER use Social Media, Influencer, Viral, or any platform-related desire -- these are not buyer desires, they are discovery channels. TONE CALIBRATION -- before generating angles, read the product and classify it: (1) Fun/Lifestyle/Social product: entertaining accessories, cocktail tools, decorative items, beauty products, gifts, pool and party items. For these, angles must feel light, fun, social, indulgent -- think girls trip, pool day, backyard happy hour, the gift everyone asks about, the one they all want. Serious functional language like Reliable Performance or Extended Pleasure and Control does not fit these products. (2) Functional/Need product: vacuums, air purifiers, storage, kitchen appliances that solve a real problem. For these, angles should feel empowering and problem-solving. (3) Hybrid: premium cookware, quality home goods that are both aspirational and functional -- blend both tones. Match the energy of the angle to the energy of the product. A margarita tumbler should never get Reliable Performance Every Time as an angle.";
+      s.style.marginBottom = "16px";
+      var loadingDiv = document.createElement("div");
+      loadingDiv.style.cssText = "padding:16px 0;display:flex;align-items:center;gap:10px;";
+      loadingDiv.innerHTML = "<div class='dots'><div class='dot'></div><div class='dot'></div><div class='dot'></div></div><span style='font-size:13px;color:var(--muted);'>Loading angles...</span>";
+      wrap2.appendChild(h);
+      wrap2.appendChild(s);
+      wrap2.appendChild(loadingDiv);
+      mc2.appendChild(wrap2);
+
+      var focusPrompt2 = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles. Product: " + currentProduct + ". Generate 5 distinct buyer desire angles. Return ONLY valid JSON: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience. NEVER use Social Media, Influencer, Viral, or any platform-related desire. TONE CALIBRATION: (1) Fun/Lifestyle products: light, fun, social angles. (2) Functional products: empowering, problem-solving angles. (3) Hybrid: blend both.";
+
       fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
+        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: focusPrompt2 }] })
       })
       .then(function(r){ return r.json(); })
       .then(function(data){
-        var focuses = [];
-        try { var t=""; data.content.forEach(function(b){if(b.type==="text")t+=b.text;}); focuses=JSON.parse(t.replace(/```json|```/g,"").trim()).focuses||[]; } catch(e){}
-        // Remove loading and show batch mode directly
-        wrap2.removeChild(loading);
-        // Force batch mode open
-        var tempWrap = document.createElement("div");
-        renderFocusOptions(tempWrap, null, focuses);
-        // Move children to wrap2
-        while(tempWrap.firstChild) wrap2.appendChild(tempWrap.firstChild);
-        // Auto-click batch button
-        var batchModeBtn = wrap2.querySelector(".mode-btn:nth-child(2)");
-        if(batchModeBtn) batchModeBtn.click();
+        var focuses2 = [];
+        try { var t=""; data.content.forEach(function(b){if(b.type==="text")t+=b.text;}); focuses2=JSON.parse(t.replace(/```json|```/g,"").trim()).focuses||[]; } catch(e){}
+        // Clear and rebuild
+        mc2.innerHTML = "";
+        var freshWrap = document.createElement("div");
+        freshWrap.style.cssText = "padding:16px;";
+        mc2.appendChild(freshWrap);
+        renderFocusOptions(freshWrap, null, focuses2);
+        // Switch to batch mode
+        setTimeout(function(){
+          var batchModeBtn = freshWrap.querySelector(".mode-btn:nth-child(2)");
+          if(batchModeBtn) batchModeBtn.click();
+        }, 150);
       })
-      .catch(function(){ renderFocusPicker(); });
+      .catch(function(){
+        mc2.innerHTML = "";
+        var freshWrap = document.createElement("div");
+        freshWrap.style.cssText = "padding:16px;";
+        mc2.appendChild(freshWrap);
+        renderFocusOptions(freshWrap, null, []);
+        setTimeout(function(){
+          var batchModeBtn = freshWrap.querySelector(".mode-btn:nth-child(2)");
+          if(batchModeBtn) batchModeBtn.click();
+        }, 150);
+      });
     });
     wrap.appendChild(batchBtn);
 
