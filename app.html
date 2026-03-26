@@ -848,6 +848,42 @@ var triggerPsychology = {
   }
 };
 
+// Desire psychology explanations for batch angle cards
+var desirePsychology = {
+  "Pain/Problem Relief": {
+    why: "The most urgent buying driver. People will spend money to stop hurting faster than they will spend to feel better. When you surface a real frustration the viewer lives with daily, the product becomes the obvious escape.",
+    example: "e.g. Supplements, stain remover, organizers, vacuums, safety products"
+  },
+  "Emotion/Identity": {
+    why: "People buy products that confirm or upgrade who they are. Purchases are often identity statements in disguise. The viewer is not buying a product -- they are buying a signal to themselves and the world about who they are.",
+    example: "e.g. Premium cookware, aesthetic home goods, fashion, gifts that reflect taste"
+  },
+  "Dopamine/Instant Gratification": {
+    why: "The brain rewards novelty and the anticipation of a small win. Low-friction purchases exploit this naturally -- the logical part of the brain barely engages. The decision is almost entirely emotional and instantaneous.",
+    example: "e.g. Trending gadgets, snack boxes, novelty items, under $25 impulse products"
+  },
+  "Urgency/Scarcity": {
+    why: "Deadlines and limited availability override rational deliberation and force faster decisions. When something feels temporary, buyers act. The key is making it feel real -- manufactured urgency backfires immediately.",
+    example: "e.g. Seasonal items, new color drops, limited restocks, holiday gifting"
+  },
+  "Status/Upgrade": {
+    why: "People buy to signal who they are -- or who they are becoming. Aspiration is a powerful purchase engine. The viewer is not broken. They are reaching for a better version of their life, their space, their identity.",
+    example: "e.g. Le Creuset, Dyson, Shark, luxury home goods, premium kitchen tools"
+  },
+  "Habit/Routine": {
+    why: "Products embedded in daily rituals become nearly impossible to give up. Once something is part of how you start the day or wind down the evening, loyalty becomes habitual rather than rational.",
+    example: "e.g. Skincare, coffee tools, supplements, protein, daily use kitchen products"
+  },
+  "Trust/Brand Recognition": {
+    why: "Familiarity eliminates hesitation. With known brands the sale is already half-made before your content plays. The viewer already trusts it. They are not asking does this work -- they are asking is now the right time to buy.",
+    example: "e.g. Shark, Simple Modern, Dyson, Le Creuset, Bogg Bag, Hydro Jug"
+  },
+  "Convenience": {
+    why: "If it saves time, reduces effort, or simplifies life, people will pay a premium. Convenience removes friction -- and friction is the enemy of the sale. Show that the product makes something easier, not just better.",
+    example: "e.g. Robot vacuums, veggie choppers, organizers, travel gear, one-step solutions"
+  }
+};
+
 // ============================================================
 // AUTH
 // ============================================================
@@ -2959,38 +2995,94 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
     shuffleBtn.style.cssText = "position:absolute;top:10px;right:10px;background:rgba(255,255,255,0.06);border:1px solid var(--border-md);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;color:var(--white-dim);transition:all 0.15s;padding:4px 10px;gap:4px;font-family:'Instrument Sans',sans-serif;font-weight:500;white-space:nowrap;";
     shuffleBtn.innerHTML = "↺ New angle";
 
-    card.appendChild(check); card.appendChild(right); card.appendChild(shuffleBtn);
+    // Replace check with counter display
+    c.style.cssText = "width:24px;height:24px;border-radius:50%;border:2px solid var(--border-md);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:var(--muted);flex-shrink:0;margin-top:2px;transition:all 0.15s;";
 
-    (function(focus, c, cardEl, rightEl, badgeEl, btnEl, index) {
-      cardEl.addEventListener("click", function(e) {
-        if(e.target === btnEl || btnEl.contains(e.target)) return;
-        var timesSelected = selectedAngles.filter(function(a){ return a.focus === focuses[index].focus; }).length;
-        if(timesSelected > 0) {
-          // Deselect -- remove last instance of this angle
-          var lastIdx = -1;
-          for(var i = selectedAngles.length - 1; i >= 0; i--) {
-            if(selectedAngles[i].focus === focuses[index].focus) { lastIdx = i; break; }
-          }
-          if(lastIdx > -1) selectedAngles.splice(lastIdx, 1);
-          timesSelected = selectedAngles.filter(function(a){ return a.focus === focuses[index].focus; }).length;
-          if(timesSelected === 0) {
-            cardEl.classList.remove("selected");
-            c.textContent = "";
-            c.style.fontSize = "11px";
-          } else {
-            c.textContent = "×" + timesSelected;
-          }
+    // + / - buttons
+    var plusMinusRow = document.createElement("div");
+    plusMinusRow.style.cssText = "position:absolute;bottom:10px;right:10px;display:flex;align-items:center;gap:6px;";
+    var minusBtn = document.createElement("button");
+    minusBtn.style.cssText = "width:28px;height:28px;border-radius:50%;border:1px solid var(--border-md);background:var(--surface2);color:var(--muted);font-size:16px;line-height:1;cursor:pointer;font-family:monospace;display:flex;align-items:center;justify-content:center;transition:all 0.15s;";
+    minusBtn.textContent = "−";
+    minusBtn.disabled = true;
+    minusBtn.style.opacity = "0.3";
+    var plusBtn = document.createElement("button");
+    plusBtn.style.cssText = "width:28px;height:28px;border-radius:50%;border:1px solid var(--silver);background:var(--silver-dim);color:var(--silver-bright);font-size:16px;line-height:1;cursor:pointer;font-family:monospace;display:flex;align-items:center;justify-content:center;transition:all 0.15s;";
+    plusBtn.textContent = "+";
+    plusMinusRow.appendChild(minusBtn);
+    plusMinusRow.appendChild(plusBtn);
+    card.appendChild(plusMinusRow);
+
+    // Psychology expand panel
+    var psychPanel = document.createElement("div");
+    psychPanel.style.cssText = "display:none;margin-top:10px;padding:12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border-md);";
+    var dp = (typeof desirePsychology !== 'undefined') ? desirePsychology : {};
+
+    card.appendChild(check); card.appendChild(right); card.appendChild(shuffleBtn);
+    card.appendChild(psychPanel);
+
+    (function(focus, c, cardEl, rightEl, badgeEl, plusB, minusB, btnEl, index) {
+      var countForThis = function() {
+        return selectedAngles.filter(function(a){ return a.focus === focuses[index].focus; }).length;
+      };
+      var updateUI = function() {
+        var cnt = countForThis();
+        if(cnt === 0) {
+          cardEl.classList.remove("selected");
+          c.textContent = "";
+          c.style.borderColor = "var(--border-md)";
+          c.style.color = "var(--muted)";
+          minusB.disabled = true; minusB.style.opacity = "0.3";
         } else {
-          if(selectedAngles.length >= 5){ showToast("Maximum 5 scripts"); return; }
-          selectedAngles.push(focuses[index]);
           cardEl.classList.add("selected");
-          c.textContent = selectedAngles.length;
-          var newTimesSelected = selectedAngles.filter(function(a){ return a.focus === focuses[index].focus; }).length;
-          if(newTimesSelected > 1){ c.textContent = "×" + newTimesSelected; c.style.fontSize = "10px"; }
+          c.textContent = cnt;
+          c.style.borderColor = "var(--gold)";
+          c.style.color = "var(--gold)";
+          c.style.background = "var(--gold-dim)";
+          minusB.disabled = false; minusB.style.opacity = "1";
         }
+        if(selectedAngles.length >= 5) { plusB.disabled = true; plusB.style.opacity = "0.3"; }
+        else { plusB.disabled = false; plusB.style.opacity = "1"; }
         batchGenBtn.disabled = selectedAngles.length === 0;
         batchGenBtn.style.opacity = selectedAngles.length === 0 ? "0.5" : "1";
         batchGenBtn.textContent = selectedAngles.length === 0 ? "\u26A1 Generate Scripts" : "\u26A1 Generate " + selectedAngles.length + " Script" + (selectedAngles.length !== 1 ? "s" : "");
+      };
+
+      plusB.addEventListener("click", function(e) {
+        e.stopPropagation();
+        if(selectedAngles.length >= 5){ showToast("Maximum 5 scripts"); return; }
+        selectedAngles.push(focuses[index]);
+        updateUI();
+      });
+
+      minusB.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var lastIdx = -1;
+        for(var i = selectedAngles.length - 1; i >= 0; i--) {
+          if(selectedAngles[i].focus === focuses[index].focus) { lastIdx = i; break; }
+        }
+        if(lastIdx > -1) selectedAngles.splice(lastIdx, 1);
+        updateUI();
+      });
+
+      // Tap card body to expand psychology info
+      cardEl.addEventListener("click", function(e) {
+        if(e.target === btnEl || btnEl.contains(e.target)) return;
+        if(e.target === plusB || plusB.contains(e.target)) return;
+        if(e.target === minusB || minusB.contains(e.target)) return;
+        // Toggle psychology panel
+        var desireKey = focuses[index].desire;
+        var info = dp[desireKey];
+        if(!info) return;
+        var isOpen = psychPanel.style.display === "block";
+        if(isOpen) {
+          psychPanel.style.display = "none";
+        } else {
+          psychPanel.innerHTML = "<div style='font-size:11px;font-weight:600;color:var(--silver-bright);margin-bottom:6px;letter-spacing:0.06em;text-transform:uppercase;'>" + desireKey + "</div>" +
+            "<div style='font-size:13px;color:var(--white-dim);line-height:1.65;font-weight:300;margin-bottom:8px;'>" + info.why + "</div>" +
+            "<div style='font-size:11px;color:var(--muted);font-style:italic;'>" + info.example + "</div>";
+          psychPanel.style.display = "block";
+        }
       });
 
       btnEl.addEventListener("click", function(e) {
@@ -3015,7 +3107,7 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
         })
         .catch(function(){ btnEl.innerHTML = "↺ New angle"; btnEl.style.opacity = "1"; showToast("Try again"); });
       });
-    })(f, check, card, right, badge, shuffleBtn, idx);
+    })(f, check, card, right, badge, plusBtn, minusBtn, shuffleBtn, idx);
     batchGrid.appendChild(card);
   });
   batchSection.appendChild(batchGrid);
@@ -3075,11 +3167,15 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
     batchGrid.querySelectorAll(".batch-angle-card").forEach(function(c){
       c.classList.remove("selected");
       var ch = c.querySelector(".batch-check");
-      if(ch){ ch.textContent=""; ch.style.fontSize="11px"; }
+      if(ch){ ch.textContent=""; ch.style.borderColor="var(--border-md)"; ch.style.color="var(--muted)"; ch.style.background="transparent"; }
+      var minusB = c.querySelectorAll("button")[1];
+      if(minusB){ minusB.disabled=true; minusB.style.opacity="0.3"; }
+      var plusB = c.querySelectorAll("button")[2];
+      if(plusB){ plusB.disabled=false; plusB.style.opacity="1"; }
     });
     batchGenBtn.disabled = true;
     batchGenBtn.style.opacity = "0.5";
-    batchGenBtn.textContent = "\u26A1 Generate Batch Scripts";
+    batchGenBtn.textContent = "\u26A1 Generate Scripts";
   });
   batchSection.appendChild(clearBatchBtn);
   wrap.appendChild(batchSection);
