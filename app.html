@@ -2156,11 +2156,28 @@ function renderBatchResults(scripts, angles) {
       psychIcon.style.cssText = "font-size:10px;color:var(--muted);";
       psychIcon.textContent = "Buyer psychology:";
       var psychBadge = document.createElement("span");
-      psychBadge.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+dc+";background:rgba(0,0,0,0.3);border:1px solid "+dc+";border-radius:999px;padding:2px 8px;";
-      psychBadge.textContent = angle.desire;
+      psychBadge.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+dc+";background:rgba(0,0,0,0.3);border:1px solid "+dc+";border-radius:999px;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;";
+      psychBadge.innerHTML = angle.desire + " <span style='font-size:10px;opacity:0.7;'>ⓘ</span>";
+      // Tap to expand psychology panel
+      var psychExpand = document.createElement("div");
+      psychExpand.style.cssText = "display:none;margin-top:8px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border-md);";
+      (function(badge, panel, desireKey) {
+        badge.addEventListener("click", function(e) {
+          e.stopPropagation();
+          var dp = (typeof desirePsychology !== "undefined") ? desirePsychology : {};
+          var info = dp[desireKey];
+          if(!info) return;
+          if(panel.style.display === "block") { panel.style.display = "none"; return; }
+          panel.innerHTML = "<div style='font-size:11px;font-weight:600;color:var(--silver-bright);margin-bottom:6px;letter-spacing:0.06em;text-transform:uppercase;'>" + desireKey + "</div>" +
+            "<div style='font-size:13px;color:var(--white-dim);line-height:1.65;font-weight:300;margin-bottom:6px;'>" + info.why + "</div>" +
+            "<div style='font-size:11px;color:var(--muted);font-style:italic;'>" + info.example + "</div>";
+          panel.style.display = "block";
+        });
+      })(psychBadge, psychExpand, angle.desire);
       psychRow.appendChild(psychIcon);
       psychRow.appendChild(psychBadge);
       card.appendChild(psychRow);
+      card.appendChild(psychExpand);
     }
 
     var lines = [
@@ -2858,7 +2875,7 @@ function renderBatchAngleGrid(wrap, focuses) {
     right.style.cssText = "flex:1;min-width:0;";
     right.innerHTML = "<div style='display:flex;align-items:center;gap:8px;margin-bottom:3px;'>" +
       "<div style='font-size:14px;font-weight:600;color:var(--white);flex:1;min-width:0;'>" + f.focus + "</div>" +
-      "<div style='font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+dc+";background:rgba(0,0,0,0.3);border:1px solid "+dc+";border-radius:999px;padding:2px 7px;white-space:nowrap;flex-shrink:0;cursor:pointer;' class='desire-badge'>" + f.desire + "</div>" +
+      "<div style='font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+dc+";background:rgba(0,0,0,0.3);border:1px solid "+dc+";border-radius:999px;padding:2px 7px;white-space:nowrap;flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:4px;' class='desire-badge'>" + f.desire + " <span style='font-size:10px;opacity:0.7;'>ⓘ</span></div>" +
       "</div><div style='font-size:12px;color:var(--white-dim);line-height:1.4;font-weight:400;'>" + f.description + "</div>";
 
     // Psychology expand panel
@@ -3047,7 +3064,28 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
     var card = document.createElement("div"); card.className = "trigger-card"; card.style.position = "relative";
     var inner = document.createElement("div");
     inner.style.cssText = "display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-right:100px;";
-    inner.innerHTML = "<div style='flex:1;'><div style='font-size:14px;font-weight:600;color:var(--white);margin-bottom:4px;'>"+f.focus+"</div><div style='font-size:12px;color:var(--white-dim);line-height:1.5;font-weight:400;'>"+f.description+"</div></div><div style='font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+dc+";background:rgba(0,0,0,0.3);border:1px solid "+dc+";border-radius:999px;padding:3px 8px;white-space:nowrap;flex-shrink:0;margin-top:2px;'>"+f.desire+"</div>";
+    inner.innerHTML = "<div style='flex:1;'><div style='font-size:14px;font-weight:600;color:var(--white);margin-bottom:4px;'>"+f.focus+"</div><div style='font-size:12px;color:var(--white-dim);line-height:1.5;font-weight:400;'>"+f.description+"</div></div><div style='font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+dc+";background:rgba(0,0,0,0.3);border:1px solid "+dc+";border-radius:999px;padding:3px 8px;white-space:nowrap;flex-shrink:0;margin-top:2px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;' class='desire-badge-curated'>"+f.desire+" <span style='font-size:10px;opacity:0.7;'>ⓘ</span></div>";
+    // Add psychology expand panel for curated picker
+    var curatedPsychPanel = document.createElement("div");
+    curatedPsychPanel.style.cssText = "display:none;margin-top:8px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border-md);";
+    card.appendChild(curatedPsychPanel);
+    (function(innerEl, panel, desireKey) {
+      setTimeout(function() {
+        var badge = innerEl.querySelector(".desire-badge-curated");
+        if(!badge) return;
+        badge.addEventListener("click", function(e) {
+          e.stopPropagation();
+          var dp = (typeof desirePsychology !== "undefined") ? desirePsychology : {};
+          var info = dp[desireKey];
+          if(!info) return;
+          if(panel.style.display === "block") { panel.style.display = "none"; return; }
+          panel.innerHTML = "<div style='font-size:11px;font-weight:600;color:var(--silver-bright);margin-bottom:6px;letter-spacing:0.06em;text-transform:uppercase;'>" + desireKey + "</div>" +
+            "<div style='font-size:13px;color:var(--white-dim);line-height:1.65;font-weight:300;margin-bottom:6px;'>" + info.why + "</div>" +
+            "<div style='font-size:11px;color:var(--muted);font-style:italic;'>" + info.example + "</div>";
+          panel.style.display = "block";
+        });
+      }, 50);
+    })(inner, curatedPsychPanel, f.desire);
     var shuffleBtn = document.createElement("button");
     shuffleBtn.style.cssText = "position:absolute;top:10px;right:10px;background:rgba(255,255,255,0.06);border:1px solid var(--border-md);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;color:var(--white-dim);transition:all 0.15s;padding:4px 10px;gap:4px;font-family:'Instrument Sans',sans-serif;font-weight:500;white-space:nowrap;";
     shuffleBtn.innerHTML = "↺ New angle";
