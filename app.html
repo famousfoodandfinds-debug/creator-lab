@@ -2880,11 +2880,10 @@ function renderBatchAngleGrid(wrap, focuses) {
     card.style.paddingBottom = "48px";
 
     var right = document.createElement("div");
-    right.style.cssText = "flex:1;min-width:0;";
-    right.innerHTML = "<div style='display:flex;align-items:center;gap:8px;margin-bottom:3px;'>" +
-      "<div style='font-size:14px;font-weight:600;color:var(--white);flex:1;min-width:0;'>" + f.focus + "</div>" +
-      "<div style='font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+dc+";background:rgba(0,0,0,0.3);border:1px solid "+dc+";border-radius:999px;padding:2px 7px;white-space:nowrap;flex-shrink:0;cursor:pointer;display:flex;align-items:center;gap:4px;' class='desire-badge'>" + f.desire + " <span style='font-size:10px;opacity:0.7;'>ⓘ</span></div>" +
-      "</div><div style='font-size:12px;color:var(--white-dim);line-height:1.4;font-weight:400;'>" + f.description + "</div>";
+    right.style.cssText = "flex:1;min-width:0;padding-right:90px;";
+    right.innerHTML = "<div style='font-size:14px;font-weight:600;color:var(--white);margin-bottom:4px;'>" + f.focus + "</div>" +
+      "<div style='font-size:12px;color:var(--white-dim);line-height:1.4;font-weight:400;margin-bottom:7px;'>" + f.description + "</div>" +
+      "<div style='display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+dc+";background:rgba(0,0,0,0.3);border:1px solid "+dc+";border-radius:999px;padding:2px 8px;cursor:pointer;' class='desire-badge'>" + f.desire + " <span style='font-size:10px;opacity:0.7;'>ⓘ</span></div>";
 
     // Psychology expand panel
     var psychPanel = document.createElement("div");
@@ -3138,8 +3137,8 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
     var dc = desireColors[f.desire] || "var(--muted)";
     var card = document.createElement("div"); card.className = "trigger-card"; card.style.position = "relative";
     var inner = document.createElement("div");
-    inner.style.cssText = "display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-right:100px;";
-    inner.innerHTML = "<div style='flex:1;'><div style='font-size:14px;font-weight:600;color:var(--white);margin-bottom:4px;'>"+f.focus+"</div><div style='font-size:12px;color:var(--white-dim);line-height:1.5;font-weight:400;'>"+f.description+"</div></div><div style='font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+dc+";background:rgba(0,0,0,0.3);border:1px solid "+dc+";border-radius:999px;padding:3px 8px;white-space:nowrap;flex-shrink:0;margin-top:2px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;' class='desire-badge-curated'>"+f.desire+" <span style='font-size:10px;opacity:0.7;'>ⓘ</span></div>";
+    inner.style.cssText = "display:flex;flex-direction:column;gap:4px;padding-right:100px;";
+    inner.innerHTML = "<div style='font-size:14px;font-weight:600;color:var(--white);margin-bottom:2px;'>"+f.focus+"</div><div style='font-size:12px;color:var(--white-dim);line-height:1.5;font-weight:400;margin-bottom:6px;'>"+f.description+"</div><div style='display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+dc+";background:rgba(0,0,0,0.3);border:1px solid "+dc+";border-radius:999px;padding:2px 8px;cursor:pointer;' class='desire-badge-curated'>"+f.desire+" <span style='font-size:10px;opacity:0.7;'>ⓘ</span></div>";
     // Add psychology expand panel for curated picker
     (function(innerEl, desireKey) {
       setTimeout(function() {
