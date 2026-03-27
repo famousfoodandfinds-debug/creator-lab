@@ -3171,6 +3171,7 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
     (function(cardEl, innerEl, btnEl, index, allFocuses, focusObj) {
       cardEl.addEventListener("click", function(e){
         if(e.target === btnEl || btnEl.contains(e.target)) return;
+        if(e.target.closest && e.target.closest(".desire-badge-curated")) return;
         currentFocus=focusObj; allData.currentFocus=focusObj; renderBuilder();
       });
       btnEl.addEventListener("click", function(e){
@@ -3273,6 +3274,7 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
       allFocuses[index] = f;
       cardEl.addEventListener("click", function(e){
         if(e.target === btnEl || btnEl.contains(e.target)) return;
+        if(e.target.closest && e.target.closest(".desire-badge-curated")) return;
         currentFocus = allFocuses[index];
         allData.currentFocus = allFocuses[index];
         generateScriptBank();
