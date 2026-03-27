@@ -1948,17 +1948,47 @@ function generate() {
       var clean = text.replace(/```json|```/g, "").trim();
       focuses = JSON.parse(clean).focuses || [];
     } catch(e) {}
-    renderFocusOptions(wrap, loading, focuses);
+    // Show mode choice then angles
+    if(loading.parentNode === wrap) wrap.removeChild(loading);
+    renderModeChoice(wrap, focuses);
   })
   .catch(function() {
     btn.disabled = false; btn.style.background = "var(--red)";
     btn.innerHTML = "🧠&nbsp; Generate Focus Angles";
     if (loading.parentNode === wrap) wrap.removeChild(loading);
-    var errNote = document.createElement("div");
-    errNote.style.cssText = "font-size:13px;color:var(--muted);margin-bottom:12px;";
-    errNote.textContent = "Could not load suggested angles. Type your own or skip.";
-    wrap.insertBefore(errNote, wrap.firstChild.nextSibling.nextSibling);
-    renderFocusOptions(wrap, null, []);
+    renderModeChoice(wrap, []);
+  });
+}
+
+function renderModeChoice(wrap, focuses) {
+  // Mode selector -- curated or batch
+  var modeWrap = document.createElement("div");
+  modeWrap.className = "mode-selector";
+  modeWrap.style.marginBottom = "20px";
+
+  var curatedBtn = document.createElement("button");
+  curatedBtn.className = "mode-btn selected";
+  curatedBtn.innerHTML = "<div class='mode-btn-title'>\uD83C\uDFAF Curated Script</div><div class='mode-btn-desc'>Pick one angle. Build your script step by step.</div>";
+
+  var batchBtn = document.createElement("button");
+  batchBtn.className = "mode-btn";
+  batchBtn.innerHTML = "<div class='mode-btn-title'>\u26A1 Batch Scripts</div><div class='mode-btn-desc'>Select up to 5 angles. Get 5 complete scripts at once.</div>";
+
+  modeWrap.appendChild(curatedBtn);
+  modeWrap.appendChild(batchBtn);
+  wrap.appendChild(modeWrap);
+
+  // Curated section -- focus angle cards
+  var curatedSection = document.createElement("div");
+  renderFocusOptions(curatedSection, null, focuses);
+  wrap.appendChild(curatedSection);
+
+  curatedBtn.addEventListener("click", function(){
+    curatedBtn.classList.add("selected"); batchBtn.classList.remove("selected");
+    curatedSection.style.display = "block";
+  });
+  batchBtn.addEventListener("click", function(){
+    renderBatchPicker();
   });
 }
 
