@@ -3229,8 +3229,38 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
     card.style.cssText = "position:relative;";
 
     var inner = document.createElement("div");
-    inner.style.cssText = "display:flex;align-items:flex-start;justify-content:space-between;gap:10px;padding-right:100px;";
-    inner.innerHTML = "<div style='flex:1;'><div style='font-size:14px;font-weight:600;color:var(--white);margin-bottom:4px;'>" + f.focus + "</div><div style='font-size:12px;color:var(--white-dim);line-height:1.5;font-weight:400;'>" + f.description + "</div></div><div style='font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:" + dc + ";background:rgba(0,0,0,0.3);border:1px solid " + dc + ";border-radius:999px;padding:3px 8px;white-space:nowrap;flex-shrink:0;margin-top:2px;'>" + f.desire + "</div>";
+    inner.style.cssText = "display:flex;flex-direction:column;gap:4px;padding-right:100px;";
+    inner.innerHTML = "<div style='font-size:14px;font-weight:600;color:var(--white);margin-bottom:2px;'>" + f.focus + "</div>" +
+      "<div style='font-size:12px;color:var(--white-dim);line-height:1.5;font-weight:400;margin-bottom:6px;'>" + f.description + "</div>" +
+      "<div style='display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:" + dc + ";background:rgba(0,0,0,0.3);border:1px solid " + dc + ";border-radius:999px;padding:2px 8px;cursor:pointer;' class='desire-badge-curated'>" + f.desire + " <span style='font-size:10px;opacity:0.7;'>ⓘ</span></div>";
+
+    // Attach badge listener directly
+    (function(innerEl, desireKey) {
+      var badge = innerEl.querySelector(".desire-badge-curated");
+      if(badge) {
+        badge.addEventListener("click", function(e) {
+          e.stopPropagation();
+          var dp = (typeof desirePsychology !== "undefined") ? desirePsychology : {};
+          var info = dp[desireKey];
+          if(!info) return;
+          var existing = document.getElementById("psych-overlay");
+          if(existing) { existing.parentNode.removeChild(existing); return; }
+          var overlay = document.createElement("div");
+          overlay.id = "psych-overlay";
+          overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.7);";
+          var box = document.createElement("div");
+          box.style.cssText = "background:var(--surface);border:1px solid var(--border-md);border-radius:16px;padding:24px;max-width:400px;width:100%;";
+          box.innerHTML = "<div style='font-size:11px;font-weight:600;color:var(--silver-bright);margin-bottom:10px;letter-spacing:0.06em;text-transform:uppercase;'>" + desireKey + "</div>" +
+            "<div style='font-size:14px;color:var(--white-dim);line-height:1.7;font-weight:300;margin-bottom:10px;'>" + info.why + "</div>" +
+            "<div style='font-size:12px;color:var(--muted);font-style:italic;line-height:1.5;'>" + info.example + "</div>" +
+            "<button style='margin-top:16px;width:100%;padding:12px;background:transparent;border:1px solid var(--border-md);border-radius:999px;color:var(--muted);font-family:Instrument Sans,sans-serif;font-size:13px;cursor:pointer;'>Got it</button>";
+          box.querySelector("button").addEventListener("click", function() { overlay.parentNode.removeChild(overlay); });
+          overlay.addEventListener("click", function(ev) { if(ev.target === overlay) overlay.parentNode.removeChild(overlay); });
+          overlay.appendChild(box);
+          document.body.appendChild(overlay);
+        });
+      }
+    })(inner, f.desire);
 
     var shuffleBtn = document.createElement("button");
     shuffleBtn.title = "Get a new angle";
@@ -3258,7 +3288,9 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
           var text = ""; data.content.forEach(function(b){ if(b.type==="text") text+=b.text; });
           var newF = JSON.parse(text.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim());
           var newDc = desireColors[newF.desire] || "var(--muted)";
-          innerEl.innerHTML = "<div style='flex:1;'><div style='font-size:14px;font-weight:600;color:var(--white);margin-bottom:4px;'>" + newF.focus + "</div><div style='font-size:12px;color:var(--white-dim);line-height:1.5;font-weight:400;'>" + newF.description + "</div></div><div style='font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:" + newDc + ";background:rgba(0,0,0,0.3);border:1px solid " + newDc + ";border-radius:999px;padding:3px 8px;white-space:nowrap;flex-shrink:0;margin-top:2px;'>" + newF.desire + "</div>";
+          innerEl.innerHTML = "<div style='font-size:14px;font-weight:600;color:var(--white);margin-bottom:2px;'>" + newF.focus + "</div>" +
+            "<div style='font-size:12px;color:var(--white-dim);line-height:1.5;font-weight:400;margin-bottom:6px;'>" + newF.description + "</div>" +
+            "<div style='display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:" + newDc + ";background:rgba(0,0,0,0.3);border:1px solid " + newDc + ";border-radius:999px;padding:2px 8px;cursor:pointer;' class='desire-badge-curated'>" + newF.desire + " <span style='font-size:10px;opacity:0.7;'>ⓘ</span></div>";
           // Update click handler with new focus
           cardEl.onclick = function(){ currentFocus=newF; allData.currentFocus=newF; generateScriptBank(); };
           // Update allFocuses array so next shuffle knows what exists
