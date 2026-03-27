@@ -2791,6 +2791,17 @@ function renderBatchAngleGrid(wrap, focuses) {
   var dp = (typeof desirePsychology !== "undefined") ? desirePsychology : {};
   var selectedAngles = [];
 
+  // Generate button -- defined early so IIFE closures can reference it
+  var genBtn = document.createElement("button");
+  genBtn.className = "next-btn";
+  genBtn.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;margin-top:12px;opacity:0.5;";
+  genBtn.textContent = "\u26A1 Generate Scripts";
+  genBtn.disabled = true;
+  genBtn.addEventListener("click", function() {
+    if(selectedAngles.length === 0){ showToast("Select at least one angle"); return; }
+    generateBatchScripts(selectedAngles.slice());
+  });
+
   var grid = document.createElement("div");
   grid.style.cssText = "display:flex;flex-direction:column;gap:8px;margin-bottom:14px;";
 
@@ -2913,16 +2924,6 @@ function renderBatchAngleGrid(wrap, focuses) {
   customWrap.appendChild(customConfirm);
   wrap.appendChild(customWrap);
 
-  // Generate button
-  var genBtn = document.createElement("button");
-  genBtn.className = "next-btn";
-  genBtn.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;margin-top:12px;opacity:0.5;";
-  genBtn.textContent = "⚡ Generate Scripts";
-  genBtn.disabled = true;
-  genBtn.addEventListener("click", function() {
-    if(selectedAngles.length === 0){ showToast("Select at least one angle"); return; }
-    generateBatchScripts(selectedAngles.slice());
-  });
   wrap.appendChild(genBtn);
 }
 
@@ -3368,8 +3369,7 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
     curatedSection.style.display = "block"; batchSection.style.display = "none";
   });
   batchBtn.addEventListener("click", function(){
-    batchBtn.classList.add("selected"); curatedBtn.classList.remove("selected");
-    batchSection.style.display = "block"; curatedSection.style.display = "none";
+    renderBatchPicker();
   });
 }
 
