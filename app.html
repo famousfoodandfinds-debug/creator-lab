@@ -2148,7 +2148,7 @@ function renderBatchResults(scripts, angles) {
 
     // Psych trigger label
     if(angle.desire) {
-      var desireColors = {"Pain/Problem Relief":"var(--red)","Emotion/Identity":"var(--purple)","Dopamine/Instant Gratification":"var(--gold)","Urgency/Scarcity":"var(--red)","Status/Upgrade":"var(--gold)","Habit/Routine":"var(--green)","Trust/Brand Recognition":"var(--green)","Convenience":"var(--purple)","Social Proof/Belonging":"var(--purple)","Fear of Future Regret":"var(--red)","Transformation":"var(--gold)"};
+      var desireColors = {"Pain/Problem Relief":"#FF6B6B","Emotion/Identity":"#B388FF","Dopamine/Instant Gratification":"#FFD166","Urgency/Scarcity":"#FF8C42","Status/Upgrade":"#C0C0C0","Habit/Routine":"#2DC98A","Trust/Brand Recognition":"#4FC3F7","Convenience":"#A0C4FF","Social Proof/Belonging":"#E040FB","Fear of Future Regret":"#FF6B6B","Transformation":"#69F0AE"};
       var dc = desireColors[angle.desire] || "var(--muted)";
       var psychRow = document.createElement("div");
       psychRow.style.cssText = "display:flex;align-items:center;gap:6px;margin-bottom:10px;";
@@ -2854,7 +2854,7 @@ function renderBatchPicker() {
 }
 
 function renderBatchAngleGrid(wrap, focuses) {
-  var desireColors = {"Pain/Problem Relief":"var(--red)","Emotion/Identity":"var(--purple)","Dopamine/Instant Gratification":"var(--gold)","Urgency/Scarcity":"var(--red)","Status/Upgrade":"var(--gold)","Habit/Routine":"var(--green)","Trust/Brand Recognition":"var(--green)","Convenience":"var(--purple)","Social Proof/Belonging":"var(--purple)","Fear of Future Regret":"var(--red)","Transformation":"var(--gold)"};
+  var desireColors = {"Pain/Problem Relief":"#FF6B6B","Emotion/Identity":"#B388FF","Dopamine/Instant Gratification":"#FFD166","Urgency/Scarcity":"#FF8C42","Status/Upgrade":"#C0C0C0","Habit/Routine":"#2DC98A","Trust/Brand Recognition":"#4FC3F7","Convenience":"#A0C4FF","Social Proof/Belonging":"#E040FB","Fear of Future Regret":"#FF6B6B","Transformation":"#69F0AE"};
   var dp = (typeof desirePsychology !== "undefined") ? desirePsychology : {};
   var selectedAngles = [];
 
@@ -2886,8 +2886,6 @@ function renderBatchAngleGrid(wrap, focuses) {
       "<div style='display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+dc+";background:rgba(0,0,0,0.3);border:1px solid "+dc+";border-radius:999px;padding:2px 8px;cursor:pointer;' class='desire-badge'>" + f.desire + " <span style='font-size:10px;opacity:0.7;'>ⓘ</span></div>";
 
     // Psychology expand panel
-    var psychPanel = document.createElement("div");
-    psychPanel.style.cssText = "display:none;margin-top:8px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border-md);";
     // Attach badge click directly
     (function(rightEl, desire) {
       var badge = rightEl.querySelector(".desire-badge");
@@ -3131,7 +3129,7 @@ function renderFocusPicker() {
 
 function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
   if (loadingEl && loadingEl.parentNode === wrap) wrap.removeChild(loadingEl);
-  var desireColors = {"Pain/Problem Relief":"var(--red)","Emotion/Identity":"var(--purple)","Dopamine/Instant Gratification":"var(--gold)","Urgency/Scarcity":"var(--red)","Status/Upgrade":"var(--gold)","Habit/Routine":"var(--green)","Trust/Brand Recognition":"var(--green)","Convenience":"var(--purple)","Social Proof/Belonging":"var(--purple)","Fear of Future Regret":"var(--red)","Transformation":"var(--gold)"};
+  var desireColors = {"Pain/Problem Relief":"#FF6B6B","Emotion/Identity":"#B388FF","Dopamine/Instant Gratification":"#FFD166","Urgency/Scarcity":"#FF8C42","Status/Upgrade":"#C0C0C0","Habit/Routine":"#2DC98A","Trust/Brand Recognition":"#4FC3F7","Convenience":"#A0C4FF","Social Proof/Belonging":"#E040FB","Fear of Future Regret":"#FF6B6B","Transformation":"#69F0AE"};
   var grid = document.createElement("div"); grid.style.cssText = "display:flex;flex-direction:column;gap:8px;";
   focuses.forEach(function(f, idx) {
     var dc = desireColors[f.desire] || "var(--muted)";
@@ -3217,7 +3215,7 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
 function renderFocusOptions(wrap, loadingEl, focuses) {
   if (loadingEl && loadingEl.parentNode === wrap) wrap.removeChild(loadingEl);
 
-  var desireColors = {"Pain/Problem Relief":"var(--red)","Emotion/Identity":"var(--purple)","Dopamine/Instant Gratification":"var(--gold)","Urgency/Scarcity":"var(--red)","Status/Upgrade":"var(--gold)","Habit/Routine":"var(--green)","Trust/Brand Recognition":"var(--green)","Convenience":"var(--purple)","Social Proof/Belonging":"var(--purple)","Fear of Future Regret":"var(--red)","Transformation":"var(--gold)"};
+  var desireColors = {"Pain/Problem Relief":"#FF6B6B","Emotion/Identity":"#B388FF","Dopamine/Instant Gratification":"#FFD166","Urgency/Scarcity":"#FF8C42","Status/Upgrade":"#C0C0C0","Habit/Routine":"#2DC98A","Trust/Brand Recognition":"#4FC3F7","Convenience":"#A0C4FF","Social Proof/Belonging":"#E040FB","Fear of Future Regret":"#FF6B6B","Transformation":"#69F0AE"};
 
   // ---- CURATED SECTION ----
   var curatedSection = document.createElement("div");
