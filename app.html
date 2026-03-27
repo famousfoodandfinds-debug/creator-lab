@@ -851,36 +851,48 @@ var triggerPsychology = {
 // Desire psychology explanations for batch angle cards
 var desirePsychology = {
   "Pain/Problem Relief": {
-    why: "The most urgent buying driver. People will spend money to stop hurting faster than they will spend to feel better. When you surface a real frustration the viewer lives with daily, the product becomes the obvious escape.",
-    example: "e.g. Supplements, stain remover, organizers, vacuums, safety products"
+    why: "People fix problems faster than they chase upgrades. If someone is frustrated every single day, they do not need convincing -- they need permission to solve it. Your job is to name the pain out loud so they feel seen, then show the exit. The more specific the frustration, the faster the sale.",
+    example: "e.g. Cleaning tools, home organizers, stain removers, health supplements, safety products, kitchen tools that solve a recurring problem"
   },
   "Emotion/Identity": {
-    why: "People buy products that confirm or upgrade who they are. Purchases are often identity statements in disguise. The viewer is not buying a product -- they are buying a signal to themselves and the world about who they are.",
-    example: "e.g. Premium cookware, aesthetic home goods, fashion, gifts that reflect taste"
+    why: "People do not just buy products -- they buy who they want to become. When someone purchases aesthetic decor or a premium kitchen piece, they are making a statement about who they are. Sell the version of them that owns this, not the product itself.",
+    example: "e.g. Premium cookware, aesthetic home decor, elevated kitchen essentials, fashion, sentimental gifts, lifestyle upgrades"
   },
   "Dopamine/Instant Gratification": {
-    why: "The brain rewards novelty and the anticipation of a small win. Low-friction purchases exploit this naturally -- the logical part of the brain barely engages. The decision is almost entirely emotional and instantaneous.",
-    example: "e.g. Trending gadgets, snack boxes, novelty items, under $25 impulse products"
+    why: "Some products sell themselves the second someone sees them. Low cost, high novelty, immediate want. Logic barely gets involved. The hook just needs to create that moment of instant desire and get out of the way fast. Over-explaining kills the impulse.",
+    example: "e.g. Trending novelty tools, fun kitchen gadgets, satisfying organizers, affordable impulse buys, anything with strong visual appeal"
   },
   "Urgency/Scarcity": {
-    why: "Deadlines and limited availability override rational deliberation and force faster decisions. When something feels temporary, buyers act. The key is making it feel real -- manufactured urgency backfires immediately.",
-    example: "e.g. Seasonal items, new color drops, limited restocks, holiday gifting"
+    why: "When something feels temporary, buyers stop delaying. A deadline does more persuasion work than any feature list. The key is making the urgency feel real -- a holiday approaching, a restock that always sells out, a seasonal window closing. Manufactured urgency gets ignored.",
+    example: "e.g. Seasonal decor, holiday gifting, limited restocks, new color or flavor drops, back-to-school, summer or winter gear"
   },
   "Status/Upgrade": {
-    why: "People buy to signal who they are -- or who they are becoming. Aspiration is a powerful purchase engine. The viewer is not broken. They are reaching for a better version of their life, their space, their identity.",
-    example: "e.g. Le Creuset, Dyson, Shark, luxury home goods, premium kitchen tools"
+    why: "Some buyers are not broken -- they are just ready for better. They want their home, their kitchen, their life to reflect the standards they hold for themselves. Do not manufacture pain that does not exist. Instead paint the life they could be living with this product in it.",
+    example: "e.g. Premium kitchen tools, luxury home goods, high-end cookware, elevated everyday essentials, aspirational lifestyle products"
   },
   "Habit/Routine": {
-    why: "Products embedded in daily rituals become nearly impossible to give up. Once something is part of how you start the day or wind down the evening, loyalty becomes habitual rather than rational.",
-    example: "e.g. Skincare, coffee tools, supplements, protein, daily use kitchen products"
+    why: "Products that become part of a daily ritual are almost impossible to give up. Once something is woven into how someone starts their morning or winds down their evening, it stops being a purchase and starts being a necessity. Sell the routine, not the product.",
+    example: "e.g. Skincare, morning wellness products, coffee and tea tools, daily supplements, fitness accessories, anything used every single day"
   },
   "Trust/Brand Recognition": {
-    why: "Familiarity eliminates hesitation. With known brands the sale is already half-made before your content plays. The viewer already trusts it. They are not asking does this work -- they are asking is now the right time to buy.",
-    example: "e.g. Shark, Simple Modern, Dyson, Le Creuset, Bogg Bag, Hydro Jug"
+    why: "With well-known products, the sale is already half-made before your video plays. The viewer is not asking does this work -- they are asking is now the right time to buy. You are not convincing anyone. You are activating demand that already exists. Focus on timing, deals, and reminders.",
+    example: "e.g. Recognizable kitchen brands, popular wellness brands, household name appliances, products the viewer has already seen or considered buying"
   },
   "Convenience": {
-    why: "If it saves time, reduces effort, or simplifies life, people will pay a premium. Convenience removes friction -- and friction is the enemy of the sale. Show that the product makes something easier, not just better.",
-    example: "e.g. Robot vacuums, veggie choppers, organizers, travel gear, one-step solutions"
+    why: "If it saves time, removes effort, or simplifies a step the viewer already does, they will pay for it. Convenience removes friction -- and friction is the enemy of the sale. Show exactly what step this eliminates and how much easier the outcome feels.",
+    example: "e.g. Automated kitchen tools, one-step solutions, space-saving organizers, travel-friendly products, anything that replaces a complicated process with a simple one"
+  },
+  "Social Proof/Belonging": {
+    why: "People look to others to decide what is safe and worth buying. When someone sees that people like them already own and love something, the risk disappears. This is different from brand trust -- it is peer-driven. The viewer thinks: if someone like me loves this, I probably will too.",
+    example: "e.g. Viral products, gift ideas everyone is buying, products popular in specific communities, anything with a strong word-of-mouth reputation"
+  },
+  "Fear of Future Regret": {
+    why: "What if I do not get this and later wish I had? This is one of the most powerful quiet motivators in consumer psychology. It works especially well for gifts, seasonal items, and products tied to a specific life moment. The viewer is not in pain right now -- but they can imagine regretting the miss.",
+    example: "e.g. Gift items for holidays or milestones, seasonal products with a closing window, baby and family keepsakes, health products with long-term benefits"
+  },
+  "Transformation": {
+    why: "Before and after is one of the most powerful structures in short-form selling -- but only when the transformation is identity-level, not just functional. The viewer does not just want a cleaner home or a healthier body. They want to become the kind of person who has those things. Sell the identity shift.",
+    example: "e.g. Home organization systems, fitness and wellness tools, beauty and skincare with visible results, kitchen upgrades that change how someone cooks"
   }
 };
 
@@ -1927,7 +1939,7 @@ function generate() {
   wrap.appendChild(loading);
   mc.appendChild(wrap);
 
-  var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles for short-form video content. Product: " + product + ". Generate 5 distinct buyer desire angles. Each angle describes a specific type of person or real-life situation this product speaks to -- not a feature. Return ONLY valid JSON: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience. NEVER use Social Media, Influencer, Viral, or any platform-related desire -- these are not buyer desires, they are discovery channels. TONE CALIBRATION -- before generating angles, read the product and classify it: (1) Fun/Lifestyle/Social product: entertaining accessories, cocktail tools, decorative items, beauty products, gifts, pool and party items. For these, angles must feel light, fun, social, indulgent -- think girls trip, pool day, backyard happy hour, the gift everyone asks about, the one they all want. Serious functional language like Reliable Performance or Extended Pleasure and Control does not fit these products. (2) Functional/Need product: vacuums, air purifiers, storage, kitchen appliances that solve a real problem. For these, angles should feel empowering and problem-solving. (3) Hybrid: premium cookware, quality home goods that are both aspirational and functional -- blend both tones. Match the energy of the angle to the energy of the product. A margarita tumbler should never get Reliable Performance Every Time as an angle. focus is a short 4-8 word phrase. description is one sentence about who this buyer is and what they feel.";
+  var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles for short-form video content. Product: " + product + ". Generate 5 distinct buyer desire angles. Each angle describes a specific type of person or real-life situation this product speaks to -- not a feature. Return ONLY valid JSON: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER use Social Media, Influencer, Viral, or any platform-related desire -- these are not buyer desires, they are discovery channels. TONE CALIBRATION -- before generating angles, read the product and classify it: (1) Fun/Lifestyle/Social product: entertaining accessories, cocktail tools, decorative items, beauty products, gifts, pool and party items. For these, angles must feel light, fun, social, indulgent -- think girls trip, pool day, backyard happy hour, the gift everyone asks about, the one they all want. Serious functional language like Reliable Performance or Extended Pleasure and Control does not fit these products. (2) Functional/Need product: vacuums, air purifiers, storage, kitchen appliances that solve a real problem. For these, angles should feel empowering and problem-solving. (3) Hybrid: premium cookware, quality home goods that are both aspirational and functional -- blend both tones. Match the energy of the angle to the energy of the product. A margarita tumbler should never get Reliable Performance Every Time as an angle. focus is a short 4-8 word phrase. description is one sentence about who this buyer is and what they feel.";
 
   fetch("/api/claude", {
     method: "POST",
@@ -2136,7 +2148,7 @@ function renderBatchResults(scripts, angles) {
 
     // Psych trigger label
     if(angle.desire) {
-      var desireColors = {"Pain/Problem Relief":"var(--red)","Emotion/Identity":"var(--purple)","Dopamine/Instant Gratification":"var(--gold)","Urgency/Scarcity":"var(--red)","Status/Upgrade":"var(--gold)","Habit/Routine":"var(--green)","Trust/Brand Recognition":"var(--green)","Convenience":"var(--purple)"};
+      var desireColors = {"Pain/Problem Relief":"var(--red)","Emotion/Identity":"var(--purple)","Dopamine/Instant Gratification":"var(--gold)","Urgency/Scarcity":"var(--red)","Status/Upgrade":"var(--gold)","Habit/Routine":"var(--green)","Trust/Brand Recognition":"var(--green)","Convenience":"var(--purple)","Social Proof/Belonging":"var(--purple)","Fear of Future Regret":"var(--red)","Transformation":"var(--gold)"};
       var dc = desireColors[angle.desire] || "var(--muted)";
       var psychRow = document.createElement("div");
       psychRow.style.cssText = "display:flex;align-items:center;gap:6px;margin-bottom:10px;";
@@ -2774,7 +2786,7 @@ function renderBatchPicker() {
   wrap.appendChild(loadingDiv);
   mc.appendChild(wrap);
 
-  var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles. Product: " + currentProduct + ". Generate 5 distinct buyer desire angles. Return ONLY valid JSON with no markdown: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience. NEVER use Social Media, Influencer, Viral. TONE CALIBRATION: Fun/Lifestyle products need light fun social angles. Functional products need empowering practical angles. Hybrid products blend both.";
+  var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles. Product: " + currentProduct + ". Generate 5 distinct buyer desire angles. Return ONLY valid JSON with no markdown: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER use Social Media, Influencer, Viral. TONE CALIBRATION: Fun/Lifestyle products need light fun social angles. Functional products need empowering practical angles. Hybrid products blend both.";
 
   fetch("/api/claude", {
     method: "POST",
@@ -2817,7 +2829,7 @@ function renderBatchPicker() {
 }
 
 function renderBatchAngleGrid(wrap, focuses) {
-  var desireColors = {"Pain/Problem Relief":"var(--red)","Emotion/Identity":"var(--purple)","Dopamine/Instant Gratification":"var(--gold)","Urgency/Scarcity":"var(--red)","Status/Upgrade":"var(--gold)","Habit/Routine":"var(--green)","Trust/Brand Recognition":"var(--green)","Convenience":"var(--purple)"};
+  var desireColors = {"Pain/Problem Relief":"var(--red)","Emotion/Identity":"var(--purple)","Dopamine/Instant Gratification":"var(--gold)","Urgency/Scarcity":"var(--red)","Status/Upgrade":"var(--gold)","Habit/Routine":"var(--green)","Trust/Brand Recognition":"var(--green)","Convenience":"var(--purple)","Social Proof/Belonging":"var(--purple)","Fear of Future Regret":"var(--red)","Transformation":"var(--gold)"};
   var dp = (typeof desirePsychology !== "undefined") ? desirePsychology : {};
   var selectedAngles = [];
 
@@ -2989,7 +3001,7 @@ function renderFocusPicker() {
   wrap.appendChild(loading);
   mc.appendChild(wrap);
 
-  var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles. Product: " + currentProduct + ". Generate 5 distinct buyer desire angles. Return ONLY valid JSON: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience. NEVER use Social Media, Influencer, Viral, or any platform-related desire -- these are not buyer desires, they are discovery channels. TONE CALIBRATION -- before generating angles, read the product and classify it: (1) Fun/Lifestyle/Social product: entertaining accessories, cocktail tools, decorative items, beauty products, gifts, pool and party items. For these, angles must feel light, fun, social, indulgent -- think girls trip, pool day, backyard happy hour, the gift everyone asks about, the one they all want. Serious functional language like Reliable Performance or Extended Pleasure and Control does not fit these products. (2) Functional/Need product: vacuums, air purifiers, storage, kitchen appliances that solve a real problem. For these, angles should feel empowering and problem-solving. (3) Hybrid: premium cookware, quality home goods that are both aspirational and functional -- blend both tones. Match the energy of the angle to the energy of the product. A margarita tumbler should never get Reliable Performance Every Time as an angle.";
+  var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles. Product: " + currentProduct + ". Generate 5 distinct buyer desire angles. Return ONLY valid JSON: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER use Social Media, Influencer, Viral, or any platform-related desire -- these are not buyer desires, they are discovery channels. TONE CALIBRATION -- before generating angles, read the product and classify it: (1) Fun/Lifestyle/Social product: entertaining accessories, cocktail tools, decorative items, beauty products, gifts, pool and party items. For these, angles must feel light, fun, social, indulgent -- think girls trip, pool day, backyard happy hour, the gift everyone asks about, the one they all want. Serious functional language like Reliable Performance or Extended Pleasure and Control does not fit these products. (2) Functional/Need product: vacuums, air purifiers, storage, kitchen appliances that solve a real problem. For these, angles should feel empowering and problem-solving. (3) Hybrid: premium cookware, quality home goods that are both aspirational and functional -- blend both tones. Match the energy of the angle to the energy of the product. A margarita tumbler should never get Reliable Performance Every Time as an angle.";
 
   fetch("/api/claude", {
     method: "POST",
@@ -3028,7 +3040,7 @@ function renderFocusPicker() {
 
 function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
   if (loadingEl && loadingEl.parentNode === wrap) wrap.removeChild(loadingEl);
-  var desireColors = {"Pain/Problem Relief":"var(--red)","Emotion/Identity":"var(--purple)","Dopamine/Instant Gratification":"var(--gold)","Urgency/Scarcity":"var(--red)","Status/Upgrade":"var(--gold)","Habit/Routine":"var(--green)","Trust/Brand Recognition":"var(--green)","Convenience":"var(--purple)"};
+  var desireColors = {"Pain/Problem Relief":"var(--red)","Emotion/Identity":"var(--purple)","Dopamine/Instant Gratification":"var(--gold)","Urgency/Scarcity":"var(--red)","Status/Upgrade":"var(--gold)","Habit/Routine":"var(--green)","Trust/Brand Recognition":"var(--green)","Convenience":"var(--purple)","Social Proof/Belonging":"var(--purple)","Fear of Future Regret":"var(--red)","Transformation":"var(--gold)"};
   var grid = document.createElement("div"); grid.style.cssText = "display:flex;flex-direction:column;gap:8px;";
   focuses.forEach(function(f, idx) {
     var dc = desireColors[f.desire] || "var(--muted)";
@@ -3048,7 +3060,7 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
         e.stopPropagation();
         btnEl.innerHTML = "⟳ Loading..."; btnEl.style.opacity = "0.5";
         var existingNames = allFocuses.map(function(f){ return f.focus; }).join(", ");
-        var refreshPrompt = "You are analyzing a TikTok Shop product to identify buyer desire angles. Product: " + currentProduct + ". Generate exactly 1 NEW buyer desire angle completely different from these: " + existingNames + ". TONE CALIBRATION: Match angle energy to product -- fun lifestyle products need light social angles, functional products need practical empowering angles. Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience.";
+        var refreshPrompt = "You are analyzing a TikTok Shop product to identify buyer desire angles. Product: " + currentProduct + ". Generate exactly 1 NEW buyer desire angle completely different from these: " + existingNames + ". TONE CALIBRATION: Match angle energy to product -- fun lifestyle products need light social angles, functional products need practical empowering angles. Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation.";
         fetch("/api/claude", {
           method:"POST", headers:{"Content-Type":"application/json","x-user-id":(currentUser?currentUser.id:"")},
           body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:200,messages:[{role:"user",content:refreshPrompt}]})
@@ -3086,7 +3098,7 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
 function renderFocusOptions(wrap, loadingEl, focuses) {
   if (loadingEl && loadingEl.parentNode === wrap) wrap.removeChild(loadingEl);
 
-  var desireColors = {"Pain/Problem Relief":"var(--red)","Emotion/Identity":"var(--purple)","Dopamine/Instant Gratification":"var(--gold)","Urgency/Scarcity":"var(--red)","Status/Upgrade":"var(--gold)","Habit/Routine":"var(--green)","Trust/Brand Recognition":"var(--green)","Convenience":"var(--purple)"};
+  var desireColors = {"Pain/Problem Relief":"var(--red)","Emotion/Identity":"var(--purple)","Dopamine/Instant Gratification":"var(--gold)","Urgency/Scarcity":"var(--red)","Status/Upgrade":"var(--gold)","Habit/Routine":"var(--green)","Trust/Brand Recognition":"var(--green)","Convenience":"var(--purple)","Social Proof/Belonging":"var(--purple)","Fear of Future Regret":"var(--red)","Transformation":"var(--gold)"};
 
   // ---- CURATED SECTION ----
   var curatedSection = document.createElement("div");
@@ -3117,7 +3129,7 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
         var existingFocusNames = allFocuses.map(function(f){ return f.focus; }).join(", ");
         var refreshPrompt = "You are analyzing a TikTok Shop product to identify buyer desire angles. Product: " + currentProduct + ". Generate exactly 1 NEW buyer desire angle that is completely different from these existing ones: " + existingFocusNames + ". " +
           "TONE CALIBRATION: Read the product and match the angle energy -- fun/lifestyle products need light social fun angles, functional products need empowering practical angles. " +
-          "Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience. focus is 4-8 words. description is one sentence.";
+          "Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. focus is 4-8 words. description is one sentence.";
         fetch("/api/claude", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
