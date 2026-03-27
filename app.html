@@ -2888,32 +2888,32 @@ function renderBatchAngleGrid(wrap, focuses) {
     // Psychology expand panel
     var psychPanel = document.createElement("div");
     psychPanel.style.cssText = "display:none;margin-top:8px;padding:10px 12px;background:var(--surface2);border-radius:var(--radius-sm);border:1px solid var(--border-md);";
-    var desireBadge = right.querySelector(".desire-badge");
-    if(desireBadge) {
-      (function(badge, panel, desire) {
-        badge.addEventListener("click", function(e) {
-          e.stopPropagation();
-          var dp2 = (typeof desirePsychology !== "undefined") ? desirePsychology : {};
-          var info = dp2[desire];
-          if(!info) return;
-          var existing = document.getElementById("psych-overlay");
-          if(existing) { existing.parentNode.removeChild(existing); return; }
-          var overlay = document.createElement("div");
-          overlay.id = "psych-overlay";
-          overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.7);";
-          var box = document.createElement("div");
-          box.style.cssText = "background:var(--surface);border:1px solid var(--border-md);border-radius:16px;padding:24px;max-width:400px;width:100%;";
-          box.innerHTML = "<div style='font-size:11px;font-weight:600;color:var(--silver-bright);margin-bottom:10px;letter-spacing:0.06em;text-transform:uppercase;'>" + desire + "</div>" +
-            "<div style='font-size:14px;color:var(--white-dim);line-height:1.7;font-weight:300;margin-bottom:10px;'>" + info.why + "</div>" +
-            "<div style='font-size:12px;color:var(--muted);font-style:italic;line-height:1.5;'>" + info.example + "</div>" +
-            "<button style='margin-top:16px;width:100%;padding:12px;background:transparent;border:1px solid var(--border-md);border-radius:999px;color:var(--muted);font-family:Instrument Sans,sans-serif;font-size:13px;cursor:pointer;'>Got it</button>";
-          box.querySelector("button").addEventListener("click", function() { overlay.parentNode.removeChild(overlay); });
-          overlay.addEventListener("click", function(e) { if(e.target === overlay) overlay.parentNode.removeChild(overlay); });
-          overlay.appendChild(box);
-          document.body.appendChild(overlay);
-        });
-      })(desireBadge, f.desire);
-    }
+    // Attach badge click directly
+    (function(rightEl, desire) {
+      var badge = rightEl.querySelector(".desire-badge");
+      if(!badge) return;
+      badge.addEventListener("click", function(e) {
+        e.stopPropagation();
+        var dp2 = (typeof desirePsychology !== "undefined") ? desirePsychology : {};
+        var info = dp2[desire];
+        if(!info) return;
+        var existing = document.getElementById("psych-overlay");
+        if(existing) { existing.parentNode.removeChild(existing); return; }
+        var overlay = document.createElement("div");
+        overlay.id = "psych-overlay";
+        overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.7);";
+        var box = document.createElement("div");
+        box.style.cssText = "background:var(--surface);border:1px solid var(--border-md);border-radius:16px;padding:24px;max-width:400px;width:100%;";
+        box.innerHTML = "<div style='font-size:11px;font-weight:600;color:var(--silver-bright);margin-bottom:10px;letter-spacing:0.06em;text-transform:uppercase;'>" + desire + "</div>" +
+          "<div style='font-size:14px;color:var(--white-dim);line-height:1.7;font-weight:300;margin-bottom:10px;'>" + info.why + "</div>" +
+          "<div style='font-size:12px;color:var(--muted);font-style:italic;line-height:1.5;'>" + info.example + "</div>" +
+          "<button style='margin-top:16px;width:100%;padding:12px;background:transparent;border:1px solid var(--border-md);border-radius:999px;color:var(--muted);font-family:Instrument Sans,sans-serif;font-size:13px;cursor:pointer;'>Got it</button>";
+        box.querySelector("button").addEventListener("click", function() { overlay.parentNode.removeChild(overlay); });
+        overlay.addEventListener("click", function(ev) { if(ev.target === overlay) overlay.parentNode.removeChild(overlay); });
+        overlay.appendChild(box);
+        document.body.appendChild(overlay);
+      });
+    })(right, f.desire);
 
     // Left side stack: + on top, count in middle, - underneath
     var leftStack = document.createElement("div");
@@ -3140,10 +3140,10 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
     inner.style.cssText = "display:flex;flex-direction:column;gap:4px;padding-right:100px;";
     inner.innerHTML = "<div style='font-size:14px;font-weight:600;color:var(--white);margin-bottom:2px;'>"+f.focus+"</div><div style='font-size:12px;color:var(--white-dim);line-height:1.5;font-weight:400;margin-bottom:6px;'>"+f.description+"</div><div style='display:inline-flex;align-items:center;gap:4px;font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+dc+";background:rgba(0,0,0,0.3);border:1px solid "+dc+";border-radius:999px;padding:2px 8px;cursor:pointer;' class='desire-badge-curated'>"+f.desire+" <span style='font-size:10px;opacity:0.7;'>ⓘ</span></div>";
     // Add psychology expand panel for curated picker
+    // Attach badge listener directly -- no setTimeout needed
     (function(innerEl, desireKey) {
-      setTimeout(function() {
-        var badge = innerEl.querySelector(".desire-badge-curated");
-        if(!badge) return;
+      var badge = innerEl.querySelector(".desire-badge-curated");
+      if(badge) {
         badge.addEventListener("click", function(e) {
           e.stopPropagation();
           var dp = (typeof desirePsychology !== "undefined") ? desirePsychology : {};
@@ -3161,11 +3161,11 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
             "<div style='font-size:12px;color:var(--muted);font-style:italic;line-height:1.5;'>" + info.example + "</div>" +
             "<button style='margin-top:16px;width:100%;padding:12px;background:transparent;border:1px solid var(--border-md);border-radius:999px;color:var(--muted);font-family:Instrument Sans,sans-serif;font-size:13px;cursor:pointer;'>Got it</button>";
           box.querySelector("button").addEventListener("click", function() { overlay.parentNode.removeChild(overlay); });
-          overlay.addEventListener("click", function(e) { if(e.target === overlay) overlay.parentNode.removeChild(overlay); });
+          overlay.addEventListener("click", function(ev) { if(ev.target === overlay) overlay.parentNode.removeChild(overlay); });
           overlay.appendChild(box);
           document.body.appendChild(overlay);
         });
-      }, 50);
+      }
     })(inner, f.desire);
     var shuffleBtn = document.createElement("button");
     shuffleBtn.style.cssText = "position:absolute;top:10px;right:10px;background:rgba(255,255,255,0.06);border:1px solid var(--border-md);border-radius:999px;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:11px;color:var(--white-dim);transition:all 0.15s;padding:4px 10px;gap:4px;font-family:'Instrument Sans',sans-serif;font-weight:500;white-space:nowrap;";
