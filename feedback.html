@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Psych Lab — Beta Feedback</title>
+<link rel="icon" type="image/png" href="https://i.ibb.co/YFxvj045/psych-lab-logo-black-512-crisp.png">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;1,700&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --black: #080808; --surface: #111111; --surface2: #181818;
+  --border: rgba(255,255,255,0.07); --border-md: rgba(255,255,255,0.14);
+  --silver: #C0C0C0; --silver-bright: #E8E8E8; --silver-dim: rgba(192,192,192,0.12);
+  --white: #F0F0F0; --white-dim: rgba(240,240,240,0.55); --muted: #666666;
+  --green: #2DC98A; --green-dim: rgba(45,201,138,0.1);
+  --gold: #D4AF37; --red: #FF6B6B;
+  --radius: 14px; --radius-sm: 9px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Instrument Sans', sans-serif; background: var(--black); color: var(--white); -webkit-font-smoothing: antialiased; min-height: 100vh; padding-bottom: 60px; }
+
+header { padding: 32px 24px 0; text-align: center; max-width: 640px; margin: 0 auto; }
+.logo { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 700; color: var(--silver-bright); margin-bottom: 6px; }
+.logo em { font-style: italic; }
+.header-label { font-size: 10px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--silver); margin-bottom: 20px; display: block; }
+.header-title { font-family: 'Playfair Display', serif; font-size: clamp(28px, 6vw, 42px); font-weight: 700; line-height: 1.15; color: var(--white); margin-bottom: 14px; }
+.header-title em { font-style: italic; color: var(--silver-bright); }
+.header-sub { font-size: 15px; color: var(--white-dim); font-weight: 300; line-height: 1.65; margin-bottom: 40px; }
+
+.form-wrap { max-width: 640px; margin: 0 auto; padding: 0 20px; }
+
+/* Section headers */
+.section-header { display: flex; align-items: center; gap: 12px; margin: 36px 0 16px; }
+.section-num { width: 28px; height: 28px; border-radius: 50%; background: var(--silver-dim); border: 1px solid var(--border-md); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; color: var(--silver); flex-shrink: 0; }
+.section-title { font-size: 13px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--silver); }
+
+/* Question cards */
+.q-card { background: var(--surface); border: 1px solid var(--border-md); border-radius: var(--radius); padding: 20px; margin-bottom: 12px; }
+.q-label { font-size: 14px; font-weight: 500; color: var(--white); margin-bottom: 14px; line-height: 1.5; }
+.q-label .req { color: var(--green); margin-left: 2px; }
+
+/* Text inputs */
+.q-input { width: 100%; background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); color: var(--white); font-family: 'Instrument Sans', sans-serif; font-size: 14px; font-weight: 300; padding: 12px 14px; outline: none; resize: vertical; line-height: 1.6; transition: border-color 0.2s; -webkit-user-select: text; user-select: text; }
+.q-input:focus { border-color: var(--silver); }
+.q-input::placeholder { color: var(--muted); }
+textarea.q-input { min-height: 90px; }
+
+/* Star rating */
+.star-wrap { display: flex; gap: 8px; }
+.star-btn { width: 44px; height: 44px; border-radius: 50%; background: var(--surface2); border: 1px solid var(--border-md); display: flex; align-items: center; justify-content: center; font-size: 20px; cursor: pointer; transition: all 0.15s; color: var(--muted); }
+.star-btn.active { background: rgba(212,175,55,0.15); border-color: var(--gold); color: var(--gold); }
+.star-label { font-size: 11px; color: var(--muted); margin-top: 8px; display: flex; justify-content: space-between; }
+
+/* Radio / checkbox options */
+.options { display: flex; flex-direction: column; gap: 8px; }
+.option { display: flex; align-items: center; gap: 12px; background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 12px 14px; cursor: pointer; transition: all 0.15s; }
+.option:hover { border-color: var(--silver); }
+.option.selected { border-color: var(--green); background: var(--green-dim); }
+.option-dot { width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--border-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+.option.selected .option-dot { border-color: var(--green); background: var(--green); }
+.option.selected .option-dot::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: white; }
+.option-text { font-size: 14px; color: var(--white-dim); font-weight: 300; }
+.option.selected .option-text { color: var(--white); }
+
+/* Checkbox multi-select */
+.option .option-box { width: 18px; height: 18px; border-radius: 4px; border: 2px solid var(--border-md); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; }
+.option.selected .option-box { border-color: var(--green); background: var(--green); }
+.option.selected .option-box::after { content: '✓'; font-size: 11px; color: white; font-weight: 700; }
+
+/* Scale */
+.scale-wrap { display: flex; gap: 6px; }
+.scale-btn { flex: 1; height: 44px; border-radius: var(--radius-sm); background: var(--surface2); border: 1px solid var(--border-md); font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+.scale-btn.active { background: rgba(45,201,138,0.15); border-color: var(--green); color: var(--green); }
+.scale-labels { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: var(--muted); }
+
+/* Submit */
+.submit-btn { width: 100%; padding: 18px; background: linear-gradient(135deg, #C0C0C0, #E8E8E8); color: #080808; border: none; border-radius: var(--radius); font-family: 'Instrument Sans', sans-serif; font-size: 16px; font-weight: 600; cursor: pointer; margin-top: 32px; transition: all 0.2s; letter-spacing: 0.01em; }
+.submit-btn:hover { transform: scale(1.01); }
+.submit-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+/* Success */
+.success-box { display: none; text-align: center; padding: 60px 24px; }
+.success-icon { font-size: 48px; margin-bottom: 16px; }
+.success-title { font-family: 'Playfair Display', serif; font-size: 28px; font-weight: 700; color: var(--white); margin-bottom: 12px; }
+.success-sub { font-size: 15px; color: var(--white-dim); font-weight: 300; line-height: 1.65; }
+
+.divider { height: 1px; background: var(--border); margin: 8px 0 4px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">Psych <em>Lab</em></div>
+  <span class="header-label">Beta Feedback</span>
+  <h1 class="header-title">Tell us what you <em>really think</em></h1>
+  <p class="header-sub">Your honest feedback shapes what gets built next. This takes about 5 minutes. No wrong answers.</p>
+</header>
+
+<div class="form-wrap">
+
+  <form id="feedbackForm">
+
+    <!-- SECTION 1: About You -->
+    <div class="section-header">
+      <div class="section-num">1</div>
+      <div class="section-title">About You</div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Your name <span class="req">*</span></div>
+      <input type="text" class="q-input" name="name" placeholder="First name is fine" required>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Your TikTok handle</div>
+      <input type="text" class="q-input" name="tiktok" placeholder="@yourusername">
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">How long have you been doing TikTok Shop affiliate? <span class="req">*</span></div>
+      <div class="options" data-type="radio" data-name="experience">
+        <div class="option" data-value="Less than 3 months"><div class="option-dot"></div><div class="option-text">Less than 3 months</div></div>
+        <div class="option" data-value="3-6 months"><div class="option-dot"></div><div class="option-text">3 to 6 months</div></div>
+        <div class="option" data-value="6-12 months"><div class="option-dot"></div><div class="option-text">6 to 12 months</div></div>
+        <div class="option" data-value="Over 1 year"><div class="option-dot"></div><div class="option-text">Over 1 year</div></div>
+      </div>
+    </div>
+
+    <!-- SECTION 2: First Impression -->
+    <div class="section-header">
+      <div class="section-num">2</div>
+      <div class="section-title">First Impression</div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">How quickly did you figure out how to use the tool without instructions? <span class="req">*</span></div>
+      <div class="options" data-type="radio" data-name="ease_of_start">
+        <div class="option" data-value="Right away"><div class="option-dot"></div><div class="option-text">Right away, no confusion</div></div>
+        <div class="option" data-value="A few minutes"><div class="option-dot"></div><div class="option-text">Took a few minutes to get oriented</div></div>
+        <div class="option" data-value="Needed help"><div class="option-dot"></div><div class="option-text">I needed help or instructions</div></div>
+        <div class="option" data-value="Still confused"><div class="option-dot"></div><div class="option-text">Still a bit confused</div></div>
+      </div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">What confused you most when you first opened the tool?</div>
+      <textarea class="q-input" name="first_confusion" placeholder="Even small things are helpful to know..."></textarea>
+    </div>
+
+    <!-- SECTION 3: Script Quality -->
+    <div class="section-header">
+      <div class="section-num">3</div>
+      <div class="section-title">Script Quality</div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Do the hooks sound like something a real person would actually say? <span class="req">*</span></div>
+      <div class="options" data-type="radio" data-name="hooks_real">
+        <div class="option" data-value="Yes, very natural"><div class="option-dot"></div><div class="option-text">Yes, very natural</div></div>
+        <div class="option" data-value="Sometimes"><div class="option-dot"></div><div class="option-text">Sometimes, but not always</div></div>
+        <div class="option" data-value="Often too scripted"><div class="option-dot"></div><div class="option-text">Often too scripted or formal</div></div>
+        <div class="option" data-value="Rarely"><div class="option-dot"></div><div class="option-text">Rarely sounds natural</div></div>
+      </div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Do the scripts feel written for your specific product or too generic? <span class="req">*</span></div>
+      <div class="options" data-type="radio" data-name="product_fit">
+        <div class="option" data-value="Very specific"><div class="option-dot"></div><div class="option-text">Very specific to my product</div></div>
+        <div class="option" data-value="Mostly specific"><div class="option-dot"></div><div class="option-text">Mostly specific with some generic lines</div></div>
+        <div class="option" data-value="Pretty generic"><div class="option-dot"></div><div class="option-text">Pretty generic overall</div></div>
+        <div class="option" data-value="Very generic"><div class="option-dot"></div><div class="option-text">Very generic, could be any product</div></div>
+      </div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Which script section needs the most improvement? <span class="req">*</span></div>
+      <div class="options" data-type="radio" data-name="weakest_section">
+        <div class="option" data-value="Hook"><div class="option-dot"></div><div class="option-text">Hook</div></div>
+        <div class="option" data-value="Body lines"><div class="option-dot"></div><div class="option-text">Body lines</div></div>
+        <div class="option" data-value="Pre-close"><div class="option-dot"></div><div class="option-text">Pre-close</div></div>
+        <div class="option" data-value="CTA"><div class="option-dot"></div><div class="option-text">CTA</div></div>
+        <div class="option" data-value="On-screen text"><div class="option-dot"></div><div class="option-text">On-screen text</div></div>
+        <div class="option" data-value="Caption"><div class="option-dot"></div><div class="option-text">Caption and hashtags</div></div>
+        <div class="option" data-value="All good"><div class="option-dot"></div><div class="option-text">Honestly all pretty good</div></div>
+      </div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">What word or phrase kept showing up that you would never say on camera?</div>
+      <textarea class="q-input" name="words_to_ban" placeholder="e.g. 'elevate', 'intentional', anything that felt off..."></textarea>
+    </div>
+
+    <!-- SECTION 4: Voice Fit -->
+    <div class="section-header">
+      <div class="section-num">4</div>
+      <div class="section-title">Voice Fit</div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">On a scale of 1 to 5 how much did the scripts sound like YOU? <span class="req">*</span></div>
+      <div class="scale-wrap" data-name="voice_fit">
+        <button type="button" class="scale-btn" data-value="1">1</button>
+        <button type="button" class="scale-btn" data-value="2">2</button>
+        <button type="button" class="scale-btn" data-value="3">3</button>
+        <button type="button" class="scale-btn" data-value="4">4</button>
+        <button type="button" class="scale-btn" data-value="5">5</button>
+      </div>
+      <div class="scale-labels"><span>Not at all me</span><span>Exactly me</span></div>
+    </div>
+
+    <!-- SECTION 5: The Learning System -->
+    <div class="section-header">
+      <div class="section-num">5</div>
+      <div class="section-title">The Learning System</div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Did you use the thumbs up and thumbs down rating on script lines? <span class="req">*</span></div>
+      <div class="options" data-type="radio" data-name="used_ratings">
+        <div class="option" data-value="Yes, a lot"><div class="option-dot"></div><div class="option-text">Yes, rated a lot of lines</div></div>
+        <div class="option" data-value="A few times"><div class="option-dot"></div><div class="option-text">Did it a few times</div></div>
+        <div class="option" data-value="Did not notice it"><div class="option-dot"></div><div class="option-text">Did not notice it was there</div></div>
+        <div class="option" data-value="Saw it but skipped"><div class="option-dot"></div><div class="option-text">Saw it but skipped it</div></div>
+      </div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Did you tap the psychology badges to learn what they mean? <span class="req">*</span></div>
+      <div class="options" data-type="radio" data-name="used_badges">
+        <div class="option" data-value="Yes, multiple times"><div class="option-dot"></div><div class="option-text">Yes, tapped them multiple times</div></div>
+        <div class="option" data-value="Once or twice"><div class="option-dot"></div><div class="option-text">Once or twice</div></div>
+        <div class="option" data-value="Did not know I could"><div class="option-dot"></div><div class="option-text">Did not know I could tap them</div></div>
+        <div class="option" data-value="Saw it but skipped"><div class="option-dot"></div><div class="option-text">Saw it but did not bother</div></div>
+      </div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Did the psychology explanations make sense or feel like jargon? <span class="req">*</span></div>
+      <div class="options" data-type="radio" data-name="explanations_clarity">
+        <div class="option" data-value="Very clear"><div class="option-dot"></div><div class="option-text">Very clear and helpful</div></div>
+        <div class="option" data-value="Mostly clear"><div class="option-dot"></div><div class="option-text">Mostly clear</div></div>
+        <div class="option" data-value="Some jargon"><div class="option-dot"></div><div class="option-text">Some jargon but I got the idea</div></div>
+        <div class="option" data-value="Too confusing"><div class="option-dot"></div><div class="option-text">Too confusing</div></div>
+        <div class="option" data-value="Did not read them"><div class="option-dot"></div><div class="option-text">Did not read them</div></div>
+      </div>
+    </div>
+
+    <!-- SECTION 6: Workflow -->
+    <div class="section-header">
+      <div class="section-num">6</div>
+      <div class="section-title">Workflow and Usage</div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Which did you use more? <span class="req">*</span></div>
+      <div class="options" data-type="radio" data-name="curated_vs_batch">
+        <div class="option" data-value="Curated mostly"><div class="option-dot"></div><div class="option-text">Curated Script mostly</div></div>
+        <div class="option" data-value="Batch mostly"><div class="option-dot"></div><div class="option-text">Batch Scripts mostly</div></div>
+        <div class="option" data-value="Both equally"><div class="option-dot"></div><div class="option-text">Used both about equally</div></div>
+        <div class="option" data-value="Only tried one"><div class="option-dot"></div><div class="option-text">Only tried one of them</div></div>
+      </div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Did you actually post any of the scripts you generated? <span class="req">*</span></div>
+      <div class="options" data-type="radio" data-name="posted_scripts">
+        <div class="option" data-value="Yes, several"><div class="option-dot"></div><div class="option-text">Yes, posted several</div></div>
+        <div class="option" data-value="Yes, one or two"><div class="option-dot"></div><div class="option-text">Yes, one or two</div></div>
+        <div class="option" data-value="Used as inspiration"><div class="option-dot"></div><div class="option-text">Used them as inspiration but rewrote</div></div>
+        <div class="option" data-value="Not yet"><div class="option-dot"></div><div class="option-text">Not yet</div></div>
+      </div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Did you hit the daily generation limit? <span class="req">*</span></div>
+      <div class="options" data-type="radio" data-name="hit_limit">
+        <div class="option" data-value="Yes"><div class="option-dot"></div><div class="option-text">Yes</div></div>
+        <div class="option" data-value="No"><div class="option-dot"></div><div class="option-text">No</div></div>
+        <div class="option" data-value="Not sure"><div class="option-dot"></div><div class="option-text">Not sure</div></div>
+      </div>
+    </div>
+
+    <div class="q-card" id="limit_followup" style="display:none;">
+      <div class="q-label">Approximately how many scripts did you generate before hitting the limit?</div>
+      <div class="options" data-type="radio" data-name="scripts_before_limit">
+        <div class="option" data-value="Under 10"><div class="option-dot"></div><div class="option-text">Under 10</div></div>
+        <div class="option" data-value="10-20"><div class="option-dot"></div><div class="option-text">10 to 20</div></div>
+        <div class="option" data-value="20-30"><div class="option-dot"></div><div class="option-text">20 to 30</div></div>
+        <div class="option" data-value="Close to 30"><div class="option-dot"></div><div class="option-text">Almost hit 30</div></div>
+      </div>
+    </div>
+
+    <!-- SECTION 7: Bugs and Friction -->
+    <div class="section-header">
+      <div class="section-num">7</div>
+      <div class="section-title">Bugs and Friction</div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Did anything break or not work as expected?</div>
+      <textarea class="q-input" name="bugs" placeholder="Describe what happened and when..."></textarea>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">What step frustrated you most or made you want to give up?</div>
+      <textarea class="q-input" name="frustration" placeholder="Be brutally honest, it helps us fix it..."></textarea>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">If you have screenshots of anything odd, paste a link here (Google Drive, iCloud share, etc.)</div>
+      <input type="text" class="q-input" name="screenshots" placeholder="https://...">
+    </div>
+
+    <!-- SECTION 8: Value and Vision -->
+    <div class="section-header">
+      <div class="section-num">8</div>
+      <div class="section-title">Value and Vision</div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Do you think this tool would be an asset to most TikTok Shop affiliates? <span class="req">*</span></div>
+      <div class="options" data-type="radio" data-name="asset_to_affiliates">
+        <div class="option" data-value="Definitely yes"><div class="option-dot"></div><div class="option-text">Definitely yes</div></div>
+        <div class="option" data-value="Yes for most"><div class="option-dot"></div><div class="option-text">Yes, for most creators</div></div>
+        <div class="option" data-value="For some creators"><div class="option-dot"></div><div class="option-text">For some creators, not all</div></div>
+        <div class="option" data-value="Not sure yet"><div class="option-dot"></div><div class="option-text">Not sure yet</div></div>
+        <div class="option" data-value="Needs more work"><div class="option-dot"></div><div class="option-text">Needs more work first</div></div>
+      </div>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">What features would you love to see added? <span class="req">*</span></div>
+      <textarea class="q-input" name="feature_requests" placeholder="Dream big. What would make this a tool you use every single day?" style="min-height:110px;"></textarea>
+    </div>
+
+    <div class="q-card">
+      <div class="q-label">Anything else Coach Ammie should know?</div>
+      <textarea class="q-input" name="other" placeholder="Open floor. Say whatever you want..."></textarea>
+    </div>
+
+    <button type="submit" class="submit-btn" id="submitBtn">Submit Feedback</button>
+
+  </form>
+
+  <div class="success-box" id="successBox">
+    <div class="success-icon">✨</div>
+    <div class="success-title">Thank you so much.</div>
+    <p class="success-sub">Your feedback goes directly to Coach Ammie. Every answer helps make Psych Lab better for every creator in Evolution Pro.</p>
+  </div>
+
+</div>
+
+<script>
+// Radio and checkbox option selection
+document.querySelectorAll('.options[data-type="radio"]').forEach(function(group) {
+  group.querySelectorAll('.option').forEach(function(opt) {
+    opt.addEventListener('click', function() {
+      group.querySelectorAll('.option').forEach(function(o){ o.classList.remove('selected'); });
+      opt.classList.add('selected');
+      // Show/hide limit followup
+      if(group.dataset.name === 'hit_limit') {
+        var val = opt.dataset.value;
+        document.getElementById('limit_followup').style.display = val === 'Yes' ? 'block' : 'none';
+      }
+    });
+  });
+});
+
+// Scale buttons
+document.querySelectorAll('.scale-wrap').forEach(function(wrap) {
+  wrap.querySelectorAll('.scale-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      wrap.querySelectorAll('.scale-btn').forEach(function(b){ b.classList.remove('active'); });
+      btn.classList.add('active');
+    });
+  });
+});
+
+// Collect all form values
+function collectData() {
+  var data = {};
+  // Text inputs
+  document.querySelectorAll('input.q-input, textarea.q-input').forEach(function(el) {
+    if(el.name) data[el.name] = el.value.trim();
+  });
+  // Radio groups
+  document.querySelectorAll('.options[data-type="radio"]').forEach(function(group) {
+    var selected = group.querySelector('.option.selected');
+    if(selected) data[group.dataset.name] = selected.dataset.value;
+  });
+  // Scale
+  document.querySelectorAll('.scale-wrap').forEach(function(wrap) {
+    var selected = wrap.querySelector('.scale-btn.active');
+    if(selected) data[wrap.dataset.name] = selected.dataset.value;
+  });
+  return data;
+}
+
+// Validate required fields
+function validate() {
+  var missing = [];
+  // Required text inputs
+  document.querySelectorAll('input.q-input[required]').forEach(function(el) {
+    if(!el.value.trim()) missing.push(el.name);
+  });
+  // Required radio groups (marked by required label)
+  var required = ['experience','ease_of_start','hooks_real','product_fit','weakest_section','voice_fit','used_ratings','used_badges','explanations_clarity','curated_vs_batch','posted_scripts','hit_limit','asset_to_affiliates','feature_requests'];
+  required.forEach(function(name) {
+    // Check radio
+    var group = document.querySelector('.options[data-name="'+name+'"]');
+    if(group && !group.querySelector('.option.selected')) missing.push(name);
+    // Check scale
+    var scale = document.querySelector('.scale-wrap[data-name="'+name+'"]');
+    if(scale && !scale.querySelector('.scale-btn.active')) missing.push(name);
+    // Check textarea
+    var ta = document.querySelector('textarea[name="'+name+'"]');
+    if(ta && !ta.value.trim()) missing.push(name);
+  });
+  return missing;
+}
+
+// Submit form
+document.getElementById('feedbackForm').addEventListener('submit', function(e) {
+  e.preventDefault();
+  var missing = validate();
+  if(missing.length > 0) {
+    alert('Please answer all required questions before submitting.');
+    return;
+  }
+  var data = collectData();
+  var btn = document.getElementById('submitBtn');
+  btn.disabled = true;
+  btn.textContent = 'Submitting...';
+
+  fetch('https://formspree.io/f/mnjopblv', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+    body: JSON.stringify(data)
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(result) {
+    if(result.ok || result.next) {
+      document.getElementById('feedbackForm').style.display = 'none';
+      document.getElementById('successBox').style.display = 'block';
+      window.scrollTo(0, 0);
+    } else {
+      btn.disabled = false;
+      btn.textContent = 'Submit Feedback';
+      alert('Something went wrong. Please try again.');
+    }
+  })
+  .catch(function() {
+    btn.disabled = false;
+    btn.textContent = 'Submit Feedback';
+    alert('Something went wrong. Please try again.');
+  });
+});
+</script>
+
+</body>
+</html>
