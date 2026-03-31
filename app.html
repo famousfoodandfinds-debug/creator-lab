@@ -2077,7 +2077,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 6000,
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 6000,
       messages: [{ role: "user", content: prompt }]
     })
   })
@@ -2094,7 +2094,10 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     renderBatchResults(scripts, angles);
   })
   .catch(function(err) {
-    mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:14px;'>Something went wrong: " + (err.message||"Please try again") + "</div>";
+    var mc = document.getElementById("mainContent");
+    if(mc) mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:14px;'>Something went wrong generating scripts. Please try again.</div>";
+    var btn = document.getElementById("genBtn");
+    if(btn) { btn.disabled = false; btn.style.background = "var(--red)"; btn.innerHTML = "🧠&nbsp; Generate Focus Angles"; }
   });
 }
 
