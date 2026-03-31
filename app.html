@@ -974,18 +974,12 @@ function onSignedIn() {
   if (psMount && !psMount.hasChildNodes()) {
     psMount.appendChild(buildPriceSelector());
   }
-  // Check if new user -- if no products saved, show onboarding
-  sb.from("products").select("id", { count: "exact", head: true }).eq("user_id", currentUser.id).then(function(result) {
-    var productCount = result.count || 0;
-    if (productCount === 0 && !onboardingDone) {
-      document.getElementById("inputSection").style.display = "none";
-      var gBtn = document.getElementById("genBtn");
-      if (gBtn) gBtn.style.display = "none";
-      var pw = document.getElementById("priceWrap");
-      if (pw) pw.style.display = "none";
-      renderOnboarding();
-    }
-  });
+  // Show full UI for all users immediately
+  document.getElementById("inputSection").style.display = "block";
+  var gBtn = document.getElementById("genBtn");
+  if (gBtn) gBtn.style.display = "block";
+  var pw = document.getElementById("priceWrap");
+  if (pw) pw.style.display = "block";
 }
 
 function showGoalSetter() {
@@ -2083,7 +2077,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 6000,
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 6000,
       messages: [{ role: "user", content: prompt }]
     })
   })
