@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Psych Lab · Getting Started</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+:root {
+  --black: #080808; --surface: #111111; --surface2: #181818; --surface3: #222222;
+  --border: rgba(255,255,255,0.07); --border-md: rgba(255,255,255,0.14); --border-strong: rgba(255,255,255,0.25);
+  --silver: #C0C0C0; --silver-bright: #E8E8E8; --silver-dim: rgba(192,192,192,0.12);
+  --white: #F0F0F0; --white-dim: rgba(240,240,240,0.55); --muted: #666666; --muted2: #404040;
+  --green: #2DC98A; --gold: #D4AF37; --gold-dim: rgba(212,175,55,0.12);
+  --radius: 14px; --radius-sm: 9px;
+}
+html, body { background: var(--black); color: var(--white); font-family: 'Instrument Sans', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
+body { padding-bottom: 80px; }
+
+/* HEADER */
+.header { padding: 16px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(8,8,8,0.95); backdrop-filter: blur(20px); z-index: 100; }
+.header-logo { width: 120px; height: 44px; object-fit: contain; mix-blend-mode: lighten; }
+.header-label { margin-left: auto; font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
+
+/* HERO */
+.hero { padding: 56px 20px 48px; text-align: center; border-bottom: 1px solid var(--border); position: relative; overflow: hidden; }
+.hero-glow { position: absolute; top: -40px; left: 50%; transform: translateX(-50%); width: 600px; height: 400px; background: radial-gradient(ellipse at center, rgba(192,192,192,0.07) 0%, transparent 65%); pointer-events: none; animation: glowPulse 4s ease-in-out infinite; }
+@keyframes glowPulse { 0%,100%{opacity:0.6;transform:translateX(-50%) scale(1)} 50%{opacity:1;transform:translateX(-50%) scale(1.05)} }
+.hero-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border-md); border-radius: 999px; padding: 5px 14px; font-size: 11px; font-weight: 500; color: var(--silver); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 20px; animation: fadeUp 0.4s ease both; }
+.hero-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.3)} }
+.hero-title { font-family: 'Playfair Display', serif; font-size: clamp(36px, 9vw, 52px); font-weight: 900; line-height: 1.05; letter-spacing: -0.02em; color: var(--white); margin-bottom: 16px; animation: fadeUp 0.5s ease 0.1s both; }
+.hero-title em { font-style: italic; color: var(--silver-bright); }
+.hero-sub { font-size: 15px; color: var(--white-dim); font-weight: 300; max-width: 400px; margin: 0 auto 32px; line-height: 1.7; animation: fadeUp 0.5s ease 0.2s both; }
+.hero-stats { display: flex; justify-content: center; animation: fadeUp 0.5s ease 0.3s both; }
+.hero-stat { padding: 14px 20px; border: 1px solid var(--border-md); text-align: center; }
+.hero-stat:first-child { border-radius: var(--radius-sm) 0 0 var(--radius-sm); }
+.hero-stat:last-child { border-radius: 0 var(--radius-sm) var(--radius-sm) 0; border-left: none; }
+.hero-stat:not(:first-child):not(:last-child) { border-left: none; }
+.stat-num { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 900; font-style: italic; color: var(--silver-bright); line-height: 1; margin-bottom: 3px; }
+.stat-label { font-size: 10px; font-weight: 500; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
+
+/* TICKER */
+.ticker-wrap { overflow: hidden; border-bottom: 1px solid var(--border); padding: 10px 0; background: var(--surface); position: relative; }
+.ticker-wrap::before, .ticker-wrap::after { content: ''; position: absolute; top: 0; bottom: 0; width: 60px; z-index: 2; pointer-events: none; }
+.ticker-wrap::before { left: 0; background: linear-gradient(90deg, var(--surface), transparent); }
+.ticker-wrap::after { right: 0; background: linear-gradient(270deg, var(--surface), transparent); }
+.ticker-track { display: flex; gap: 10px; animation: ticker 28s linear infinite; width: max-content; }
+@keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+.ticker-pill { background: var(--surface2); border: 1px solid var(--border-md); border-radius: 999px; padding: 5px 14px; font-size: 11px; font-weight: 500; color: var(--silver); white-space: nowrap; letter-spacing: 0.05em; }
+
+/* PROGRESS NAV */
+.progress-nav { padding: 14px 20px; display: flex; gap: 6px; overflow-x: auto; border-bottom: 1px solid var(--border); scrollbar-width: none; background: var(--surface); }
+.progress-nav::-webkit-scrollbar { display: none; }
+.nav-pill { flex-shrink: 0; display: flex; align-items: center; gap: 6px; background: var(--surface2); border: 1px solid var(--border-md); border-radius: 999px; padding: 6px 12px; font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: none; transition: all 0.2s; cursor: pointer; }
+.nav-pill:hover, .nav-pill.active { border-color: var(--silver); color: var(--silver-bright); background: var(--silver-dim); }
+.nav-num { width: 18px; height: 18px; background: var(--surface3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: var(--muted); flex-shrink: 0; }
+
+/* SECTIONS */
+.section { padding: 36px 20px; border-bottom: 1px solid var(--border); opacity: 0; transform: translateY(20px); transition: opacity 0.55s ease, transform 0.55s ease; }
+.section.visible { opacity: 1; transform: translateY(0); }
+.section-head { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 20px; }
+.section-num { width: 34px; height: 34px; flex-shrink: 0; background: var(--silver-dim); border: 1px solid rgba(192,192,192,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 15px; font-weight: 700; font-style: italic; color: var(--silver-bright); }
+.section-title { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 700; line-height: 1.2; color: var(--white); padding-top: 5px; }
+.section-title em { font-style: italic; color: var(--silver-bright); }
+.section-body { display: flex; flex-direction: column; gap: 14px; }
+.section-text { font-size: 14px; color: var(--white-dim); line-height: 1.75; font-weight: 300; }
+.section-text strong { color: var(--white); font-weight: 600; }
+
+/* FRAMEWORK GRID */
+.framework-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.framework-card { background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 14px; transition: all 0.2s; }
+.framework-card:hover { border-color: rgba(192,192,192,0.35); background: var(--surface3); transform: translateY(-1px); }
+.framework-name { font-size: 12px; font-weight: 600; color: var(--silver-bright); margin-bottom: 4px; line-height: 1.3; }
+.framework-desc { font-size: 11px; color: var(--muted); line-height: 1.5; font-weight: 300; }
+
+/* STEP FLOW */
+.step-flow { display: flex; flex-direction: column; gap: 0; margin-top: 4px; }
+.step-item { display: flex; gap: 14px; align-items: flex-start; padding: 16px 0; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--white-dim); line-height: 1.65; font-weight: 300; }
+.step-item:last-child { border-bottom: none; }
+.step-item strong { color: var(--white); font-weight: 600; }
+.step-dot { width: 8px; height: 8px; flex-shrink: 0; margin-top: 7px; border-radius: 50%; background: linear-gradient(135deg, var(--silver), var(--silver-bright)); box-shadow: 0 0 6px rgba(192,192,192,0.3); }
+
+/* TIP */
+.tip { background: var(--gold-dim); border: 1px solid rgba(212,175,55,0.2); border-radius: var(--radius-sm); padding: 14px 16px; font-size: 13px; color: var(--white-dim); line-height: 1.65; font-weight: 300; }
+.tip strong { color: var(--gold); font-weight: 600; }
+
+/* CALLOUT */
+.psych-callout { background: linear-gradient(135deg, rgba(192,192,192,0.08), rgba(192,192,192,0.04)); border: 1px solid rgba(192,192,192,0.18); border-radius: var(--radius); padding: 20px; position: relative; overflow: hidden; }
+.psych-callout::before { content: '"'; position: absolute; top: -10px; right: 16px; font-family: 'Playfair Display', serif; font-size: 80px; font-style: italic; color: rgba(192,192,192,0.08); line-height: 1; pointer-events: none; }
+.psych-callout-title { font-size: 10px; font-weight: 600; font-style: normal; color: var(--silver); margin-bottom: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
+.psych-callout-text { font-size: 15px; color: var(--white); line-height: 1.75; font-weight: 300; }
+.psych-callout-text em { font-style: italic; color: var(--silver-bright); }
+
+/* MODES */
+.mode-cards { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.mode-card { background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 16px; transition: all 0.2s; }
+.mode-card:hover { border-color: var(--border-strong); }
+.mode-card-title { margin-bottom: 8px; }
+.mode-badge { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; display: inline-block; }
+.mode-badge.pain { background: rgba(232,40,78,0.12); color: #E8284E; border: 1px solid rgba(232,40,78,0.2); }
+.mode-badge.aspiration { background: rgba(212,175,55,0.12); color: var(--gold); border: 1px solid rgba(212,175,55,0.2); }
+.mode-badge.both { background: var(--silver-dim); color: var(--silver-bright); border: 1px solid rgba(192,192,192,0.2); }
+.mode-card-text { font-size: 13px; color: var(--white-dim); line-height: 1.65; font-weight: 300; }
+
+/* CUSTOM ANGLE */
+.custom-angle { background: var(--surface2); border: 1px solid rgba(192,192,192,0.2); border-radius: var(--radius-sm); padding: 16px; display: flex; gap: 12px; align-items: flex-start; }
+.custom-angle-icon { width: 36px; height: 36px; flex-shrink: 0; background: var(--silver-dim); border: 1px solid rgba(192,192,192,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.custom-angle-title { font-size: 13px; font-weight: 600; color: var(--silver-bright); margin-bottom: 5px; }
+.custom-angle-desc { font-size: 12px; color: var(--white-dim); line-height: 1.6; font-weight: 300; }
+
+/* VOICE */
+.voice-items { display: flex; flex-direction: column; gap: 8px; }
+.voice-item { display: flex; align-items: center; gap: 12px; background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 12px 14px; transition: all 0.2s; }
+.voice-item:hover { border-color: var(--border-strong); }
+.voice-icon { width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+.voice-icon.up { background: rgba(45,201,138,0.12); border: 1px solid rgba(45,201,138,0.25); }
+.voice-icon.down { background: rgba(232,40,78,0.1); border: 1px solid rgba(232,40,78,0.2); }
+.voice-icon.skip { background: var(--surface3); border: 1px solid var(--border-md); font-size: 20px; }
+.voice-title { font-size: 13px; font-weight: 600; color: var(--white); margin-bottom: 2px; }
+.voice-desc { font-size: 12px; color: var(--muted); font-weight: 300; }
+
+/* CTA */
+.cta-section { margin: 40px 20px 0; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 20px; padding: 36px 24px; text-align: center; position: relative; overflow: hidden; }
+.cta-section::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(232,232,232,0.5), transparent); }
+.cta-title { font-family: 'Playfair Display', serif; font-size: 26px; font-weight: 700; color: var(--white); margin-bottom: 10px; line-height: 1.2; }
+.cta-title em { font-style: italic; color: var(--silver-bright); }
+.cta-sub { font-size: 14px; color: var(--white-dim); font-weight: 300; line-height: 1.65; margin: 0 auto 28px; max-width: 320px; }
+.cta-btn { display: inline-block; background: linear-gradient(135deg, #C0C0C0, #E8E8E8); color: #080808; border: none; border-radius: var(--radius); font-family: 'Instrument Sans', sans-serif; font-size: 15px; font-weight: 600; padding: 16px 36px; text-decoration: none; transition: all 0.2s; letter-spacing: 0.01em; }
+.cta-btn:hover { transform: scale(1.03); box-shadow: 0 0 40px rgba(232,232,232,0.2); }
+
+.footer { text-align: center; padding: 32px 20px 16px; font-size: 12px; color: var(--muted); }
+.footer strong { color: var(--white-dim); }
+
+@keyframes fadeUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <img class="header-logo" src="https://i.ibb.co/TDxsM31g/Psych-Lab-Cropped.png" alt="Psych Lab">
+  <div class="header-label">Getting Started</div>
+</div>
+
+<div class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-tag"><span class="hero-dot"></span> Member Guide</div>
+  <div class="hero-title">Welcome to <em>Psych Lab</em></div>
+  <div class="hero-sub">Everything you need to build scroll-stopping social selling scripts built on buyer psychology, not guesswork.</div>
+  <div class="hero-stats">
+    <div class="hero-stat"><div class="stat-num">30</div><div class="stat-label">Daily Scripts</div></div>
+    <div class="hero-stat"><div class="stat-num">5</div><div class="stat-label">Batch at Once</div></div>
+    <div class="hero-stat"><div class="stat-num">2min</div><div class="stat-label">Per Script</div></div>
+  </div>
+</div>
+
+<div class="ticker-wrap">
+  <div class="ticker-track">
+    <span class="ticker-pill">Curiosity Loop</span><span class="ticker-pill">Pain Relief</span><span class="ticker-pill">Identity Trigger</span><span class="ticker-pill">Scarcity &amp; FOMO</span><span class="ticker-pill">Social Proof</span><span class="ticker-pill">Skepticism Disarm</span><span class="ticker-pill">Desired Transformation</span><span class="ticker-pill">Feature to Feeling</span><span class="ticker-pill">Value Reframe</span><span class="ticker-pill">Legacy &amp; Emotion</span><span class="ticker-pill">Friction Removal</span><span class="ticker-pill">Soft Close</span><span class="ticker-pill">Direct Close</span><span class="ticker-pill">Quality Proof</span>
+    <span class="ticker-pill">Curiosity Loop</span><span class="ticker-pill">Pain Relief</span><span class="ticker-pill">Identity Trigger</span><span class="ticker-pill">Scarcity &amp; FOMO</span><span class="ticker-pill">Social Proof</span><span class="ticker-pill">Skepticism Disarm</span><span class="ticker-pill">Desired Transformation</span><span class="ticker-pill">Feature to Feeling</span><span class="ticker-pill">Value Reframe</span><span class="ticker-pill">Legacy &amp; Emotion</span><span class="ticker-pill">Friction Removal</span><span class="ticker-pill">Soft Close</span><span class="ticker-pill">Direct Close</span><span class="ticker-pill">Quality Proof</span>
+  </div>
+</div>
+
+<div class="progress-nav">
+  <a href="#section1" class="nav-pill"><span class="nav-num">1</span> What is Psych Lab</a>
+  <a href="#section2" class="nav-pill"><span class="nav-num">2</span> Buyer Psychology</a>
+  <a href="#section3" class="nav-pill"><span class="nav-num">3</span> Script Builder</a>
+  <a href="#section4" class="nav-pill"><span class="nav-num">4</span> Hook Framing</a>
+  <a href="#section5" class="nav-pill"><span class="nav-num">5</span> Daily Goal</a>
+  <a href="#section6" class="nav-pill"><span class="nav-num">6</span> Voice Learning</a>
+</div>
+
+<div id="section1" class="section">
+  <div class="section-head">
+    <div class="section-num">1</div>
+    <div class="section-title">What is <em>Psych Lab?</em></div>
+  </div>
+  <div class="section-body">
+    <div class="section-text">Psych Lab is a social selling script generator built entirely on buyer psychology. Every hook, body line, pre-close, and CTA is written around the specific desire your product triggers, not a generic template.</div>
+    <div class="section-text">Most creators describe their product. Psych Lab describes your <strong>buyer.</strong> Who they are, what they feel, and what would make them stop scrolling and tap the cart.</div>
+    <div class="psych-callout">
+      <div class="psych-callout-title">The core principle</div>
+      <div class="psych-callout-text">Sell the person they become, <em>not the product they buy.</em> Every script starts with the buyer's feeling, not the product's features. Features are proof. Feelings convert.</div>
+    </div>
+  </div>
+</div>
+
+<div id="section2" class="section">
+  <div class="section-head">
+    <div class="section-num">2</div>
+    <div class="section-title">Why <em>Buyer Psychology</em> Works</div>
+  </div>
+  <div class="section-body">
+    <div class="section-text">Every purchase decision is driven by a core desire, something the buyer wants to feel, become, or stop experiencing. Psych Lab identifies which desire your product triggers and builds every line of your script around it.</div>
+    <div class="section-text">This matters because <strong>most scripts describe the product.</strong> The scripts that convert <strong>describe the buyer.</strong> When someone watches your video and thinks "that's me," that's buyer psychology working exactly the way it should.</div>
+    <div class="framework-grid">
+      <div class="framework-card"><div class="framework-name">Pain / Problem Relief</div><div class="framework-desc">Most urgent driver. People spend to stop hurting.</div></div>
+      <div class="framework-card"><div class="framework-name">Emotion / Identity</div><div class="framework-desc">Who does this product make me?</div></div>
+      <div class="framework-card"><div class="framework-name">Dopamine / Instant Gratification</div><div class="framework-desc">Novelty and quick wins. Low friction impulse.</div></div>
+      <div class="framework-card"><div class="framework-name">Urgency / Scarcity</div><div class="framework-desc">Deadlines override rational thinking.</div></div>
+      <div class="framework-card"><div class="framework-name">Status / Upgrade</div><div class="framework-desc">Signals who they are becoming.</div></div>
+      <div class="framework-card"><div class="framework-name">Habit / Routine</div><div class="framework-desc">Embedded in daily life. Hard to quit.</div></div>
+      <div class="framework-card"><div class="framework-name">Trust / Recognition</div><div class="framework-desc">Familiarity eliminates hesitation.</div></div>
+      <div class="framework-card"><div class="framework-name">Convenience</div><div class="framework-desc">Saves time, removes effort, simplifies life.</div></div>
+    </div>
+    <div class="tip"><strong>How Psych Lab uses this:</strong> Every time you generate, the tool reads your product, picks the strongest desire angle, and builds every line of your script to trigger that specific feeling. You don't need to understand the framework to use it, but the more you use it, the sharper your instincts get.</div>
+  </div>
+</div>
+
+<div id="section3" class="section">
+  <div class="section-head">
+    <div class="section-num">3</div>
+    <div class="section-title">How to use the <em>Script Builder</em></div>
+  </div>
+  <div class="section-body">
+    <div class="section-text">Start by describing your product in the input box. The more specific you are, the better your angles will be. Include the brand name, what it does, and who it's for.</div>
+    <div class="step-flow">
+      <div class="step-item"><div class="step-dot"></div><span><strong>Select price range</strong> -- impulse, considered, or premium. This shapes the pacing, energy, and pre-close believability of every script.</span></div>
+      <div class="step-item"><div class="step-dot"></div><span><strong>Pick your focus angle</strong> -- Psych Lab generates 5 distinct buyer desire angles for your product. Each targets a different type of person. Pick the one that matches who you want to speak to in this video.</span></div>
+      <div class="step-item"><div class="step-dot"></div><span><strong>Choose your mode</strong> -- generate a single guided script step by step, or batch generate up to 5 complete scripts at once, each targeting a different angle.</span></div>
+      <div class="step-item"><div class="step-dot"></div><span><strong>Review your script</strong> -- every script includes a hook, body lines, pre-close, CTA, on-screen text options, a ready-to-post caption, and hashtags.</span></div>
+      <div class="step-item"><div class="step-dot"></div><span><strong>Save and track</strong> -- save scripts to your product library, mark videos as posted, and track your daily streak. Your script bank grows with every product you add.</span></div>
+    </div>
+    <div class="custom-angle">
+      <div class="custom-angle-icon">✏️</div>
+      <div>
+        <div class="custom-angle-title">You can also write your own angle</div>
+        <div class="custom-angle-desc">If you know exactly who you're speaking to, skip the generated angles and type a custom focus. Describe the specific person, situation, or desire you want to target and the tool builds every line around your angle instead.</div>
+      </div>
+    </div>
+    <div class="tip"><strong>Pro tip:</strong> Use batch mode when you need a full day of content fast. Five angles, five complete scripts, one generation. Each targets a completely different buyer so you're not posting the same video five times.</div>
+  </div>
+</div>
+
+<div id="section4" class="section">
+  <div class="section-head">
+    <div class="section-num">4</div>
+    <div class="section-title">Pain vs <em>Aspiration</em> Framing</div>
+  </div>
+  <div class="section-body">
+    <div class="section-text">Before writing your hook, Psych Lab makes a decision most creators never think about. Should this script lead with pain or aspiration? The wrong choice kills the video before the first sentence ends.</div>
+    <div class="mode-cards">
+      <div class="mode-card">
+        <div class="mode-card-title"><span class="mode-badge pain">Pain Mode</span></div>
+        <div class="mode-card-text">Used when the buyer has a real frustration they feel daily. The hook surfaces that pain and makes it visible. The product becomes the relief. Best for functional products that solve a known problem.</div>
+      </div>
+      <div class="mode-card">
+        <div class="mode-card-title"><span class="mode-badge aspiration">Aspiration Mode</span></div>
+        <div class="mode-card-text">Used when the buyer isn't broken, they're upgrading. The hook paints the life they could be living. The product becomes the doorway into that version of themselves. Best for premium, lifestyle, and gift products.</div>
+      </div>
+      <div class="mode-card">
+        <div class="mode-card-title"><span class="mode-badge both">Both Mode</span></div>
+        <div class="mode-card-text">Lead with the aspiration, the life they want. Close with the quiet cost of not acting. Every day without it is another day in the version they've outgrown. Most powerful for premium home goods and kitchen upgrades.</div>
+      </div>
+    </div>
+    <div class="tip"><strong>Psych Lab handles this automatically.</strong> It reads your product and buyer angle and chooses the right framing before writing a single word. You don't have to decide, but understanding why it chose what it chose makes you a sharper creator.</div>
+  </div>
+</div>
+
+<div id="section5" class="section">
+  <div class="section-head">
+    <div class="section-num">5</div>
+    <div class="section-title">Setting your <em>Daily Goal</em></div>
+  </div>
+  <div class="section-body">
+    <div class="section-text">Short-form selling rewards consistency above almost everything else. Set a daily posting goal and Psych Lab tracks your progress with a meter at the top of the screen.</div>
+    <div class="section-text">Every day you hit your goal builds your streak. The streak is everything. Creators who post consistently compound their results faster than anyone else, not because they're more talented, but because the algorithm rewards reliability.</div>
+    <div class="psych-callout">
+      <div class="psych-callout-title">The rule</div>
+      <div class="psych-callout-text">Pick a number you can hit every single day, <em>even on your worst day.</em> A consistent 3 beats an inconsistent 6 every time. Start conservative and build up.</div>
+    </div>
+  </div>
+</div>
+
+<div id="section6" class="section">
+  <div class="section-head">
+    <div class="section-num">6</div>
+    <div class="section-title">Voice <em>Learning</em></div>
+  </div>
+  <div class="section-body">
+    <div class="section-text">Psych Lab gets smarter the more you use it. Every time you rate a line with a thumbs up or down, the tool learns which styles match how you actually talk and adjusts every future generation to fit your voice.</div>
+    <div class="voice-items">
+      <div class="voice-item">
+        <div class="voice-icon up">👍</div>
+        <div><div class="voice-title">This sounds like me</div><div class="voice-desc">Write more like this going forward.</div></div>
+      </div>
+      <div class="voice-item">
+        <div class="voice-icon down">👎</div>
+        <div><div class="voice-title">I would never say this</div><div class="voice-desc">Deprioritize this style. Not wrong, just not me.</div></div>
+      </div>
+      <div class="voice-item">
+        <div class="voice-icon skip">·</div>
+        <div><div class="voice-title">Skip it</div><div class="voice-desc">Good idea, wrong product. Only rate what genuinely reflects your voice.</div></div>
+      </div>
+    </div>
+    <div class="tip"><strong>Important:</strong> Only rate lines that genuinely reflect your voice or don't. If a line is just wrong for the product but the style is fine, skip it. Otherwise you're teaching the tool the wrong lesson.</div>
+  </div>
+</div>
+
+<div class="cta-section">
+  <div class="cta-title">Ready to build your <em>first script?</em></div>
+  <div class="cta-sub">Describe a product, pick your focus angle, and your script is ready in under 2 minutes.</div>
+  <a class="cta-btn" href="https://psychscriptlab.app/app.html">🧠 &nbsp;Open Psych Lab</a>
+</div>
+
+<div class="footer">Built by <strong>Famous</strong> &nbsp;·&nbsp; Psych Lab &nbsp;·&nbsp; © 2026</div>
+
+<script>
+// Scroll-triggered section reveal
+const sections = document.querySelectorAll('.section');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
+sections.forEach(s => observer.observe(s));
+
+// Active nav highlight on scroll
+const pills = document.querySelectorAll('.nav-pill');
+const sectionEls = document.querySelectorAll('.section[id]');
+window.addEventListener('scroll', () => {
+  let current = '';
+  sectionEls.forEach(s => { if (window.scrollY >= s.offsetTop - 140) current = s.id; });
+  pills.forEach(p => p.classList.toggle('active', p.getAttribute('href') === '#' + current));
+}, { passive: true });
+
+// Smooth scroll
+pills.forEach(p => {
+  p.addEventListener('click', e => {
+    e.preventDefault();
+    const t = document.querySelector(p.getAttribute('href'));
+    if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+});
+</script>
+</body>
+</html>
