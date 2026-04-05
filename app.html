@@ -504,8 +504,8 @@ textarea::placeholder { color: var(--muted2); }
 /* USER BAR */
 .user-bar { display: flex; align-items: center; gap: 10px; padding: 10px 0 0; }
 .user-email { font-size: 11px; color: var(--muted); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.signout-btn { font-size: 13px; color: var(--white-dim); background: none; border: none; cursor: pointer; font-family: 'Instrument Sans', sans-serif; padding: 4px 8px; transition: color 0.15s; flex-shrink: 0; font-weight: 500; }
-.signout-btn:hover { color: var(--red); }
+.signout-btn { font-size: 12px; color: var(--white-dim); background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); cursor: pointer; font-family: 'Instrument Sans', sans-serif; padding: 6px 12px; transition: all 0.15s; flex-shrink: 0; font-weight: 500; letter-spacing: 0.01em; text-decoration: none; display: inline-flex; align-items: center; gap: 4px; }
+.signout-btn:hover { border-color: var(--border-strong); color: var(--white); background: var(--surface3); }
 
 /* SYNC INDICATOR */
 .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
@@ -562,8 +562,8 @@ textarea::placeholder { color: var(--muted2); }
   <div class="user-bar">
     <div class="sync-dot" id="syncDot"></div>
     <div class="user-email" id="userEmail"></div>
-    <button class="signout-btn" onclick="showGoalSetter()" style="color:var(--muted2);margin-right:4px;" title="Set daily goal">⚙️ Goal</button>
-    <a href="/tutorial.html" target="_blank" class="signout-btn" style="text-decoration:none;color:var(--silver);">Learn Here</a>
+    <button class="signout-btn" onclick="showGoalSetter()">⚙️ Set Daily Goal</button>
+    <a href="/tutorial.html" target="_blank" class="signout-btn">📖 Learn Here</a>
     <button class="signout-btn" onclick="signOut()">Sign out</button>
   </div>
   <div id="dailyMeterSection" style="display:none;margin-bottom:8px;">
