@@ -3403,7 +3403,8 @@ function generateSkitScripts(skitAngles) {
 
   var completedSkits = [];
   var completedAngles = [];
-  var usedTurns = [];
+  // Pre-seed with most common default turns to prevent model from defaulting to them
+  var usedTurns = ["Why have I not been doing this", "Why have I not been doing this already"];
   var usedOpenings = [];
   var usedCaptionThemes = [];
 
@@ -3434,7 +3435,7 @@ function generateSkitScripts(skitAngles) {
       " LINE 5 THEM: THE TURN. NOT a question. A genuine emotional shift. CRITICAL: Each skit needs a different turn -- never reuse the same Line 5 across skits. Strong turns (pick a different one for each skit): I hate that that makes sense / I was about to make fun of you and now I kind of need it / That is literally what has been happening to me / Why have I not been doing this / I mean I would not be mad if you sent that / Okay I actually need that right now. Banned turns: So it actually works? / How long until you feel it? -- those are questions not reactions." +
       " LINE 6 YOU: Natural CTA matching relationship. FRIEND: I will text you the link. SPOUSE: Already in my cart / I just added you one. STRANGER: Here let me pull it up. EXPERT: I will send you the link. Never say link in bio or check it out. CRITICAL: Line 6 is ONE sentence of dialogue. NEVER list product features in Line 6 -- Vegan, non-GMO, liquid center is a product spec list, not something a person says in conversation. Line 6 is only the offer to share the link, nothing else." +
       " RULES: Lines 1 and 3 under 13 words. Lines 2, 4, 5, 6 under 10 words. No em dashes. No invented specs. No brand names except product brand. No disclaimers in caption." +
-      " CAPTION: Real person texting their group chat after filming. Specific, a little funny, genuine. Not a tagline. BANNED: she ordered before we finished filming / she texted me right after / filmed this because / we do not talk about. Those lines make it obvious this was staged. Write like you posted it organically." +
+      " CAPTION: Real person texting their group chat after filming. Specific, a little funny, genuine. Not a tagline. Not product marketing copy. THE TEST: Would a real person actually type this on their phone? BANNED PATTERNS: Any line that reveals this was filmed or staged -- she ordered before we finished talking / I had to film it / she texted me right after / filmed this because / now she is adding it to the cart. Any line that reads like a sponsored post or product brief -- NR is the specific ingredient / Goli figured out how to / most people have never heard of it. That is ad copy, not a caption. Keep it personal, specific, and short. 2-3 sentences maximum." +
       " ON-SCREEN TEXT: 3 options. Pure pattern interrupt. Nothing to do with product. Max 5 words each. Personal or uncomfortably accurate. Do NOT reference cells, aging, or energy -- those are product themes. Think about what would stop someone scrolling who has nothing to do with the product yet." +
       " ALREADY USED -- do not repeat these:" +
       (usedTurns.length > 0 ? " Line 5 turns already used in this batch: " + usedTurns.join(" / ") + ". You MUST write a different Line 5 turn." : "") +
