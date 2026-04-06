@@ -620,6 +620,11 @@ textarea::placeholder { color: var(--muted2); }
       <span class="char-ct"><span id="charCount">0</span>/1000</span>
       <button class="clr-btn" onclick="clearText()">Clear</button>
     </div>
+    <div class="panel-lbl" style="margin-top:12px;color:var(--muted);">Why do people really buy this?</div>
+    <textarea id="buyerMotivation" placeholder="Why do you think people purchase this? The more honest you are here the better your scripts. Think: what are they upgrading from, what is the real reason they want it, what would they tell a friend. If left blank scripts will be generated from the product description alone and may feel more generic." maxlength="500" style="min-height:72px;-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;"></textarea>
+    <div class="panel-foot" style="margin-top:4px;">
+      <span class="char-ct"><span id="motivationCount">0</span>/500</span>
+    </div>
   </div>
   <div id="imgPreviewWrap" style="display:none;">
     <div style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);padding:10px 14px;margin-top:8px;">
@@ -1493,6 +1498,7 @@ function loadProductById(id) {
     allData.body2Live = {};   // always start fresh -- generated live
     allData.seo = allData.seo || {};
     allData.onScreenText = allData.onScreenText || [];
+    setBuyerMotivation(result.data.motivation || "");
     resetPicks();
     document.getElementById("inputSection").style.display = "none";
     document.getElementById("genBtn").style.display = "none";
@@ -1500,11 +1506,26 @@ function loadProductById(id) {
   });
 }
 
+function getBuyerMotivation() {
+  var el = document.getElementById("buyerMotivation");
+  return el ? el.value.trim() : "";
+}
+
+function setBuyerMotivation(text) {
+  var el = document.getElementById("buyerMotivation");
+  if(el) {
+    el.value = text || "";
+    var countEl = document.getElementById("motivationCount");
+    if(countEl) countEl.textContent = (text || "").length;
+  }
+}
+
 function saveProduct(name, bank, callback) {
   if (!currentUser) return;
   setSyncing(true);
   var desc = document.getElementById("productInput") ? document.getElementById("productInput").value.trim() : "";
-  var payload = { user_id: currentUser.id, name: name, bank: bank, description: desc, updated_at: new Date().toISOString() };
+  var motivation = getBuyerMotivation();
+  var payload = { user_id: currentUser.id, name: name, bank: bank, description: desc, motivation: motivation || null, updated_at: new Date().toISOString() };
   var promise;
   if (currentProductId) {
     // Update existing product
@@ -1914,6 +1935,11 @@ function setMode(mode) {
   }
 }
 
+document.getElementById("buyerMotivation") && document.getElementById("buyerMotivation").addEventListener("input", function() {
+  var countEl = document.getElementById("motivationCount");
+  if(countEl) countEl.textContent = this.value.length;
+});
+
 document.getElementById("productInput").addEventListener("input", function() {
   document.getElementById("charCount").textContent = this.value.length;
 });
@@ -2038,6 +2064,7 @@ function showNew() {
   document.getElementById("genBtn").style.display = "block";
   document.getElementById("productInput").value = "";
   document.getElementById("charCount").textContent = "0";
+  setBuyerMotivation("");
   document.getElementById("mainContent").innerHTML = '<div class="state-box"><div class="state-icon">✨</div><div class="state-title">Your Script Bank</div><div class="state-desc">Describe your product and generate your custom script bank.</div></div>';
 }
 
@@ -2358,6 +2385,8 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
   var prompt = "You write TikTok Shop scripts that sound exactly like a real person texting a friend about something they found and cannot stop thinking about." +
 
     " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. What does their day feel like now? What do they stop doing? What do they notice about themselves? The product is just how they got there. Features are proof, not the point." +
+
+    (getBuyerMotivation() ? " CREATOR INSIGHT -- WHY PEOPLE BUY THIS (read this first, it changes everything): " + getBuyerMotivation() + " Write every hook and body line from inside this truth. If the creator says people are upgrading from something they already have, never write as if the viewer has no solution yet." : "") +
 
     " VOICE: Grab your phone. Start talking. If a marketing person would say it, a real person would not. If you would text it to a friend, keep it. If you would put it in a brochure, delete it." +
 
@@ -2784,6 +2813,8 @@ function generateScriptBank() {
   var voiceNote = getVoiceProfileNote();
 
   var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend about something they found. Not an ad. Not a brand. A person." +
+
+    (getBuyerMotivation() ? " CREATOR INSIGHT -- WHY PEOPLE BUY THIS (read this first): " + getBuyerMotivation() + " Let this shape every hook, body line, and pre-close. If the creator says this is an upgrade purchase, never position it as a solution to having nothing." : "") +
     " Product: " + product + "." + focusLine + priceLine + voiceNote +
 
     " THE ONLY TEST FOR EVERY LINE: Would I actually say this out loud to my best friend right now? If it sounds written, rewrite it until it sounds spoken." +
