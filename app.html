@@ -1988,8 +1988,14 @@ function renderModeChoice(wrap, focuses) {
   batchBtn.className = "mode-btn";
   batchBtn.innerHTML = "<div class='mode-btn-title'>\u26A1 Batch Scripts</div><div class='mode-btn-desc'>Select up to 5 angles. Get 5 complete scripts at once.</div>";
 
+  var skitBtn2 = document.createElement("button");
+  skitBtn2.className = "mode-btn";
+  skitBtn2.innerHTML = "<div class='mode-btn-title'>\uD83C\uDFAD Skit Script</div><div class='mode-btn-desc'>Two-person dialogue. Pick a relationship and get a full skit.</div>";
+  skitBtn2.addEventListener("click", function(){ renderSkitMode(); });
+
   modeWrap.appendChild(curatedBtn);
   modeWrap.appendChild(batchBtn);
+  modeWrap.appendChild(skitBtn2);
   wrap.appendChild(modeWrap);
 
   // Curated section -- focus angle cards
