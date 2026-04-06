@@ -2193,6 +2193,71 @@ function renderModeChoice(wrap, focuses) {
 // ============================================================
 // BATCH SCRIPT GENERATION
 // ============================================================
+
+// ============================================================
+// FOCUSED CTA GENERATION -- one job: close this specific hook
+// ============================================================
+function generateBatchCTAs(hooks, product, priceCtx, callback) {
+  var hookList = hooks.map(function(h, i){ return "Hook " + (i+1) + ": " + h; }).join("\n");
+  var prompt = "You have one job. For each hook below, write a CTA that closes the exact tension opened by that hook." +
+    " The viewer should feel like the CTA is the direct answer to the hook -- if you can swap this CTA onto a different product it fails." +
+    " Product: " + product + ". Price context: " + priceCtx + "." +
+    " RULES: Action verb first. Under 12 words. Must contain specific language from the hook itself -- words, images, or the exact tension it created." +
+    " End with exactly one of: linked below, grab it below, tap the orange cart below, grab yours below." +
+    " BANNED -- never write these alone with nothing before them: Grab yours below. Linked below. Tap the orange cart below. Grab it below. These are only acceptable as the ENDING of a CTA that has already closed the hook loop." +
+    " FORMULA: [Resolution of hook tension] + [button reference]. Example -- Hook: Your cold drink is warm before you finish the trail. CTA: Stop settling for warm -- grab yours below. Example -- Hook: Everyone else's bag looks like everyone else's bag. CTA: Be the one whose bag actually looks like them -- grab yours below." +
+    "\n\nHooks:\n" + hookList +
+    "\n\nReturn ONLY valid JSON: {ctas:[" + hooks.map(function(){ return "string"; }).join(",") + "]}";
+
+  fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 400,
+      messages: [{ role: "user", content: prompt }] })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    var text = ""; data.content.forEach(function(b){ if(b.type==="text") text+=b.text; });
+    var parsed = JSON.parse(text.replace(/```json|```/g,"").trim());
+    callback(parsed.ctas || []);
+  })
+  .catch(function(){ callback([]); });
+}
+
+// ============================================================
+// FOCUSED SCREEN TEXT GENERATION -- contrast not echo
+// ============================================================
+function generateBatchScreenTexts(hooks, product, callback) {
+  var hookList = hooks.map(function(h, i){ return "Hook " + (i+1) + ": " + h; }).join("\n");
+  var prompt = "You have one job. For each hook below, write 3 text hooks that appear on screen BEFORE the viewer hears a single spoken word." +
+    " These must create CONTRAST with the spoken hook -- not echo it, not summarize it, not preview it." +
+    " The text hook and the spoken hook should feel like two separate thoughts that together make the viewer stop." +
+    " Product context: " + product + "." +
+    " MECHANISM -- each option must use one of these:" +
+    " (1) Mild confrontation about the viewer's current situation that feels uncomfortably specific" +
+    " (2) A claim that feels slightly too personal to be random" +
+    " (3) A direct challenge that doesn't yet connect to the product" +
+    " BANNED: any words from the spoken hook itself. Any description of the product. Any summary of what's coming. Any words that echo the hook's theme." +
+    " CONTRAST TEST: read the screen text then read the hook. If they feel like the same thought expressed twice -- rewrite. They should feel like two different provocations." +
+    " Under 6 words each. Lowercase preferred." +
+    "\n\nHooks:\n" + hookList +
+    "\n\nReturn ONLY valid JSON: {screenTexts:[[3 strings per hook]]}";
+
+  fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600,
+      messages: [{ role: "user", content: prompt }] })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    var text = ""; data.content.forEach(function(b){ if(b.type==="text") text+=b.text; });
+    var parsed = JSON.parse(text.replace(/```json|```/g,"").trim());
+    callback(parsed.screenTexts || []);
+  })
+  .catch(function(){ callback([]); });
+}
+
 function generateBatchScripts(angles) {
   var mc = document.getElementById("mainContent");
   mc.innerHTML = "";
@@ -2266,7 +2331,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
 
     " FINAL CHECK: Read every single line aloud in your head as if you are talking to your best friend. If it sounds like an ad, rewrite it. If it sounds like something a real person would actually say, keep it." +
 
-    " For each script also generate: a caption (2-3 natural sentences a real person would post, includes a soft CTA) and 5 hashtags (no # symbol, mix of niche and broad). Return ONLY valid JSON: {scripts:[{angle:string,hook:string,body1:string,preClose:string,body2:string,cta:string,screenText:[string,string,string],caption:string,hashtags:[string,string,string,string,string]}]}";
+    " For each script also generate: a caption (2-3 natural sentences a real person would post, includes a soft CTA) and 5 hashtags (no # symbol, mix of niche and broad). Do NOT generate a CTA or screenText -- those will be written separately. Return ONLY valid JSON: {scripts:[{angle:string,hook:string,body1:string,preClose:string,body2:string,caption:string,hashtags:[string,string,string,string,string]}]}";
 
   fetch("/api/claude", {
     method: "POST",
@@ -2284,8 +2349,26 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     var parsed = JSON.parse(clean);
     var scripts = parsed.scripts || [];
 
-    // Deliver scripts directly -- quality baked into generation prompt
-    renderBatchResults(scripts, angles);
+    // Fire CTA and screen text calls in parallel, then render
+    var hooks = scripts.map(function(s){ return s.hook || ""; });
+    var ctasDone = false, screenDone = false;
+    var ctas = [], screenTexts = [];
+
+    var tryRender = function() {
+      if(!ctasDone || !screenDone) return;
+      scripts.forEach(function(s, i) {
+        if(ctas[i]) s.cta = ctas[i];
+        if(screenTexts[i]) s.screenText = screenTexts[i];
+      });
+      renderBatchResults(scripts, angles);
+    };
+
+    generateBatchCTAs(hooks, currentProduct, priceCtx, function(result) {
+      ctas = result; ctasDone = true; tryRender();
+    });
+    generateBatchScreenTexts(hooks, currentProduct, function(result) {
+      screenTexts = result; screenDone = true; tryRender();
+    });
   })
   .catch(function(err) {
     var mc = document.getElementById("mainContent");
@@ -3354,12 +3437,25 @@ function renderBatchAngleGrid(wrap, focuses) {
   var customConfirm = document.createElement("button");
   customConfirm.className = "custom-angle-confirm";
   customConfirm.textContent = "Add this angle";
+  var customCountEl = document.createElement("div");
+  customCountEl.style.cssText = "font-size:11px;color:var(--gold);margin-top:6px;min-height:16px;";
+  customWrap.appendChild(customCountEl);
+
+  var updateCustomCount = function() {
+    var v = customInput.value.trim();
+    if(!v) { customCountEl.textContent = ""; return; }
+    var count = selectedAngles.filter(function(a){ return a.focus === v; }).length;
+    customCountEl.textContent = count > 0 ? "Added " + count + "x -- click Add again for another variation" : "";
+  };
+  customInput.addEventListener("input", updateCustomCount);
+
   customConfirm.addEventListener("click", function() {
     var v = customInput.value.trim();
     if(!v){ showToast("Type your angle first"); return; }
     if(selectedAngles.length >= 5){ showToast("Maximum 5 scripts"); return; }
     selectedAngles.push({focus:v, desire:"Custom", description:v});
-    customInput.value = "";
+    // Don't clear input -- let them add the same angle again as a variation
+    updateCustomCount();
     showToast("Angle added (" + selectedAngles.length + " total)");
     genBtn.disabled = false; genBtn.style.opacity = "1";
     genBtn.textContent = "⚡ Generate " + selectedAngles.length + " Script" + (selectedAngles.length !== 1 ? "s" : "");
