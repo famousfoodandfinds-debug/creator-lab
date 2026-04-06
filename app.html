@@ -3179,9 +3179,9 @@ function renderSkitAngleGrid(wrap, focuses) {
     card.appendChild(relLabel);
 
     var relRow = document.createElement("div");
-    relRow.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;";
+    relRow.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:8px;";
 
-    var selectedRel = null;
+    var activeRel = null;
     var relBtns = [];
 
     relationships.forEach(function(rel) {
@@ -3191,45 +3191,43 @@ function renderSkitAngleGrid(wrap, focuses) {
       relBtns.push(btn);
       (function(r, b) {
         b.addEventListener("click", function() {
-          // Deselect all
-          relBtns.forEach(function(rb) {
-            rb.style.borderColor = "var(--border-md)";
-            rb.style.background = "var(--surface2)";
-            rb.querySelector("div").style.color = "var(--white-dim)";
-          });
-          // Select this one
-          b.style.borderColor = "var(--silver)";
-          b.style.background = "var(--silver-dim)";
-          b.querySelector("div").style.color = "var(--silver-bright)";
-
-          // Update selectedSkits -- remove previous entry for this angle, add new one
-          selectedSkits = selectedSkits.filter(function(s){ return s.focus !== f.focus; });
-          if(selectedRel === r.key) {
-            // Clicking same rel deselects
-            selectedRel = null;
-            card.style.borderColor = "var(--border-md)";
-            b.style.borderColor = "var(--border-md)";
-            b.style.background = "var(--surface2)";
-            b.querySelector("div").style.color = "var(--white-dim)";
-          } else {
-            selectedRel = r.key;
-            if(selectedSkits.length < 5) {
-              selectedSkits.push({focus:f.focus, desire:f.desire, description:f.description, relationship:r.key});
-              card.style.borderColor = "var(--silver)";
-            } else {
-              showToast("Maximum 5 skits");
-              selectedRel = null;
-              b.style.borderColor = "var(--border-md)";
-              b.style.background = "var(--surface2)";
-              b.querySelector("div").style.color = "var(--white-dim)";
-            }
-          }
-          updateGenBtn();
+          relBtns.forEach(function(rb) { rb.style.borderColor = "var(--border-md)"; rb.style.background = "var(--surface2)"; rb.querySelector("div").style.color = "var(--white-dim)"; });
+          if(activeRel === r.key) { activeRel = null; }
+          else { activeRel = r.key; b.style.borderColor = "var(--silver)"; b.style.background = "var(--silver-dim)"; b.querySelector("div").style.color = "var(--silver-bright)"; }
+          addBtn.style.opacity = activeRel ? "1" : "0.4";
+          addBtn.disabled = !activeRel;
         });
       })(rel, btn);
       relRow.appendChild(btn);
     });
     card.appendChild(relRow);
+
+    // Add button + count tracker
+    var addRow = document.createElement("div");
+    addRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:4px;";
+    var addBtn = document.createElement("button");
+    addBtn.style.cssText = "background:var(--surface2);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white-dim);font-family:\'Instrument Sans\',sans-serif;font-size:12px;font-weight:500;padding:7px 14px;cursor:pointer;transition:all 0.15s;opacity:0.4;";
+    addBtn.textContent = "+ Add this angle";
+    addBtn.disabled = true;
+    var cardCount = document.createElement("div");
+    cardCount.style.cssText = "font-size:11px;color:var(--muted);min-height:16px;";
+    addRow.appendChild(addBtn);
+    addRow.appendChild(cardCount);
+    card.appendChild(addRow);
+
+    (function(foc, countEl, aBtn) {
+      aBtn.addEventListener("click", function() {
+        if(!activeRel){ showToast("Pick a relationship first"); return; }
+        if(selectedSkits.length >= 5){ showToast("Maximum 5 skits"); return; }
+        selectedSkits.push({focus:foc.focus, desire:foc.desire, description:foc.description, relationship:activeRel});
+        var cnt = selectedSkits.filter(function(s){ return s.focus===foc.focus; }).length;
+        countEl.textContent = "Added " + cnt + "x" + (selectedSkits.length < 5 ? " -- pick another relationship to add again" : " -- maximum reached");
+        countEl.style.color = selectedSkits.length >= 5 ? "var(--gold)" : "var(--green)";
+        card.style.borderColor = "var(--silver)";
+        updateGenBtn();
+      });
+    })(f, cardCount, addBtn);
+
     grid.appendChild(card);
   });
 
@@ -3330,19 +3328,34 @@ function generateSkitScripts(skitAngles) {
 
   var priceCtx = getPriceContext();
 
-  var prompt = "You write two-person short-form video skit scripts for social selling content. Each skit is a natural scene between two people -- it must feel overheard, not performed. Product: " + currentProduct + ". Price context: " + priceCtx + ". Write " + skitAngles.length + " skits, one for each: " + anglesText + "." +
+  var prompt = "You write two-person short-form video skit scripts for social selling. The scene must feel like it was overheard -- not performed, not scripted, not an ad. Product: " + currentProduct + ". Price context: " + priceCtx + ". Write " + skitAngles.length + " skits, one for each: " + anglesText + "." +
     " RELATIONSHIP VOICE RULES: " + relVoiceNotes +
-    " SKIT STRUCTURE RULES:" +
-    " 1. THEM always opens the scene -- never YOU. The viewer must see the problem or curiosity before the product appears." +
-    " 2. YOU never leads with the product name in line 1. The product enters as an answer, not an announcement." +
-    " 3. THEM line 3 must voice the exact skepticism or question the VIEWER is holding right now." +
-    " 4. No line longer than 15 words. These are spoken lines." +
-    " 5. No em dashes. No brand names except the product brand. No invented specs." +
-    " 6. The CTA in YOU line 6 must be woven into dialogue naturally -- examples: I will link it for you / it is in my cart grab it from there / tap my cart I have got it saved. Never say link in bio or check it out." +
-    " 7. On-screen text appears BEFORE the scene. It must be a pure pattern interrupt -- nothing to do with the product. Under 6 words. Personal, slightly confrontational, or uncomfortably accurate." +
-    " BUYER PSYCHOLOGY: Every skit must sell the person they become, not the product they buy. Features are proof, not the point. The emotional hook must come before any product detail." +
-    " BANNED: price cost dollar worth deal value investment game-changer elevate transform engineered technology cutting-edge revolutionary. No em dashes." +
-    " Return ONLY valid JSON: {skits:[{angle:string,relationship:string,lines:[{speaker:string,text:string}],screenText:[string,string,string],caption:string,hashtags:[string,string,string,string,string]}]} where lines always has exactly 6 entries alternating speaker THEM and YOU starting with THEM.";
+    " GOLD STANDARD EXAMPLE of what a perfect skit sounds and feels like:" +
+    " THEM: I have had a headache for three days and nothing is touching it." +
+    " YOU: Are you drinking enough water or just like, existing on coffee?" +
+    " THEM: Water does not fix a three-day headache." +
+    " YOU: It does when you add minerals. I started putting these drops in mine and headaches just stopped." +
+    " THEM: Wait, minerals in water fixed your headaches? That sounds made up." +
+    " YOU: Completely made up until it worked. Linked in mine, grab it." +
+    " Notice: THEM opens with a real specific frustration. YOU responds like a human, not a spokesperson. The feature (minerals) comes as proof after the human connection is made. THEM line 5 voices the exact skepticism the viewer has. The turn happens because the story is real, not because the product was explained." +
+    " SKIT STRUCTURE -- 6 LINES TOTAL, always THEM then YOU alternating:" +
+    " LINE 1 (THEM): Opens the scene with a real specific feeling, frustration, or observation. Not a question about a product. A human moment. The more specific the better -- vague pain is weak, specific pain is everything." +
+    " LINE 2 (YOU): Respond like a human first. Show you understand. Do not mention the product yet. One short human reaction." +
+    " LINE 3 (THEM): Pushes back or asks the real question the VIEWER is holding. This is the skepticism line. It must voice exactly what the viewer is thinking right now." +
+    " LINE 4 (YOU): Introduce the product naturally as your answer. Lead with a specific real detail that proves it works. Not a claim -- a fact. Casual delivery." +
+    " LINE 5 (THEM): THE TURN. This is the most important line. The moment they shift from skeptical to wanting it. It should feel like a genuine reaction -- surprised, relieved, a little embarrassed they doubted it. This line mirrors what the viewer is now feeling." +
+    " LINE 6 (YOU): Soft close woven naturally into dialogue. Confident, not pushy. Ends with a CTA phrase woven in: I will link it for you / already in my cart grab it from there / tap my cart I have got it saved. Never link in bio. Never check it out." +
+    " LINE LENGTH: Under 12 words per line. These are spoken words, not written sentences. Read every line aloud. If it sounds scripted, rewrite it." +
+    " THE TURN (Line 5) MUST be one of these types:" +
+    " RELIEF TURN: Oh thank god, I thought I was going to have to do something drastic." +
+    " SURPRISE TURN: Wait that actually makes sense. Why has no one told me this?" +
+    " SELF-RECOGNITION TURN: That is literally me. I do that exact thing." +
+    " QUIET WANT TURN: Okay I actually need that. How did you find this?" +
+    " THE CAPTION must not be a tagline or generic wisdom. It must be a real person posting naturally. 2-3 sentences. Include one soft CTA. Sounds like something you would text your friend." +
+    " BANNED WORDS AND PHRASES: price cost dollar worth deal value investment game-changer elevate transform engineered technology cutting-edge revolutionary clinically proven dermatologist recommended doctor approved. No em dashes. No brand names except the product brand. No invented specs. No lines that start with the product name. No explaining what the product is to the viewer -- THEM and YOU already know." +
+    " ON-SCREEN TEXT: appears BEFORE the scene starts. Pure pattern interrupt. Nothing to do with the product or the conversation. Makes the viewer think -- wait what does that mean. Under 6 words. Slightly personal or uncomfortably accurate." +
+    " FINAL TEST: Read the whole skit aloud. If anyone sounds like they are selling something, rewrite it. The viewer should feel like they stumbled into a private conversation." +
+    " Return ONLY valid JSON: {skits:[{angle:string,relationship:string,lines:[{speaker:string,text:string}],screenText:[string,string,string],caption:string,hashtags:[string,string,string,string,string]}]} where lines always has exactly 6 entries alternating THEM and YOU starting with THEM.";
 
   fetch("/api/claude", {
     method: "POST",
