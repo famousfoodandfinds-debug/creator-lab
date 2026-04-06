@@ -3205,34 +3205,80 @@ function renderSkitAngleGrid(wrap, focuses) {
     // Helper text
     var helperText = document.createElement("div");
     helperText.style.cssText = "font-size:11px;color:var(--muted);margin-bottom:8px;font-style:italic;";
-    helperText.textContent = "Pick a relationship then tap Add. You can add the same angle again with a different relationship.";
+    helperText.textContent = "Pick a relationship then tap + to add. Tap - to remove. Add same angle multiple times with different relationships.";
     card.appendChild(helperText);
 
-    // Add button + count tracker
+    // +/- counter row like batch mode
     var addRow = document.createElement("div");
-    addRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:4px;";
-    var addBtn = document.createElement("button");
-    addBtn.style.cssText = "background:var(--silver-dim);border:1px solid rgba(192,192,192,0.3);border-radius:var(--radius-sm);color:var(--muted);font-family:\'Instrument Sans\',sans-serif;font-size:12px;font-weight:600;padding:8px 16px;cursor:pointer;transition:all 0.15s;opacity:0.4;letter-spacing:0.01em;";
-    addBtn.textContent = "+ Add this angle";
-    addBtn.disabled = true;
-    var cardCount = document.createElement("div");
-    cardCount.style.cssText = "font-size:11px;color:var(--muted);min-height:16px;";
-    addRow.appendChild(addBtn);
-    addRow.appendChild(cardCount);
+    addRow.style.cssText = "display:flex;align-items:center;gap:10px;margin-bottom:4px;";
+
+    var plusBtn = document.createElement("button");
+    plusBtn.style.cssText = "width:32px;height:32px;border-radius:50%;border:2px solid var(--border-md);background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;";
+    plusBtn.textContent = "+";
+    plusBtn.disabled = true;
+
+    var countDisplay = document.createElement("div");
+    countDisplay.style.cssText = "font-size:18px;font-weight:700;color:var(--muted);min-width:20px;text-align:center;font-family:\'Playfair Display\',serif;font-style:italic;";
+    countDisplay.textContent = "0";
+
+    var minusBtn = document.createElement("button");
+    minusBtn.style.cssText = "width:32px;height:32px;border-radius:50%;border:2px solid var(--border-md);background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;";
+    minusBtn.textContent = "−";
+
+    var countNote = document.createElement("div");
+    countNote.style.cssText = "font-size:11px;color:var(--muted);flex:1;";
+
+    addRow.appendChild(plusBtn);
+    addRow.appendChild(countDisplay);
+    addRow.appendChild(minusBtn);
+    addRow.appendChild(countNote);
     card.appendChild(addRow);
 
-    (function(foc, countEl, aBtn) {
-      aBtn.addEventListener("click", function() {
+    (function(foc, dispEl, noteEl, pBtn, mBtn, cardEl) {
+      var getCount = function() { return selectedSkits.filter(function(s){ return s.focus===foc.focus; }).length; };
+      var updateCardUI = function() {
+        var c = getCount();
+        dispEl.textContent = c;
+        if(c === 0) {
+          dispEl.style.color = "var(--muted)";
+          mBtn.style.display = "none";
+          cardEl.style.borderColor = "var(--border-md)";
+        } else {
+          dispEl.style.color = "var(--gold)";
+          mBtn.style.display = "flex";
+          mBtn.style.borderColor = "var(--gold)";
+          mBtn.style.color = "var(--gold)";
+          cardEl.style.borderColor = "var(--gold)";
+        }
+        pBtn.disabled = !activeRel || selectedSkits.length >= 5;
+        pBtn.style.opacity = (!activeRel || selectedSkits.length >= 5) ? "0.3" : "1";
+        pBtn.style.borderColor = activeRel && selectedSkits.length < 5 ? "var(--silver)" : "var(--border-md)";
+        pBtn.style.color = activeRel && selectedSkits.length < 5 ? "var(--silver-bright)" : "var(--muted)";
+        noteEl.textContent = c > 0 ? (selectedSkits.length < 5 ? "Pick another relationship and tap + to add again" : "Maximum 5 reached") : "";
+        noteEl.style.color = selectedSkits.length >= 5 ? "var(--gold)" : "var(--muted)";
+        updateGenBtn();
+      };
+      pBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
         if(!activeRel){ showToast("Pick a relationship first"); return; }
         if(selectedSkits.length >= 5){ showToast("Maximum 5 skits"); return; }
         selectedSkits.push({focus:foc.focus, desire:foc.desire, description:foc.description, relationship:activeRel});
-        var cnt = selectedSkits.filter(function(s){ return s.focus===foc.focus; }).length;
-        countEl.textContent = "Added " + cnt + "x" + (selectedSkits.length < 5 ? " -- pick another relationship to add again" : " -- maximum reached");
-        countEl.style.color = selectedSkits.length >= 5 ? "var(--gold)" : "var(--green)";
-        card.style.borderColor = "var(--silver)";
-        updateGenBtn();
+        updateCardUI();
       });
-    })(f, cardCount, addBtn);
+      mBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        // Remove last added entry for this angle
+        for(var i=selectedSkits.length-1;i>=0;i--){
+          if(selectedSkits[i].focus===foc.focus){ selectedSkits.splice(i,1); break; }
+        }
+        updateCardUI();
+      });
+      // Update plus button when relationship is selected
+      var origRelClickHandlers = [];
+      relBtns.forEach(function(rb) {
+        rb.addEventListener("click", function(){ updateCardUI(); });
+      });
+    })(f, countDisplay, countNote, plusBtn, minusBtn, card);
 
     grid.appendChild(card);
   });
@@ -3272,30 +3318,56 @@ function renderSkitAngleGrid(wrap, focuses) {
     customRelRow.appendChild(btn);
   });
 
-  var customConfirm = document.createElement("button");
-  customConfirm.className = "custom-angle-confirm";
-  customConfirm.textContent = "Add this angle";
-  var customCount = document.createElement("div");
-  customCount.style.cssText = "font-size:11px;color:var(--muted);margin-top:6px;min-height:16px;";
+  var customAddRow = document.createElement("div");
+  customAddRow.style.cssText = "display:flex;align-items:center;gap:10px;margin-top:8px;";
+  var customPlusBtn = document.createElement("button");
+  customPlusBtn.style.cssText = "width:32px;height:32px;border-radius:50%;border:2px solid var(--border-md);background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;";
+  customPlusBtn.textContent = "+";
+  var customCountDisp = document.createElement("div");
+  customCountDisp.style.cssText = "font-size:18px;font-weight:700;color:var(--muted);min-width:20px;text-align:center;font-family:\'Playfair Display\',serif;font-style:italic;";
+  customCountDisp.textContent = "0";
+  var customMinusBtn = document.createElement("button");
+  customMinusBtn.style.cssText = "width:32px;height:32px;border-radius:50%;border:2px solid var(--border-md);background:transparent;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;display:none;align-items:center;justify-content:center;transition:all 0.15s;flex-shrink:0;";
+  customMinusBtn.textContent = "−";
+  var customCountNote = document.createElement("div");
+  customCountNote.style.cssText = "font-size:11px;color:var(--muted);flex:1;";
+  customAddRow.appendChild(customPlusBtn);
+  customAddRow.appendChild(customCountDisp);
+  customAddRow.appendChild(customMinusBtn);
+  customAddRow.appendChild(customCountNote);
 
-  customConfirm.addEventListener("click", function() {
+  var updateCustomUI = function() {
+    var lastV = customInput.value.trim();
+    var c = selectedSkits.filter(function(s){ return s.focus===lastV; }).length;
+    customCountDisp.textContent = c;
+    customCountDisp.style.color = c > 0 ? "var(--gold)" : "var(--muted)";
+    customMinusBtn.style.display = c > 0 ? "flex" : "none";
+    customMinusBtn.style.borderColor = "var(--gold)"; customMinusBtn.style.color = "var(--gold)";
+    customCountNote.textContent = c > 0 ? (selectedSkits.length < 5 ? "Pick another relationship and tap + to add again" : "Maximum 5 reached") : "";
+    customCountNote.style.color = selectedSkits.length >= 5 ? "var(--gold)" : "var(--muted)";
+    updateGenBtn();
+  };
+  customPlusBtn.addEventListener("click", function() {
     var v = customInput.value.trim();
     if(!v){ showToast("Type your angle first"); return; }
     if(!customSelectedRel){ showToast("Pick a relationship type first"); return; }
     if(selectedSkits.length >= 5){ showToast("Maximum 5 skits"); return; }
     selectedSkits.push({focus:v, desire:"Custom", description:v, relationship:customSelectedRel});
-    var thisCount = selectedSkits.filter(function(s){ return s.focus===v; }).length;
-    customCount.textContent = "Added " + thisCount + "x" + (selectedSkits.length < 5 ? " -- tap again to add another variation" : " -- maximum reached");
-    customCount.style.color = selectedSkits.length >= 5 ? "var(--gold)" : "var(--green)";
-    updateGenBtn();
+    updateCustomUI();
+  });
+  customMinusBtn.addEventListener("click", function() {
+    var v = customInput.value.trim();
+    for(var i=selectedSkits.length-1;i>=0;i--){
+      if(selectedSkits[i].focus===v){ selectedSkits.splice(i,1); break; }
+    }
+    updateCustomUI();
   });
 
   customWrap.appendChild(customLbl);
   customWrap.appendChild(customInput);
   customWrap.appendChild(customRelLabel);
   customWrap.appendChild(customRelRow);
-  customWrap.appendChild(customConfirm);
-  customWrap.appendChild(customCount);
+  customWrap.appendChild(customAddRow);
   wrap.appendChild(customWrap);
   wrap.appendChild(genBtn);
 }
@@ -3334,34 +3406,20 @@ function generateSkitScripts(skitAngles) {
 
   var priceCtx = getPriceContext();
 
-  var prompt = "You write two-person short-form video skit scripts for social selling. The scene must feel like it was overheard -- not performed, not scripted, not an ad. Product: " + currentProduct + ". Price context: " + priceCtx + ". Write " + skitAngles.length + " skits, one for each: " + anglesText + "." +
-    " RELATIONSHIP VOICE RULES: " + relVoiceNotes +
-    " GOLD STANDARD EXAMPLE of what a perfect skit sounds and feels like:" +
-    " THEM: I have had a headache for three days and nothing is touching it." +
-    " YOU: Are you drinking enough water or just like, existing on coffee?" +
-    " THEM: Water does not fix a three-day headache." +
-    " YOU: It does when you add minerals. I started putting these drops in mine and headaches just stopped." +
-    " THEM: Wait, minerals in water fixed your headaches? That sounds made up." +
-    " YOU: Completely made up until it worked. Linked in mine, grab it." +
-    " Notice: THEM opens with a real specific frustration. YOU responds like a human, not a spokesperson. The feature (minerals) comes as proof after the human connection is made. THEM line 5 voices the exact skepticism the viewer has. The turn happens because the story is real, not because the product was explained." +
-    " SKIT STRUCTURE -- 6 LINES TOTAL, always THEM then YOU alternating:" +
-    " LINE 1 (THEM): Opens the scene with a real specific feeling, frustration, or observation. Not a question about a product. A human moment. The more specific the better -- vague pain is weak, specific pain is everything." +
-    " LINE 2 (YOU): Respond like a human first. Show you understand. Do not mention the product yet. One short human reaction." +
-    " LINE 3 (THEM): Pushes back or asks the real question the VIEWER is holding. This is the skepticism line. It must voice exactly what the viewer is thinking right now." +
-    " LINE 4 (YOU): Introduce the product naturally as your answer. Lead with a specific real detail that proves it works. Not a claim -- a fact. Casual delivery." +
-    " LINE 5 (THEM): THE TURN. This is the most important line in the entire skit. The moment THEM shifts from skeptical or casual to genuinely wanting it. This is NOT another question. This is a reaction. It should make the viewer feel something -- recognition, relief, surprise, or the quiet embarrassment of realizing they want it too. EXAMPLES OF STRONG TURNS: Okay wait, why do I actually want that now. / I mean I would not be mad if you sent me that link. / That is literally what has been wrong with me. / Hold on, I thought you were being dramatic. / Okay I was about to make fun of you and now I kind of need it. / I hate that that makes sense. BAD TURNS (do not write these): Okay that sounds cool. / So it actually works? / And there is no side effects? / How long until you see results? -- those are just more questions. The viewer needs to feel the shift happen, not watch THEM ask another question." +
-    " LINE 6 (YOU): Soft close woven naturally into dialogue. This must sound like something a real person would actually say in this exact conversation -- not a sales line delivered by a character. The CTA comes out of the relationship. FRIEND: I will text you the link / I will send it to you right now / I will drop it in your DMs. SPOUSE: It is already in my cart / check my cart I put it in there / I just added it you can grab it from mine. STRANGER: Here let me pull it up for you / I will airdrop you the link / want me to text it to you. EXPERT: I will send you the link / I will share the one I use. The character is NOT doing a sales call. They are doing what you would actually do when a friend asks where you got something. Never say link in bio. Never say check it out. Never say grab it from my cart. Those are creator phrases, not human phrases." +
-    " LINE LENGTH: Under 12 words per line. These are spoken words, not written sentences. Read every line aloud. If it sounds scripted, rewrite it." +
-    " THE TURN (Line 5) MUST be one of these types:" +
-    " RELIEF TURN: Oh thank god, I thought I was going to have to do something drastic." +
-    " SURPRISE TURN: Wait that actually makes sense. Why has no one told me this?" +
-    " SELF-RECOGNITION TURN: That is literally me. I do that exact thing." +
-    " QUIET WANT TURN: Okay I actually need that. How did you find this?" +
-    " THE CAPTION must sound like a real person who just filmed this with their friend and is posting it. NOT a tagline. NOT a wisdom quote. NOT ad copy. Read it back and ask: would a real person actually type this caption? GOOD CAPTION ENERGY: Filmed this with my best friend and she did not believe me at first either. Now she orders them every month. Linked below if you want to try it. / We were literally in the middle of something else when this came up. I have been taking them for two months and she noticed before I even said anything. In my cart if you want it. BAD CAPTIONS: Your cells remember what you feed them. / Real energy starts at the cellular level. / Your future self is watching. Those are marketing headlines, not captions. The caption should feel like it was typed on a phone by a person who just had a genuine moment." +
-    " BANNED WORDS AND PHRASES: price cost dollar worth deal value investment game-changer elevate transform engineered technology cutting-edge revolutionary clinically proven dermatologist recommended doctor approved. No em dashes. No brand names except the product brand. No invented specs. No lines that start with the product name. No explaining what the product is to the viewer -- THEM and YOU already know." +
-    " ON-SCREEN TEXT: appears BEFORE the scene starts. Pure pattern interrupt. Nothing to do with the product or the conversation. Makes the viewer think -- wait what does that mean. Under 6 words. Slightly personal or uncomfortably accurate." +
-    " FINAL TEST: Read the whole skit aloud. If anyone sounds like they are selling something, rewrite it. The viewer should feel like they stumbled into a private conversation." +
-    " Return ONLY valid JSON: {skits:[{angle:string,relationship:string,lines:[{speaker:string,text:string}],screenText:[string,string,string],caption:string,hashtags:[string,string,string,string,string]}]} where lines always has exactly 6 entries alternating THEM and YOU starting with THEM.";
+  var prompt = "You write two-person short-form video skit scripts for social selling. Each scene must feel overheard, not performed. Product: " + currentProduct + ". Price context: " + priceCtx + ". Write " + skitAngles.length + " skits: " + anglesText + "." +
+    " RELATIONSHIP VOICES: " + relVoiceNotes +
+    " GOLD STANDARD EXAMPLE: THEM: I have had a headache for three days and nothing is touching it. YOU: Are you drinking enough water or just existing on coffee? THEM: Water does not fix a three-day headache. YOU: It does when you add minerals. I started putting these drops in mine and headaches just stopped. THEM: I hate that that actually makes sense. YOU: Right? I will text you the link." +
+    " STRUCTURE (6 lines, always THEM then YOU alternating):" +
+    " LINE 1 THEM: Real specific human moment. Frustration, observation, or feeling. Not a product question. The more specific the better." +
+    " LINE 2 YOU: Respond like a human first. Show you understand. Do not name the product yet." +
+    " LINE 3 THEM: The exact skepticism or question the VIEWER is holding right now. Voice their doubt." +
+    " LINE 4 YOU: Introduce product naturally as your answer. One specific real detail as proof. Casual delivery. Under 12 words." +
+    " LINE 5 THEM: THE TURN. NOT another question. A genuine emotional reaction -- the moment they shift from skeptical to wanting it. Examples of strong turns: I hate that that makes sense. / Okay I was about to make fun of you and now I kind of need it. / That is literally what has been wrong with me. / I mean I would not be mad if you sent me that. Bad turns: So it actually works? / How long until you see results? Those are just more questions." +
+    " LINE 6 YOU: Natural CTA woven into dialogue based on relationship. FRIEND: I will text you the link / I will send it to you right now. SPOUSE: It is already in my cart / I just added it. STRANGER: Here let me pull it up for you / want me to send it. EXPERT: I will send you the link / I will share the one I use. This must sound like what a real person says when a friend asks where they got something. Never say link in bio, check it out, or grab it from my cart." +
+    " RULES: Under 12 words per line. No em dashes. No invented specs. No brand names except the product brand. Sell the person they become, not the product." +
+    " CAPTION: Real person typing on their phone after filming. NOT a tagline or wisdom quote. 2-3 sentences. Sounds like a text to a friend." +
+    " ON-SCREEN TEXT: Pure pattern interrupt before the scene. Nothing to do with the product. Under 6 words. Slightly personal or uncomfortably accurate." +
+    " Return ONLY valid JSON: {skits:[{angle:string,relationship:string,lines:[{speaker:string,text:string}],screenText:[string,string,string],caption:string,hashtags:[string,string,string,string,string]}]} where lines has exactly 6 entries alternating THEM and YOU starting with THEM.";
 
   fetch("/api/claude", {
     method: "POST",
