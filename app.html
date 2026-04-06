@@ -3396,7 +3396,7 @@ function generateSkitScripts(skitAngles) {
     friend: "FRIEND voice rules: Both voices are equal energy. Casual, off the cuff, you HAVE to try this energy. No selling, just sharing between friends. Excited, warm, natural.",
     spouse: "SPOUSE voice rules: THEM is mildly skeptical or gently teasing. YOU is confident without being defensive. Warm domestic humor. I told you so energy. The you already bought it and is showing the skeptic.",
     stranger: "STRANGER voice rules: THEM initiates by noticing something. YOU is a little surprised to be asked but happy to share. Zero sales energy. Feels overheard, not performed.",
-    expert: "EXPERT voice rules: THEM asks genuine questions the viewer is thinking. YOU answers in plain language -- no jargon. The expertise shows in the specificity of the answer, not fancy vocabulary."
+    expert: "EXPERT voice rules: THEM asks genuine questions the viewer is thinking. YOU answers in plain language -- no jargon. The expertise shows in the specificity of the answer, not fancy vocabulary. CRITICAL: Even in Expert mode the opening lines must sound like a real conversation between two people who know each other -- not a health podcast interview. THEM line 1 must still be a personal human moment, not a clinical question like at what age does the body start declining internally. That is a podcast question, not a friend question. Expert means YOU has knowledge, not that THEM sounds like a journalist."
   };
 
   var relVoiceNotes = skitAngles.map(function(a, i) {
@@ -3419,7 +3419,7 @@ function generateSkitScripts(skitAngles) {
     " LINE 1 THEM: A real specific human moment. A frustration, feeling, or observation that is so specific the viewer goes that is me. Not a product question. Not vague. The specificity is everything -- a bad line 1 makes the whole skit feel fake." +
     " LINE 2 YOU: Respond like a human being first. Meet them where they are. Do not mention the product yet. One short genuine reaction." +
     " LINE 3 THEM: Voice the exact doubt or question the viewer is holding right now. This is the viewer speaking through THEM. If the viewer is thinking but does that actually work -- THEM says some version of that." +
-    " LINE 4 YOU: Introduce the product naturally as your answer. Lead with one specific real feeling or result -- not a clinical explanation. Say it the way you would tell a friend. Under 10 words. WRONG: NAD+ rebuilds your mitochondria at the cellular level. RIGHT: It helps your cells make energy like they used to. WRONG: It supports mitochondrial function for sustained energy production. RIGHT: I stopped crashing at 3pm completely. The feature is proof, not the pitch." +
+    " LINE 4 YOU: Introduce the product naturally as your answer. You MUST reference the actual product by name or type in this line -- the viewer needs to know what you are talking about. Lead with one specific real feeling or result, not a clinical explanation. Say it the way you would tell a friend. Under 10 words. WRONG: Your cells just stopped making energy like they used to -- this does not name the product. WRONG: NAD+ rebuilds your mitochondria at the cellular level -- this is a brochure sentence. RIGHT: I started taking NAD+ gummies and my whole morning changed. RIGHT: I stopped crashing at 3pm, these NAD+ gummies changed everything. The product name or type must appear in line 4. The feature is proof, not the pitch." +
     " LINE 5 THEM: THE TURN. This is the most important line. NOT another question. A genuine emotional reaction -- the moment they go from skeptical to wanting it. Strong examples: I hate that that actually makes sense. / Okay I was about to make fun of you and now I kind of need it. / That is literally what has been happening to me. / I mean I would not be mad if you sent that. / Why have I not been doing this. Weak examples that are banned: So it actually works? / How long until you feel it? / And there are no side effects? Those are all just more questions." +
     " LINE 6 YOU: Natural CTA that fits the relationship. Must sound like what you would actually say when a friend asks where you got something -- not a sales line. FRIEND: I will text you the link right now / sending it to you right now. SPOUSE: Already in my cart / I just added you one / it is in my cart. STRANGER: Here let me pull it up / want me to send it to you. EXPERT: I will send you the link / I will share the one I use. NEVER say link in bio, check it out, tap the cart, or any creator phrase. One more rule: if the cart or link is mentioned, the viewer needs to know how to get it -- either the character pulls it up, texts it, or says it is in their cart." +
     " RULES:" +
@@ -3448,13 +3448,45 @@ function generateSkitScripts(skitAngles) {
     var clean = text.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim();
     var parsed = JSON.parse(clean);
     var skits = parsed.skits || [];
-    renderSkitResults(skits, skitAngles);
+    // Save product to library if not already saved
+    if(currentUser && !currentProductId) {
+      saveProduct(currentProduct, allData, function() {
+        renderSkitResults(skits, skitAngles);
+      });
+    } else {
+      renderSkitResults(skits, skitAngles);
+    }
   })
   .catch(function(err) {
     var mc2 = document.getElementById("mainContent");
     if(mc2) mc2.innerHTML = "<div style=\'padding:16px;color:var(--muted);\'>Something went wrong generating skits. Please try again.</div>";
     var btn = document.getElementById("genBtn");
     if(btn) { btn.disabled = false; btn.style.background = "var(--red)"; btn.innerHTML = "🧠&nbsp; Generate Focus Angles"; }
+  });
+}
+
+function saveAllSkits(skits, angles, statusEl, btn) {
+  btn.disabled = true;
+  statusEl.textContent = "Saving...";
+  var saved = 0;
+  skits.forEach(function(skit, idx) {
+    var angle = angles[idx] || {};
+    var lines = (skit.lines || []).map(function(l){ return l.speaker + ": " + l.text; }).join("\n");
+    saveScriptToCloud({
+      hook: lines,
+      body1: skit.relationship || angle.relationship || "",
+      angle: skit.angle || angle.focus || "",
+      desire: angle.desire || "Skit",
+      screen_text: skit.screenText || null,
+      cta: skit.caption || ""
+    }, function() {
+      saved++;
+      if(saved === skits.length) {
+        statusEl.textContent = "✓ All " + skits.length + " skits saved";
+        statusEl.style.color = "var(--green)";
+        btn.disabled = false;
+      }
+    });
   });
 }
 
@@ -3476,9 +3508,32 @@ function renderSkitResults(skits, angles) {
   var sub = document.createElement("div");
   sub.className = "step-sub";
   sub.textContent = "Tap Copy on any skit. Film both parts yourself or with a partner.";
-  sub.style.marginBottom = "20px";
+  sub.style.marginBottom = "12px";
   wrap.appendChild(heading);
   wrap.appendChild(sub);
+
+  // Save all skits to product
+  var saveSkitsRow = document.createElement("div");
+  saveSkitsRow.style.cssText = "margin-bottom:16px;display:flex;align-items:center;gap:10px;";
+  var saveSkitsBtn = document.createElement("button");
+  saveSkitsBtn.style.cssText = "background:var(--surface2);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white-dim);font-family:\'Instrument Sans\',sans-serif;font-size:13px;font-weight:500;padding:8px 16px;cursor:pointer;transition:all 0.15s;";
+  saveSkitsBtn.textContent = "Save all skits to product";
+  var saveSkitsStatus = document.createElement("div");
+  saveSkitsStatus.style.cssText = "font-size:12px;color:var(--muted);";
+  saveSkitsRow.appendChild(saveSkitsBtn);
+  saveSkitsRow.appendChild(saveSkitsStatus);
+  wrap.appendChild(saveSkitsRow);
+
+  saveSkitsBtn.addEventListener("click", function() {
+    if(!currentUser){ saveSkitsStatus.textContent = "Sign in to save"; return; }
+    if(!currentProductId){
+      saveProduct(currentProduct, allData, function() {
+        saveAllSkits(skits, angles, saveSkitsStatus, saveSkitsBtn);
+      });
+    } else {
+      saveAllSkits(skits, angles, saveSkitsStatus, saveSkitsBtn);
+    }
+  });
 
   skits.forEach(function(skit, idx) {
     var angle = angles[idx] || {};
