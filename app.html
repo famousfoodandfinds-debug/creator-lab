@@ -2085,7 +2085,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 6000,
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000,
       messages: [{ role: "user", content: prompt }]
     })
   })
