@@ -2116,6 +2116,8 @@ function generateOnScreenText(productDesc, hooks) {
 function generate() {
   var product = document.getElementById("productInput").value.trim();
   if (!product) { showToast("Add a product description first"); document.getElementById("productInput").focus(); return; }
+  // Capture motivation NOW before inputSection gets hidden
+  currentMotivation = getBuyerMotivation();
 
   if (currentPrice === "sellthesale") {
     var btn = document.getElementById("genBtn");
