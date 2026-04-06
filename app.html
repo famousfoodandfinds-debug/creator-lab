@@ -1779,6 +1779,32 @@ function renderProductHub() {
     }
 
     // Build options section
+    // Product info section
+    var productInfoLbl2 = document.createElement("div");
+    productInfoLbl2.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);padding:16px 0 8px;";
+    productInfoLbl2.textContent = "Product info";
+    wrap.appendChild(productInfoLbl2);
+
+    var editDescBtn = document.createElement("button");
+    editDescBtn.className = "next-btn";
+    editDescBtn.style.cssText = "background:transparent;border:1px solid rgba(200,168,74,0.4);color:var(--gold);";
+    editDescBtn.textContent = "Edit product description";
+    editDescBtn.addEventListener("click", function() {
+      // trigger the same edit flow as the editBtn below
+      if(editBtn) editBtn.click();
+    });
+    wrap.appendChild(editDescBtn);
+
+    var addMotivBtn = document.createElement("button");
+    addMotivBtn.className = "next-btn";
+    addMotivBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(144,144,240,0.4);color:var(--purple);";
+    addMotivBtn.textContent = (currentMotivation && currentMotivation.length > 0) ? "Edit: why people buy this" : "+ Add: why people buy this";
+    addMotivBtn.addEventListener("click", function() {
+      // trigger the same motivation flow as editMotivationBtn below
+      if(editMotivationBtn) editMotivationBtn.click();
+    });
+    wrap.appendChild(addMotivBtn);
+
     var buildLbl = document.createElement("div");
     buildLbl.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);padding:16px 0 8px;";
     buildLbl.textContent = "Build more scripts";
@@ -1813,10 +1839,16 @@ function renderProductHub() {
     skitBtn.addEventListener("click", function() { renderSkitMode(); });
     wrap.appendChild(skitBtn);
 
+    // Product info section -- edit description and motivation live here
+    var productInfoLbl = document.createElement("div");
+    productInfoLbl.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);padding:16px 0 8px;";
+    productInfoLbl.textContent = "Product info";
+    wrap.appendChild(productInfoLbl);
+
     // Edit description button
     var editBtn = document.createElement("button");
     editBtn.className = "next-btn";
-    editBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(200,168,74,0.4);color:var(--gold);";
+    editBtn.style.cssText = "display:none;";
     editBtn.textContent = "Edit product description";
     editBtn.addEventListener("click", function() {
       var tryLoad = function(desc) {
@@ -1895,7 +1927,7 @@ function renderProductHub() {
     // Edit buyer motivation button
     var editMotivationBtn = document.createElement("button");
     editMotivationBtn.className = "next-btn";
-    editMotivationBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(144,144,240,0.4);color:var(--purple);";
+    editMotivationBtn.style.cssText = "display:none;";
     editMotivationBtn.textContent = (currentMotivation && currentMotivation.length > 0) ? "Edit: why people buy this" : "+ Add: why people buy this";
     editMotivationBtn.addEventListener("click", function() {
       var existing = document.getElementById("motivationEditWrap");
