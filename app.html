@@ -562,7 +562,7 @@ textarea::placeholder { color: var(--muted2); }
   <div class="user-bar">
     <div class="sync-dot" id="syncDot"></div>
     <div class="user-email" id="userEmail"></div>
-    <button class="signout-btn" onclick="showGoalSetter()" style="color:var(--muted2);margin-right:4px;" title="Set daily goal">⚙️ Goal</button>
+    <button class="signout-btn" onclick="showProfile()" style="color:var(--muted2);margin-right:4px;" title="Your profile">👤 Profile</button>
     <button class="signout-btn" onclick="signOut()">Sign out</button>
   </div>
   <div id="dailyMeterSection" style="display:none;margin-bottom:8px;">
@@ -682,6 +682,8 @@ var scriptHistory = [];
 var postingGoal = 6;
 var streakDays = 0;
 var favorites = {};
+var userVertical = null;
+var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
 var authMode = "signin";
 
 // WIZARD STATE
@@ -982,47 +984,223 @@ function onSignedIn() {
   if (pw) pw.style.display = "block";
 }
 
-function showGoalSetter() {
-  // Show goal setter as a modal overlay
-  var existing = document.getElementById("goalModal");
+
+function getVoiceProfileNote() {
+  var vp = voiceProfile;
+  if(!vp || Object.keys(vp).length < 3) return "";
+  var claimed = [];   // things they thumbed up
+  var rejected = [];  // things they thumbed down
+  var questions = {
+    q1:  { A: "high energy and enthusiastic -- uses phrases like I cannot stop thinking about this",
+            B: "understated and low-key -- lets the product speak without amplifying" },
+    q2:  { A: "reacts to genuine surprise directly: Wait I actually cannot believe how well this works",
+            B: "reacts to surprise with measured acknowledgment: better than I expected and I had decent expectations" },
+    q3:  { A: "references own hesitation in first person -- I almost talked myself out of it three times",
+            B: "frames hesitation as regret for waiting: I waited way too long on this one" },
+    q4:  { A: "direct and confident closer -- just go grab it you deserve it",
+            B: "soft low-pressure closer -- it is linked if you want to check it out" },
+    q5:  { A: "naturally brings other people in -- texted three people about this before finishing",
+            B: "stays in their own experience -- does not reference what others think" },
+    q6:  { A: "writes in flowing connected sentences -- everything linked together",
+            B: "writes in short punchy fragments -- one thought, full stop, next thought" },
+    q7:  { A: "uses humor naturally -- can say something is kind of ridiculous and mean it warmly",
+            B: "plays it straight -- no humor, just honest and direct" },
+    q8:  { A: "talks directly to the viewer like they are in the room: Okay so I have to show you something",
+            B: "tells a story the viewer is overhearing: I found this thing and I have been using it every day" },
+    q9:  { A: "goes deep on vulnerability -- genuinely cannot explain why they waited so long",
+            B: "keeps vulnerability measured -- was skeptical for a while and gets why" },
+    q10: { A: "natural teacher -- explains how things work: so the way it works is and this is the part that got me",
+            B: "natural storyteller -- just says what happened: I just know that every time I use it it does what it should" }
+  };
+  Object.keys(questions).forEach(function(qk) {
+    var ans = vp[qk];
+    if(!ans) return;
+    ["A","B"].forEach(function(side) {
+      var state = ans[side]; // "up", "down", or undefined
+      if(state === "up")   claimed.push(questions[qk][side]);
+      if(state === "down") rejected.push(questions[qk][side]);
+    });
+  });
+  if(claimed.length === 0 && rejected.length === 0) return "";
+  var note = " CREATOR VOICE PROFILE -- THIS IS CRITICAL. Every line must sound like this specific person.";
+  if(claimed.length > 0) note += " They have confirmed their voice matches these traits: " + claimed.join(" | ") + ".";
+  if(rejected.length > 0) note += " They have explicitly rejected these traits -- never write this way: " + rejected.join(" | ") + ".";
+  note += " Apply this profile to every single line -- hook, body, pre-close, and CTA. If a line does not sound like this person rewrite it until it does.";
+  return note;
+}
+
+function getVerticalNote() {
+  var verticalContexts = {
+    home: "CREATOR VOICE CALIBRATION -- HOME AND LIFESTYLE: This creator's audience is used to content about how life feels at home, how routines work, and whether things make daily life easier or better. Whatever product this script is for, write it the way a home and lifestyle creator would naturally talk about it -- grounded, practical, focused on how it fits into real daily life. Apply this voice to any product regardless of category.",
+    beauty: "CREATOR VOICE CALIBRATION -- BEAUTY AND PERSONAL CARE: This creator's audience is used to content about routines, self-care, and products that actually deliver after others that did not. Whatever product this script is for, write it the way a beauty creator would naturally talk about it -- personal, specific, focused on how it makes you feel. Apply this voice to any product regardless of category.",
+    tech: "CREATOR VOICE CALIBRATION -- TECH AND BOOKS: This creator's audience is used to content about things that work better, setups that are smarter, and products that solve real friction. Whatever product this script is for, write it the way a tech creator would naturally talk about it -- direct, specific, focused on what it actually does differently. Apply this voice to any product regardless of category.",
+    sports: "CREATOR VOICE CALIBRATION -- SPORTS AND OUTDOORS: This creator's audience is used to content about performance, preparation, and gear that does not let you down. Whatever product this script is for, write it the way a sports creator would naturally talk about it -- active, specific, focused on what happens when you are actually using it. Apply this voice to any product regardless of category.",
+    health: "CREATOR VOICE CALIBRATION -- HEALTH AND WELLNESS: This creator's audience is used to content about feeling better, building habits, and finding things that actually work. Whatever product this script is for, write it the way a health creator would naturally talk about it -- honest, personal, focused on how it feels to use it consistently. Apply this voice to any product regardless of category.",
+    fashion: "CREATOR VOICE CALIBRATION -- FASHION: This creator's audience is used to content about how things look, how they make you feel, and whether they fit the life you are building. Whatever product this script is for, write it the way a fashion creator would naturally talk about it -- identity-aware, specific, focused on the feeling of having the right thing. Apply this voice to any product regardless of category."
+  };
+  if(!userVertical || !verticalContexts[userVertical]) return "";
+  return " " + verticalContexts[userVertical];
+}
+
+function showProfile() {
+  var existing = document.getElementById("profileModal");
   if(existing) { existing.remove(); return; }
 
   var modal = document.createElement("div");
-  modal.id = "goalModal";
-  modal.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;";
+  modal.id = "profileModal";
+  modal.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:1000;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:20px 16px 40px;";
 
   var card = document.createElement("div");
-  card.style.cssText = "background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius);padding:24px;width:100%;max-width:320px;";
+  card.style.cssText = "background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius);padding:24px;width:100%;max-width:420px;margin:0 auto;";
 
   var heading = document.createElement("div");
-  heading.style.cssText = "font-family:'Playfair Display',serif;font-size:18px;color:var(--white);margin-bottom:4px;";
-  heading.innerHTML = "Daily <em style='font-style:italic;color:var(--silver-bright);'>Posting Goal</em>";
-  var sub = document.createElement("div");
-  sub.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:16px;";
-  sub.textContent = "How many videos will you post per day?";
-  card.appendChild(heading);
-  card.appendChild(sub);
+  heading.style.cssText = "font-family:'Playfair Display',serif;font-size:20px;color:var(--white);margin-bottom:4px;";
+  heading.innerHTML = "Your <em>Profile</em>";
+  var headSub = document.createElement("div");
+  headSub.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:24px;line-height:1.6;";
+  headSub.textContent = "Thumbs up anything that sounds like you. Thumbs down anything that definitely doesn't. Leave it blank if you're not sure. Both options can be right.";
+  card.appendChild(heading); card.appendChild(headSub);
 
-  var btns = document.createElement("div");
-  btns.style.cssText = "display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:16px;";
-  [1,2,3,4,5,6,7,8,9,10].forEach(function(n){
-    var btn = document.createElement("button");
-    btn.style.cssText = "padding:12px;border-radius:var(--radius-sm);border:1px solid " + (postingGoal===n ? "var(--silver-bright)" : "var(--border-md)") + ";background:" + (postingGoal===n ? "rgba(192,192,192,0.15)" : "var(--surface2)") + ";color:" + (postingGoal===n ? "var(--silver-bright)" : "var(--white-dim)") + ";font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:" + (postingGoal===n ? "700" : "400") + ";cursor:pointer;transition:all 0.15s;";
-    btn.textContent = n;
-    btn.addEventListener("click", function(){
-      postingGoal = n;
-      saveLocalData();
-      updateDailyMeter();
-      modal.remove();
-      showToast("Daily goal set to " + n + " video" + (n > 1 ? "s" : ""));
+  // ── VOICE QUESTIONS ──
+  var questions = [
+    { key:"q1",  label:"Energy",
+      a:"I can't stop thinking about this",
+      b:"I've been using this every day and it's just... good" },
+    { key:"q2",  label:"How you react to genuine surprise",
+      a:"Wait I actually cannot believe how well this works",
+      b:"Okay this is better than I expected and I had decent expectations" },
+    { key:"q3",  label:"How you handle hesitation",
+      a:"I almost talked myself out of it three times",
+      b:"I waited way too long on this one" },
+    { key:"q4",  label:"How you ask for something",
+      a:"Just go grab it, I promise you won't regret it",
+      b:"It's linked if you want to check it out" },
+    { key:"q5",  label:"Whether you bring other people in",
+      a:"I texted three people about this before I even finished using it",
+      b:"I don't really talk about what other people think -- I just know what worked for me" },
+    { key:"q6",  label:"Sentence rhythm",
+      a:"It's lightweight, stays dry, and has a pocket for everything",
+      b:"Five pounds. Stays dry. I haven't thought about my bag once." },
+    { key:"q7",  label:"Humor",
+      a:"I'm not gonna lie this thing is kind of ridiculous and I love it",
+      b:"I don't usually talk about stuff like this but here we are" },
+    { key:"q8",  label:"How you talk to the camera",
+      a:"Okay so I have to show you something",
+      b:"I found this thing and I've been using it every day" },
+    { key:"q9",  label:"Depth of vulnerability",
+      a:"I genuinely cannot explain why I waited so long, it makes no sense",
+      b:"I was skeptical for a while and I get why -- it just takes trying it" },
+    { key:"q10", label:"How you explain things",
+      a:"So the way it works is -- and this is the part that actually got me --",
+      b:"I just know that every time I use it, it does exactly what it's supposed to" }
+  ];
+
+  var voiceWrap = document.createElement("div");
+  voiceWrap.style.cssText = "display:flex;flex-direction:column;gap:14px;margin-bottom:28px;";
+
+  questions.forEach(function(q) {
+    var qWrap = document.createElement("div");
+    qWrap.style.cssText = "background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;";
+    var qLbl = document.createElement("div");
+    qLbl.style.cssText = "font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;";
+    qLbl.textContent = q.label;
+    qWrap.appendChild(qLbl);
+
+    ["a","b"].forEach(function(side) {
+      var sideKey = side.toUpperCase();
+      var savedState = (voiceProfile[q.key] && voiceProfile[q.key][sideKey]) || null;
+
+      var row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:10px;margin-bottom:8px;";
+
+      var textEl = document.createElement("div");
+      textEl.style.cssText = "flex:1;font-size:13px;color:var(--white-dim);line-height:1.55;font-weight:300;font-style:italic;";
+      textEl.textContent = "“" + q[side] + "”";
+
+      var btnWrap = document.createElement("div");
+      btnWrap.style.cssText = "display:flex;gap:4px;flex-shrink:0;";
+
+      var upBtn = document.createElement("button");
+      upBtn.style.cssText = "width:32px;height:32px;border-radius:8px;border:1px solid " + (savedState==="up" ? "var(--green)" : "var(--border-md)") + ";background:" + (savedState==="up" ? "rgba(45,201,138,0.15)" : "var(--surface)") + ";cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;";
+      upBtn.textContent = "👍";
+      upBtn.title = "This sounds like me";
+
+      var downBtn = document.createElement("button");
+      downBtn.style.cssText = "width:32px;height:32px;border-radius:8px;border:1px solid " + (savedState==="down" ? "var(--red)" : "var(--border-md)") + ";background:" + (savedState==="down" ? "rgba(232,40,78,0.1)" : "var(--surface)") + ";cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;";
+      downBtn.textContent = "👎";
+      downBtn.title = "This is not how I talk";
+
+      (function(qKey, sk, uBtn, dBtn) {
+        uBtn.addEventListener("click", function() {
+          if(!voiceProfile[qKey]) voiceProfile[qKey] = {};
+          var current = voiceProfile[qKey][sk];
+          if(current === "up") {
+            // toggle off
+            voiceProfile[qKey][sk] = null;
+            uBtn.style.borderColor = "var(--border-md)"; uBtn.style.background = "var(--surface)";
+          } else {
+            voiceProfile[qKey][sk] = "up";
+            uBtn.style.borderColor = "var(--green)"; uBtn.style.background = "rgba(45,201,138,0.15)";
+            dBtn.style.borderColor = "var(--border-md)"; dBtn.style.background = "var(--surface)";
+          }
+          saveLocalData();
+        });
+        dBtn.addEventListener("click", function() {
+          if(!voiceProfile[qKey]) voiceProfile[qKey] = {};
+          var current = voiceProfile[qKey][sk];
+          if(current === "down") {
+            voiceProfile[qKey][sk] = null;
+            dBtn.style.borderColor = "var(--border-md)"; dBtn.style.background = "var(--surface)";
+          } else {
+            voiceProfile[qKey][sk] = "down";
+            dBtn.style.borderColor = "var(--red)"; dBtn.style.background = "rgba(232,40,78,0.1)";
+            uBtn.style.borderColor = "var(--border-md)"; uBtn.style.background = "var(--surface)";
+          }
+          saveLocalData();
+        });
+      })(q.key, sideKey, upBtn, downBtn);
+
+      btnWrap.appendChild(upBtn); btnWrap.appendChild(downBtn);
+      row.appendChild(textEl); row.appendChild(btnWrap);
+      qWrap.appendChild(row);
     });
-    btns.appendChild(btn);
+    voiceWrap.appendChild(qWrap);
   });
-  card.appendChild(btns);
+  card.appendChild(voiceWrap);
+
+  // ── POSTING GOAL ──
+  var goalLabel = document.createElement("div");
+  goalLabel.style.cssText = "font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;";
+  goalLabel.textContent = "Daily Posting Goal";
+  var goalSub = document.createElement("div");
+  goalSub.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:12px;";
+  goalSub.textContent = "How many videos will you post per day?";
+  card.appendChild(goalLabel); card.appendChild(goalSub);
+
+  var goalGrid = document.createElement("div");
+  goalGrid.style.cssText = "display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:24px;";
+  [1,2,3,4,5,6,7,8,9,10].forEach(function(n) {
+    var btn = document.createElement("button");
+    btn.style.cssText = "padding:10px;border-radius:var(--radius-sm);border:1px solid " + (postingGoal===n ? "var(--silver-bright)" : "var(--border-md)") + ";background:" + (postingGoal===n ? "rgba(192,192,192,0.15)" : "var(--surface2)") + ";color:" + (postingGoal===n ? "var(--silver-bright)" : "var(--white-dim)") + ";font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:" + (postingGoal===n ? "700" : "400") + ";cursor:pointer;transition:all 0.15s;";
+    btn.textContent = n;
+    btn.addEventListener("click", function() {
+      postingGoal = n; saveLocalData(); updateDailyMeter();
+      goalGrid.querySelectorAll("button").forEach(function(b, i) {
+        var sel = i+1 === n;
+        b.style.borderColor = sel ? "var(--silver-bright)" : "var(--border-md)";
+        b.style.background = sel ? "rgba(192,192,192,0.15)" : "var(--surface2)";
+        b.style.color = sel ? "var(--silver-bright)" : "var(--white-dim)";
+        b.style.fontWeight = sel ? "700" : "400";
+      });
+      showToast("Goal set to " + n + " video" + (n>1?"s":"") + " per day");
+    });
+    goalGrid.appendChild(btn);
+  });
+  card.appendChild(goalGrid);
 
   var closeBtn = document.createElement("button");
-  closeBtn.style.cssText = "width:100%;background:transparent;border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px;cursor:pointer;";
-  closeBtn.textContent = "Cancel";
+  closeBtn.style.cssText = "width:100%;background:transparent;border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:12px;cursor:pointer;";
+  closeBtn.textContent = "Done";
   closeBtn.addEventListener("click", function(){ modal.remove(); });
   card.appendChild(closeBtn);
 
@@ -2469,7 +2647,7 @@ function generateScriptBank() {
 
   var focusLine = currentFocus ? " FOCUS: Write every line specifically for this buyer angle: " + currentFocus.focus + ". " + (currentFocus.description || "") + " Every hook should call out this exact situation. Body lines should speak directly to what this person cares about. CTAs should feel like the natural resolution for someone in this situation." : "";
   var priceLine = " " + getPriceContext();
-  var prompt = "Write TikTok Shop affiliate scripts for: " + product + focusLine + priceLine + " Voice: real person sharing with friends. BANNED words -- never use any of these in any line: price, cost, worth, deal, value, investment, affordable, cheap, budget, dollar, dollars, spend, pay, wine, coffee, meal, dinner, lunch, cheeseburger, picture yourself, imagine, journey, game-changer, elevate, transform, we, our. Return JSON: {productName:str,hooks:{Worse alternative:[3],Desired transformation:[3],Curiosity loop:[3],Social proof:[3],Scarcity and FOMO:[3],Identity and aspiration:[3],Skepticism disarm:[3],Friction removal:[3]},body:{Feature to feeling:[3],Quality proof:[3],Simplicity and ease:[3],Value reframe:[3],Legacy and emotion:[3],Multi-use reveal:[3]},cta:{Scarcity:[3],Value close:[3],Soft close:[3],Direct close:[3],Community and trust:[3]},preClose:[4 unique casual nudge lines],seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
+  var prompt = "Write TikTok Shop affiliate scripts for: " + product + focusLine + priceLine + getVoiceProfileNote() + getVerticalNote() + " Voice: real person sharing with friends. BANNED words -- never use any of these in any line: price, cost, worth, deal, value, investment, affordable, cheap, budget, dollar, dollars, spend, pay, wine, coffee, meal, dinner, lunch, cheeseburger, picture yourself, imagine, journey, game-changer, elevate, transform, we, our. Return JSON: {productName:str,hooks:{Worse alternative:[3],Desired transformation:[3],Curiosity loop:[3],Social proof:[3],Scarcity and FOMO:[3],Identity and aspiration:[3],Skepticism disarm:[3],Friction removal:[3]},body:{Feature to feeling:[3],Quality proof:[3],Simplicity and ease:[3],Value reframe:[3],Legacy and emotion:[3],Multi-use reveal:[3]},cta:{Scarcity:[3],Value close:[3],Soft close:[3],Direct close:[3],Community and trust:[3]},preClose:[4 unique casual nudge lines],seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
 
   var controller = new AbortController();
   var timeoutId = setTimeout(function() {
@@ -3486,6 +3664,8 @@ function loadLocalData() {
       favorites = d.favorites || {};
       onboardingDone = d.onboardingDone || false;
       onboardingSteps = d.onboardingSteps || { goal:false,generate:false,script:false,posted:false,audit:false };
+      userVertical = d.userVertical || null;
+      voiceProfile = d.voiceProfile || {};
     }
   } catch(e) {}
   // Clean today posts - only keep today
@@ -3495,7 +3675,7 @@ function loadLocalData() {
 
 function saveLocalData() {
   try {
-    var d = { postingGoal:postingGoal, todayPosts:todayPosts, streakDays:streakDays, monthPosts:monthPosts, scriptHistory:scriptHistory, favorites:favorites, onboardingDone:onboardingDone, onboardingSteps:onboardingSteps };
+    var d = { postingGoal:postingGoal, todayPosts:todayPosts, streakDays:streakDays, monthPosts:monthPosts, scriptHistory:scriptHistory, favorites:favorites, onboardingDone:onboardingDone, onboardingSteps:onboardingSteps, userVertical:userVertical, voiceProfile:voiceProfile };
     localStorage.setItem("ecl_local_" + (currentUser ? currentUser.id : "guest"), JSON.stringify(d));
   } catch(e) {}
 }
