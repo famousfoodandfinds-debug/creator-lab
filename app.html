@@ -3405,25 +3405,38 @@ function generateSkitScripts(skitAngles) {
 
   var priceCtx = getPriceContext();
 
-  var prompt = "You write two-person short-form video skit scripts for social selling. Each scene must feel overheard, not performed. Product: " + currentProduct + ". Price context: " + priceCtx + ". Write " + skitAngles.length + " skits: " + anglesText + "." +
+  var prompt = "You write two-person short-form video skit scripts for social selling. The scene must feel overheard, not performed. A viewer stumbling onto this should feel like they accidentally caught a real private conversation. Product: " + currentProduct + ". Price context: " + priceCtx + ". Write " + skitAngles.length + " skits: " + anglesText + "." +
     " RELATIONSHIP VOICES: " + relVoiceNotes +
-    " GOLD STANDARD EXAMPLE: THEM: I have had a headache for three days and nothing is touching it. YOU: Are you drinking enough water or just existing on coffee? THEM: Water does not fix a three-day headache. YOU: It does when you add minerals. I started putting these drops in mine and headaches just stopped. THEM: I hate that that actually makes sense. YOU: Right? I will text you the link." +
-    " STRUCTURE (6 lines, always THEM then YOU alternating):" +
-    " LINE 1 THEM: Real specific human moment. Frustration, observation, or feeling. Not a product question. The more specific the better." +
-    " LINE 2 YOU: Respond like a human first. Show you understand. Do not name the product yet." +
-    " LINE 3 THEM: The exact skepticism or question the VIEWER is holding right now. Voice their doubt." +
-    " LINE 4 YOU: Introduce product naturally as your answer. One specific real detail as proof. Casual delivery. Under 12 words." +
-    " LINE 5 THEM: THE TURN. NOT another question. A genuine emotional reaction -- the moment they shift from skeptical to wanting it. Examples of strong turns: I hate that that makes sense. / Okay I was about to make fun of you and now I kind of need it. / That is literally what has been wrong with me. / I mean I would not be mad if you sent me that. Bad turns: So it actually works? / How long until you see results? Those are just more questions." +
-    " LINE 6 YOU: Natural CTA woven into dialogue based on relationship. FRIEND: I will text you the link / I will send it to you right now. SPOUSE: It is already in my cart / I just added it. STRANGER: Here let me pull it up for you / want me to send it. EXPERT: I will send you the link / I will share the one I use. This must sound like what a real person says when a friend asks where they got something. Never say link in bio, check it out, or grab it from my cart." +
-    " RULES: Under 12 words per line. No em dashes. No invented specs. No brand names except the product brand. Sell the person they become, not the product." +
-    " CAPTION: Real person typing on their phone after filming. NOT a tagline or wisdom quote. 2-3 sentences. Sounds like a text to a friend." +
-    " ON-SCREEN TEXT: Pure pattern interrupt before the scene. Nothing to do with the product. Under 6 words. Slightly personal or uncomfortably accurate." +
+    " GOLD STANDARD EXAMPLE -- study this before writing anything:" +
+    " THEM: I have had a headache for three days and nothing is touching it." +
+    " YOU: Are you actually drinking water or just surviving on coffee?" +
+    " THEM: Water does not fix a three-day headache." +
+    " YOU: It does when you add minerals. I put these drops in mine and they just stopped." +
+    " THEM: I hate that that actually makes sense." +
+    " YOU: Right? I will text you the link right now." +
+    " Notice: THEM opens with a specific human feeling, not a product question. YOU responds like a person, not a spokesperson. The product enters as an answer in line 4. Line 5 is a genuine reaction that mirrors what the viewer just felt. The link offer in line 6 is what any friend would say." +
+    " STRUCTURE (exactly 6 lines, always THEM then YOU alternating):" +
+    " LINE 1 THEM: A real specific human moment. A frustration, feeling, or observation that is so specific the viewer goes that is me. Not a product question. Not vague. The specificity is everything -- a bad line 1 makes the whole skit feel fake." +
+    " LINE 2 YOU: Respond like a human being first. Meet them where they are. Do not mention the product yet. One short genuine reaction." +
+    " LINE 3 THEM: Voice the exact doubt or question the viewer is holding right now. This is the viewer speaking through THEM. If the viewer is thinking but does that actually work -- THEM says some version of that." +
+    " LINE 4 YOU: Introduce the product naturally as your answer. Lead with one specific real feeling or result -- not a clinical explanation. Say it the way you would tell a friend. Under 10 words. WRONG: NAD+ rebuilds your mitochondria at the cellular level. RIGHT: It helps your cells make energy like they used to. WRONG: It supports mitochondrial function for sustained energy production. RIGHT: I stopped crashing at 3pm completely. The feature is proof, not the pitch." +
+    " LINE 5 THEM: THE TURN. This is the most important line. NOT another question. A genuine emotional reaction -- the moment they go from skeptical to wanting it. Strong examples: I hate that that actually makes sense. / Okay I was about to make fun of you and now I kind of need it. / That is literally what has been happening to me. / I mean I would not be mad if you sent that. / Why have I not been doing this. Weak examples that are banned: So it actually works? / How long until you feel it? / And there are no side effects? Those are all just more questions." +
+    " LINE 6 YOU: Natural CTA that fits the relationship. Must sound like what you would actually say when a friend asks where you got something -- not a sales line. FRIEND: I will text you the link right now / sending it to you right now. SPOUSE: Already in my cart / I just added you one / it is in my cart. STRANGER: Here let me pull it up / want me to send it to you. EXPERT: I will send you the link / I will share the one I use. NEVER say link in bio, check it out, tap the cart, or any creator phrase. One more rule: if the cart or link is mentioned, the viewer needs to know how to get it -- either the character pulls it up, texts it, or says it is in their cart." +
+    " RULES:" +
+    " Under 10 words per line. Read each line aloud. If it sounds scripted, rewrite it." +
+    " No em dashes anywhere." +
+    " No invented specs or statistics." +
+    " No brand names except the product being promoted." +
+    " No disclaimers in captions -- never write not a paid thing or not sponsored. Real people do not disclaim their own captions." +
+    " Sell the person they become, not the product features." +
+    " CAPTION: Real person typing on their phone right after filming. 2-3 sentences. Sounds like a text to a group chat -- specific, a little funny, genuine. Never a tagline. Never a wisdom quote. Never generic." +
+    " ON-SCREEN TEXT: 3 options. Each one is a pure pattern interrupt -- appears before the scene, has nothing to do with the product, stops the scroll before they know what the video is about. STRICT maximum 5 words each. Personal, slightly confrontational, or uncomfortably accurate. If it could appear on a product ad, it is wrong." +
     " Return ONLY valid JSON: {skits:[{angle:string,relationship:string,lines:[{speaker:string,text:string}],screenText:[string,string,string],caption:string,hashtags:[string,string,string,string,string]}]} where lines has exactly 6 entries alternating THEM and YOU starting with THEM.";
 
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 6000,
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 6000,
       messages: [{ role: "user", content: prompt }]
     })
   })
