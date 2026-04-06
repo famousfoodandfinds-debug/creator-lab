@@ -3382,87 +3382,98 @@ function generateSkitScripts(skitAngles) {
   heading.innerHTML = "Writing your <em>Skits...</em>";
   var sub = document.createElement("div");
   sub.className = "step-sub";
-  sub.innerHTML = "<div class=\'dots\'><div class=\'dot\'></div><div class=\'dot\'></div><div class=\'dot\'></div></div>";
+  sub.id = "skitProgress";
+  sub.textContent = "Starting skit 1 of " + skitAngles.length + "...";
   sub.style.marginBottom = "20px";
   wrap.appendChild(heading);
   wrap.appendChild(sub);
+
+  var skitContainer = document.createElement("div");
+  skitContainer.id = "skitContainer";
+  wrap.appendChild(skitContainer);
   mc.appendChild(wrap);
 
-  var anglesText = skitAngles.map(function(a, i) {
-    return "Skit " + (i+1) + ": angle=[" + a.focus + "] desire=[" + a.desire + "] description=[" + a.description + "] relationship=[" + a.relationship + "]";
-  }).join(". ");
-
+  var priceCtx = getPriceContext();
   var relationshipVoices = {
-    friend: "FRIEND voice rules: Both voices are equal energy. Casual, off the cuff, you HAVE to try this energy. No selling, just sharing between friends. Excited, warm, natural.",
-    spouse: "SPOUSE voice rules: THEM is mildly skeptical or gently teasing. YOU is confident without being defensive. Warm domestic humor. I told you so energy. The you already bought it and is showing the skeptic.",
-    stranger: "STRANGER voice rules: THEM initiates by noticing something. YOU is a little surprised to be asked but happy to share. Zero sales energy. Feels overheard, not performed.",
-    expert: "EXPERT voice rules: THEM asks genuine questions the viewer is thinking. YOU answers in plain language -- no jargon. The expertise shows in the specificity of the answer, not fancy vocabulary. CRITICAL: Even in Expert mode the opening lines must sound like a real conversation between two people who know each other -- not a health podcast interview. THEM line 1 must still be a personal human moment, not a clinical question like at what age does the body start declining internally. That is a podcast question, not a friend question. Expert means YOU has knowledge, not that THEM sounds like a journalist."
+    friend: "FRIEND: Both equal energy. Casual sharing, no selling. Excited, warm.",
+    spouse: "SPOUSE: THEM mildly skeptical or teasing. YOU confident, warm. I told you so energy.",
+    stranger: "STRANGER: THEM initiates noticing something. YOU surprised but happy to share. Zero sales energy.",
+    expert: "EXPERT: THEM asks genuine questions a real person would ask. YOU answers in plain language. CRITICAL: THEM line 1 must be a personal human moment, not a clinical question. Expert means YOU has knowledge, not that THEM sounds like a journalist."
   };
 
-  var relVoiceNotes = skitAngles.map(function(a, i) {
-    return "Skit " + (i+1) + " relationship=[" + a.relationship + "]: " + (relationshipVoices[a.relationship] || "");
-  }).join(" ");
+  var completedSkits = [];
+  var completedAngles = [];
 
-  var priceCtx = getPriceContext();
-
-  var prompt = "You write two-person short-form video skit scripts for social selling. The scene must feel overheard, not performed. A viewer stumbling onto this should feel like they accidentally caught a real private conversation. Product: " + currentProduct + ". Price context: " + priceCtx + ". Write " + skitAngles.length + " skits: " + anglesText + "." +
-    " RELATIONSHIP VOICES: " + relVoiceNotes +
-    " GOLD STANDARD EXAMPLE -- study this before writing anything:" +
-    " THEM: I have had a headache for three days and nothing is touching it." +
-    " YOU: Are you actually drinking water or just surviving on coffee?" +
-    " THEM: Water does not fix a three-day headache." +
-    " YOU: It does when you add minerals. I put these drops in mine and they just stopped." +
-    " THEM: I hate that that actually makes sense." +
-    " YOU: Right? I will text you the link right now." +
-    " Notice: THEM opens with a specific human feeling, not a product question. YOU responds like a person, not a spokesperson. The product enters as an answer in line 4. Line 5 is a genuine reaction that mirrors what the viewer just felt. The link offer in line 6 is what any friend would say." +
-    " STRUCTURE (exactly 6 lines, always THEM then YOU alternating):" +
-    " LINE 1 THEM: A real specific human moment. A frustration, feeling, or observation that is so specific the viewer goes that is me. Not a product question. Not vague. The specificity is everything -- a bad line 1 makes the whole skit feel fake." +
-    " LINE 2 YOU: Respond like a human being first. Meet them where they are. Do not mention the product yet. One short genuine reaction." +
-    " LINE 3 THEM: Voice the exact doubt or question the viewer is holding right now. This is the viewer speaking through THEM. If the viewer is thinking but does that actually work -- THEM says some version of that." +
-    " LINE 4 YOU: Introduce the product naturally as your answer. You MUST reference the actual product by name or type in this line -- the viewer needs to know what you are talking about. Lead with one specific real feeling or result, not a clinical explanation. Say it the way you would tell a friend. Under 10 words. WRONG: Your cells just stopped making energy like they used to -- this does not name the product. WRONG: NAD+ rebuilds your mitochondria at the cellular level -- this is a brochure sentence. RIGHT: I started taking NAD+ gummies and my whole morning changed. RIGHT: I stopped crashing at 3pm, these NAD+ gummies changed everything. The product name or type must appear in line 4. The feature is proof, not the pitch." +
-    " LINE 5 THEM: THE TURN. This is the most important line. NOT another question. A genuine emotional reaction -- the moment they go from skeptical to wanting it. Strong examples: I hate that that actually makes sense. / Okay I was about to make fun of you and now I kind of need it. / That is literally what has been happening to me. / I mean I would not be mad if you sent that. / Why have I not been doing this. Weak examples that are banned: So it actually works? / How long until you feel it? / And there are no side effects? Those are all just more questions." +
-    " LINE 6 YOU: Natural CTA that fits the relationship. Must sound like what you would actually say when a friend asks where you got something -- not a sales line. FRIEND: I will text you the link right now / sending it to you right now. SPOUSE: Already in my cart / I just added you one / it is in my cart. STRANGER: Here let me pull it up / want me to send it to you. EXPERT: I will send you the link / I will share the one I use. NEVER say link in bio, check it out, tap the cart, or any creator phrase. One more rule: if the cart or link is mentioned, the viewer needs to know how to get it -- either the character pulls it up, texts it, or says it is in their cart." +
-    " RULES:" +
-    " Under 10 words per line. Read each line aloud. If it sounds scripted, rewrite it." +
-    " No em dashes anywhere." +
-    " No invented specs or statistics." +
-    " No brand names except the product being promoted." +
-    " No disclaimers in captions -- never write not a paid thing or not sponsored. Real people do not disclaim their own captions." +
-    " Sell the person they become, not the product features." +
-    " CAPTION: Real person typing on their phone right after filming. 2-3 sentences. Sounds like a text to a group chat -- specific, a little funny, genuine. Never a tagline. Never a wisdom quote. Never generic." +
-    " ON-SCREEN TEXT: 3 options. Each one is a pure pattern interrupt -- appears before the scene, has nothing to do with the product, stops the scroll before they know what the video is about. STRICT maximum 5 words each. Personal, slightly confrontational, or uncomfortably accurate. If it could appear on a product ad, it is wrong." +
-    " Return ONLY valid JSON: {skits:[{angle:string,relationship:string,lines:[{speaker:string,text:string}],screenText:[string,string,string],caption:string,hashtags:[string,string,string,string,string]}]} where lines has exactly 6 entries alternating THEM and YOU starting with THEM.";
-
-  fetch("/api/claude", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 6000,
-      messages: [{ role: "user", content: prompt }]
-    })
-  })
-  .then(function(r) { return r.json(); })
-  .then(function(data) {
-    if(data.error) throw new Error(data.error.message);
-    var text = "";
-    data.content.forEach(function(b){ if(b.type==="text") text+=b.text; });
-    var clean = text.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim();
-    var parsed = JSON.parse(clean);
-    var skits = parsed.skits || [];
-    // Save product to library if not already saved
-    if(currentUser && !currentProductId) {
-      saveProduct(currentProduct, allData, function() {
-        renderSkitResults(skits, skitAngles);
-      });
-    } else {
-      renderSkitResults(skits, skitAngles);
+  function generateOneSkit(index) {
+    if(index >= skitAngles.length) {
+      // All done -- render final results
+      if(currentUser && !currentProductId) {
+        saveProduct(currentProduct, allData, function() {
+          renderSkitResults(completedSkits, completedAngles);
+        });
+      } else {
+        renderSkitResults(completedSkits, completedAngles);
+      }
+      return;
     }
-  })
-  .catch(function(err) {
-    var mc2 = document.getElementById("mainContent");
-    if(mc2) mc2.innerHTML = "<div style=\'padding:16px;color:var(--muted);\'>Something went wrong generating skits. Please try again.</div>";
-    var btn = document.getElementById("genBtn");
-    if(btn) { btn.disabled = false; btn.style.background = "var(--red)"; btn.innerHTML = "🧠&nbsp; Generate Focus Angles"; }
-  });
+
+    var a = skitAngles[index];
+    var progressEl = document.getElementById("skitProgress");
+    if(progressEl) progressEl.textContent = "Writing skit " + (index+1) + " of " + skitAngles.length + "...";
+
+    var prompt = "Write ONE two-person social selling skit. Product: " + currentProduct + ". Price context: " + priceCtx + ". Angle: " + a.focus + " (" + a.desire + ") -- " + a.description + ". Relationship: " + a.relationship + ". " + (relationshipVoices[a.relationship] || "") +
+      " GOLD STANDARD EXAMPLE: THEM: I have had a headache for three days and nothing is touching it. YOU: Are you actually drinking water or just surviving on coffee? THEM: Water does not fix a three-day headache. YOU: It does when you add minerals. I started putting these drops in mine and they just stopped. THEM: I hate that that actually makes sense. YOU: Right? I will text you the link right now." +
+      " STRUCTURE (exactly 6 lines, THEM then YOU alternating):" +
+      " LINE 1 THEM: Real specific human moment. So specific the viewer thinks that is me. Not a product question." +
+      " LINE 2 YOU: Human response first. No product yet. Short genuine reaction." +
+      " LINE 3 THEM: The exact doubt or question the viewer is holding right now." +
+      " LINE 4 YOU: Introduce product by name as your answer. One specific real result. Under 10 words. Must name the product. WRONG: Your cells stopped making energy. RIGHT: I started taking NAD+ gummies and my whole morning changed." +
+      " LINE 5 THEM: THE TURN. NOT a question. A genuine emotional shift. Strong turns: I hate that that makes sense / I was about to make fun of you and now I kind of need it / That is literally what has been happening to me. Banned turns: So it actually works? / How long until you feel it?" +
+      " LINE 6 YOU: Natural CTA matching relationship. FRIEND: I will text you the link. SPOUSE: Already in my cart / I just added you one. STRANGER: Here let me pull it up. EXPERT: I will send you the link. Never say link in bio or check it out." +
+      " RULES: Under 10 words per line. No em dashes. No invented specs. No brand names except product brand. No disclaimers in caption." +
+      " CAPTION: Real person texting their group chat after filming. Specific, a little funny, genuine. Not a tagline." +
+      " ON-SCREEN TEXT: 3 options. Pure pattern interrupt. Nothing to do with product. Max 5 words each. Personal or uncomfortably accurate." +
+      " Return ONLY valid JSON: {skit:{angle:string,relationship:string,lines:[{speaker:string,text:string}],screenText:[string,string,string],caption:string,hashtags:[string,string,string,string,string]}} where lines has exactly 6 entries.";
+
+    fetch("/api/claude", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+      body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 800,
+        messages: [{ role: "user", content: prompt }]
+      })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if(data.error) throw new Error(data.error.message);
+      var text = "";
+      data.content.forEach(function(b){ if(b.type==="text") text+=b.text; });
+      var clean = text.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim();
+      var parsed = JSON.parse(clean);
+      var skit = parsed.skit || parsed.skits && parsed.skits[0] || null;
+      if(skit) {
+        completedSkits.push(skit);
+        completedAngles.push(a);
+        // Show this skit immediately in the container
+        var container = document.getElementById("skitContainer");
+        if(container) {
+          var preview = document.createElement("div");
+          preview.style.cssText = "background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius);padding:12px 14px;margin-bottom:8px;";
+          preview.innerHTML = "<div style='font-size:11px;font-weight:600;color:var(--green);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:4px;'>Skit " + (index+1) + " ready</div>" +
+            "<div style='font-size:13px;color:var(--white-dim);'>" + a.focus + " <span style='color:var(--muted);font-size:11px;'>(" + a.relationship + ")</span></div>";
+          container.appendChild(preview);
+        }
+      }
+      generateOneSkit(index + 1);
+    })
+    .catch(function(err) {
+      // On error for one skit, skip it and continue
+      var progressEl2 = document.getElementById("skitProgress");
+      if(progressEl2) progressEl2.textContent = "Skit " + (index+1) + " failed, continuing...";
+      generateOneSkit(index + 1);
+    });
+  }
+
+  generateOneSkit(0);
 }
 
 function saveAllSkits(skits, angles, statusEl, btn) {
