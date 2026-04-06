@@ -3090,7 +3090,7 @@ function renderSkitPicker() {
   heading.innerHTML = "Build your <em>Skits</em>";
   var sub = document.createElement("div");
   sub.className = "step-sub";
-  sub.textContent = "Each angle gets its own relationship type. Up to 5 skits per batch.";
+  sub.textContent = "Pick a relationship for each angle, then tap Add. Same angle can be added multiple times with different relationships. Up to 5 skits total.";
   sub.style.marginBottom = "16px";
 
   var loadingDiv = document.createElement("div");
@@ -3202,11 +3202,17 @@ function renderSkitAngleGrid(wrap, focuses) {
     });
     card.appendChild(relRow);
 
+    // Helper text
+    var helperText = document.createElement("div");
+    helperText.style.cssText = "font-size:11px;color:var(--muted);margin-bottom:8px;font-style:italic;";
+    helperText.textContent = "Pick a relationship then tap Add. You can add the same angle again with a different relationship.";
+    card.appendChild(helperText);
+
     // Add button + count tracker
     var addRow = document.createElement("div");
     addRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:4px;";
     var addBtn = document.createElement("button");
-    addBtn.style.cssText = "background:var(--surface2);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white-dim);font-family:\'Instrument Sans\',sans-serif;font-size:12px;font-weight:500;padding:7px 14px;cursor:pointer;transition:all 0.15s;opacity:0.4;";
+    addBtn.style.cssText = "background:var(--silver-dim);border:1px solid rgba(192,192,192,0.3);border-radius:var(--radius-sm);color:var(--muted);font-family:\'Instrument Sans\',sans-serif;font-size:12px;font-weight:600;padding:8px 16px;cursor:pointer;transition:all 0.15s;opacity:0.4;letter-spacing:0.01em;";
     addBtn.textContent = "+ Add this angle";
     addBtn.disabled = true;
     var cardCount = document.createElement("div");
@@ -3343,15 +3349,15 @@ function generateSkitScripts(skitAngles) {
     " LINE 2 (YOU): Respond like a human first. Show you understand. Do not mention the product yet. One short human reaction." +
     " LINE 3 (THEM): Pushes back or asks the real question the VIEWER is holding. This is the skepticism line. It must voice exactly what the viewer is thinking right now." +
     " LINE 4 (YOU): Introduce the product naturally as your answer. Lead with a specific real detail that proves it works. Not a claim -- a fact. Casual delivery." +
-    " LINE 5 (THEM): THE TURN. This is the most important line. The moment they shift from skeptical to wanting it. It should feel like a genuine reaction -- surprised, relieved, a little embarrassed they doubted it. This line mirrors what the viewer is now feeling." +
-    " LINE 6 (YOU): Soft close woven naturally into dialogue. Confident, not pushy. Ends with a CTA phrase woven in: I will link it for you / already in my cart grab it from there / tap my cart I have got it saved. Never link in bio. Never check it out." +
+    " LINE 5 (THEM): THE TURN. This is the most important line in the entire skit. The moment THEM shifts from skeptical or casual to genuinely wanting it. This is NOT another question. This is a reaction. It should make the viewer feel something -- recognition, relief, surprise, or the quiet embarrassment of realizing they want it too. EXAMPLES OF STRONG TURNS: Okay wait, why do I actually want that now. / I mean I would not be mad if you sent me that link. / That is literally what has been wrong with me. / Hold on, I thought you were being dramatic. / Okay I was about to make fun of you and now I kind of need it. / I hate that that makes sense. BAD TURNS (do not write these): Okay that sounds cool. / So it actually works? / And there is no side effects? / How long until you see results? -- those are just more questions. The viewer needs to feel the shift happen, not watch THEM ask another question." +
+    " LINE 6 (YOU): Soft close woven naturally into dialogue. This must sound like something a real person would actually say in this exact conversation -- not a sales line delivered by a character. The CTA comes out of the relationship. FRIEND: I will text you the link / I will send it to you right now / I will drop it in your DMs. SPOUSE: It is already in my cart / check my cart I put it in there / I just added it you can grab it from mine. STRANGER: Here let me pull it up for you / I will airdrop you the link / want me to text it to you. EXPERT: I will send you the link / I will share the one I use. The character is NOT doing a sales call. They are doing what you would actually do when a friend asks where you got something. Never say link in bio. Never say check it out. Never say grab it from my cart. Those are creator phrases, not human phrases." +
     " LINE LENGTH: Under 12 words per line. These are spoken words, not written sentences. Read every line aloud. If it sounds scripted, rewrite it." +
     " THE TURN (Line 5) MUST be one of these types:" +
     " RELIEF TURN: Oh thank god, I thought I was going to have to do something drastic." +
     " SURPRISE TURN: Wait that actually makes sense. Why has no one told me this?" +
     " SELF-RECOGNITION TURN: That is literally me. I do that exact thing." +
     " QUIET WANT TURN: Okay I actually need that. How did you find this?" +
-    " THE CAPTION must not be a tagline or generic wisdom. It must be a real person posting naturally. 2-3 sentences. Include one soft CTA. Sounds like something you would text your friend." +
+    " THE CAPTION must sound like a real person who just filmed this with their friend and is posting it. NOT a tagline. NOT a wisdom quote. NOT ad copy. Read it back and ask: would a real person actually type this caption? GOOD CAPTION ENERGY: Filmed this with my best friend and she did not believe me at first either. Now she orders them every month. Linked below if you want to try it. / We were literally in the middle of something else when this came up. I have been taking them for two months and she noticed before I even said anything. In my cart if you want it. BAD CAPTIONS: Your cells remember what you feed them. / Real energy starts at the cellular level. / Your future self is watching. Those are marketing headlines, not captions. The caption should feel like it was typed on a phone by a person who just had a genuine moment." +
     " BANNED WORDS AND PHRASES: price cost dollar worth deal value investment game-changer elevate transform engineered technology cutting-edge revolutionary clinically proven dermatologist recommended doctor approved. No em dashes. No brand names except the product brand. No invented specs. No lines that start with the product name. No explaining what the product is to the viewer -- THEM and YOU already know." +
     " ON-SCREEN TEXT: appears BEFORE the scene starts. Pure pattern interrupt. Nothing to do with the product or the conversation. Makes the viewer think -- wait what does that mean. Under 6 words. Slightly personal or uncomfortably accurate." +
     " FINAL TEST: Read the whole skit aloud. If anyone sounds like they are selling something, rewrite it. The viewer should feel like they stumbled into a private conversation." +
@@ -3360,7 +3366,7 @@ function generateSkitScripts(skitAngles) {
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 6000,
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 6000,
       messages: [{ role: "user", content: prompt }]
     })
   })
