@@ -1482,7 +1482,16 @@ function loadProductById(id) {
     if (result.error || !result.data) return;
     currentProductId = result.data.id;
     currentProduct = result.data.name;
-    allData = result.data.bank;
+    allData = result.data.bank || {};
+    // Defensive defaults -- handle products saved under any previous schema
+    allData.hooks = allData.hooks || {};
+    allData.body = allData.body || {};
+    allData.preClose = allData.preClose || allData.preclose || [];
+    allData.cta = allData.cta || {};
+    allData.ctaLive = {};     // always start fresh -- generated live
+    allData.body2Live = {};   // always start fresh -- generated live
+    allData.seo = allData.seo || {};
+    allData.onScreenText = allData.onScreenText || [];
     resetPicks();
     document.getElementById("inputSection").style.display = "none";
     document.getElementById("genBtn").style.display = "none";
@@ -2777,11 +2786,20 @@ function generateScriptBank() {
     data.content.forEach(function(b) { if (b.type === "text") text += b.text; });
     var clean = text.replace(/```json|```/g, "").trim();
     var parsed = JSON.parse(clean);
-    allData = parsed;
-    if (parsed.preClose) allData.preClose = parsed.preClose;
+    // Defensive defaults -- ensure all expected fields exist
+    // regardless of when this product was originally generated
+    allData = parsed || {};
+    allData.hooks = allData.hooks || {};
+    allData.body = allData.body || {};
+    allData.preClose = allData.preClose || allData.preclose || [];
+    allData.cta = allData.cta || {}; // old saved data may have this
+    allData.ctaLive = allData.ctaLive || {}; // new live-generated CTAs
+    allData.body2Live = allData.body2Live || {};
+    allData.seo = allData.seo || {};
+    allData.onScreenText = allData.onScreenText || [];
     var pName = parsed.productName || currentProduct;
     saveProduct(pName, parsed, function() {
-      generateOnScreenText(product, parsed.hooks);
+      generateOnScreenText(product, allData.hooks);
       renderBuilder();
     });
   })
@@ -3548,16 +3566,40 @@ function renderFocusPicker() {
       console.log("Focus parse error:", e.message);
     }
     if(focuses.length === 0) {
-      if(loading.parentNode === wrap) wrap.removeChild(loading);
-      var errNote = document.createElement("div");
-      errNote.style.cssText = "font-size:13px;color:var(--muted);margin-bottom:12px;padding:12px;background:var(--surface);border-radius:var(--radius-sm);";
-      errNote.textContent = "Could not load angles. Use the custom angle box below.";
-      wrap.insertBefore(errNote, loading.nextSibling || wrap.lastChild);
+      // API failed or returned empty -- use universal fallback angles
+      // that work for any product rather than showing an error
+      focuses = [
+        { focus: "Fix the daily frustration", desire: "Pain/Problem Relief",
+          description: "Someone who has been living with a specific annoyance and is ready for the thing that actually fixes it." },
+        { focus: "The upgrade they keep putting off", desire: "Fear of Future Regret",
+          description: "Someone who knows they need this but keeps telling themselves what they have is fine." },
+        { focus: "Show up differently", desire: "Emotion/Identity",
+          description: "Someone who wants the version of themselves that has the right thing for the moment." },
+        { focus: "The one that actually works", desire: "Skepticism disarm",
+          description: "Someone who has tried other options and been disappointed -- they need proof before they believe this one is different." },
+        { focus: "Worth every round", desire: "Status/Upgrade",
+          description: "Someone who takes what they do seriously and wants gear that matches that energy." }
+      ];
     }
     renderFocusOptionsForBuilder(wrap, loading, focuses);
   })
   .catch(function(e) {
-    if(e.message !== "rate_limit") renderFocusOptionsForBuilder(wrap, loading, []);
+    if(e.message !== "rate_limit") {
+      // Use fallback angles on any error
+      var fallbackFocuses = [
+        { focus: "Fix the daily frustration", desire: "Pain/Problem Relief",
+          description: "Someone who has been living with a specific annoyance and is ready for the thing that actually fixes it." },
+        { focus: "The upgrade they keep putting off", desire: "Fear of Future Regret",
+          description: "Someone who knows they need this but keeps telling themselves what they have is fine." },
+        { focus: "Show up differently", desire: "Emotion/Identity",
+          description: "Someone who wants the version of themselves that has the right thing for the moment." },
+        { focus: "The one that actually works", desire: "Skepticism disarm",
+          description: "Someone who has tried other options and been disappointed -- they need proof before they believe this one is different." },
+        { focus: "Worth every round", desire: "Status/Upgrade",
+          description: "Someone who takes what they do seriously and wants gear that matches that energy." }
+      ];
+      renderFocusOptionsForBuilder(wrap, loading, fallbackFocuses);
+    }
   });
 }
 
@@ -3771,26 +3813,69 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
 // ============================================================
 // ONBOARDING
 // ============================================================
+// ── MIGRATION: convert old voiceProfile format to new thumbs format ──
+// Old format: { q1: "A", q2: "B" } -- single letter string per question
+// New format: { q1: { A: "up" }, q2: { B: "up" } } -- thumbs per option
+function migrateVoiceProfile(raw) {
+  if(!raw || typeof raw !== "object") return {};
+  var needsMigration = false;
+  Object.keys(raw).forEach(function(k) {
+    if(typeof raw[k] === "string") needsMigration = true;
+  });
+  if(!needsMigration) return raw; // already new format or empty
+  var migrated = {};
+  Object.keys(raw).forEach(function(k) {
+    if(typeof raw[k] === "string") {
+      // Old format: "A" or "B" -- treat their pick as thumbs up
+      migrated[k] = {};
+      migrated[k][raw[k]] = "up";
+    } else if(raw[k] && typeof raw[k] === "object") {
+      migrated[k] = raw[k]; // already new format
+    }
+  });
+  return migrated;
+}
+
+// ── SAFE READ: read any field from saved data with a default ──
+function safeRead(obj, key, defaultVal) {
+  if(!obj) return defaultVal;
+  var val = obj[key];
+  if(val === undefined || val === null) return defaultVal;
+  if(defaultVal !== null && typeof defaultVal === "object" && !Array.isArray(defaultVal) && typeof val !== "object") return defaultVal;
+  if(Array.isArray(defaultVal) && !Array.isArray(val)) return defaultVal;
+  return val;
+}
+
 function loadLocalData() {
   try {
     var stored = localStorage.getItem("ecl_local_" + (currentUser ? currentUser.id : "guest"));
     if (stored) {
       var d = JSON.parse(stored);
-      postingGoal = d.postingGoal || 6;
-      todayPosts = d.todayPosts || [];
-      streakDays = d.streakDays || 0;
-      monthPosts = d.monthPosts || [];
-      scriptHistory = d.scriptHistory || [];
-      favorites = d.favorites || {};
-      onboardingDone = d.onboardingDone || false;
-      onboardingSteps = d.onboardingSteps || { goal:false,generate:false,script:false,posted:false,audit:false };
-      userVertical = d.userVertical || null;
-      voiceProfile = d.voiceProfile || {};
+      postingGoal = safeRead(d, "postingGoal", 6);
+      todayPosts = safeRead(d, "todayPosts", []);
+      streakDays = safeRead(d, "streakDays", 0);
+      monthPosts = safeRead(d, "monthPosts", []);
+      scriptHistory = safeRead(d, "scriptHistory", []);
+      favorites = safeRead(d, "favorites", {});
+      onboardingDone = safeRead(d, "onboardingDone", false);
+      onboardingSteps = safeRead(d, "onboardingSteps", { goal:false,generate:false,script:false,posted:false,audit:false });
+      userVertical = safeRead(d, "userVertical", null);
+      // Migrate voiceProfile from old string format to new thumbs format
+      voiceProfile = migrateVoiceProfile(safeRead(d, "voiceProfile", {}));
+      // If migration happened, save the new format immediately
+      if(d.voiceProfile && JSON.stringify(voiceProfile) !== JSON.stringify(d.voiceProfile)) {
+        saveLocalData();
+      }
     }
-  } catch(e) {}
-  // Clean today posts - only keep today
+  } catch(e) {
+    // localStorage corrupted -- reset to safe defaults silently
+    postingGoal = 6; todayPosts = []; streakDays = 0;
+    monthPosts = []; scriptHistory = []; favorites = {};
+    onboardingDone = false; userVertical = null; voiceProfile = {};
+    onboardingSteps = { goal:false,generate:false,script:false,posted:false,audit:false };
+  }
   var today = new Date().toDateString();
-  todayPosts = todayPosts.filter(function(p) { return p.date === today; });
+  todayPosts = todayPosts.filter(function(p) { return p && p.date === today; });
 }
 
 function saveLocalData() {
