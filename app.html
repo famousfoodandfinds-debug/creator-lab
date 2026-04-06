@@ -1592,6 +1592,14 @@ function renderProductHub() {
 
     wrap.appendChild(batchBtn);
 
+    // FIX 2: Skit Script button
+    var skitBtn = document.createElement("button");
+    skitBtn.className = "next-btn";
+    skitBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(160,160,192,0.4);color:var(--purple);font-weight:600;";
+    skitBtn.innerHTML = "🎭 &nbsp;Skit Script &nbsp;<span style='font-weight:400;font-size:12px;'>-- two-person dialogue script</span>";
+    skitBtn.addEventListener("click", function() { renderSkitMode(); });
+    wrap.appendChild(skitBtn);
+
     // Edit description button
     var editBtn = document.createElement("button");
     editBtn.className = "next-btn";
@@ -2056,7 +2064,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
 
     " " + profileNote + " GOLD STANDARD EXAMPLE -- study this before writing anything. This is what a perfect script sounds like: Don't buy this for you -- buy it for the version of you that is absolutely done with heavy foundation and that 10-step morning routine. The Elf Halo Glow Skin Tint is literally made for her. SPF 50 serum texture and no white cast -- this glows like your skin on its best day. I am a girl's girl so I've already got it linked for you. Notice: it opens by calling out a specific person, not a product. Features come after the emotional hook. It sells who she becomes -- not what the product does. Every script must do the same. Call out the specific person first. Solve their feeling. Features are proof, not the point. THE GOLDEN RULE: Before writing any line, ask -- would a real person actually say this out loud to a friend? If a marketing person would say it, delete it. If a real person would say it, keep it. The scripts must feel like someone grabbed their phone and started talking." +
 
-    " HOOK (under 15 words): The first thing out of your mouth. Not an announcement -- a feeling. BANNED hook openings: I, My, I was, I used to, I kept -- hooks that start with I are personal stories, not scroll-stoppers. The hook must speak TO the viewer not about yourself. It should make them feel seen, not make them listen to your story. Before writing the hook, make two decisions:" +" DECISION 1 -- FRAMING MODE: Is this buyer frustrated or dreaming?" +" PAIN MODE: Use when the buyer has a real frustration, a problem they feel daily, or something broken in their life. Surface that pain and make it visible. The product becomes the relief." +" ASPIRATION MODE: Use when the buyer is not broken -- they are upgrading. They are imagining a better version of their life. Do not manufacture pain that does not exist. Instead paint the life they could be living with this product. The product becomes the doorway into that version of themselves. This mode works especially well for premium, lifestyle, gift, and home decor products." +" BOTH MODE: Lead with the aspiration -- the life they want. Close with the quiet cost of not acting -- every day without it is another day in the version they have outgrown. This is the most powerful structure for premium home goods and kitchen upgrades." +" Choose the mode that matches the buyer angle and product type. Then:" +" DECISION 2 -- PROBLEM TYPE (for pain mode) or DREAM TYPE (for aspiration mode):" +" TYPE 1 -- A PROBLEM THEY ALREADY HAVE: Something they know is wrong, frustrating, or suboptimal. You are putting words to an existing pain." +" TYPE 2 -- A PROBLEM THEY DID NOT REALIZE THEY HAD: Reveal something they have been living with but never consciously identified. This creates urgency that did not exist before the video started." +" TYPE 3 -- A PROBLEM THEY NOW CANNOT IGNORE: Make it visible, visceral, and personal. Once they see it they cannot unsee it." +" TYPE 4 -- THE LIFE THEY COULD BE LIVING: Paint the specific version of their life with this product in it. Not vague -- specific. The quiet Sunday morning. The dinner table that feels different. The kitchen that finally looks like them." +" Choose the type that fits, then write the hook to trigger that exact feeling. One idea only. No and, no but. Never start with It is, This is, Picture yourself, Imagine. The hook should feel like you are reading their mind, not describing a product." +" TYPE 1 -- A PROBLEM THEY ALREADY HAVE: Something they know is wrong, frustrating, or suboptimal. You are not introducing anything new -- you are putting words to an existing pain. This is the easiest to convert because the desire for relief already exists." +" TYPE 2 -- A PROBLEM THEY DID NOT REALIZE THEY HAD: The hidden gem angle. You are revealing something they have been living with but never consciously identified. This creates urgency that did not exist before the video started. Example: I did not know my mattress was doing this to my sleep." +" TYPE 3 -- A PROBLEM THEY NOW CANNOT IGNORE: You make it visible, visceral, and personal. Once the viewer has seen it, they cannot unsee it. That is the moment the sale becomes almost inevitable." +" Choose the problem type that fits the angle, then write the hook to trigger that specific type of recognition. One idea only. No and, no but. Never start with It is, This is, Picture yourself, Imagine. The hook should feel like you are reading their mind, not describing a product." +
+    " HOOK (under 15 words): The first thing out of your mouth. Not an announcement -- a feeling. BANNED HOOK PATTERNS: Never start with You are the person who [identity label]. Never start with People who [group description] need this. Never start with For anyone who. These are category labels, not hooks -- they sort people into buckets instead of making them feel seen. A hook names one specific experience the viewer is already having. BANNED hook openings: I, My, I was, I used to, I kept -- hooks that start with I are personal stories, not scroll-stoppers. The hook must speak TO the viewer not about yourself. It should make them feel seen, not make them listen to your story. Before writing the hook, make two decisions:" +" DECISION 1 -- FRAMING MODE: Is this buyer frustrated or dreaming?" +" PAIN MODE: Use when the buyer has a real frustration, a problem they feel daily, or something broken in their life. Surface that pain and make it visible. The product becomes the relief." +" ASPIRATION MODE: Use when the buyer is not broken -- they are upgrading. They are imagining a better version of their life. Do not manufacture pain that does not exist. Instead paint the life they could be living with this product. The product becomes the doorway into that version of themselves. This mode works especially well for premium, lifestyle, gift, and home decor products." +" BOTH MODE: Lead with the aspiration -- the life they want. Close with the quiet cost of not acting -- every day without it is another day in the version they have outgrown. This is the most powerful structure for premium home goods and kitchen upgrades." +" Choose the mode that matches the buyer angle and product type. Then:" +" DECISION 2 -- PROBLEM TYPE (for pain mode) or DREAM TYPE (for aspiration mode):" +" TYPE 1 -- A PROBLEM THEY ALREADY HAVE: Something they know is wrong, frustrating, or suboptimal. You are putting words to an existing pain." +" TYPE 2 -- A PROBLEM THEY DID NOT REALIZE THEY HAD: Reveal something they have been living with but never consciously identified. This creates urgency that did not exist before the video started." +" TYPE 3 -- A PROBLEM THEY NOW CANNOT IGNORE: Make it visible, visceral, and personal. Once they see it they cannot unsee it." +" TYPE 4 -- THE LIFE THEY COULD BE LIVING: Paint the specific version of their life with this product in it. Not vague -- specific. The quiet Sunday morning. The dinner table that feels different. The kitchen that finally looks like them." +" Choose the type that fits, then write the hook to trigger that exact feeling. One idea only. No and, no but. Never start with It is, This is, Picture yourself, Imagine. The hook should feel like you are reading their mind, not describing a product." +" TYPE 1 -- A PROBLEM THEY ALREADY HAVE: Something they know is wrong, frustrating, or suboptimal. You are not introducing anything new -- you are putting words to an existing pain. This is the easiest to convert because the desire for relief already exists." +" TYPE 2 -- A PROBLEM THEY DID NOT REALIZE THEY HAD: The hidden gem angle. You are revealing something they have been living with but never consciously identified. This creates urgency that did not exist before the video started. Example: I did not know my mattress was doing this to my sleep." +" TYPE 3 -- A PROBLEM THEY NOW CANNOT IGNORE: You make it visible, visceral, and personal. Once the viewer has seen it, they cannot unsee it. That is the moment the sale becomes almost inevitable." +" Choose the problem type that fits the angle, then write the hook to trigger that specific type of recognition. One idea only. No and, no but. Never start with It is, This is, Picture yourself, Imagine. The hook should feel like you are reading their mind, not describing a product." +
 
     " BODY 1 (under 25 words): One real specific thing about the product. Say it the way you would tell a friend -- casually, with a little surprise in it. Only use details actually in the product description. Never invent." +
 
@@ -2605,6 +2613,131 @@ function renderOnboarding() {
 }
 
 
+
+// ============================================================
+// SKIT MODE (FIX 2 + FIX 3)
+// ============================================================
+var skitUsedTurns = new Set([
+  "Why have I not been doing this",
+  "That is literally what has been happening to me",
+  "I hate that that makes sense",
+  "Wait seriously",
+  "okay but why did no one tell me this",
+  "That tracks actually"
+]);
+
+function renderSkitMode() {
+  var mc = document.getElementById("mainContent");
+  mc.innerHTML = "";
+  var wrap = document.createElement("div"); wrap.style.cssText = "padding:16px;";
+  var backBtn = document.createElement("button");
+  backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 14px;";
+  backBtn.innerHTML = "← Back to product";
+  backBtn.addEventListener("click", function(){ renderProductHub(); });
+  wrap.appendChild(backBtn);
+  var heading = document.createElement("div"); heading.className = "step-heading"; heading.innerHTML = "Skit <em>Script</em>";
+  var sub = document.createElement("div"); sub.className = "step-sub"; sub.textContent = "Pick a relationship type. Get a two-person dialogue script."; sub.style.marginBottom = "20px";
+  wrap.appendChild(heading); wrap.appendChild(sub);
+  var types = [
+    { key: "friend", label: "👯 Friends", desc: "Person A found something. Person B has to have it." },
+    { key: "couple", label: "💑 Couple", desc: "One person is a convert. The other is a skeptic -- until they try it." },
+    { key: "strangers", label: "🛒 Strangers", desc: "Overheard mid-errand. Someone asks what they are buying." },
+    { key: "expert", label: "🎓 Expert + Newbie", desc: "One person knows everything about this. The other is brand new." }
+  ];
+  types.forEach(function(t) {
+    var card = document.createElement("div"); card.className = "trigger-card"; card.style.cssText = "cursor:pointer;margin-bottom:8px;";
+    card.innerHTML = "<div style='display:flex;align-items:flex-start;gap:12px;'><div style='font-size:22px;flex-shrink:0;'>"+t.label.split(" ")[0]+"</div><div><div style='font-size:15px;font-weight:600;color:var(--white);margin-bottom:4px;'>"+t.label.split(" ").slice(1).join(" ")+"</div><div style='font-size:12px;color:var(--muted);line-height:1.5;'>"+t.desc+"</div></div></div>";
+    (function(key){ card.addEventListener("click", function(){ generateSkitScript(key); }); })(t.key);
+    wrap.appendChild(card);
+  });
+  mc.appendChild(wrap);
+}
+
+function generateSkitScript(relationshipType) {
+  var mc = document.getElementById("mainContent");
+  mc.innerHTML = "";
+  var wrap = document.createElement("div"); wrap.style.cssText = "padding:16px;";
+  var backBtn = document.createElement("button");
+  backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 14px;";
+  backBtn.innerHTML = "← Back";
+  backBtn.addEventListener("click", function(){ renderSkitMode(); });
+  wrap.appendChild(backBtn);
+  var heading = document.createElement("div"); heading.className = "step-heading"; heading.innerHTML = "Writing your <em>Skit...</em>";
+  var dots = document.createElement("div"); dots.className = "loading-wrap"; dots.style.padding = "24px 0";
+  dots.innerHTML = "<div class='dots'><div class='dot'></div><div class='dot'></div><div class='dot'></div></div><div class='loading-sub' style='margin-top:10px;'>Writing dialogue...</div>";
+  wrap.appendChild(heading); wrap.appendChild(dots);
+  mc.appendChild(wrap);
+
+  var relDesc = { friend: "Two close friends. Person A found this product and is telling Person B about it. Person B reacts naturally -- not over the top, just real.", couple: "A couple. Person A already loves this product. Person B has been skeptical. This is the conversation where B finally gets it.", strangers: "Two strangers in a store or public place. Person B notices Person A has this product and asks about it. Short, natural, overheard-conversation energy.", expert: "Person A is the enthusiast who knows everything about this product. Person B just found out about it. A teaches B without being preachy." };
+  var bannedTurns = Array.from(skitUsedTurns).join(", ");
+  var prompt = "Write a two-person TikTok skit script for this product: " + currentProduct + ". Relationship: " + relDesc[relationshipType] +
+    " RULES: Sounds like a real conversation you might overhear. Neither person is an actor. No one is performing for a camera. Natural interruptions and overlaps are good. Under 60 words total. Max 5 exchanges." +
+    " BANNED REACTION LINES for Person B -- never use these exact phrases or close variations: " + bannedTurns + "." +
+    " BANNED WORDS everywhere: game-changer, love this, obsessed, literally changed my life, you need this, must-have." +
+    " Return ONLY valid JSON: {lines:[{speaker:'A' or 'B', text:string}]}";
+
+  fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 400, messages: [{ role: "user", content: prompt }] })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data) {
+    if(data.error) throw new Error(data.error.message);
+    var text = ""; data.content.forEach(function(b){ if(b.type==="text") text+=b.text; });
+    var parsed = JSON.parse(text.replace(/```json|```/g,"").trim());
+    renderSkitResult(parsed.lines, relationshipType);
+  })
+  .catch(function(err){
+    wrap.removeChild(dots);
+    var errEl = document.createElement("div"); errEl.style.cssText = "color:var(--red);font-size:13px;padding:16px 0;"; errEl.textContent = "Error: " + (err.message||"Try again");
+    wrap.appendChild(errEl);
+  });
+}
+
+function renderSkitResult(lines, relationshipType) {
+  var mc = document.getElementById("mainContent");
+  mc.innerHTML = "";
+  var wrap = document.createElement("div"); wrap.style.cssText = "padding:16px;";
+  var backBtn = document.createElement("button");
+  backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 14px;";
+  backBtn.innerHTML = "← Try a different type";
+  backBtn.addEventListener("click", function(){ renderSkitMode(); });
+  wrap.appendChild(backBtn);
+  var heading = document.createElement("div"); heading.className = "step-heading"; heading.innerHTML = "Your <em>Skit Script</em>";
+  wrap.appendChild(heading);
+
+  var scriptBox = document.createElement("div"); scriptBox.style.cssText = "background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;padding:16px;margin-bottom:16px;";
+  lines.forEach(function(line) {
+    skitUsedTurns.add(line.text);
+    var row = document.createElement("div"); row.style.cssText = "display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;";
+    var speaker = document.createElement("div"); speaker.style.cssText = "font-size:10px;font-weight:700;color:"+(line.speaker==="A"?"var(--red)":"var(--purple)")+";letter-spacing:0.08em;flex-shrink:0;padding-top:2px;min-width:16px;"; speaker.textContent = line.speaker+":";
+    var textEl = document.createElement("div"); textEl.style.cssText = "flex:1;font-size:14px;color:var(--white);line-height:1.6;font-weight:300;"; textEl.textContent = line.text;
+    var fbWrap = document.createElement("div"); fbWrap.style.cssText = "display:flex;gap:3px;flex-shrink:0;";
+    var upBtn = document.createElement("button"); upBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:11px;padding:0;opacity:0.3;"; upBtn.textContent = "👍";
+    var dnBtn = document.createElement("button"); dnBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:11px;padding:0;opacity:0.3;"; dnBtn.textContent = "👎";
+    (function(t, u, d){ u.addEventListener("click",function(){saveFeedback(t,"skit","skit",1);u.style.opacity="1";d.style.opacity="0.2";u.disabled=true;d.disabled=true;}); d.addEventListener("click",function(){saveFeedback(t,"skit","skit",-1);d.style.opacity="1";u.style.opacity="0.2";u.disabled=true;d.disabled=true;}); })(line.text, upBtn, dnBtn);
+    fbWrap.appendChild(upBtn); fbWrap.appendChild(dnBtn);
+    row.appendChild(speaker); row.appendChild(textEl); row.appendChild(fbWrap);
+    scriptBox.appendChild(row);
+  });
+  wrap.appendChild(scriptBox);
+
+  var fullText = lines.map(function(l){ return l.speaker + ": " + l.text; }).join("\n");
+  var btnRow = document.createElement("div"); btnRow.style.cssText = "display:flex;gap:8px;margin-bottom:12px;";
+  var copyBtn = document.createElement("button"); copyBtn.className = "next-btn"; copyBtn.style.cssText = "flex:1;"; copyBtn.textContent = "Copy Script";
+  copyBtn.addEventListener("click", function(){ copyRaw(fullText); showToast("Skit copied"); });
+  var regenBtn = document.createElement("button"); regenBtn.className = "next-btn"; regenBtn.style.cssText = "flex:1;background:transparent;border:1px solid var(--border-md);color:var(--white-dim);"; regenBtn.textContent = "🔄 Regenerate";
+  regenBtn.addEventListener("click", function(){ generateSkitScript(relationshipType); });
+  btnRow.appendChild(copyBtn); btnRow.appendChild(regenBtn);
+  wrap.appendChild(btnRow);
+
+  var postedBtn = document.createElement("button"); postedBtn.className = "next-btn"; postedBtn.style.cssText = "background:transparent;border:1px solid rgba(45,201,138,0.4);color:var(--green);"; postedBtn.textContent = "Mark as Posted";
+  postedBtn.addEventListener("click", function(){ markAsPosted(currentProduct, null); postedBtn.textContent = "✓ Posted"; postedBtn.disabled = true; });
+  wrap.appendChild(postedBtn);
+  mc.appendChild(wrap);
+}
+
 function renderSellTheSale() {
   var mc = document.getElementById("mainContent");
   mc.innerHTML = "";
@@ -3054,7 +3187,7 @@ function renderBatchAngleGrid(wrap, focuses) {
 
 function renderFocusPicker() {
   if (currentPrice === "sellthesale") { renderSellTheSale(); return; }
-  currentFocus = null;
+  // FIX 5: Do not reset currentFocus here -- preserves angle when navigating back
 
   var mc = document.getElementById("mainContent");
   mc.innerHTML = "";
@@ -3881,8 +4014,8 @@ function renderBuilder(){
   backNav.style.cssText = "padding:12px 16px 0;";
   var backNavBtn = document.createElement("button");
   backNavBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0;";
-  backNavBtn.innerHTML = "← Back to product";
-  backNavBtn.addEventListener("click", function(){ renderProductHub(); });
+  backNavBtn.innerHTML = "← Back to angles";
+  backNavBtn.addEventListener("click", function(){ renderFocusPicker(); });
   backNav.appendChild(backNavBtn);
   wrap.appendChild(backNav);
 
@@ -4107,12 +4240,21 @@ function buildTriggerCard(cat,lines,catTags,catScreens,sectionKey) {
     (function(l,sk,c){favStar.addEventListener("click",function(e){e.stopPropagation();toggleFavorite(l,sk,c,currentProduct);this.className="fav-btn"+(favorites[l]?" active":"");});})(cleanLine,sectionKey,cat);
     opt.appendChild(favStar);
 
-    // Thumbs down
+    // FIX 4: Thumbs UP + Thumbs DOWN
+    var thumbUpBtn=document.createElement("button");
+    thumbUpBtn.style.cssText="background:none;border:none;cursor:pointer;font-size:12px;padding:0;opacity:0.3;transition:all 0.15s;line-height:1;flex-shrink:0;margin-top:2px;";
+    thumbUpBtn.textContent="👍"; thumbUpBtn.title="Sounds like me";
     var thumbBtn=document.createElement("button");
     thumbBtn.className="thumb-down-btn"+(isDismissed?" dismissed":"");
     thumbBtn.title=isDismissed?"Tap to restore this line":"Not my vibe";
     thumbBtn.textContent=isDismissed?"👎":"👎";
-    (function(l,sk){
+    (function(l,sk,uBtn){
+      uBtn.addEventListener("click",function(e){
+        e.stopPropagation();
+        saveFeedback(l,sk,cat,1);
+        uBtn.style.opacity="1"; uBtn.style.color="var(--green)";
+        showToast("More like this -- got it");
+      });
       thumbBtn.addEventListener("click",function(e){
         e.stopPropagation();
         if(dismissedLines[l]){
@@ -4120,11 +4262,13 @@ function buildTriggerCard(cat,lines,catTags,catScreens,sectionKey) {
           showToast("Line restored");
         } else {
           dismissLine(l);
+          saveFeedback(l,sk,cat,-1);
           showToast("Got it -- won't show this vibe again");
         }
         rebuildGrid(sk);
       });
-    })(cleanLine,sectionKey);
+    })(cleanLine,sectionKey,thumbUpBtn);
+    opt.appendChild(thumbUpBtn);
     opt.appendChild(thumbBtn);
 
     (function(l,c,sk){opt.addEventListener("click",function(e){e.stopPropagation();if(!dismissedLines[l])selectLine(l,c,sk);});})(line,cat,sectionKey);
@@ -5550,3 +5694,47 @@ document.addEventListener("paste",function(e){var items=e.clipboardData&&e.clipb
 </script>
 </body>
 </html>
+function toggleTrigger(cat,key){expandedTrigger[key]=expandedTrigger[key]===cat?null:cat;rebuildGrid(key);}
+function rebuildGrid(key){var stepMap={hooks:1,body1:2,body:2,preclose:3,body2:4,cta:5};var grid=document.getElementById("grid-"+key);if(!grid)return;grid.innerHTML="";if(key==="body2"){var source=allData.body2Live||{};Object.keys(source).forEach(function(cat){grid.appendChild(buildTriggerCard(cat,source[cat],[],[],key));});}else if(key==="cta"){var source=allData.ctaLive||{};Object.keys(source).forEach(function(cat){grid.appendChild(buildTriggerCard(cat,source[cat],[],[],key));});}else{var sourceKey=(key==="body1")?"body":key;var source=allData[sourceKey]||{};Object.keys(source).forEach(function(cat){grid.appendChild(buildTriggerCard(cat,source[cat],[],[],key));});}updateScriptSlots();updateNextBtn(stepMap[key]);}
+function selectLine(line,cat,key){if(key==="hooks"){picks.hook=picks.hook===line?null:line;picks.hookCat=picks.hook?cat:null;expandedTrigger.hooks=null;var osWrap=document.getElementById("hookOnScreenWrap");var osGrid=document.getElementById("hookOnScreenGrid");if(osWrap&&osGrid){if(picks.hook&&allData.onScreenText&&allData.onScreenText.length>0){osWrap.style.display="block";rebuildTextHookGrid();}else{osWrap.style.display="none";}}}else if(key==="body1"){var prev=picks.body1;picks.body1=picks.body1===line?null:line;picks.body1Cat=picks.body1?cat:null;if(prev!==picks.body1){picks.body2=null;picks.body2Cat=null;picks.preClose=null;picks.cta=null;picks.ctaCat=null;allData.body2Live={};allData.preClose=[];allData.ctaLive={};}}else if(key==="body2"){var prevB2=picks.body2;picks.body2=picks.body2===line?null:line;picks.body2Cat=picks.body2?cat:null;if(prevB2!==picks.body2){picks.cta=null;picks.ctaCat=null;allData.ctaLive={};}var nb=document.getElementById("next-4");if(nb)nb.disabled=!picks.body2;}else if(key==="cta"){picks.cta=picks.cta===line?null:line;picks.ctaCat=picks.cta?cat:null;expandedTrigger.cta=null;var nb5=document.getElementById("next-5");if(nb5)nb5.disabled=!picks.cta;}else if(key==="preclose"){picks.preclose=picks.preclose===line?null:line;}else if(key==="body"){picks.body1=picks.body1===line?null:line;picks.body1Cat=picks.body1?cat:null;}rebuildGrid(key);updateNextBtn(wizardStep);updateScriptSlots();}
+function rebuildTextHookGrid(){var osGrid=document.getElementById("hookOnScreenGrid");if(!osGrid||!allData.onScreenText)return;osGrid.innerHTML="";allData.onScreenText.forEach(function(opt){var row=document.createElement("div");var isSel=(allData.selectedOnScreenText===opt);row.style.cssText="display:flex;align-items:center;justify-content:space-between;background:"+(isSel?"rgba(144,144,240,0.15)":"var(--surface2)")+";border:1px solid "+(isSel?"rgba(144,144,240,0.5)":"rgba(144,144,240,0.15)")+";border-radius:6px;padding:8px 10px;cursor:pointer;";var txt=document.createElement("span");txt.style.cssText="font-size:13px;color:var(--white);font-weight:400;flex:1;";txt.textContent=opt;var action=document.createElement("span");action.style.cssText="font-size:10px;color:var(--purple);flex-shrink:0;margin-left:8px;font-weight:600;";action.textContent=isSel?"\u2713 Selected":"Select";row.appendChild(txt);row.appendChild(action);(function(o){row.addEventListener("click",function(){allData.selectedOnScreenText=(allData.selectedOnScreenText===o)?null:o;rebuildTextHookGrid();});})(opt);osGrid.appendChild(row);});}
+function buildScriptSlots(key){var wrap=document.createElement("div");wrap.className="script-panel";wrap.id="slots-"+key;if(picks.hook||picks.body1||picks.body2||picks.cta)wrap.classList.add("ready");var head=document.createElement("div");head.className="script-panel-head";var title=document.createElement("span");title.className="script-panel-title";title.textContent="Your script so far";head.appendChild(title);wrap.appendChild(head);var slots=document.createElement("div");slots.className="script-slots";slots.id="scriptslots-"+key;[{id:"hook",label:"Hook",val:picks.hook},{id:"body1",label:"Body 1",val:picks.body1},{id:"body2",label:"Body 2",val:picks.body2},{id:"cta",label:"CTA",val:picks.cta}].forEach(function(s){var slot=document.createElement("div");slot.className="script-slot"+(s.val?" filled":"");var lbl=document.createElement("span");lbl.className="slot-lbl";lbl.textContent=s.label;slot.appendChild(lbl);if(s.val){var val=document.createElement("span");val.className="slot-val";val.textContent=s.val;slot.appendChild(val);var rm=document.createElement("button");rm.className="slot-rm";rm.textContent="\u2715";(function(sid,sk){rm.addEventListener("click",function(e){e.stopPropagation();clearPick(sid,sk);});})(s.id,key);slot.appendChild(rm);}else{var empty=document.createElement("span");empty.className="slot-empty-text";empty.textContent="not selected yet";slot.appendChild(empty);}slots.appendChild(slot);});wrap.appendChild(slots);return wrap;}
+function clearPick(id,key){if(id==="hook"){picks.hook=null;picks.hookCat=null;}else if(id==="body1"){picks.body1=null;picks.body1Cat=null;}else if(id==="preClose"){picks.preClose=null;}else if(id==="body2"){picks.body2=null;picks.body2Cat=null;}else if(id==="cta"){picks.cta=null;picks.ctaCat=null;}if(document.getElementById("grid-"+key))rebuildGrid(key);["hooks","body","cta"].forEach(function(k){if(document.getElementById("grid-"+k))rebuildGrid(k);});var dpc=document.getElementById("donePanelContent");if(dpc)updateDonePanel();}
+function updateScriptSlots(){["hooks","body","cta","preclose","body1","body2"].forEach(function(key){var existing=document.getElementById("slots-"+key);if(!existing||!existing.parentNode)return;var newSlots=buildScriptSlots(key);existing.parentNode.replaceChild(newSlots,existing);});}
+function updateNextBtn(stepNum){var btn=document.getElementById("next-"+stepNum);if(!btn)return;if(stepNum===1)btn.disabled=!picks.hook;else if(stepNum===2)btn.disabled=!picks.body1;else if(stepNum===3)btn.disabled=false;else if(stepNum===4)btn.disabled=!picks.body2;else if(stepNum===5)btn.disabled=false;}
+function buildPrecloseStep(stepNum){var panel=document.createElement("div");panel.className="step-panel";panel.id="step-"+stepNum;var heading=document.createElement("div");heading.className="step-heading";heading.innerHTML="Pick your <em>Pre-close</em>";var sub=document.createElement("div");sub.className="step-sub";sub.textContent="A subtle nudge between your two body lines. Not a sell -- a human moment.";panel.appendChild(heading);panel.appendChild(sub);var grid=document.createElement("div");grid.className="trigger-grid";grid.id="grid-preclose";var precloseLines=(allData.preClose||allData.preclose||[]);if(!precloseLines||precloseLines.length===0){precloseLines=["I kept putting it off because the one I had technically still worked.","The people I know who have this never go back to what they had before.","I kept seeing it everywhere before I finally grabbed mine.","I was waiting for a reason to pull the trigger and I finally did."];}precloseLines.forEach(function(line,i){var card=document.createElement("div");card.className="trigger-card"+(picks.preclose===line?" selected":"");card.style.cssText="cursor:pointer;";var confColor="var(--gold)";var confLabel="Solid";card.innerHTML="<div style='display:flex;align-items:flex-start;gap:10px;'><div style='flex:1;'><div style='font-size:13px;color:var(--white);line-height:1.55;font-weight:300;'>"+line+"</div><div style='display:flex;align-items:center;gap:6px;margin-top:6px;'><div style='width:7px;height:7px;border-radius:50%;background:"+confColor+";flex-shrink:0;'></div><span style='font-size:9px;color:"+confColor+";font-weight:500;'>"+confLabel+"</span></div></div>"+(picks.preclose===line?"<div style='color:var(--red);font-size:14px;flex-shrink:0;'>\u2713</div>":"")+"</div>";(function(l){card.addEventListener("click",function(){picks.preclose=picks.preclose===l?null:l;rebuildPreclose();updateNextBtn(3);});})(line);grid.appendChild(card);});var skipBtn=document.createElement("button");skipBtn.className="next-btn";skipBtn.style.cssText="margin-top:8px;background:transparent;border:1px solid var(--border-md);color:var(--muted);";skipBtn.textContent="Skip pre-close -- go to Body 2";skipBtn.addEventListener("click",function(){picks.preclose=null;showStep(4);});panel.appendChild(grid);panel.appendChild(skipBtn);var nextBtn=document.createElement("button");nextBtn.className="next-btn";nextBtn.id="next-3";nextBtn.disabled=!picks.preclose;nextBtn.textContent="Next -- Add Body 2";nextBtn.addEventListener("click",function(){showStep(4);});panel.appendChild(nextBtn);return panel;}
+function rebuildPreclose(){var panel=document.getElementById("step-3");if(!panel)return;var newPanel=buildPrecloseStep(3);panel.parentNode.replaceChild(newPanel,panel);newPanel.classList.add("active");}
+function buildDonePanel(){var panel=document.createElement("div");panel.className="step-panel";panel.id="step-6";var div=document.createElement("div");div.id="donePanelContent";panel.appendChild(div);return panel;}
+function findScreenText(lineText,sectionKey){if(!allData.screenText||!allData[sectionKey])return[];var cats=allData[sectionKey];var screenCats=allData.screenText[sectionKey]||{};var found=[];Object.keys(cats).forEach(function(cat){var lines=cats[cat];var screens=screenCats[cat]||[];lines.forEach(function(line,i){if(line===lineText&&screens[i]){if(Array.isArray(screens[i])){found=screens[i].filter(function(s){return s&&s!=="-"&&s.length>1;});}else if(screens[i]&&screens[i]!=="-"){found=[screens[i]];}}});});return found;}
+function getSelectedScreenText(lineText){return screenTextPicks[lineText]||null;}
+
+function updateDonePanel(){
+  var el=document.getElementById("donePanelContent");if(!el){var s4=document.getElementById("step-6");if(s4){var d=document.createElement("div");d.id="donePanelContent";s4.appendChild(d);el=d;}else return;}
+  el.innerHTML="";
+  var heading=document.createElement("div");heading.className="step-heading";heading.innerHTML="Your <em>Script</em>";var sub=document.createElement("div");sub.className="step-sub";sub.textContent="Copy it, save it, or start over";el.appendChild(heading);el.appendChild(sub);
+  var fullScript=[picks.hook,picks.body1,picks.preclose,picks.body2,picks.cta].filter(Boolean).join(" ");
+  var fullBox=document.createElement("div");fullBox.style.cssText="background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;padding:16px;margin-bottom:16px;";
+  var fullLbl=document.createElement("div");fullLbl.style.cssText="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;";fullLbl.textContent="YOUR COMPLETE SCRIPT";
+  var copyFullBtn=document.createElement("button");copyFullBtn.className="script-btn";copyFullBtn.textContent="Copy all";copyFullBtn.addEventListener("click",function(){copyRaw(fullScript);showToast("Script copied");});fullLbl.appendChild(copyFullBtn);
+  var fullText=document.createElement("div");fullText.style.cssText="font-size:15px;line-height:1.7;color:var(--white);";fullText.textContent=fullScript;fullBox.appendChild(fullLbl);fullBox.appendChild(fullText);el.appendChild(fullBox);
+  var sp=document.createElement("div");sp.className="script-panel ready";var head=document.createElement("div");head.className="script-panel-head";var title=document.createElement("span");title.className="script-panel-title";title.textContent="Complete script";var actions=document.createElement("div");actions.className="script-panel-actions";var copyBtn=document.createElement("button");copyBtn.className="script-btn";copyBtn.textContent="Copy";copyBtn.addEventListener("click",copyScript);var saveBtn=document.createElement("button");saveBtn.className="script-btn primary";saveBtn.textContent="Save";saveBtn.addEventListener("click",saveScript);actions.appendChild(copyBtn);actions.appendChild(saveBtn);head.appendChild(title);head.appendChild(actions);sp.appendChild(head);
+  var slots=document.createElement("div");slots.className="script-slots";
+  [{label:"Hook",val:picks.hook,key:"hook"},{label:"Body 1",val:picks.body1,key:"body1"},{label:"Pre-close",val:picks.preclose,key:"preclose"},{label:"Body 2",val:picks.body2,key:"body2"},{label:"CTA",val:picks.cta,key:"cta"}].forEach(function(s){
+    if(!s.val)return;var screenOpts=[];if(s.key==="hook"&&s.val){screenOpts=findScreenText(s.val,"hooks");}
+    var slot=document.createElement("div");slot.className="script-slot filled";var lbl=document.createElement("span");lbl.className="slot-lbl";lbl.textContent=s.label;var right=document.createElement("div");right.style.cssText="flex:1;min-width:0;";var val=document.createElement("span");val.className="slot-val";val.textContent=s.val;right.appendChild(val);
+    if(screenOpts&&screenOpts.length>0){var screenRowD=document.createElement("div");screenRowD.style.cssText="display:flex;flex-wrap:wrap;gap:5px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);align-items:center;";var screenLblD=document.createElement("span");screenLblD.style.cssText="font-size:9px;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;flex-shrink:0;margin-right:2px;";screenLblD.textContent="Text hook:";screenRowD.appendChild(screenLblD);screenOpts.forEach(function(opt){if(!opt||opt==="-"||opt.trim()==="")return;var pill=document.createElement("span");var isSel=getSelectedScreenText(s.val)===opt||(!getSelectedScreenText(s.val)&&opt===screenOpts[0]);pill.className="tag tag-screen";pill.style.cursor="pointer";if(isSel)pill.style.cssText="cursor:pointer;background:rgba(144,144,240,0.35);border-color:rgba(144,144,240,0.7);font-weight:500;";pill.textContent=opt;(function(o,sv){pill.addEventListener("click",function(e){e.stopPropagation();screenTextPicks[sv]=o;updateDonePanel();});})(opt,s.val);screenRowD.appendChild(pill);});right.appendChild(screenRowD);}
+    // FIX 4: thumbs on done panel lines
+    var fbRow=document.createElement("div");fbRow.style.cssText="display:flex;align-items:center;gap:4px;margin-top:6px;";var upBtn2=document.createElement("button");upBtn2.style.cssText="background:none;border:1px solid var(--border-md);border-radius:999px;padding:2px 7px;font-size:10px;cursor:pointer;color:var(--muted);font-family:'Instrument Sans',sans-serif;";upBtn2.textContent="\uD83D\uDC4D";var dnBtn2=document.createElement("button");dnBtn2.style.cssText="background:none;border:1px solid var(--border-md);border-radius:999px;padding:2px 7px;font-size:10px;cursor:pointer;color:var(--muted);font-family:'Instrument Sans',sans-serif;";dnBtn2.textContent="\uD83D\uDC4E";(function(lineVal,key2,uB,dB){uB.addEventListener("click",function(){saveFeedback(lineVal,key2,"curated",1);uB.style.color="var(--green)";dB.style.opacity="0.3";uB.disabled=true;dB.disabled=true;showToast("Got it");});dB.addEventListener("click",function(){saveFeedback(lineVal,key2,"curated",-1);dB.style.color="var(--red)";uB.style.opacity="0.3";uB.disabled=true;dB.disabled=true;showToast("Got it");});})(s.val,s.key,upBtn2,dnBtn2);fbRow.appendChild(upBtn2);fbRow.appendChild(dnBtn2);right.appendChild(fbRow);
+    slot.appendChild(lbl);slot.appendChild(right);slots.appendChild(slot);
+  });
+  sp.appendChild(slots);el.appendChild(sp);
+  var today=new Date().toDateString();var alreadyPosted=todayPosts.some(function(p){return p.date===today&&p.hook===(picks.hook||"");});
+  var postedBtn=document.createElement("button");postedBtn.className="posted-btn"+(alreadyPosted?" done":"");postedBtn.textContent=alreadyPosted?"\u2713 Marked as posted today":"Mark as Posted";if(!alreadyPosted)postedBtn.addEventListener("click",function(){markAsPosted(currentProduct,null);});el.appendChild(postedBtn);
+  el.appendChild(buildDailyMeter());el.appendChild(buildMonthlyBar());
+  if(picks.hook&&picks.cta){var osWrap=document.createElement("div");osWrap.style.cssText="background:var(--surface);border:1px solid rgba(144,144,240,0.25);border-radius:var(--radius);padding:16px;margin-top:12px;";var osLbl=document.createElement("div");osLbl.style.cssText="font-size:10px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--purple);margin-bottom:4px;";osLbl.textContent="Text Hook";var osSub=document.createElement("div");osSub.style.cssText="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;";osSub.textContent="Text overlays that appear while you speak.";osWrap.appendChild(osLbl);osWrap.appendChild(osSub);var osLoading=document.createElement("div");osLoading.style.cssText="display:flex;align-items:center;gap:8px;padding:4px 0;";osLoading.innerHTML="<div class='dots' style='transform:scale(0.7);transform-origin:left;'><div class='dot'></div><div class='dot'></div><div class='dot'></div></div><span style='font-size:12px;color:var(--muted);'>Writing options based on your script...</span>";osWrap.appendChild(osLoading);el.appendChild(osWrap);
+  var fullScriptForScreen=[picks.hook,picks.body1,picks.preClose,picks.body2,picks.cta].filter(Boolean).join(" ");var screenPrompt="Write 3 text hooks (under 6 words each) that appear on screen WHILE the creator speaks this script: ""+fullScriptForScreen+"" They must stop the scroll and create curiosity -- never restate what is spoken verbally. Under 6 words. Return ONLY valid JSON: {options:[3 strings]}";
+  fetch("/api/claude",{method:"POST",headers:{"Content-Type":"application/json","x-user-id":(currentUser?currentUser.id:"")},body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:200,messages:[{role:"user",content:screenPrompt}]})}).then(function(r){return r.json();}).then(function(data){var opts=[];try{var text="";data.content.forEach(function(b){if(b.type==="text")text+=b.text;});opts=JSON.parse(text.replace(/```json|```/g,"").trim()).options||[];}catch(e){}osWrap.removeChild(osLoading);if(opts.length===0){osWrap.style.display="none";return;}var grid=document.createElement("div");grid.style.cssText="display:flex;flex-direction:column;gap:6px;";opts.forEach(function(opt){var row=document.createElement("div");row.style.cssText="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid var(--border-md);border-radius:var(--radius-sm);padding:11px 13px;cursor:pointer;";var txt=document.createElement("span");txt.style.cssText="font-size:14px;color:var(--white);font-weight:300;";txt.textContent=opt;var cpBtn=document.createElement("span");cpBtn.style.cssText="font-size:11px;color:var(--purple);flex-shrink:0;margin-left:10px;font-weight:500;";cpBtn.textContent="Copy";row.appendChild(txt);row.appendChild(cpBtn);(function(o){row.addEventListener("click",function(){copyRaw(o);showToast("Text hook copied");});})(opt);grid.appendChild(row);});osWrap.appendChild(grid);}).catch(function(){osWrap.style.display="none";});}
+  var restartBtn=document.createElement("button");restartBtn.className="next-btn";restartBtn.style.cssText="margin-top:8px;background:transparent;border:1px solid var(--border-md);color:var(--white-dim);";restartBtn.textContent="Start over with new picks";restartBtn.addEventListener("click",function(){resetPicks();renderFocusPicker();});el.appendChild(restartBtn);
+  if(allData.seo)el.appendChild(buildCaptionEl());
+  if(currentProductId){loadScriptsForProduct(currentProductId,function(scripts){if(!scripts||scripts.length===0)return;var savedWrap=document.createElement("div");savedWrap.style.cssText="margin-top:16px;";var savedLbl=document.createElement("div");savedLbl.style.cssText="font-size:9px;font-weight:500;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);padding:0 2px 8px;";savedLbl.textContent="All saved scripts for this product ("+scripts.length+")";savedWrap.appendChild(savedLbl);scripts.forEach(function(sc,idx){var card=document.createElement("div");card.className="saved-card";card.style.marginBottom="7px";card.innerHTML="<div class='saved-card-name' style='font-size:13px;color:var(--white);margin-bottom:4px;'>Script "+(idx+1)+"</div><div class='saved-card-preview' style='white-space:normal;font-size:12px;color:var(--muted);line-height:1.5;'>"+(sc.hook||"No hook")+"</div><div class='saved-card-foot'><span class='saved-card-date'>"+(sc.created_at?new Date(sc.created_at).toLocaleDateString():"")+"</span><button class='saved-del' data-id='"+sc.id+"'>Delete</button></div>";card.querySelector(".saved-del").addEventListener("click",function(e){e.stopPropagation();deleteScriptFromCloud(this.getAttribute("data-id"),function(){var dpc=document.getElementById("donePanelContent");if(dpc)updateDonePanel();});});card.addEventListener("click",function(){picks.hook=sc.hook||null;picks.hookCat=null;picks.body1=sc.body1||null;picks.body1Cat=null;picks.body2=sc.body2||null;picks.body2Cat=null;picks.cta=sc.cta||null;picks.ctaCat=null;updateDonePanel();showToast("Script loaded");});savedWrap.appendChild(card);});var dpc=document.getElementById("donePanelContent");if(dpc)dpc.appendChild(savedWrap);});}
+}
