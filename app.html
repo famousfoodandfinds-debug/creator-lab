@@ -3398,7 +3398,7 @@ function generateSkitScripts(skitAngles) {
     friend: "FRIEND: Both equal energy. Casual sharing, no selling. Excited, warm.",
     spouse: "SPOUSE: THEM mildly skeptical or teasing. YOU confident, warm. I told you so energy.",
     stranger: "STRANGER: THEM initiates noticing something. YOU surprised but happy to share. Zero sales energy.",
-    expert: "EXPERT: THEM asks genuine questions a real person would ask. YOU answers in plain language. CRITICAL: THEM line 1 must be a personal human moment, not a clinical question. Expert means YOU has knowledge, not that THEM sounds like a journalist."
+    expert: "EXPERT: THEM opens with a real personal human moment (NOT a clinical question). YOU responds WITH SPECIFIC KNOWLEDGE that a non-expert friend would not have -- a real mechanism, a specific fact, something that makes the viewer think oh I did not know that. The expertise shows in what YOU knows, not in how THEM asks. YOU line 4 should give a specific reason WHY the product works that only someone informed would know. Under 10 words but specific."
   };
 
   var completedSkits = [];
@@ -3424,15 +3424,15 @@ function generateSkitScripts(skitAngles) {
     var prompt = "Write ONE two-person social selling skit. Product: " + currentProduct + ". Price context: " + priceCtx + ". Angle: " + a.focus + " (" + a.desire + ") -- " + a.description + ". Relationship: " + a.relationship + ". " + (relationshipVoices[a.relationship] || "") +
       " GOLD STANDARD EXAMPLE: THEM: I have had a headache for three days and nothing is touching it. YOU: Are you actually drinking water or just surviving on coffee? THEM: Water does not fix a three-day headache. YOU: It does when you add minerals. I started putting these drops in mine and they just stopped. THEM: I hate that that actually makes sense. YOU: Right? I will text you the link right now." +
       " STRUCTURE (exactly 6 lines, THEM then YOU alternating):" +
-      " LINE 1 THEM: Real specific human moment. So specific the viewer thinks that is me. Not a product question." +
+      " LINE 1 THEM: Real specific human moment. So specific the viewer thinks that is me. Not a product question. Every skit must open with a DIFFERENT line 1 -- never use the same opening across skits." +
       " LINE 2 YOU: Human response first. No product yet. Short genuine reaction." +
       " LINE 3 THEM: The exact doubt or question the viewer is holding right now." +
       " LINE 4 YOU: Introduce product by name as your answer. One specific real result. Under 10 words. Must name the product. WRONG: Your cells stopped making energy. RIGHT: I started taking NAD+ gummies and my whole morning changed." +
-      " LINE 5 THEM: THE TURN. NOT a question. A genuine emotional shift. Strong turns: I hate that that makes sense / I was about to make fun of you and now I kind of need it / That is literally what has been happening to me. Banned turns: So it actually works? / How long until you feel it?" +
+      " LINE 5 THEM: THE TURN. NOT a question. A genuine emotional shift. CRITICAL: Each skit needs a different turn -- never reuse the same Line 5 across skits. Strong turns (pick a different one for each skit): I hate that that makes sense / I was about to make fun of you and now I kind of need it / That is literally what has been happening to me / Why have I not been doing this / I mean I would not be mad if you sent that / Okay I actually need that right now. Banned turns: So it actually works? / How long until you feel it? -- those are questions not reactions." +
       " LINE 6 YOU: Natural CTA matching relationship. FRIEND: I will text you the link. SPOUSE: Already in my cart / I just added you one. STRANGER: Here let me pull it up. EXPERT: I will send you the link. Never say link in bio or check it out." +
       " RULES: Under 10 words per line. No em dashes. No invented specs. No brand names except product brand. No disclaimers in caption." +
-      " CAPTION: Real person texting their group chat after filming. Specific, a little funny, genuine. Not a tagline." +
-      " ON-SCREEN TEXT: 3 options. Pure pattern interrupt. Nothing to do with product. Max 5 words each. Personal or uncomfortably accurate." +
+      " CAPTION: Real person texting their group chat after filming. Specific, a little funny, genuine. Not a tagline. BANNED: she ordered before we finished filming / she texted me right after / filmed this because / we do not talk about. Those lines make it obvious this was staged. Write like you posted it organically." +
+      " ON-SCREEN TEXT: 3 options. Pure pattern interrupt. Nothing to do with product. Max 5 words each. Personal or uncomfortably accurate. Do NOT reference cells, aging, or energy -- those are product themes. Think about what would stop someone scrolling who has nothing to do with the product yet." +
       " Return ONLY valid JSON: {skit:{angle:string,relationship:string,lines:[{speaker:string,text:string}],screenText:[string,string,string],caption:string,hashtags:[string,string,string,string,string]}} where lines has exactly 6 entries.";
 
     fetch("/api/claude", {
@@ -3568,21 +3568,32 @@ function renderSkitResults(skits, angles) {
     header.appendChild(angleBadge);
     card.appendChild(header);
 
-    // On-screen text
+    // On-screen text -- styled like batch mode Text Hook
     if(skit.screenText && skit.screenText.length > 0) {
-      var screenRow = document.createElement("div");
-      screenRow.style.cssText = "margin-bottom:12px;";
+      var screenSection = document.createElement("div");
+      screenSection.style.cssText = "margin-bottom:12px;";
       var screenLbl = document.createElement("div");
-      screenLbl.style.cssText = "font-size:10px;font-weight:500;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:5px;";
-      screenLbl.textContent = "On-screen text options";
-      screenRow.appendChild(screenLbl);
+      screenLbl.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--purple);margin-bottom:6px;";
+      screenLbl.textContent = "Text Hook";
+      var screenGrid = document.createElement("div");
+      screenGrid.style.cssText = "display:flex;flex-direction:column;gap:5px;";
       skit.screenText.forEach(function(t) {
-        var pill = document.createElement("div");
-        pill.style.cssText = "display:inline-block;background:var(--surface2);border:1px solid var(--border-md);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--white-dim);margin-right:6px;margin-bottom:4px;font-weight:500;";
-        pill.textContent = t;
-        screenRow.appendChild(pill);
+        if(!t) return;
+        var row = document.createElement("div");
+        row.style.cssText = "display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid rgba(144,144,240,0.2);border-radius:6px;padding:7px 10px;cursor:pointer;";
+        var txt = document.createElement("span");
+        txt.style.cssText = "font-size:12px;color:var(--white);font-weight:300;";
+        txt.textContent = t;
+        var cp = document.createElement("span");
+        cp.style.cssText = "font-size:10px;color:var(--purple);flex-shrink:0;margin-left:8px;";
+        cp.textContent = "Copy";
+        row.appendChild(txt); row.appendChild(cp);
+        (function(o){ row.addEventListener("click", function(){ copyRaw(o); showToast("Text hook copied"); }); })(t);
+        screenGrid.appendChild(row);
       });
-      card.appendChild(screenRow);
+      screenSection.appendChild(screenLbl);
+      screenSection.appendChild(screenGrid);
+      card.appendChild(screenSection);
     }
 
     // Dialogue
@@ -3622,6 +3633,26 @@ function renderSkitResults(skits, angles) {
       captionText.textContent = skit.caption;
       card.appendChild(captionLbl);
       card.appendChild(captionText);
+    }
+
+    // Hashtags
+    if(skit.hashtags && skit.hashtags.length) {
+      var hashLbl = document.createElement("div");
+      hashLbl.style.cssText = "font-size:10px;font-weight:500;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;";
+      hashLbl.textContent = "Hashtags";
+      card.appendChild(hashLbl);
+      var hashRow = document.createElement("div");
+      hashRow.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;";
+      skit.hashtags.forEach(function(ht) {
+        var tag = document.createElement("div");
+        tag.style.cssText = "background:var(--surface2);border:1px solid var(--border-md);border-radius:999px;padding:3px 10px;font-size:11px;color:var(--silver);cursor:pointer;transition:all 0.15s;";
+        tag.textContent = "#" + ht.replace(/^#+/, "");
+        tag.addEventListener("click", function() {
+          navigator.clipboard.writeText("#" + ht.replace(/^#+/, "")).then(function(){ showToast("Copied"); });
+        });
+        hashRow.appendChild(tag);
+      });
+      card.appendChild(hashRow);
     }
 
     // Copy button
