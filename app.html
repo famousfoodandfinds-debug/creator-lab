@@ -2753,7 +2753,7 @@ function generateScriptBank() {
     " {productName:str," +
     "hooks:{Worse alternative:[3],Desired transformation:[3],Curiosity loop:[3],Social proof:[3],Scarcity and FOMO:[3],Identity and aspiration:[3],Skepticism disarm:[3],Friction removal:[3]}," +
     "body:{Feature to feeling:[3],Quality proof:[3],Simplicity and ease:[3],Value reframe:[3],Legacy and emotion:[3],Multi-use reveal:[3]}," +
-    "preClose:[6 unique honest human moment lines -- first person works great]," +
+    "preClose:[4]," +
     "seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
 
   var controller = new AbortController();
@@ -2765,7 +2765,7 @@ function generateScriptBank() {
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 3500, messages: [{ role: "user", content: prompt }] }),
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4500, messages: [{ role: "user", content: prompt }] }),
     signal: controller.signal
   })
   .then(function(r) { clearTimeout(timeoutId); return r.json(); })
