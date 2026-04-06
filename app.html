@@ -4614,18 +4614,29 @@ function generateBody2AndPreclose(body1Line, hookLine) {
   }
   showStep(3);
 
-  var focusContext = currentFocus ? " The creator is speaking to: " + currentFocus.focus + "." : "";
-  var prompt = "You are writing the next lines of a TikTok Shop affiliate script. The script so far:" +
-    " HOOK: " + (hookLine || "") +
+  var focusContext = currentFocus ? " Buyer angle: " + currentFocus.focus + "." : "";
+  var prompt = "You are writing the pre-close and body 2 for a TikTok Shop script. Read every detail carefully." +
+    " PRODUCT: " + currentProduct +
+    " SCRIPT SO FAR -- HOOK: " + (hookLine || "") +
     " BODY 1: " + body1Line +
     focusContext +
-    " Product: " + currentProduct +
-    " Your job: write lines that CONTINUE this exact story. Body 2 must build on what Body 1 just said -- deepen it, add a second proof point that connects to the first, or reveal something surprising that makes Body 1 land harder. Pre-close must feel like a natural human moment that flows directly out of Body 1 -- not a sales line, a genuine observation or admission. Everything must read as one connected story when spoken aloud." +
-    " BODY 2 RULES: Must be a different angle than Body 1 but connected to it. Must teach or reveal something Body 1 did not say. Under 25 words. Sounds like a real person talking, not a list." +
-    " PRE-CLOSE RULES: One sentence. Third person or product-focused. Feels like honest reflection, slight vulnerability, or quiet surprise. NOT urgency. NOT a CTA. Examples: Honestly it looks even better in person. Went in with low expectations and kept being disappointed before -- not this time. I almost talked myself out of it and I am glad I did not." +
-    " BANNED: price cost dollar worth deal value investment game-changer elevate transform risk is on me verified units stock moving link in bio any brand name besides the product being promoted." +
-    " Generate 4 pre-close lines and 4 body2 lines across these categories -- Feature to feeling, Quality proof, Multi-use reveal, Legacy and emotion." +
-    " Multi-use reveal must read as a story beat not a list -- one fluid sentence showing the transition naturally." +
+
+    " PRE-CLOSE RULES -- this is the most important part:" +
+    " One sentence. First person works best. A private honest thought the creator had before or after buying." +
+    " CRITICAL: The hesitation must match what someone buying THIS specific product would actually feel." +
+    " Read the product description. Understand what it is. Then ask: what would a real person buying this product actually worry about or admit?" +
+    " A golf bag buyer worries about: spending this much on something they carry every round, whether it actually feels different, whether it is worth upgrading from what they have." +
+    " A golf bag buyer does NOT worry about: forgetting to use it, reaching for a different one, whether it will sit in the garage." +
+    " Wrong for this type of product: And now I actually reach for it instead of leaving it in the garage." +
+    " Right for this type of product: I kept telling myself the one I had was fine. It was not fine." +
+    " The pre-close must stay awkward. It should NOT resolve into a lesson or justify the purchase." +
+    " GOLD STANDARD examples: I kept putting it off because the one I had technically still worked. I almost talked myself out of it three times. I did not expect to feel this way about a bag. I calculated how many rounds I had been carrying something that was making my day harder." +
+    " APHORISM BAN: If it sounds like it could appear on a motivational poster, delete it and start over." +
+
+    " BODY 2 RULES: Different angle than Body 1 but connected. Under 25 words. One real spoken sentence -- not a list, not a cause-effect chain. Jump to the feeling." +
+    " BANNED EVERYWHERE: price cost dollar worth deal investment game-changer elevate transform engineered crafted link in bio any brand name besides the product." +
+
+    " Generate 4 pre-close lines and 4 body2 option sets." +
     " Return ONLY valid JSON: {preClose:[4 strings],body2:{\"Feature to feeling\":[2 strings],\"Quality proof\":[2 strings],\"Multi-use reveal\":[2 strings],\"Legacy and emotion\":[2 strings]}}";
 
   fetch("/api/claude", {
@@ -4700,13 +4711,42 @@ function rebuildPrecloseStep() {
     confLbl.style.marginTop = "4px";
     confLbl.textContent = conf.charAt(0).toUpperCase()+conf.slice(1);
     right.appendChild(confLbl);
+
+    // Thumbs up/down
+    var fbRow = document.createElement("div");
+    fbRow.style.cssText = "display:flex;align-items:center;gap:6px;margin-top:8px;";
+    var upBtn = document.createElement("button");
+    upBtn.style.cssText = "background:none;border:1px solid var(--border-md);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer;color:var(--muted);font-family:'Instrument Sans',sans-serif;transition:all 0.15s;";
+    upBtn.textContent = "👍"; upBtn.title = "Sounds like me";
+    var dnBtn = document.createElement("button");
+    dnBtn.style.cssText = "background:none;border:1px solid var(--border-md);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer;color:var(--muted);font-family:'Instrument Sans',sans-serif;transition:all 0.15s;";
+    dnBtn.textContent = "👎"; dnBtn.title = "Not how I talk";
+    (function(l, u, d) {
+      u.addEventListener("click", function(e) {
+        e.stopPropagation();
+        saveFeedback(l, "preclose", "preclose", 1);
+        u.style.borderColor="var(--green)"; u.style.color="var(--green)"; u.style.background="rgba(45,201,138,0.1)";
+        d.style.opacity="0.3"; u.disabled=true; d.disabled=true;
+        showToast("Got it");
+      });
+      d.addEventListener("click", function(e) {
+        e.stopPropagation();
+        saveFeedback(l, "preclose", "preclose", -1);
+        d.style.borderColor="var(--red)"; d.style.color="var(--red)"; d.style.background="rgba(232,40,78,0.08)";
+        u.style.opacity="0.3"; u.disabled=true; d.disabled=true;
+        showToast("Got it");
+      });
+    })(cleanLine, upBtn, dnBtn);
+    fbRow.appendChild(upBtn); fbRow.appendChild(dnBtn);
+    right.appendChild(fbRow);
+
     row.appendChild(right);
     var check = document.createElement("div");
-    check.style.cssText = "font-size:14px;color:var(--red);flex-shrink:0;display:"+(picks.preClose===cleanLine?"block":"none")+";";
+    check.style.cssText = "font-size:14px;color:var(--red);flex-shrink:0;display:"+(picks.preClose===cleanLine?"block":"none")+";margin-left:8px;";
     check.textContent = "✓";
     row.appendChild(check);
     card.appendChild(row);
-    (function(l){ card.addEventListener("click",function(){ picks.preClose=picks.preClose===l?null:l; rebuildPrecloseStep(); updateScriptSlots(); }); })(cleanLine);
+    (function(l){ card.addEventListener("click",function(e){ if(e.target.tagName==="BUTTON") return; picks.preClose=picks.preClose===l?null:l; rebuildPrecloseStep(); updateScriptSlots(); }); })(cleanLine);
     grid.appendChild(card);
   });
 
