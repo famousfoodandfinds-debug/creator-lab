@@ -2728,9 +2728,33 @@ function generateScriptBank() {
   btn.innerHTML = "&#8987;&nbsp; Writing your script bank...";
   showLoading();
 
-  var focusLine = currentFocus ? " FOCUS: Write every line specifically for this buyer angle: " + currentFocus.focus + ". " + (currentFocus.description || "") + " Every hook should call out this exact situation. Body lines should speak directly to what this person cares about. CTAs should feel like the natural resolution for someone in this situation." : "";
+  var focusLine = currentFocus ? " BUYER ANGLE: Every hook, body line, and pre-close must speak specifically to this exact person and situation: " + currentFocus.focus + ". " + (currentFocus.description || "") + " Do not write generically about the product -- write for THIS buyer experiencing THIS situation." : "";
   var priceLine = " " + getPriceContext();
-  var prompt = "Write TikTok Shop affiliate scripts for: " + product + focusLine + priceLine + getVoiceProfileNote() + getVerticalNote() + " Voice: real person sharing with friends. BANNED words -- never use any of these in any line: price, cost, worth, deal, value, investment, affordable, cheap, budget, dollar, dollars, spend, pay, wine, coffee, meal, dinner, lunch, cheeseburger, picture yourself, imagine, journey, game-changer, elevate, transform, we, our. Return JSON: {productName:str,hooks:{Worse alternative:[3],Desired transformation:[3],Curiosity loop:[3],Social proof:[3],Scarcity and FOMO:[3],Identity and aspiration:[3],Skepticism disarm:[3],Friction removal:[3]},body:{Feature to feeling:[3],Quality proof:[3],Simplicity and ease:[3],Value reframe:[3],Legacy and emotion:[3],Multi-use reveal:[3]},cta:{Scarcity:[3],Value close:[3],Soft close:[3],Direct close:[3],Community and trust:[3]},preClose:[4 unique casual nudge lines],seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
+  var voiceNote = getVoiceProfileNote();
+
+  var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend about something they found. Not an ad. Not a brand. A person." +
+    " Product: " + product + "." + focusLine + priceLine + voiceNote +
+
+    " THE ONLY TEST FOR EVERY LINE: Would I actually say this out loud to my best friend right now? If it sounds written, rewrite it until it sounds spoken." +
+
+    " HOOK RULES (under 15 words): Name one specific experience the viewer is already having. BANNED hook patterns: Never start with You are the person who. Never start with People who [group] need this. Never start with For anyone who. Never start with I, My, I was, I used to, I kept. SELF-EXPLAINING HOOK BAN: Never explain your own hook. Write the tension. Stop. The viewer fills in the rest. Wrong: You have been carrying the same bag since you bought it and wondering why nothing feels right. Right: You have been carrying the same bag since you bought it. One idea. Full stop." +
+
+    " DESIRED TRANSFORMATION HOOKS: Must open with the tension of not yet being that person -- the frustration of the gap. Wrong: The kind of person who always has the right gear. Right: Every round you show up wishing your setup felt more like you." +
+
+    " BODY LINE RULES (under 25 words each): Jump straight to the feeling. No cause-effect chains. No X means Y so you can Z. Text message version wins every time. Wrong: The removable panel means you can swap it out so it actually looks like yours. Right: The front panel detaches. Thirty seconds and it is completely different." +
+
+    " PRE-CLOSE RULES (one sentence, statement not question): One honest human moment. Private thought. Real hesitation. Stays awkward -- does not resolve into a lesson or justify the purchase. The moment a pre-close proves the purchase was smart it becomes a sales line. Wrong: I almost did not buy this but then I realized how much better my rounds would be. Right: I almost did not buy this. Full stop." +
+
+    " FAILURE MODE -- IDENTITY ANNOUNCEMENT: Never write: You become the person who. You are the person who. You are suddenly the person who. Describe the moment instead and let the viewer claim the identity. Wrong: You become the person who shows up with the right setup. Right: You walk up and your bag actually looks like you for once." +
+
+    " BANNED WORDS: price cost worth deal investment game-changer elevate transform engineered crafted vessel intentional-as-lifestyle we our link in bio check it out guys gals ladies boys girls men women." +
+
+    " Return JSON with the productName and these script option banks -- no CTAs needed, those are written separately:" +
+    " {productName:str," +
+    "hooks:{Worse alternative:[3],Desired transformation:[3],Curiosity loop:[3],Social proof:[3],Scarcity and FOMO:[3],Identity and aspiration:[3],Skepticism disarm:[3],Friction removal:[3]}," +
+    "body:{Feature to feeling:[3],Quality proof:[3],Simplicity and ease:[3],Value reframe:[3],Legacy and emotion:[3],Multi-use reveal:[3]}," +
+    "preClose:[6 unique honest human moment lines -- first person works great]," +
+    "seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
 
   var controller = new AbortController();
   var timeoutId = setTimeout(function() {
@@ -4771,17 +4795,29 @@ function generateCTA(hookLine, body1Line, preCloseLine, body2Line) {
 
   var focusContext = currentFocus ? " Buyer angle: " + currentFocus.focus + "." : "";
   var priceCtx = " " + getPriceContext();
-  var prompt = "You are writing the closing CTA for a TikTok Shop affiliate script. Here is the complete script:" +
-    " HOOK: " + (hookLine || "") +
-    " BODY 1: " + (body1Line || "") +
+  var prompt = "You have one job: write CTAs that close the exact tension opened by this specific hook." +
+    " HOOK (this is your only input that matters): " + (hookLine || "") +
+    " Full script context: BODY 1: " + (body1Line || "") +
     (preCloseLine ? " PRE-CLOSE: " + preCloseLine : "") +
     " BODY 2: " + (body2Line || "") +
-    focusContext + priceCtx +
-    " Product: " + currentProduct +
-    " Your job: write 6 CTAs that close the loop back to the opening frustration in the hook. Each CTA must feel like the natural resolution of the specific story this script told -- not a generic close." +
-    " CTA RULES: Action verb FIRST. Second person -- grab yours not grab it. Under 12 words. MUST reference TikTok Shop button using one of: linked below, grab it below, tap the orange cart below, grab yours below, it is linked below. Bookend -- echo the specific frustration or desire from the hook. Never say link in bio. Never say check it out. Never say see if. Never passive." +
-    " BANNED: price cost dollar worth deal value investment game-changer risk is on me link in bio check it out see if any brand name besides the product being promoted guys gals ladies." +
-    " Generate across these categories: Scarcity (urgency from human behavior not inventory), Direct close (confident action verb, clean), Soft close (permission-giving for premium products), Community and trust (others already have it)." +
+    " Product: " + currentProduct + "." + focusContext + priceCtx +
+
+    " THE RULE: Every CTA must contain specific language or imagery from the hook itself. If a viewer saw only the hook and the CTA they should feel like the CTA is the direct answer to the hook's exact tension. If you can swap this CTA onto a script for a completely different product -- rewrite it." +
+
+    " FORMULA: [Resolution of the specific hook tension] + [button reference]. Example -- Hook: Everyone else's bag looks like everyone else's bag. CTA: Be the one whose bag actually looks like them -- grab yours below. Example -- Hook: Your cold drink is warm before the trail ends. CTA: Stop settling for warm halfway through -- grab yours below." +
+
+    " BANNED STANDALONE CTAs -- these are never acceptable on their own: Grab yours below. Linked below. Tap the orange cart below. Grab it below. These only work as the ENDING of a CTA that has already resolved the hook." +
+
+    " CTA RULES: Action verb first. Under 12 words. End with exactly one of: linked below, grab it below, tap the orange cart below, grab yours below, it is linked below." +
+
+    " BANNED WORDS: price cost dollar worth deal value investment game-changer link in bio check it out." +
+
+    " Generate 10 CTAs across these categories -- every single one must pass the hook-echo test:" +
+    " Scarcity (urgency from human behavior not inventory)," +
+    " Direct close (confident, hook-specific, action verb)," +
+    " Soft close (permission-giving, still hook-specific)," +
+    " Community and trust (others already have it, still hook-specific)." +
+
     " Return ONLY valid JSON: {cta:{\"Scarcity\":[3 strings],\"Direct close\":[3 strings],\"Soft close\":[2 strings],\"Community and trust\":[2 strings]}}";
 
   fetch("/api/claude", {
