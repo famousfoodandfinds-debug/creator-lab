@@ -2102,7 +2102,8 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     renderBatchResults(scripts, angles);
   })
   .catch(function(err) {
-    mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:14px;'>Something went wrong: " + (err.message||"Please try again") + "</div>";
+    var mc = document.getElementById("mainContent");
+    if(mc) mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:14px;'>Something went wrong: " + (err.message||"Please try again") + "</div>";
   });
 }
 
