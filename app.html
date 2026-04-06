@@ -684,6 +684,7 @@ var streakDays = 0;
 var favorites = {};
 var userVertical = null;
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
+var APP_VERSION = "2.1.0";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -2230,7 +2231,7 @@ function generateBatchCTAs(hooks, product, priceCtx, callback) {
     var parsed = JSON.parse(text.replace(/```json|```/g,"").trim());
     callback(parsed.ctas || []);
   })
-  .catch(function(){ callback([]); });
+  .catch(function(err){ logError("batch_cta", err, { product: currentProduct }); callback([]); });
 }
 
 // ============================================================
@@ -2265,7 +2266,7 @@ function generateBatchScreenTexts(hooks, product, callback) {
     var parsed = JSON.parse(text.replace(/```json|```/g,"").trim());
     callback(parsed.screenTexts || []);
   })
-  .catch(function(){ callback([]); });
+  .catch(function(err){ logError("batch_screen_text", err, { product: currentProduct }); callback([]); });
 }
 
 function generateBatchScripts(angles) {
@@ -2381,6 +2382,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     });
   })
   .catch(function(err) {
+    logError("batch_generation", err, { product: currentProduct });
     var mc = document.getElementById("mainContent");
     if(mc) mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:14px;'>Something went wrong: " + (err.message||"Please try again") + "</div>";
   });
@@ -2805,6 +2807,7 @@ function generateScriptBank() {
     });
   })
   .catch(function(err) {
+    logError("curated_script_bank", err, { product: currentProduct });
     btn.disabled = false; btn.style.background = "var(--red)";
     btn.innerHTML = "🧠&nbsp; Generate Focus Angles";
     var mc = document.getElementById("mainContent");
@@ -3002,6 +3005,7 @@ function generateSkitScript(relationshipType) {
     renderSkitResult(parsed.lines, relationshipType);
   })
   .catch(function(err){
+    logError("skit_generation", err, { product: currentProduct });
     wrap.removeChild(dots);
     var errEl = document.createElement("div"); errEl.style.cssText = "color:var(--red);font-size:13px;padding:16px 0;"; errEl.textContent = "Error: " + (err.message||"Try again");
     wrap.appendChild(errEl);
@@ -3585,6 +3589,7 @@ function renderFocusPicker() {
     renderFocusOptionsForBuilder(wrap, loading, focuses);
   })
   .catch(function(e) {
+    if(e.message !== "rate_limit") logError("focus_picker", e, { product: currentProduct });
     if(e.message !== "rate_limit") {
       // Use fallback angles on any error
       var fallbackFocuses = [
@@ -3845,6 +3850,21 @@ function safeRead(obj, key, defaultVal) {
   if(defaultVal !== null && typeof defaultVal === "object" && !Array.isArray(defaultVal) && typeof val !== "object") return defaultVal;
   if(Array.isArray(defaultVal) && !Array.isArray(val)) return defaultVal;
   return val;
+}
+
+function logError(type, err, context) {
+  try {
+    if(!currentUser) return;
+    var msg = (err && err.message) ? err.message : String(err || "unknown");
+    if(msg === "rate_limit" || msg.indexOf("AbortError") > -1) return;
+    sb.from("error_logs").insert({
+      user_id: currentUser.id,
+      error_type: type,
+      error_message: msg.substring(0, 500),
+      context: context ? JSON.stringify(context).substring(0, 1000) : null,
+      app_version: APP_VERSION
+    }).then(function(){}).catch(function(){});
+  } catch(e) {}
 }
 
 function loadLocalData() {
@@ -4750,6 +4770,7 @@ function generateBody2AndPreclose(body1Line, hookLine) {
     showStep(3);
   })
   .catch(function(err) {
+    logError("preclose_body2", err, { product: currentProduct, hook: picks.hook });
     showToast("Could not generate -- try again");
     showStep(2);
   });
@@ -4966,6 +4987,7 @@ function generateCTA(hookLine, body1Line, preCloseLine, body2Line) {
     showStep(5);
   })
   .catch(function(err) {
+    logError("cta_generation", err, { product: currentProduct, hook: picks.hook });
     showToast("Could not generate CTA -- try again");
     showStep(4);
   });
