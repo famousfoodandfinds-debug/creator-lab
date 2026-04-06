@@ -3194,8 +3194,7 @@ function renderSkitAngleGrid(wrap, focuses) {
           relBtns.forEach(function(rb) { rb.style.borderColor = "var(--border-md)"; rb.style.background = "var(--surface2)"; rb.querySelector("div").style.color = "var(--white-dim)"; });
           if(activeRel === r.key) { activeRel = null; }
           else { activeRel = r.key; b.style.borderColor = "var(--silver)"; b.style.background = "var(--silver-dim)"; b.querySelector("div").style.color = "var(--silver-bright)"; }
-          addBtn.style.opacity = activeRel ? "1" : "0.4";
-          addBtn.disabled = !activeRel;
+          if(typeof plusBtn !== "undefined"){ plusBtn.style.opacity = activeRel && selectedSkits.length < 5 ? "1" : "0.3"; plusBtn.disabled = !activeRel || selectedSkits.length >= 5; }
         });
       })(rel, btn);
       relRow.appendChild(btn);
@@ -3424,7 +3423,7 @@ function generateSkitScripts(skitAngles) {
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 6000,
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 6000,
       messages: [{ role: "user", content: prompt }]
     })
   })
