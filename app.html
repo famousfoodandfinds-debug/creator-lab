@@ -1785,23 +1785,50 @@ function renderProductHub() {
     productInfoLbl2.textContent = "Product info";
     wrap.appendChild(productInfoLbl2);
 
+    // Edit description -- self-contained
     var editDescBtn = document.createElement("button");
     editDescBtn.className = "next-btn";
     editDescBtn.style.cssText = "background:transparent;border:1px solid rgba(200,168,74,0.4);color:var(--gold);";
     editDescBtn.textContent = "Edit product description";
     editDescBtn.addEventListener("click", function() {
-      // trigger the same edit flow as the editBtn below
-      if(editBtn) editBtn.click();
+      var tryLoad = function(desc) {
+        mc.innerHTML = "";
+        var editWrap = document.createElement("div"); editWrap.style.cssText = "padding:16px;";
+        var backBtn = document.createElement("button"); backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 14px;"; backBtn.innerHTML = "← Back to product"; backBtn.addEventListener("click", function(){ renderProductHub(); }); editWrap.appendChild(backBtn);
+        var heading = document.createElement("div"); heading.className = "step-heading"; heading.innerHTML = "Edit <em>Description</em>"; editWrap.appendChild(heading);
+        var sub = document.createElement("div"); sub.className = "step-sub"; sub.style.marginBottom = "14px"; sub.textContent = "Update the description then tap Generate to rebuild your script bank."; editWrap.appendChild(sub);
+        var notice = document.createElement("div"); notice.style.cssText = "background:var(--gold-dim);border:1px solid rgba(200,168,74,0.3);border-radius:var(--radius-sm);padding:10px 13px;font-size:12px;color:var(--gold);line-height:1.5;margin-bottom:14px;"; notice.textContent = "Regenerating will rebuild your script bank. Your saved scripts will not be affected."; editWrap.appendChild(notice);
+        var ta = document.createElement("textarea"); ta.style.cssText = "width:100%;min-height:140px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:12px 14px;outline:none;resize:vertical;line-height:1.6;box-sizing:border-box;-webkit-user-select:text;user-select:text;"; ta.value = desc; ta.maxLength = 1000;
+        var charRow = document.createElement("div"); charRow.style.cssText = "font-size:11px;color:var(--muted);text-align:right;margin:4px 0 12px;"; charRow.textContent = desc.length + " / 1000"; ta.addEventListener("input", function(){ charRow.textContent = ta.value.length + " / 1000"; });
+        var genBtn2 = document.createElement("button"); genBtn2.className = "next-btn"; genBtn2.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;"; genBtn2.innerHTML = "🧠&nbsp; Generate Focus Angles";
+        genBtn2.addEventListener("click", function(){ var newDesc = ta.value.trim(); if(!newDesc){ showToast("Description cannot be empty"); return; } document.getElementById("productInput").value = newDesc; document.getElementById("charCount").textContent = newDesc.length; document.getElementById("inputSection").style.display = "block"; document.getElementById("genBtn").style.display = "block"; var pw = document.getElementById("priceWrap"); if(pw) pw.style.display = "block"; generate(); });
+        editWrap.appendChild(ta); editWrap.appendChild(charRow); editWrap.appendChild(genBtn2); mc.appendChild(editWrap);
+        setTimeout(function(){ ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 150); window.scrollTo(0,0);
+      };
+      try { sb.from("products").select("description, name").eq("id", currentProductId).single().then(function(result){ var desc = (result.data && result.data.description && result.data.description.length > 10) ? result.data.description : (result.data && result.data.name ? result.data.name : currentProduct); tryLoad(desc); }).catch(function(){ tryLoad(currentProduct); }); } catch(e){ tryLoad(currentProduct); }
     });
     wrap.appendChild(editDescBtn);
 
+    // Add/edit motivation -- self-contained
     var addMotivBtn = document.createElement("button");
     addMotivBtn.className = "next-btn";
     addMotivBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(144,144,240,0.4);color:var(--purple);";
     addMotivBtn.textContent = (currentMotivation && currentMotivation.length > 0) ? "Edit: why people buy this" : "+ Add: why people buy this";
     addMotivBtn.addEventListener("click", function() {
-      // trigger the same motivation flow as editMotivationBtn below
-      if(editMotivationBtn) editMotivationBtn.click();
+      var existing = document.getElementById("motivationEditWrap");
+      if(existing) { existing.remove(); return; }
+      var motivationWrap = document.createElement("div"); motivationWrap.id = "motivationEditWrap"; motivationWrap.style.cssText = "margin-top:10px;background:var(--surface2);border:1px solid rgba(144,144,240,0.3);border-radius:var(--radius-sm);padding:14px;";
+      var motivationLbl = document.createElement("div"); motivationLbl.style.cssText = "font-size:11px;color:var(--purple);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;"; motivationLbl.textContent = "Why do people really buy this?";
+      var motivationInput = document.createElement("textarea"); motivationInput.style.cssText = "width:100%;min-height:80px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-xs);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px 12px;outline:none;box-sizing:border-box;line-height:1.5;resize:vertical;"; motivationInput.placeholder = "Why do you think people purchase this? What are they upgrading from, what is the real reason they want it."; motivationInput.maxLength = 500; motivationInput.value = currentMotivation || "";
+      var motivationSave = document.createElement("button"); motivationSave.className = "next-btn"; motivationSave.style.cssText = "margin-top:8px;background:linear-gradient(135deg,rgba(144,144,240,0.3),rgba(144,144,240,0.15));border:1px solid rgba(144,144,240,0.4);color:var(--purple);font-weight:600;"; motivationSave.textContent = "Save";
+      motivationSave.addEventListener("click", function() {
+        var val = motivationInput.value.trim(); currentMotivation = val;
+        if(currentProductId) { sb.from("products").update({ motivation: val || null }).eq("id", currentProductId).then(function(){ showToast("Saved"); motivationWrap.remove(); addMotivBtn.textContent = (val.length > 0) ? "Edit: why people buy this" : "+ Add: why people buy this"; }).catch(function(){ showToast("Could not save -- try again"); }); }
+        else { showToast("Saved"); motivationWrap.remove(); addMotivBtn.textContent = (val.length > 0) ? "Edit: why people buy this" : "+ Add: why people buy this"; }
+      });
+      motivationWrap.appendChild(motivationLbl); motivationWrap.appendChild(motivationInput); motivationWrap.appendChild(motivationSave);
+      addMotivBtn.parentNode.insertBefore(motivationWrap, addMotivBtn.nextSibling);
+      setTimeout(function(){ motivationInput.focus(); }, 100);
     });
     wrap.appendChild(addMotivBtn);
 
@@ -1839,137 +1866,7 @@ function renderProductHub() {
     skitBtn.addEventListener("click", function() { renderSkitMode(); });
     wrap.appendChild(skitBtn);
 
-    // Product info section -- edit description and motivation live here
-    var productInfoLbl = document.createElement("div");
-    productInfoLbl.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);padding:16px 0 8px;";
-    productInfoLbl.textContent = "Product info";
-    wrap.appendChild(productInfoLbl);
 
-    // Edit description button
-    var editBtn = document.createElement("button");
-    editBtn.className = "next-btn";
-    editBtn.style.cssText = "display:none;";
-    editBtn.textContent = "Edit product description";
-    editBtn.addEventListener("click", function() {
-      var tryLoad = function(desc) {
-        mc.innerHTML = "";
-        var wrap = document.createElement("div");
-        wrap.style.cssText = "padding:16px;";
-
-        var backBtn2 = document.createElement("button");
-        backBtn2.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 14px;";
-        backBtn2.innerHTML = "← Back to product";
-        backBtn2.addEventListener("click", function(){ renderProductHub(); });
-        wrap.appendChild(backBtn2);
-
-        var heading = document.createElement("div");
-        heading.className = "step-heading";
-        heading.innerHTML = "Edit <em>Description</em>";
-        var sub = document.createElement("div");
-        sub.className = "step-sub";
-        sub.style.marginBottom = "14px";
-        sub.textContent = "Update the description below then tap Generate to rebuild your script bank.";
-        wrap.appendChild(heading);
-        wrap.appendChild(sub);
-
-        var notice = document.createElement("div");
-        notice.style.cssText = "background:var(--gold-dim);border:1px solid rgba(200,168,74,0.3);border-radius:var(--radius-sm);padding:10px 13px;font-size:12px;color:var(--gold);line-height:1.5;margin-bottom:14px;";
-        notice.textContent = "Regenerating will rebuild your script bank with the new description. Your saved scripts will not be affected.";
-        wrap.appendChild(notice);
-
-        var ta = document.createElement("textarea");
-        ta.style.cssText = "width:100%;min-height:140px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:400;padding:12px 14px;outline:none;resize:vertical;line-height:1.6;box-sizing:border-box;-webkit-user-select:text;user-select:text;";
-        ta.value = desc;
-        ta.maxLength = 1000;
-
-        var charRow = document.createElement("div");
-        charRow.style.cssText = "font-size:11px;color:var(--muted);text-align:right;margin:4px 0 12px;";
-        charRow.textContent = desc.length + " / 1000";
-        ta.addEventListener("input", function(){ charRow.textContent = ta.value.length + " / 1000"; });
-
-        var genBtn2 = document.createElement("button");
-        genBtn2.className = "next-btn";
-        genBtn2.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;";
-        genBtn2.innerHTML = "🧠&nbsp; Generate Focus Angles";
-        genBtn2.addEventListener("click", function(){
-          var newDesc = ta.value.trim();
-          if(!newDesc){ showToast("Description cannot be empty"); return; }
-          // Update the main productInput and trigger generate
-          document.getElementById("productInput").value = newDesc;
-          document.getElementById("charCount").textContent = newDesc.length;
-          document.getElementById("inputSection").style.display = "block";
-          document.getElementById("genBtn").style.display = "block";
-          var pw = document.getElementById("priceWrap");
-          if(pw) pw.style.display = "block";
-          generate();
-        });
-
-        wrap.appendChild(ta);
-        wrap.appendChild(charRow);
-        wrap.appendChild(genBtn2);
-        mc.appendChild(wrap);
-
-        // Focus the new textarea
-        setTimeout(function(){ ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 150);
-        window.scrollTo(0,0);
-      };
-      try {
-        sb.from("products").select("description, name").eq("id", currentProductId).single().then(function(result) {
-          var desc = (result.data && result.data.description && result.data.description.length > 10)
-            ? result.data.description
-            : (result.data && result.data.name ? result.data.name : currentProduct);
-          tryLoad(desc);
-        }).catch(function() { tryLoad(currentProduct); });
-      } catch(e) { tryLoad(currentProduct); }
-    });
-    wrap.appendChild(editBtn);
-
-    // Edit buyer motivation button
-    var editMotivationBtn = document.createElement("button");
-    editMotivationBtn.className = "next-btn";
-    editMotivationBtn.style.cssText = "display:none;";
-    editMotivationBtn.textContent = (currentMotivation && currentMotivation.length > 0) ? "Edit: why people buy this" : "+ Add: why people buy this";
-    editMotivationBtn.addEventListener("click", function() {
-      var existing = document.getElementById("motivationEditWrap");
-      if(existing) { existing.remove(); return; }
-      var motivationWrap = document.createElement("div");
-      motivationWrap.id = "motivationEditWrap";
-      motivationWrap.style.cssText = "margin-top:10px;background:var(--surface2);border:1px solid rgba(144,144,240,0.3);border-radius:var(--radius-sm);padding:14px;";
-      var motivationLbl = document.createElement("div");
-      motivationLbl.style.cssText = "font-size:11px;color:var(--purple);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;";
-      motivationLbl.textContent = "Why do people really buy this?";
-      var motivationInput = document.createElement("textarea");
-      motivationInput.style.cssText = "width:100%;min-height:80px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-xs);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px 12px;outline:none;box-sizing:border-box;line-height:1.5;resize:vertical;";
-      motivationInput.placeholder = "Why do you think people purchase this? What are they upgrading from, what is the real reason they want it.";
-      motivationInput.maxLength = 500;
-      motivationInput.value = currentMotivation || "";
-      var motivationSave = document.createElement("button");
-      motivationSave.className = "next-btn";
-      motivationSave.style.cssText = "margin-top:8px;background:linear-gradient(135deg,rgba(144,144,240,0.3),rgba(144,144,240,0.15));border:1px solid rgba(144,144,240,0.4);color:var(--purple);font-weight:600;";
-      motivationSave.textContent = "Save";
-      motivationSave.addEventListener("click", function() {
-        var val = motivationInput.value.trim();
-        currentMotivation = val;
-        // Save to Supabase
-        if(currentProductId) {
-          sb.from("products").update({ motivation: val || null }).eq("id", currentProductId).then(function() {
-            showToast("Saved");
-            motivationWrap.remove();
-            editMotivationBtn.textContent = (val.length > 0) ? "Edit: why people buy this" : "+ Add: why people buy this";
-          }).catch(function(){ showToast("Could not save -- try again"); });
-        } else {
-          showToast("Saved");
-          motivationWrap.remove();
-          editMotivationBtn.textContent = (val.length > 0) ? "Edit: why people buy this" : "+ Add: why people buy this";
-        }
-      });
-      motivationWrap.appendChild(motivationLbl);
-      motivationWrap.appendChild(motivationInput);
-      motivationWrap.appendChild(motivationSave);
-      editMotivationBtn.parentNode.insertBefore(motivationWrap, editMotivationBtn.nextSibling);
-      setTimeout(function(){ motivationInput.focus(); }, 100);
-    });
-    wrap.appendChild(editMotivationBtn);
 
     var deleteProductBtn = document.createElement("button");
     deleteProductBtn.className = "next-btn";
