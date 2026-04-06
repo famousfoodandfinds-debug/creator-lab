@@ -143,9 +143,9 @@ textarea::placeholder { color: var(--muted); }
 /* STEP PANEL */
 .step-panel { display: none; padding-top: 16px; }
 .step-panel.active { display: block; }
-.step-heading { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--white); margin-bottom: 4px; font-weight: 700; }
+.step-heading { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--white); margin-bottom: 4px; font-weight: 700; padding-left: 16px; }
 .step-heading em { font-style: italic; color: var(--silver-bright); }
-.step-sub { font-size: 13px; color: var(--white-dim); margin-bottom: 16px; font-weight: 400; }
+.step-sub { font-size: 13px; color: var(--white-dim); margin-bottom: 16px; font-weight: 400; padding-left: 16px; }
 
 /* TRIGGER CARDS */
 .trigger-grid { display: flex; flex-direction: column; gap: 8px; }
@@ -1981,8 +1981,13 @@ function renderModeChoice(wrap, focuses) {
   batchBtn.className = "mode-btn";
   batchBtn.innerHTML = "<div class='mode-btn-title'>\u26A1 Batch Scripts</div><div class='mode-btn-desc'>Select up to 5 angles. Get 5 complete scripts at once.</div>";
 
+  var skitBtn = document.createElement("button");
+  skitBtn.className = "mode-btn";
+  skitBtn.innerHTML = "<div class='mode-btn-title'>\uD83C\uDFAD Skit Scripts</div><div class='mode-btn-desc'>Two-person scene. Pick angles and relationship types. Get 5 skits at once.</div>";
+
   modeWrap.appendChild(curatedBtn);
   modeWrap.appendChild(batchBtn);
+  modeWrap.appendChild(skitBtn);
   wrap.appendChild(modeWrap);
 
   // Curated section -- focus angle cards
@@ -1991,11 +1996,14 @@ function renderModeChoice(wrap, focuses) {
   wrap.appendChild(curatedSection);
 
   curatedBtn.addEventListener("click", function(){
-    curatedBtn.classList.add("selected"); batchBtn.classList.remove("selected");
+    curatedBtn.classList.add("selected"); batchBtn.classList.remove("selected"); skitBtn.classList.remove("selected");
     curatedSection.style.display = "block";
   });
   batchBtn.addEventListener("click", function(){
     renderBatchPicker();
+  });
+  skitBtn.addEventListener("click", function(){
+    renderSkitPicker();
   });
 }
 
@@ -3038,13 +3046,18 @@ function renderBatchAngleGrid(wrap, focuses) {
   var customConfirm = document.createElement("button");
   customConfirm.className = "custom-angle-confirm";
   customConfirm.textContent = "Add this angle";
+  var customCount = document.createElement("div");
+  customCount.style.cssText = "font-size:11px;color:var(--muted);margin-top:6px;min-height:16px;";
+  customWrap.appendChild(customCount);
   customConfirm.addEventListener("click", function() {
     var v = customInput.value.trim();
     if(!v){ showToast("Type your angle first"); return; }
     if(selectedAngles.length >= 5){ showToast("Maximum 5 scripts"); return; }
     selectedAngles.push({focus:v, desire:"Custom", description:v});
-    customInput.value = "";
-    showToast("Angle added (" + selectedAngles.length + " total)");
+    // Do NOT clear the input -- let them add same angle again or tweak it
+    var thisCount = selectedAngles.filter(function(a){ return a.focus===v; }).length;
+    customCount.textContent = "Added " + thisCount + "x" + (selectedAngles.length < 5 ? " -- tap again to add another variation" : " -- maximum reached");
+    customCount.style.color = selectedAngles.length >= 5 ? "var(--gold)" : "var(--green)";
     genBtn.disabled = false; genBtn.style.opacity = "1";
     genBtn.textContent = "⚡ Generate " + selectedAngles.length + " Script" + (selectedAngles.length !== 1 ? "s" : "");
   });
@@ -3054,6 +3067,424 @@ function renderBatchAngleGrid(wrap, focuses) {
   wrap.appendChild(customWrap);
 
   wrap.appendChild(genBtn);
+}
+
+
+// ============================================================
+// SKIT MODE
+// ============================================================
+function renderSkitPicker() {
+  var mc = document.getElementById("mainContent");
+  mc.innerHTML = "";
+  var wrap = document.createElement("div");
+  wrap.style.cssText = "padding:16px;";
+
+  var backBtn = document.createElement("button");
+  backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:\'Instrument Sans\',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 12px;";
+  backBtn.innerHTML = "← Back to product";
+  backBtn.addEventListener("click", function(){ renderProductHub(); });
+  wrap.appendChild(backBtn);
+
+  var heading = document.createElement("div");
+  heading.className = "step-heading";
+  heading.innerHTML = "Build your <em>Skits</em>";
+  var sub = document.createElement("div");
+  sub.className = "step-sub";
+  sub.textContent = "Each angle gets its own relationship type. Up to 5 skits per batch.";
+  sub.style.marginBottom = "16px";
+
+  var loadingDiv = document.createElement("div");
+  loadingDiv.style.cssText = "padding:16px 0;display:flex;align-items:center;gap:10px;";
+  loadingDiv.innerHTML = "<div class=\'dots\'><div class=\'dot\'></div><div class=\'dot\'></div><div class=\'dot\'></div></div><span style=\'font-size:13px;color:var(--muted);\'>Loading angles...</span>";
+
+  wrap.appendChild(heading);
+  wrap.appendChild(sub);
+  wrap.appendChild(loadingDiv);
+  mc.appendChild(wrap);
+
+  var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles. Product: " + currentProduct + ". Generate 5 distinct buyer desire angles. Return ONLY valid JSON with no markdown: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER use Social Media, Influencer, Viral.";
+
+  fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
+  })
+  .then(function(r) {
+    if(r.status === 429) { showRateLimitError(); throw new Error("rate_limit"); }
+    return r.json();
+  })
+  .then(function(data) {
+    var focuses = [];
+    try {
+      var rawText = ""; data.content.forEach(function(b){ if(b.type==="text") rawText+=b.text; });
+      focuses = JSON.parse(rawText.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim()).focuses || [];
+    } catch(e) {}
+    if(loadingDiv.parentNode === wrap) wrap.removeChild(loadingDiv);
+    renderSkitAngleGrid(wrap, focuses);
+  })
+  .catch(function(e) {
+    if(e.message === "rate_limit") return;
+    if(loadingDiv.parentNode === wrap) wrap.removeChild(loadingDiv);
+    renderSkitAngleGrid(wrap, []);
+  });
+}
+
+function renderSkitAngleGrid(wrap, focuses) {
+  var desireColors = {"Pain/Problem Relief":"#FF6B6B","Emotion/Identity":"#B388FF","Dopamine/Instant Gratification":"#FFD166","Urgency/Scarcity":"#FF8C42","Status/Upgrade":"#C0C0C0","Habit/Routine":"#2DC98A","Trust/Brand Recognition":"#4FC3F7","Convenience":"#A0C4FF","Social Proof/Belonging":"#E040FB","Fear of Future Regret":"#FF6B6B","Transformation":"#69F0AE"};
+  var selectedSkits = []; // [{focus, desire, description, relationship}]
+  var relationships = [
+    { key:"friend", label:"Friend", desc:"Casual sharing, no selling energy" },
+    { key:"spouse", label:"Spouse", desc:"One skeptic, one believer. I told you so energy" },
+    { key:"stranger", label:"Stranger", desc:"Organic discovery. Wait, where did you get that?" },
+    { key:"expert", label:"Expert", desc:"Credibility. Plain language, specific proof" }
+  ];
+
+  var genBtn = document.createElement("button");
+  genBtn.className = "next-btn";
+  genBtn.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;margin-top:12px;opacity:0.5;";
+  genBtn.textContent = "🎭 Generate Skits";
+  genBtn.disabled = true;
+
+  var updateGenBtn = function() {
+    genBtn.disabled = selectedSkits.length === 0;
+    genBtn.style.opacity = selectedSkits.length === 0 ? "0.5" : "1";
+    genBtn.textContent = selectedSkits.length === 0 ? "🎭 Generate Skits" : "🎭 Generate " + selectedSkits.length + " Skit" + (selectedSkits.length !== 1 ? "s" : "");
+  };
+
+  genBtn.addEventListener("click", function() {
+    if(selectedSkits.length === 0){ showToast("Select at least one angle"); return; }
+    generateSkitScripts(selectedSkits.slice());
+  });
+
+  var grid = document.createElement("div");
+  grid.style.cssText = "display:flex;flex-direction:column;gap:10px;margin-bottom:14px;";
+
+  focuses.forEach(function(f) {
+    var dc = desireColors[f.desire] || "var(--muted)";
+    var card = document.createElement("div");
+    card.style.cssText = "background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius);padding:14px 16px;transition:border-color 0.15s;";
+
+    // Angle info row
+    var angleRow = document.createElement("div");
+    angleRow.style.cssText = "margin-bottom:10px;";
+    angleRow.innerHTML = "<div style=\'font-size:14px;font-weight:600;color:var(--white);margin-bottom:3px;\'>" + f.focus + "</div>" +
+      "<div style=\'font-size:12px;color:var(--white-dim);line-height:1.4;font-weight:400;margin-bottom:6px;\'>" + f.description + "</div>" +
+      "<div style=\'font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:" + dc + ";background:rgba(0,0,0,0.3);border:1px solid " + dc + ";border-radius:999px;padding:2px 8px;display:inline-block;\'>" + f.desire + "</div>";
+    card.appendChild(angleRow);
+
+    // Relationship selector row
+    var relLabel = document.createElement("div");
+    relLabel.style.cssText = "font-size:10px;font-weight:500;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:7px;";
+    relLabel.textContent = "Relationship type";
+    card.appendChild(relLabel);
+
+    var relRow = document.createElement("div");
+    relRow.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;";
+
+    var selectedRel = null;
+    var relBtns = [];
+
+    relationships.forEach(function(rel) {
+      var btn = document.createElement("button");
+      btn.style.cssText = "background:var(--surface2);border:1px solid var(--border-md);border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer;text-align:left;transition:all 0.15s;font-family:\'Instrument Sans\',sans-serif;";
+      btn.innerHTML = "<div style=\'font-size:12px;font-weight:600;color:var(--white-dim);\'>" + rel.label + "</div><div style=\'font-size:10px;color:var(--muted);line-height:1.3;margin-top:2px;\'>" + rel.desc + "</div>";
+      relBtns.push(btn);
+      (function(r, b) {
+        b.addEventListener("click", function() {
+          // Deselect all
+          relBtns.forEach(function(rb) {
+            rb.style.borderColor = "var(--border-md)";
+            rb.style.background = "var(--surface2)";
+            rb.querySelector("div").style.color = "var(--white-dim)";
+          });
+          // Select this one
+          b.style.borderColor = "var(--silver)";
+          b.style.background = "var(--silver-dim)";
+          b.querySelector("div").style.color = "var(--silver-bright)";
+
+          // Update selectedSkits -- remove previous entry for this angle, add new one
+          selectedSkits = selectedSkits.filter(function(s){ return s.focus !== f.focus; });
+          if(selectedRel === r.key) {
+            // Clicking same rel deselects
+            selectedRel = null;
+            card.style.borderColor = "var(--border-md)";
+            b.style.borderColor = "var(--border-md)";
+            b.style.background = "var(--surface2)";
+            b.querySelector("div").style.color = "var(--white-dim)";
+          } else {
+            selectedRel = r.key;
+            if(selectedSkits.length < 5) {
+              selectedSkits.push({focus:f.focus, desire:f.desire, description:f.description, relationship:r.key});
+              card.style.borderColor = "var(--silver)";
+            } else {
+              showToast("Maximum 5 skits");
+              selectedRel = null;
+              b.style.borderColor = "var(--border-md)";
+              b.style.background = "var(--surface2)";
+              b.querySelector("div").style.color = "var(--white-dim)";
+            }
+          }
+          updateGenBtn();
+        });
+      })(rel, btn);
+      relRow.appendChild(btn);
+    });
+    card.appendChild(relRow);
+    grid.appendChild(card);
+  });
+
+  wrap.appendChild(grid);
+
+  // Custom angle section
+  var customWrap = document.createElement("div");
+  customWrap.className = "custom-angle-wrap";
+  var customLbl = document.createElement("span");
+  customLbl.className = "custom-angle-label";
+  customLbl.innerHTML = "Have your own angle? <span style=\'font-weight:300;text-transform:none;letter-spacing:0;font-size:11px;color:var(--muted);\'>Add up to 5 times with different relationships.</span>";
+  var customInput = document.createElement("textarea");
+  customInput.className = "custom-angle-input";
+  customInput.placeholder = "e.g. Speak to the busy mom who wants her kitchen to look intentional without spending hours on it";
+
+  // Relationship selector for custom angle
+  var customRelLabel = document.createElement("div");
+  customRelLabel.style.cssText = "font-size:10px;font-weight:500;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin:8px 0 6px;";
+  customRelLabel.textContent = "Relationship type";
+  var customRelRow = document.createElement("div");
+  customRelRow.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;";
+  var customSelectedRel = null;
+  var customRelBtns = [];
+  relationships.forEach(function(rel) {
+    var btn = document.createElement("button");
+    btn.style.cssText = "background:var(--surface2);border:1px solid var(--border-md);border-radius:var(--radius-sm);padding:8px 10px;cursor:pointer;text-align:left;transition:all 0.15s;font-family:\'Instrument Sans\',sans-serif;";
+    btn.innerHTML = "<div style=\'font-size:12px;font-weight:600;color:var(--white-dim);\'>" + rel.label + "</div><div style=\'font-size:10px;color:var(--muted);line-height:1.3;margin-top:2px;\'>" + rel.desc + "</div>";
+    customRelBtns.push(btn);
+    (function(r, b) {
+      b.addEventListener("click", function() {
+        customRelBtns.forEach(function(rb) { rb.style.borderColor = "var(--border-md)"; rb.style.background = "var(--surface2)"; rb.querySelector("div").style.color = "var(--white-dim)"; });
+        if(customSelectedRel === r.key) { customSelectedRel = null; }
+        else { customSelectedRel = r.key; b.style.borderColor = "var(--silver)"; b.style.background = "var(--silver-dim)"; b.querySelector("div").style.color = "var(--silver-bright)"; }
+      });
+    })(rel, btn);
+    customRelRow.appendChild(btn);
+  });
+
+  var customConfirm = document.createElement("button");
+  customConfirm.className = "custom-angle-confirm";
+  customConfirm.textContent = "Add this angle";
+  var customCount = document.createElement("div");
+  customCount.style.cssText = "font-size:11px;color:var(--muted);margin-top:6px;min-height:16px;";
+
+  customConfirm.addEventListener("click", function() {
+    var v = customInput.value.trim();
+    if(!v){ showToast("Type your angle first"); return; }
+    if(!customSelectedRel){ showToast("Pick a relationship type first"); return; }
+    if(selectedSkits.length >= 5){ showToast("Maximum 5 skits"); return; }
+    selectedSkits.push({focus:v, desire:"Custom", description:v, relationship:customSelectedRel});
+    var thisCount = selectedSkits.filter(function(s){ return s.focus===v; }).length;
+    customCount.textContent = "Added " + thisCount + "x" + (selectedSkits.length < 5 ? " -- tap again to add another variation" : " -- maximum reached");
+    customCount.style.color = selectedSkits.length >= 5 ? "var(--gold)" : "var(--green)";
+    updateGenBtn();
+  });
+
+  customWrap.appendChild(customLbl);
+  customWrap.appendChild(customInput);
+  customWrap.appendChild(customRelLabel);
+  customWrap.appendChild(customRelRow);
+  customWrap.appendChild(customConfirm);
+  customWrap.appendChild(customCount);
+  wrap.appendChild(customWrap);
+  wrap.appendChild(genBtn);
+}
+
+function generateSkitScripts(skitAngles) {
+  var mc = document.getElementById("mainContent");
+  mc.innerHTML = "";
+  var wrap = document.createElement("div");
+  wrap.style.cssText = "padding:16px;";
+
+  var heading = document.createElement("div");
+  heading.className = "step-heading";
+  heading.innerHTML = "Writing your <em>Skits...</em>";
+  var sub = document.createElement("div");
+  sub.className = "step-sub";
+  sub.innerHTML = "<div class=\'dots\'><div class=\'dot\'></div><div class=\'dot\'></div><div class=\'dot\'></div></div>";
+  sub.style.marginBottom = "20px";
+  wrap.appendChild(heading);
+  wrap.appendChild(sub);
+  mc.appendChild(wrap);
+
+  var anglesText = skitAngles.map(function(a, i) {
+    return "Skit " + (i+1) + ": angle=[" + a.focus + "] desire=[" + a.desire + "] description=[" + a.description + "] relationship=[" + a.relationship + "]";
+  }).join(". ");
+
+  var relationshipVoices = {
+    friend: "FRIEND voice rules: Both voices are equal energy. Casual, off the cuff, you HAVE to try this energy. No selling, just sharing between friends. Excited, warm, natural.",
+    spouse: "SPOUSE voice rules: THEM is mildly skeptical or gently teasing. YOU is confident without being defensive. Warm domestic humor. I told you so energy. The you already bought it and is showing the skeptic.",
+    stranger: "STRANGER voice rules: THEM initiates by noticing something. YOU is a little surprised to be asked but happy to share. Zero sales energy. Feels overheard, not performed.",
+    expert: "EXPERT voice rules: THEM asks genuine questions the viewer is thinking. YOU answers in plain language -- no jargon. The expertise shows in the specificity of the answer, not fancy vocabulary."
+  };
+
+  var relVoiceNotes = skitAngles.map(function(a, i) {
+    return "Skit " + (i+1) + " relationship=[" + a.relationship + "]: " + (relationshipVoices[a.relationship] || "");
+  }).join(" ");
+
+  var priceCtx = getPriceContext();
+
+  var prompt = "You write two-person short-form video skit scripts for social selling content. Each skit is a natural scene between two people -- it must feel overheard, not performed. Product: " + currentProduct + ". Price context: " + priceCtx + ". Write " + skitAngles.length + " skits, one for each: " + anglesText + "." +
+    " RELATIONSHIP VOICE RULES: " + relVoiceNotes +
+    " SKIT STRUCTURE RULES:" +
+    " 1. THEM always opens the scene -- never YOU. The viewer must see the problem or curiosity before the product appears." +
+    " 2. YOU never leads with the product name in line 1. The product enters as an answer, not an announcement." +
+    " 3. THEM line 3 must voice the exact skepticism or question the VIEWER is holding right now." +
+    " 4. No line longer than 15 words. These are spoken lines." +
+    " 5. No em dashes. No brand names except the product brand. No invented specs." +
+    " 6. The CTA in YOU line 6 must be woven into dialogue naturally -- examples: I will link it for you / it is in my cart grab it from there / tap my cart I have got it saved. Never say link in bio or check it out." +
+    " 7. On-screen text appears BEFORE the scene. It must be a pure pattern interrupt -- nothing to do with the product. Under 6 words. Personal, slightly confrontational, or uncomfortably accurate." +
+    " BUYER PSYCHOLOGY: Every skit must sell the person they become, not the product they buy. Features are proof, not the point. The emotional hook must come before any product detail." +
+    " BANNED: price cost dollar worth deal value investment game-changer elevate transform engineered technology cutting-edge revolutionary. No em dashes." +
+    " Return ONLY valid JSON: {skits:[{angle:string,relationship:string,lines:[{speaker:string,text:string}],screenText:[string,string,string],caption:string,hashtags:[string,string,string,string,string]}]} where lines always has exactly 6 entries alternating speaker THEM and YOU starting with THEM.";
+
+  fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 6000,
+      messages: [{ role: "user", content: prompt }]
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if(data.error) throw new Error(data.error.message);
+    var text = "";
+    data.content.forEach(function(b){ if(b.type==="text") text+=b.text; });
+    var clean = text.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim();
+    var parsed = JSON.parse(clean);
+    var skits = parsed.skits || [];
+    renderSkitResults(skits, skitAngles);
+  })
+  .catch(function(err) {
+    var mc2 = document.getElementById("mainContent");
+    if(mc2) mc2.innerHTML = "<div style=\'padding:16px;color:var(--muted);\'>Something went wrong generating skits. Please try again.</div>";
+    var btn = document.getElementById("genBtn");
+    if(btn) { btn.disabled = false; btn.style.background = "var(--red)"; btn.innerHTML = "🧠&nbsp; Generate Focus Angles"; }
+  });
+}
+
+function renderSkitResults(skits, angles) {
+  var mc = document.getElementById("mainContent");
+  mc.innerHTML = "";
+  var wrap = document.createElement("div");
+  wrap.style.cssText = "padding:16px;";
+
+  var backBtn = document.createElement("button");
+  backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:\'Instrument Sans\',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 12px;";
+  backBtn.innerHTML = "← Back to skit picker";
+  backBtn.addEventListener("click", function(){ renderSkitPicker(); });
+  wrap.appendChild(backBtn);
+
+  var heading = document.createElement("div");
+  heading.className = "step-heading";
+  heading.innerHTML = skits.length + " <em>Skits Ready</em>";
+  var sub = document.createElement("div");
+  sub.className = "step-sub";
+  sub.textContent = "Tap Copy on any skit. Film both parts yourself or with a partner.";
+  sub.style.marginBottom = "20px";
+  wrap.appendChild(heading);
+  wrap.appendChild(sub);
+
+  skits.forEach(function(skit, idx) {
+    var angle = angles[idx] || {};
+    var card = document.createElement("div");
+    card.className = "batch-script-card";
+
+    // Header
+    var header = document.createElement("div");
+    header.className = "batch-script-header";
+    var num = document.createElement("div");
+    num.className = "batch-script-num";
+    num.textContent = "Skit " + (idx+1);
+    var relBadge = document.createElement("div");
+    relBadge.style.cssText = "font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--silver);background:var(--silver-dim);border:1px solid rgba(192,192,192,0.2);border-radius:999px;padding:2px 8px;";
+    relBadge.textContent = (skit.relationship || angle.relationship || "").toUpperCase();
+    var angleBadge = document.createElement("div");
+    angleBadge.className = "batch-script-angle";
+    angleBadge.textContent = skit.angle || angle.focus || "";
+    header.appendChild(num);
+    header.appendChild(relBadge);
+    header.appendChild(angleBadge);
+    card.appendChild(header);
+
+    // On-screen text
+    if(skit.screenText && skit.screenText.length > 0) {
+      var screenRow = document.createElement("div");
+      screenRow.style.cssText = "margin-bottom:12px;";
+      var screenLbl = document.createElement("div");
+      screenLbl.style.cssText = "font-size:10px;font-weight:500;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:5px;";
+      screenLbl.textContent = "On-screen text options";
+      screenRow.appendChild(screenLbl);
+      skit.screenText.forEach(function(t) {
+        var pill = document.createElement("div");
+        pill.style.cssText = "display:inline-block;background:var(--surface2);border:1px solid var(--border-md);border-radius:999px;padding:4px 10px;font-size:12px;color:var(--white-dim);margin-right:6px;margin-bottom:4px;font-weight:500;";
+        pill.textContent = t;
+        screenRow.appendChild(pill);
+      });
+      card.appendChild(screenRow);
+    }
+
+    // Dialogue
+    var dialogLbl = document.createElement("div");
+    dialogLbl.style.cssText = "font-size:10px;font-weight:500;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;";
+    dialogLbl.textContent = "Script";
+    card.appendChild(dialogLbl);
+
+    var dialogWrap = document.createElement("div");
+    dialogWrap.style.cssText = "background:var(--surface2);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px;";
+
+    if(skit.lines && skit.lines.length > 0) {
+      skit.lines.forEach(function(line) {
+        var lineRow = document.createElement("div");
+        lineRow.style.cssText = "display:flex;gap:10px;align-items:flex-start;";
+        var speakerBadge = document.createElement("div");
+        var isYou = line.speaker === "YOU";
+        speakerBadge.style.cssText = "font-size:9px;font-weight:700;letter-spacing:0.1em;flex-shrink:0;margin-top:2px;padding:2px 7px;border-radius:999px;border:1px solid " + (isYou ? "rgba(192,192,192,0.3)" : "var(--border-md)") + ";background:" + (isYou ? "var(--silver-dim)" : "transparent") + ";color:" + (isYou ? "var(--silver-bright)" : "var(--muted)") + ";";
+        speakerBadge.textContent = line.speaker;
+        var lineText = document.createElement("div");
+        lineText.style.cssText = "font-size:14px;color:" + (isYou ? "var(--white)" : "var(--white-dim)") + ";line-height:1.6;font-weight:" + (isYou ? "400" : "300") + ";";
+        lineText.textContent = line.text;
+        lineRow.appendChild(speakerBadge);
+        lineRow.appendChild(lineText);
+        dialogWrap.appendChild(lineRow);
+      });
+    }
+    card.appendChild(dialogWrap);
+
+    // Caption
+    if(skit.caption) {
+      var captionLbl = document.createElement("div");
+      captionLbl.style.cssText = "font-size:10px;font-weight:500;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:5px;";
+      captionLbl.textContent = "Caption";
+      var captionText = document.createElement("div");
+      captionText.style.cssText = "font-size:13px;color:var(--white-dim);line-height:1.6;font-weight:300;margin-bottom:10px;";
+      captionText.textContent = skit.caption;
+      card.appendChild(captionLbl);
+      card.appendChild(captionText);
+    }
+
+    // Copy button
+    var copyBtn = document.createElement("button");
+    copyBtn.style.cssText = "width:100%;background:transparent;border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white-dim);font-family:\'Instrument Sans\',sans-serif;font-size:13px;font-weight:500;padding:10px;cursor:pointer;transition:all 0.15s;";
+    copyBtn.textContent = "Copy Skit";
+    (function(s) {
+      copyBtn.addEventListener("click", function() {
+        var lines = (s.lines || []).map(function(l){ return l.speaker + ": " + l.text; }).join("\n");
+        var full = (s.screenText && s.screenText[0] ? "[ON SCREEN: " + s.screenText[0] + "]\n\n" : "") + lines + (s.caption ? "\n\nCaption: " + s.caption : "") + (s.hashtags ? "\n\n" + s.hashtags.map(function(h){ return "#"+h; }).join(" ") : "");
+        navigator.clipboard.writeText(full).then(function(){ showToast("Skit copied!"); }).catch(function(){ showToast("Copy failed"); });
+      });
+    })(skit);
+    card.appendChild(copyBtn);
+    wrap.appendChild(card);
+  });
+
+  mc.appendChild(wrap);
 }
 
 function renderFocusPicker() {
@@ -3704,7 +4135,7 @@ function rebuildPreclose() {
 function buildPriceSelector() {
   var wrap = document.createElement("div");
   var label = document.createElement("div");
-  label.style.cssText = "font-size:10px;font-weight:500;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;";
+  label.style.cssText = "font-size:10px;font-weight:500;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;padding-left:16px;";
   label.textContent = "Price range";
   wrap.appendChild(label);
 
