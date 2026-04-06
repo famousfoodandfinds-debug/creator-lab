@@ -2058,7 +2058,29 @@ function generateOnScreenText(productDesc, hooks) {
     });
   }
   var hookContext = hookSamples.slice(0,2).join(" / ");
-  var prompt = "For this TikTok Shop product: " + productDesc + " -- Write 6 text hooks (under 6 words each). These appear as on-screen text while the creator speaks. They must create a curiosity gap that makes the viewer stop scrolling -- not restate what is being said verbally. Use one of three mechanisms per line: (1) mild discomfort -- something slightly unsettling about the viewer's current situation, (2) surprising claim -- something they did not know or would not expect, (3) direct challenge -- questions their current behavior or assumption. NEVER restate the hook verbally. NEVER be generic or interchangeable with another product. Under 6 words. STANDALONE RULE: each option must work completely alone -- never write a sequence where option 1 is setup and option 3 is punchline. Every single option must stop a scroll with zero context from the others. Examples of strong text hooks: your carpet is dirtier than you think, you have been doing this wrong, the one thing you keep skipping, wait until you see what comes out, this is why nothing else worked. Return JSON only: {onScreenText:[6 strings]}";
+  var prompt = "You are writing on-screen text overlays for a TikTok video about this product: " + productDesc + "." +
+    " This is a two-step job you do internally before writing anything." +
+
+    " STEP 1 -- IDENTIFY THE VIEWER'S EMOTIONAL WORLD:" +
+    " Who is the specific person who buys this product? Not a demographic -- a person in a specific moment of their life." +
+    " What is the ONE thing they are quietly feeling or living with right now, before they ever see this video?" +
+    " That feeling is their emotional world. It has nothing to do with the product yet." +
+
+    " STEP 2 -- WRITE 6 TEXT HOOKS THAT POKE THAT NERVE:" +
+    " Each text hook lives in the viewer's emotional world -- same arena, same type of person, same quiet frustration." +
+    " But each approaches from a completely different angle than any spoken hook would." +
+    " The viewer reads it and thinks: wait, how did this know that about me?" +
+
+    " THE ONLY GOAL: make the viewer feel personally called out before they hear a single word." +
+    " Accurate enough to sting. Names a feeling they have not said out loud. Never attacking -- just uncomfortably specific." +
+
+    " STANDALONE TEST: every single option must stop a scroll completely alone with zero context from the others." +
+    " They are not a sequence. Not a story. Not setup-and-punchline. Six independent provocations." +
+    " Cover any 5 -- does the remaining one still work alone? It must. If not -- rewrite it." +
+
+    " BANNED: product descriptions, hook previews, sequences where options depend on each other, anything generic or interchangeable with a different product." +
+    " Under 6 words each. Lowercase. Present tense." +
+    " Return JSON only: {onScreenText:[6 strings]}";
 
   fetch("/api/claude", {
     method: "POST",
@@ -2238,26 +2260,51 @@ function generateBatchCTAs(hooks, product, priceCtx, callback) {
 // FOCUSED SCREEN TEXT GENERATION -- contrast not echo
 // ============================================================
 function generateBatchScreenTexts(hooks, product, callback) {
+  // STEP 1: Extract the emotional world of the viewer for each hook
+  // STEP 2: Write text hooks that poke that nerve from a different angle
+  // This two-step architecture ensures screen text comes from the viewer's life,
+  // not from the script -- which is the core of what makes it work
+
   var hookList = hooks.map(function(h, i){ return "Hook " + (i+1) + ": " + h; }).join("\n");
-  var prompt = "You have one job. For each hook below, write 3 text hooks that appear on screen BEFORE the viewer hears a single spoken word." +
-    " These must create CONTRAST with the spoken hook -- not echo it, not summarize it, not preview it." +
-    " The text hook and the spoken hook should feel like two separate thoughts that together make the viewer stop." +
-    " Product context: " + product + "." +
-    " MECHANISM -- each option must use one of these:" +
-    " (1) Mild confrontation about the viewer's current situation that feels uncomfortably specific" +
-    " (2) A claim that feels slightly too personal to be random" +
-    " (3) A direct challenge that doesn't yet connect to the product" +
-    " BANNED: any words from the spoken hook itself. Any description of the product. Any summary of what's coming. Any words that echo the hook's theme." +
-    " CONTRAST TEST: read the screen text then read the hook. If they feel like the same thought expressed twice -- rewrite. They should feel like two different provocations." +
-    " Under 6 words each. Lowercase preferred." +
-    " " + " STANDALONE RULE -- this is the most important rule: Each of the 3 options must work COMPLETELY ALONE. A viewer sees only ONE of these on screen -- they never see the other two. Options are not a sequence, not a story, not a setup-and-punchline. They are three independent provocations. BANNED PATTERN -- never write options that only make sense together: Wrong: option 1 is the setup, option 2 adds detail, option 3 is the punchline. Every option must stop a scroll on its own with zero context from the other options. If any option requires the viewer to have read another option first -- rewrite it." +
+
+  var prompt = "You are writing on-screen text overlays for TikTok videos. This is a two-step job you do internally before writing anything." +
+
+    " STEP 1 -- FOR EACH HOOK, IDENTIFY:" +
+    " Who is this specific viewer? Not a demographic -- a person in a specific moment of their life." +
+    " What is the ONE thing they are quietly feeling or living with right now, before they ever see this video?" +
+    " This is their emotional world. It has nothing to do with the product yet." +
+
+    " STEP 2 -- WRITE 3 TEXT HOOKS THAT POKE THAT NERVE:" +
+    " Each text hook lives in the viewer's emotional world -- same arena, same feeling, same type of person." +
+    " But it approaches from a completely different angle than the spoken hook." +
+    " The viewer reads it and thinks: wait, how did this know that about me? Then they stay to find out what it means." +
+
+    " THE ONLY GOAL: make the viewer feel personally called out before they hear a single word." +
+    " Not scared. Not confused. Called out. Like the text was written specifically about their situation." +
+
+    " WHAT WORKS: something accurate enough to sting. Something that names a feeling they have not said out loud." +
+    " Example viewer world -- someone who hosts but feels like gatherings never quite come together the way they picture:" +
+    " Good text hooks: your party peaked at 2pm. nobody stayed past 4. you were ready for everything except this." +
+    " Each of those works ALONE. Each names a real feeling. None of them need each other." +
+
+    " WHAT DOES NOT WORK:" +
+    " Sequences -- option 1 setup, option 2 detail, option 3 punchline. Banned completely." +
+    " If you remove option 1 and option 3 still makes sense -- good. If not -- rewrite." +
+    " Anything that describes the product, previews the video, or echoes the hook wording." +
+    " Dark or alienating -- should feel accurate, not attacking." +
+
+    " STANDALONE TEST: cover options 2 and 3. Does option 1 stop a scroll alone? Cover 1 and 3 -- does option 2 work alone? Cover 1 and 2 -- does option 3 work alone? All three must pass. If any fails -- rewrite it." +
+
+    " Under 6 words each. Lowercase. Present tense." +
+
+    "\n\nProduct: " + product +
     "\n\nHooks:\n" + hookList +
     "\n\nReturn ONLY valid JSON: {screenTexts:[[3 strings per hook]]}";
 
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600,
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 800,
       messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -2324,7 +2371,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
 
     " " + profileNote + " GOLD STANDARD EXAMPLE -- study this before writing anything. This is what a perfect script sounds like: Don't buy this for you -- buy it for the version of you that is absolutely done with heavy foundation and that 10-step morning routine. The Elf Halo Glow Skin Tint is literally made for her. SPF 50 serum texture and no white cast -- this glows like your skin on its best day. I am a girl's girl so I've already got it linked for you. Notice: it opens by calling out a specific person, not a product. Features come after the emotional hook. It sells who she becomes -- not what the product does. Every script must do the same. Call out the specific person first. Solve their feeling. Features are proof, not the point. THE GOLDEN RULE: Before writing any line, ask -- would a real person actually say this out loud to a friend? If a marketing person would say it, delete it. If a real person would say it, keep it. The scripts must feel like someone grabbed their phone and started talking." +
 
-    " HOOK (under 15 words): The first thing out of your mouth. Not an announcement -- a feeling. BANNED HOOK PATTERNS: Never start with You are the person who [identity label]. Never start with People who [group description] need this. Never start with For anyone who. These are category labels, not hooks -- they sort people into buckets instead of making them feel seen. A hook names one specific experience the viewer is already having. BANNED hook openings: I, My, I was, I used to, I kept -- hooks that start with I are personal stories, not scroll-stoppers. The hook must speak TO the viewer not about yourself. It should make them feel seen, not make them listen to your story. Before writing the hook, make two decisions:" +" DECISION 1 -- FRAMING MODE: Is this buyer frustrated or dreaming?" +" PAIN MODE: Use when the buyer has a real frustration, a problem they feel daily, or something broken in their life. Surface that pain and make it visible. The product becomes the relief." +" ASPIRATION MODE: Use when the buyer is not broken -- they are upgrading. They are imagining a better version of their life. Do not manufacture pain that does not exist. Instead paint the life they could be living with this product. The product becomes the doorway into that version of themselves. This mode works especially well for premium, lifestyle, gift, and home decor products." +" BOTH MODE: Lead with the aspiration -- the life they want. Close with the quiet cost of not acting -- every day without it is another day in the version they have outgrown. This is the most powerful structure for premium home goods and kitchen upgrades." +" Choose the mode that matches the buyer angle and product type. Then:" +" DECISION 2 -- PROBLEM TYPE (for pain mode) or DREAM TYPE (for aspiration mode):" +" TYPE 1 -- A PROBLEM THEY ALREADY HAVE: Something they know is wrong, frustrating, or suboptimal. You are putting words to an existing pain." +" TYPE 2 -- A PROBLEM THEY DID NOT REALIZE THEY HAD: Reveal something they have been living with but never consciously identified. This creates urgency that did not exist before the video started." +" TYPE 3 -- A PROBLEM THEY NOW CANNOT IGNORE: Make it visible, visceral, and personal. Once they see it they cannot unsee it." +" TYPE 4 -- THE LIFE THEY COULD BE LIVING: Paint the specific version of their life with this product in it. Not vague -- specific. The quiet Sunday morning. The dinner table that feels different. The kitchen that finally looks like them." +" Choose the type that fits, then write the hook to trigger that exact feeling. One idea only. No and, no but. Never start with It is, This is, Picture yourself, Imagine. The hook should feel like you are reading their mind, not describing a product." +" TYPE 1 -- A PROBLEM THEY ALREADY HAVE: Something they know is wrong, frustrating, or suboptimal. You are not introducing anything new -- you are putting words to an existing pain. This is the easiest to convert because the desire for relief already exists." +" TYPE 2 -- A PROBLEM THEY DID NOT REALIZE THEY HAD: The hidden gem angle. You are revealing something they have been living with but never consciously identified. This creates urgency that did not exist before the video started. Example: I did not know my mattress was doing this to my sleep." +" TYPE 3 -- A PROBLEM THEY NOW CANNOT IGNORE: You make it visible, visceral, and personal. Once the viewer has seen it, they cannot unsee it. That is the moment the sale becomes almost inevitable." +" Choose the problem type that fits the angle, then write the hook to trigger that specific type of recognition. One idea only. No and, no but. Never start with It is, This is, Picture yourself, Imagine. The hook should feel like you are reading their mind, not describing a product." +
+    " HOOK (hard limit: 12 words maximum -- count every word, if over 12 cut the second clause entirely): The first thing out of your mouth. One tension. Full stop. MANDATORY CUT RULE: Read your hook. Find the AND, BUT, or SO. Delete everything after it. The hook ends at the tension, never at the resolution or consequence. Wrong: Bending into a cooler up to your elbows while everyone watches is the worst part of hosting. Right: Bending into a cooler up to your elbows at your own party. Wrong: Every warm weekend without a plan is a weekend you are scrambling for ice. Right: Every warm weekend you are scrambling for ice. The second clause never adds tension -- it only explains it. Delete it every time. BANNED HOOK PATTERNS: Never start with You are the person who. Never start with People who need this. Never start with For anyone who. BANNED hook openings: I, My, I was, I used to, I kept. Before writing the hook, make two decisions:" +" DECISION 1 -- FRAMING MODE: Is this buyer frustrated or dreaming?" +" PAIN MODE: Use when the buyer has a real frustration, a problem they feel daily, or something broken in their life. Surface that pain and make it visible. The product becomes the relief." +" ASPIRATION MODE: Use when the buyer is not broken -- they are upgrading. They are imagining a better version of their life. Do not manufacture pain that does not exist. Instead paint the life they could be living with this product. The product becomes the doorway into that version of themselves. This mode works especially well for premium, lifestyle, gift, and home decor products." +" BOTH MODE: Lead with the aspiration -- the life they want. Close with the quiet cost of not acting -- every day without it is another day in the version they have outgrown. This is the most powerful structure for premium home goods and kitchen upgrades." +" Choose the mode that matches the buyer angle and product type. Then:" +" DECISION 2 -- PROBLEM TYPE (for pain mode) or DREAM TYPE (for aspiration mode):" +" TYPE 1 -- A PROBLEM THEY ALREADY HAVE: Something they know is wrong, frustrating, or suboptimal. You are putting words to an existing pain." +" TYPE 2 -- A PROBLEM THEY DID NOT REALIZE THEY HAD: Reveal something they have been living with but never consciously identified. This creates urgency that did not exist before the video started." +" TYPE 3 -- A PROBLEM THEY NOW CANNOT IGNORE: Make it visible, visceral, and personal. Once they see it they cannot unsee it." +" TYPE 4 -- THE LIFE THEY COULD BE LIVING: Paint the specific version of their life with this product in it. Not vague -- specific. The quiet Sunday morning. The dinner table that feels different. The kitchen that finally looks like them." +" Choose the type that fits, then write the hook to trigger that exact feeling. One idea only. No and, no but. Never start with It is, This is, Picture yourself, Imagine. The hook should feel like you are reading their mind, not describing a product." +" TYPE 1 -- A PROBLEM THEY ALREADY HAVE: Something they know is wrong, frustrating, or suboptimal. You are not introducing anything new -- you are putting words to an existing pain. This is the easiest to convert because the desire for relief already exists." +" TYPE 2 -- A PROBLEM THEY DID NOT REALIZE THEY HAD: The hidden gem angle. You are revealing something they have been living with but never consciously identified. This creates urgency that did not exist before the video started. Example: I did not know my mattress was doing this to my sleep." +" TYPE 3 -- A PROBLEM THEY NOW CANNOT IGNORE: You make it visible, visceral, and personal. Once the viewer has seen it, they cannot unsee it. That is the moment the sale becomes almost inevitable." +" Choose the problem type that fits the angle, then write the hook to trigger that specific type of recognition. One idea only. No and, no but. Never start with It is, This is, Picture yourself, Imagine. The hook should feel like you are reading their mind, not describing a product." +
 
     " BODY 1 (under 25 words): One real specific thing about the product. Say it the way you would tell a friend -- casually, with a little surprise in it. Only use details actually in the product description. Never invent." +
 
@@ -2749,7 +2796,7 @@ function generateScriptBank() {
 
     " THE ONLY TEST FOR EVERY LINE: Would I actually say this out loud to my best friend right now? If it sounds written, rewrite it until it sounds spoken." +
 
-    " HOOK RULES (under 15 words): Name one specific experience the viewer is already having. BANNED hook patterns: Never start with You are the person who. Never start with People who [group] need this. Never start with For anyone who. Never start with I, My, I was, I used to, I kept. SELF-EXPLAINING HOOK BAN: Never explain your own hook. Write the tension. Stop. The viewer fills in the rest. Wrong: You have been carrying the same bag since you bought it and wondering why nothing feels right. Right: You have been carrying the same bag since you bought it. One idea. Full stop." +
+    " HOOK RULES (hard limit: 12 words maximum -- count every word, if over 12 cut the second clause entirely): Name one specific experience the viewer is already having. MANDATORY CUT RULE: Find the AND, BUT, or SO in your hook. Delete everything after it. The hook ends at the tension. Never at the resolution. Wrong: You have been carrying the same bag since you bought it and wondering why nothing feels right. Right: You have been carrying the same bag since you bought it. Wrong: The cooler that needs tools before your first party is the cooler that sits in the garage. Right: That cooler has been in your garage for two summers. Count the words. If over 12 -- cut. BANNED: Never start with You are the person who. Never start with People who need this. Never start with I, My, I was." +
 
     " DESIRED TRANSFORMATION HOOKS: Must open with the tension of not yet being that person -- the frustration of the gap. Wrong: The kind of person who always has the right gear. Right: Every round you show up wishing your setup felt more like you." +
 
