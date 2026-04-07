@@ -699,7 +699,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.4.2";
+var APP_VERSION = "2.4.3";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1530,6 +1530,8 @@ function loadProductById(id) {
     document.getElementById("genBtn").style.display = "none";
     var pw = document.getElementById("priceWrap");
     if (pw) pw.style.display = "none";
+    var psm = document.getElementById("priceSelectorMount");
+    if (psm) psm.style.display = "none";
 
     // Auto-regenerate if bank was saved under an older prompt version
     var savedVersion = allData._promptVersion || "0";
@@ -1622,7 +1624,7 @@ function loadScriptsForProduct(productId, callback) {
   if (!currentUser || !productId) { callback([]); return; }
   sb.from("scripts").select("*").eq("product_id", productId).eq("user_id", currentUser.id).order("created_at", { ascending: true }).then(function(result) {
     callback(result.data || []);
-  });
+  }).catch(function() { callback([]); });
 }
 
 function saveScriptToCloud(scriptData, callback) {
@@ -1986,7 +1988,7 @@ function renderProductHub() {
         buildSelect();
         document.getElementById("inputSection").style.display = "block";
         document.getElementById("genBtn").style.display = "block";
-        var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block";
+        var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block"; var rpsm = document.getElementById("priceSelectorMount"); if(rpsm) rpsm.style.display = "block";
         mc.innerHTML = '<div class="state-box"><div class="state-icon">✨</div><div class="state-title">Product deleted</div><div class="state-desc">Select another product or generate a new one.</div></div>';
         showToast("Product deleted");
       });
@@ -2049,7 +2051,7 @@ function handleUpload(event) {
   document.getElementById("imgPreviewWrap").style.display = "block";
   document.getElementById("inputSection").style.display = "block";
   document.getElementById("genBtn").style.display = "block";
-  var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block";
+  var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block"; var rpsm = document.getElementById("priceSelectorMount"); if(rpsm) rpsm.style.display = "block";
   document.getElementById("imgThumb").src = "";
   document.getElementById("imgName").textContent = files.length + " screenshot" + (files.length > 1 ? "s" : "") + " selected";
   var total = files.length;
@@ -2153,7 +2155,7 @@ function showNew() {
   document.getElementById("productSelect").value = "";
   document.getElementById("inputSection").style.display = "block";
   document.getElementById("genBtn").style.display = "block";
-  var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block";
+  var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block"; var rpsm = document.getElementById("priceSelectorMount"); if(rpsm) rpsm.style.display = "block";
   document.getElementById("productInput").value = "";
   document.getElementById("charCount").textContent = "0";
   currentMotivation = "";
@@ -4522,7 +4524,7 @@ function renderOnboarding() {
       } else {
         document.getElementById("inputSection").style.display = "block";
         document.getElementById("genBtn").style.display = "block";
-        var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block";
+        var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block"; var rpsm = document.getElementById("priceSelectorMount"); if(rpsm) rpsm.style.display = "block";
         mc.innerHTML = "<div class='state-box'><div class='state-icon'>✨</div><div class='state-title'>Your Script Bank</div><div class='state-desc'>Describe your product and generate your custom script bank.</div></div>";
       }
     });
