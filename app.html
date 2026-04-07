@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.6.3";
+var APP_VERSION = "2.6.4";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -3178,7 +3178,7 @@ function generateScriptBank() {
       (understanding.cultural_moment ? " CULTURAL MOMENT -- this is where the best hook for this product lives. At least one hook must open with this shared experience that everyone in this world knows: " + understanding.cultural_moment : "")
       : "";
 
-    // ── CALL 2: Write the full script bank from that understanding ──
+    console.log("Reached Call 2 in curated"); // ── CALL 2: Write the full script bank from that understanding ──
     var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend about something they found. Not an ad. Not a brand. A person." +
 
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point." +
