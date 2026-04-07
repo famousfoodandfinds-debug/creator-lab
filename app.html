@@ -804,7 +804,7 @@ var triggerPsychology = {
     example: "\"For anyone who actually cares about how their space looks\" speaks to identity without alienating anyone."
   },
   "Skepticism disarm": {
-    why: "Addressing the viewer's objection before they can raise it creates trust. When a creator says \"I did not think it would actually work\" and then delivers a positive result, the viewer feels their own skepticism validated -- and then overcome.",
+    why: "Addressing the viewer\'s objection before they can raise it creates trust. When a creator says \"I did not think it would actually work\" and then delivers a positive result, the viewer feels their own skepticism validated -- and then overcome.",
     example: "Leading with doubt and delivering proof is more persuasive than leading with enthusiasm."
   },
   "Friction removal": {
@@ -820,7 +820,7 @@ var triggerPsychology = {
     example: "\"Still looks new after six months\" is more believable than \"amazing quality\" because it is falsifiable."
   },
   "Simplicity and ease": {
-    why: "Cognitive ease is a purchase trigger. If something feels complicated, the brain defaults to no. Body lines in this category show that the product removes effort from the viewer's life -- not adds to it.",
+    why: "Cognitive ease is a purchase trigger. If something feels complicated, the brain defaults to no. Body lines in this category show that the product removes effort from the viewer\'s life -- not adds to it.",
     example: "Describing a product as taking one step instead of three removes the mental load of learning something new."
   },
   "Value reframe": {
@@ -844,7 +844,7 @@ var triggerPsychology = {
     example: "Describing the TikTok Shop value without naming a number creates curiosity that drives the tap."
   },
   "Soft close": {
-    why: "For higher-investment products, a hard sell creates resistance. The soft close gives the viewer permission to decide at their own pace while still prompting action. It works because it respects the buyer's intelligence.",
+    why: "For higher-investment products, a hard sell creates resistance. The soft close gives the viewer permission to decide at their own pace while still prompting action. It works because it respects the buyer\'s intelligence.",
     example: "\"When you are ready it is linked below\" removes pressure while keeping the door open."
   },
   "Direct close": {
@@ -2451,7 +2451,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
 
       " EXAMPLE 4 ($40 wellness drink, emotional buyer):" +
       " Hook: You do not feel bad exactly. You just do not feel like you." +
-      " Body 1: Nello Superbalance has adaptogens, magnesium, and Shatavari -- ingredients that work with your body's stress and mood pathways. One drink a day, tastes good, no prescription." +
+      " Body 1: Nello Superbalance has adaptogens, magnesium, and Shatavari -- ingredients that work with your body\'s stress and mood pathways. One drink a day, tastes good, no prescription." +
       " Pre-close: I kept telling myself this was just stress and I needed to push through it." +
       " Body 2: Three weeks in and I remembered what it felt like to just be even. Not perfect. Just even." +
       " CTA: If you have not felt like yourself lately -- linked below." +
@@ -2512,6 +2512,47 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     logError("batch_generation", err, { product: currentProduct });
     var mc = document.getElementById("mainContent");
     if(mc) mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:14px;'>Something went wrong: " + (err.message||"Please try again") + "</div>";
+  });
+  })
+  .catch(function() {
+    // Call 1 failed -- fall back to writing without product understanding
+    var prompt = "You write TikTok Shop scripts that sound exactly like a real person talking to a friend about something they found." +
+      " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
+      " Product: " + currentProduct + ". Price context: " + priceCtx + ". Write " + angles.length + " scripts for these angles: " + anglesText + "." +
+      " " + profileNote +
+      " HOOK (12 words max): Name the exact moment or feeling. Stop there. One idea. No AND or BUT." +
+      " BODY 1 (under 20 words): One specific thing. Jump to the feeling. Only use details from the description." +
+      " PRE-CLOSE (one sentence): Private thought you almost didn't say. Matches real hesitation for this price." +
+      " BODY 2 (under 25 words): What their life feels like now. Describe the moment, not the identity." +
+      " BANNED: price cost worth deal game-changer you become the person who you are the person who. No invented scenarios." +
+      " Return ONLY valid JSON: {scripts:[{angle:string,hook:string,body1:string,preClose:string,body2:string,caption:string,hashtags:[string,string,string,string,string]}]}";
+    fetch("/api/claude", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000, messages: [{ role: "user", content: prompt }] })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if(data.error) throw new Error(data.error.message);
+      var text = ""; data.content.forEach(function(b){ if(b.type==="text") text+=b.text; });
+      var parsed = JSON.parse(text.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim());
+      var scripts = parsed.scripts || [];
+      var hooks = scripts.map(function(s){ return s.hook || ""; });
+      var ctasDone = false, screenDone = false;
+      var ctas = [], screenTexts = [];
+      var tryRender = function() {
+        if(!ctasDone || !screenDone) return;
+        scripts.forEach(function(s, i) { if(ctas[i]) s.cta = ctas[i]; if(screenTexts[i]) s.screenText = screenTexts[i]; });
+        renderBatchResults(scripts, angles);
+      };
+      generateBatchCTAs(hooks, currentProduct, priceCtx, function(result) { ctas = result; ctasDone = true; tryRender(); });
+      generateBatchScreenTexts(hooks, currentProduct, function(result) { screenTexts = result; screenDone = true; tryRender(); });
+    })
+    .catch(function(err) {
+      logError("batch_generation_fallback", err, { product: currentProduct });
+      var mc = document.getElementById("mainContent");
+      if(mc) mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:14px;'>Something went wrong: " + (err.message||"Please try again") + "</div>";
+    });
   });
 }
 
