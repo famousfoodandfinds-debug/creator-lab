@@ -2382,8 +2382,19 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
   }).join(". ");
 
   // ── CALL 1: Think through the product before writing anything ──
+  var batchProductLower = currentProduct.toLowerCase();
+  var batchIsIndoor = /kitchen|countertop|counter top|indoor|stovetop|stove top|plug.?in|electric|without.*oven|home oven|at home|inside/.test(batchProductLower);
+  var batchIsOutdoor = /outdoor|backyard|back yard|patio|grill|campfire|wood.?fired|portable|camp/.test(batchProductLower);
+  var batchUseContext = "";
+  if (batchIsIndoor && !batchIsOutdoor) {
+    batchUseContext = " USE CONTEXT -- CRITICAL: This is an INDOOR kitchen appliance. It lives on a countertop or in a kitchen. Never reference backyard, patio, outdoor, or portable use. All scenes must be kitchen or home interior.";
+  } else if (batchIsOutdoor && !batchIsIndoor) {
+    batchUseContext = " USE CONTEXT: This is an OUTDOOR or portable product. Scenes should reflect outdoor, patio, backyard, or on-the-go use.";
+  }
+
   var thinkPrompt = "Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
     " Product: " + currentProduct + ". Price: " + priceCtx + "." +
+    batchUseContext +
     (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
     " Answer these four questions in 2-3 sentences each:" +
     " 1. WHO actually buys this? Not a demographic -- a specific person in a specific moment of their life. What does their day look like before they found this product?" +
@@ -2424,6 +2435,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
       " VOICE: Would a real person actually say this out loud to a friend right now? If a marketing person would say it, delete it. If you would text it, keep it." +
 
       " Product: " + currentProduct + ". Price context: " + priceCtx + "." +
+      batchUseContext +
       understandingNote +
       " " + profileNote +
 
@@ -2929,9 +2941,21 @@ function generateScriptBank() {
   var priceLine = " " + getPriceContext();
   var voiceNote = getVoiceProfileNote();
 
+  // ── Detect use context from product description ──
+  var productLower = product.toLowerCase();
+  var isIndoor = /kitchen|countertop|counter top|indoor|stovetop|stove top|plug.?in|electric|without.*oven|home oven|at home|inside/.test(productLower);
+  var isOutdoor = /outdoor|backyard|back yard|patio|grill|campfire|wood.?fired|portable|camp/.test(productLower);
+  var useContext = "";
+  if (isIndoor && !isOutdoor) {
+    useContext = " USE CONTEXT -- CRITICAL: This is an INDOOR kitchen appliance. It lives on a countertop or in a kitchen. Never reference backyard, patio, outdoor, or portable use. All scenes, settings, and identities must be kitchen or home interior. Hashtags and captions must reflect indoor home cooking, not outdoor entertaining.";
+  } else if (isOutdoor && !isIndoor) {
+    useContext = " USE CONTEXT: This is an OUTDOOR or portable product. Scenes should reflect outdoor, patio, backyard, or on-the-go use.";
+  }
+
   // ── CALL 1: Think through the product before writing anything ──
   var thinkPrompt = "Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
     " Product: " + product + ". Price: " + getPriceContext() + "." +
+    useContext +
     (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
     (currentFocus ? " Buyer angle this script is targeting: " + currentFocus.focus + ". " + (currentFocus.description || "") + "." : "") +
     " Answer these four questions in 2-3 sentences each:" +
@@ -2972,6 +2996,7 @@ function generateScriptBank() {
 
       (getBuyerMotivation() ? " CREATOR INSIGHT -- WHY PEOPLE BUY THIS (read this first): " + getBuyerMotivation() + " Let this shape every hook, body line, and pre-close. If the creator says this is an upgrade purchase, never position it as a solution to having nothing." : "") +
       " Product: " + product + "." + focusLine + priceLine + voiceNote +
+      useContext +
       understandingNote +
 
       " THE ONLY TEST FOR EVERY LINE: Would I actually say this out loud to my best friend right now? If it sounds written, rewrite it until it sounds spoken." +
@@ -3085,6 +3110,7 @@ function generateScriptBank() {
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
       (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
       " Product: " + product + "." + focusLine + priceLine + voiceNote +
+      useContext +
       " HOOK RULES (12 words max): One specific experience. No AND or BUT. Never: You are the person who, I, My." +
       " SENSORY OBSERVATION HOOKS: Make the viewer feel the product -- sounds, textures, moments of use. Example: The satisfying clink of the bottle opener hitting the cap catcher." +
       " BODY RULES (under 25 words): Jump to the feeling. No cause-effect chains." +
