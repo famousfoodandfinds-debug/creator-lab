@@ -2364,41 +2364,114 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     return "Script " + (i+1) + " angle: " + a.focus + " (" + a.desire + ") -- " + a.description + varNote;
   }).join(". ");
 
-  var prompt = "You write TikTok Shop scripts that sound exactly like a real person texting a friend about something they found and cannot stop thinking about." +
+  // ── CALL 1: Think through the product before writing anything ──
+  var thinkPrompt = "Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
+    " Product: " + currentProduct + ". Price: " + priceCtx + "." +
+    (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
+    " Answer these four questions in 2-3 sentences each:" +
+    " 1. WHO actually buys this? Not a demographic -- a specific person in a specific moment of their life. What does their day look like before they found this product?" +
+    " 2. WHAT do they already have? This is almost never someone's first solution. What are they upgrading from and why did that stop being enough?" +
+    " 3. WHAT is the one real differentiator? Not the feature list -- the single thing that makes someone who already has a solution want this one instead." +
+    " 4. WHAT emotional frame fits this price? Under $30 is impulse -- pure want, no justification needed. $30-75 is considered -- they want to feel smart about it. $75-150 is justified upgrade -- they need to feel like it was worth it. $150+ is aspirational -- they are completing a vision, not solving a problem." +
+    " Write your thinking plainly. No headers. No bullet points. Just think out loud the way a smart person would before talking about a product they understand deeply." +
+    " Return ONLY valid JSON: {who:string, already_have:string, differentiator:string, emotional_frame:string}";
 
-    " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. What does their day feel like now? What do they stop doing? What do they notice about themselves? The product is just how they got there. Features are proof, not the point." +
-
-    (getBuyerMotivation() ? " CREATOR INSIGHT -- WHY PEOPLE BUY THIS (read this first, it changes everything): " + getBuyerMotivation() + " Write every hook and body line from inside this truth. If the creator says people are upgrading from something they already have, never write as if the viewer has no solution yet." : "") +
-
-    " VOICE: Grab your phone. Start talking. If a marketing person would say it, a real person would not. If you would text it to a friend, keep it. If you would put it in a brochure, delete it." +
-
-    " Product: " + currentProduct + ". Price context: " + priceCtx + "." +
-
-    " Write " + angles.length + " scripts. Each script is written exclusively for the specific person described in its angle -- not for a general audience, not for anyone who might want this product, but for that exact person in that exact moment of their life. The angle description is not a theme -- it is the specific human being you are writing for. Every hook, body line, and pre-close must feel like it was written for them and only them. If someone reading a script for angle 1 could feel equally spoken to by a script for angle 2 -- rewrite it." +
-
-    " Angles: " + anglesText + "." +
-
-    " " + profileNote +
-
-    " HOOK (12 words maximum -- count them): Name the exact moment or feeling the viewer is having RIGHT NOW -- not a future state the product delivers. Stop at the tension. Do not explain it or resolve it. The viewer fills in the rest. One idea. No AND or BUT. Never start with I, My, You are the person who, People who, For anyone who. Wrong: The moment you stop replacing coolers every summer -- that is a future state, not a current feeling. Right: You have replaced the same cooler twice in three years." +
-
-    " BODY 1 (under 20 words): One specific real thing from the product description. Say it the way you would tell a friend. Jump to the feeling -- skip the explanation. STRICT RULE: Only reference details explicitly stated in the product description. Never invent scenarios, locations, or situations not in the description." +
-
-    " PRE-CLOSE (one sentence, statement not question): The private thought you almost did not say out loud. Match the real hesitation someone buying THIS specific product at THIS price would actually feel. Stays awkward. Never resolves into a lesson or justification." +
-
-    " BODY 2 (under 25 words): What their life feels like now. One real spoken sentence. Never say: you become the person who, you are the person who. Describe the specific moment instead." +
-
-    " LANGUAGE RULE: Use specific words for occasions -- party, cookout, tailgate, game day, pool day, get together. Never use vague placeholders like thing, event, gathering, occasion. Specific language serves the viewer and the algorithm." +
-
-    " CAPTION (2-3 sentences): What a real person would actually post. Soft close. Sounds like them, not a brand." +
-
-    " BANNED: price cost worth deal game-changer elevate transform engineered crafted link in bio you become the person who you are the person who thing as a placeholder for party or event. No invented specs or scenarios. No brand names except the product being promoted." +
-
-    " For each script also generate 5 hashtags (no # symbol, mix of niche and broad). Do NOT generate a CTA or screenText -- those are written separately." +
-
-    " Return ONLY valid JSON: {scripts:[{angle:string,hook:string,body1:string,preClose:string,body2:string,caption:string,hashtags:[string,string,string,string,string]}]}";
-
+  // ── CALL 1: Get product understanding first ──
   fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600,
+      messages: [{ role: "user", content: thinkPrompt }] })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(thinkData) {
+    var understanding = {};
+    try {
+      var tt = ""; thinkData.content.forEach(function(b){ if(b.type==="text") tt+=b.text; });
+      understanding = JSON.parse(tt.replace(/```json|```/g,"").trim());
+    } catch(e) {}
+
+    var understandingNote = understanding.who ?
+      " PRODUCT UNDERSTANDING -- read this before writing a single word:" +
+      " WHO THIS BUYER IS: " + understanding.who +
+      " WHAT THEY ALREADY HAVE: " + understanding.already_have +
+      " THE REAL DIFFERENTIATOR: " + understanding.differentiator +
+      " EMOTIONAL FRAME FOR THIS PRICE: " + understanding.emotional_frame
+      : "";
+
+    // ── CALL 2: Write scripts from that understanding ──
+    var prompt = "You write TikTok Shop scripts that sound exactly like a real person talking to a friend about something they genuinely love." +
+
+      " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point." +
+
+      " VOICE: Would a real person actually say this out loud to a friend right now? If a marketing person would say it, delete it. If you would text it, keep it." +
+
+      " Product: " + currentProduct + ". Price context: " + priceCtx + "." +
+      understandingNote +
+      " " + profileNote +
+
+      " Write " + angles.length + " scripts, one for each angle: " + anglesText +
+      " Each script must be written exclusively for the specific person in that angle -- not a general audience. If someone reading script 1 could feel equally spoken to by script 2, rewrite it." +
+
+      " HOOK (12 words maximum): Name the exact moment or feeling. Stop there. Do not explain it. One idea. No AND or BUT. Never: I, My, You are the person who, People who, For anyone who." +
+
+      " BODY 1 (under 20 words): The one specific thing that surprised you. Jump straight to the feeling. Only use details from the product description. Never invent scenarios." +
+
+      " PRE-CLOSE (one sentence): The private thought you almost did not say out loud. Matches what someone buying THIS product at THIS price would actually feel. Stays awkward. Never resolves into a lesson." +
+
+      " BODY 2 (under 25 words): What their life feels like now. Never say: you become the person who, you are the person who. Describe the moment instead." +
+
+      " LANGUAGE: Use specific words -- cookout, pool day, tailgate, not thing or event or gathering." +
+
+      " GOLD STANDARD EXAMPLES -- these are the quality bar. Study the thinking behind each one, not just the words:" +
+
+      " EXAMPLE 1 ($200 food storage, identity buyer):" +
+      " Hook: Your counters look amazing and then you open the fridge." +
+      " Body 1: Caraway glass with ceramic coating -- no staining, no smell, every lid has a match, and the caddies keep them stacked instead of falling out every time." +
+      " Pre-close: I kept putting this off because I felt ridiculous spending this much on food containers." +
+      " Body 2: You open the fridge now and it looks like the rest of your kitchen finally caught up." +
+      " CTA: If your fridge does not match your counters yet -- linked below." +
+      " WHY IT WORKS: The hook names a gap in an otherwise complete picture. The body is specific without being a spec sheet. The pre-close matches the real hesitation of a $200 buyer. Body 2 describes a feeling not a feature." +
+
+      " EXAMPLE 2 ($200 vacuum, functional upgrade buyer):" +
+      " Hook: You clean the vacuum more than it cleans your floors." +
+      " Body 1: The PowerFins nozzle is self-cleaning so pet hair never wraps around it. You just run it and put it away." +
+      " Pre-close: I kept telling myself the old one was fine because it technically still picked things up." +
+      " Body 2: You actually vacuum more because it stopped being the thing you dread doing." +
+      " CTA: If you are cleaning your vacuum after every use -- linked below." +
+      " WHY IT WORKS: The hook names something the viewer does without realizing it is absurd. The pre-close is the exact thought a $200 vacuum buyer has. Body 2 names a behavior change not a product benefit." +
+
+      " EXAMPLE 3 ($60 poncho, experiential lifestyle buyer):" +
+      " Hook: You never have to do the parking lot towel dance again." +
+      " Body 1: The fit is so oversized you can slip your whole suit off underneath it without showing anything. Turkish organic cotton, quick-dry, sand-resistant -- you are changed and walking to the car before anyone noticed." +
+      " Pre-close: I genuinely cannot believe I spent three summers doing the towel chin hold instead of just having this." +
+      " Body 2: You walk to the car dry, changed, and looking like someone who had a plan the whole time." +
+      " CTA: Change on the beach without the whole parking lot watching -- grab yours below." +
+      " WHY IT WORKS: The hook names a specific embarrassing moment every beach person knows. The body explains the mechanism naturally. The pre-close is self-deprecating and real." +
+
+      " EXAMPLE 4 ($40 wellness drink, emotional buyer):" +
+      " Hook: You do not feel bad exactly. You just do not feel like you." +
+      " Body 1: Nello Superbalance has adaptogens, magnesium, and Shatavari -- ingredients that work with your body's stress and mood pathways. One drink a day, tastes good, no prescription." +
+      " Pre-close: I kept telling myself this was just stress and I needed to push through it." +
+      " Body 2: Three weeks in and I remembered what it felt like to just be even. Not perfect. Just even." +
+      " CTA: If you have not felt like yourself lately -- linked below." +
+      " WHY IT WORKS: The hook names a feeling she has not been able to articulate. The pre-close is the exact dismissal she has been telling herself. Body 2 sets a realistic expectation that feels earned." +
+
+      " EXAMPLE 5 ($75 laundry detergent, status and sensory buyer):" +
+      " Hook: Nobody knows why your clothes smell that good and you are not telling them." +
+      " Body 1: Fine fragrance detergent formulated for delicates and luxury fabrics -- phosphate free, gentle on lingerie and linens, and the scent stays through the whole day not just the first hour." +
+      " Pre-close: This is the kind of thing you find and quietly keep to yourself." +
+      " Body 2: Getting dressed becomes a whole experience instead of just getting ready." +
+      " CTA: The detergent that becomes your secret -- linked below." +
+      " WHY IT WORKS: The hook creates instant intrigue and identity. The pre-close confirms the exclusivity feeling. Body 2 elevates a mundane moment into something she wants." +
+
+      " BANNED: price cost worth deal game-changer elevate transform engineered crafted link in bio you become the person who you are the person who thing as placeholder for party or event. No invented scenarios. No brand names except the product being promoted." +
+
+      " For each script generate a caption (2-3 sentences a real person would post) and 5 hashtags (no # symbol)." +
+      " Do NOT generate a CTA or screenText -- those are written separately." +
+      " Return ONLY valid JSON: {scripts:[{angle:string,hook:string,body1:string,preClose:string,body2:string,caption:string,hashtags:[string,string,string,string,string]}]}";
+
+    fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000,
