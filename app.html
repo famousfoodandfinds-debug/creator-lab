@@ -2116,6 +2116,7 @@ function generateOnScreenText(productDesc, hooks) {
 function generate() {
   var product = document.getElementById("productInput").value.trim();
   if (!product) { showToast("Add a product description first"); document.getElementById("productInput").focus(); return; }
+  if (!currentPrice) { showToast("Select a price range first"); return; }
   // Capture motivation NOW before inputSection gets hidden
   currentMotivation = getBuyerMotivation();
 
@@ -2372,8 +2373,8 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     " 1. WHO actually buys this? Not a demographic -- a specific person in a specific moment of their life. What does their day look like before they found this product?" +
     " 2. WHAT do they already have? This is almost never someone's first solution. What are they upgrading from and why did that stop being enough?" +
     " 3. WHAT is the one real differentiator? Not the feature list -- the single thing that makes someone who already has a solution want this one instead." +
-    " 4. WHAT emotional frame fits this price? Under $30 is impulse -- pure want, no justification needed. $30-75 is considered -- they want to feel smart about it. $75-150 is justified upgrade -- they need to feel like it was worth it. $150+ is aspirational -- they are completing a vision, not solving a problem." +
-    " Write your thinking plainly. No headers. No bullet points. Just think out loud the way a smart person would before talking about a product they understand deeply." +
+    " 4. EMOTIONAL FRAME: " + getPriceContext() + " This price frame overrides every angle. Even a Pain/Problem angle at $150+ is NOT about something broken -- it is about the one thing that does not yet match the life they have built. Even a Convenience angle at $150+ is not about saving time -- it is about everything working the way someone at this level expects it to. The price frame tells you how every single line must feel, regardless of angle." +
+    " Write your thinking plainly. No headers. No bullet points. Just think out loud." +
     " Return ONLY valid JSON: {who:string, already_have:string, differentiator:string, emotional_frame:string}";
 
   // ── CALL 1: Get product understanding first ──
@@ -4419,7 +4420,8 @@ function buildPriceSelector() {
   var wrap = document.createElement("div");
   var label = document.createElement("div");
   label.style.cssText = "font-size:10px;font-weight:500;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;";
-  label.textContent = "Price range";
+  label.textContent = currentPrice ? "Price range" : "Price range (required)";
+  label.style.color = currentPrice ? "var(--muted)" : "var(--gold)";
   wrap.appendChild(label);
 
   var btns = document.createElement("div");
@@ -5525,7 +5527,7 @@ function findScreenText(lineText, sectionKey) {
 
 // Track selected screen text per hook line
 var screenTextPicks = {};
-var currentPrice = "considered"; // impulse, considered, justified, aspirational, sellthesale
+var currentPrice = null; // null = not selected yet, required before generating
 var favorites = {}; // { lineText: { product, type, category } }
 var postingGoal = 6; // daily goal
 var postedToday = 0;
@@ -5695,7 +5697,7 @@ function getPriceContext() {
 
     sellthesale: "SELL THE URGENCY: Known brand. Do NOT educate. Do NOT say the price. Do NOT name the platform. Create urgency and get them to tap. Maximum 3 sentences."
   };
-  return ctx[currentPrice] || ctx.mid;
+  return ctx[currentPrice] || ctx.mid; // fallback to mid if somehow null
 }
 
 function getSelectedScreenText(lineText) {
