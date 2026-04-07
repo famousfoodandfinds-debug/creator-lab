@@ -691,7 +691,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.3.5";
+var APP_VERSION = "2.3.6";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -3677,7 +3677,67 @@ function generateUrgencyScripts(type) {
   });
 }
 
+// Shown when user tries to generate from library without selecting a price
+function showInlinePricePicker(onSelected) {
+  var mc = document.getElementById("mainContent");
+  mc.innerHTML = "";
+  var wrap = document.createElement("div");
+  wrap.style.cssText = "padding:16px;";
+
+  var backBtn = document.createElement("button");
+  backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 16px;";
+  backBtn.innerHTML = "← Back to product";
+  backBtn.addEventListener("click", function(){ renderProductHub(); });
+  wrap.appendChild(backBtn);
+
+  var heading = document.createElement("div");
+  heading.className = "step-heading";
+  heading.innerHTML = "Select <em>Price Range</em>";
+  var sub = document.createElement("div");
+  sub.className = "step-sub";
+  sub.textContent = "Price shapes the buyer psychology behind every line. Select one to continue.";
+  sub.style.marginBottom = "20px";
+  wrap.appendChild(heading);
+  wrap.appendChild(sub);
+
+  var options = [
+    { key:"under25",    label:"Under $25",         desc:"Impulse buy" },
+    { key:"mid",        label:"$25 – $75",          desc:"Considered purchase" },
+    { key:"premium",    label:"$75 – $150",         desc:"Justified upgrade" },
+    { key:"luxury",     label:"$150+",              desc:"Aspirational" },
+    { key:"gift",       label:"🎁 Gift",            desc:"Buying for someone" },
+    { key:"sellthesale",label:"⚡ Sell the Urgency", desc:"Create urgency to buy now" }
+  ];
+
+  var grid = document.createElement("div");
+  grid.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;";
+
+  options.forEach(function(opt) {
+    var btn = document.createElement("button");
+    btn.style.cssText = "flex:1;min-width:calc(50% - 4px);text-align:left;padding:12px 14px;border-radius:8px;cursor:pointer;" +
+      "font-family:'Instrument Sans',sans-serif;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);transition:all 0.15s;";
+    btn.innerHTML = "<div style='font-size:13px;font-weight:600;color:var(--white);margin-bottom:2px;'>" + opt.label + "</div>" +
+      "<div style='font-size:11px;color:var(--muted);'>" + opt.desc + "</div>";
+    btn.addEventListener("click", function() {
+      currentPrice = opt.key;
+      // Sync the main price selector if visible
+      var existingPS = document.getElementById("priceSelectorWrap");
+      if (existingPS) {
+        var freshPS = buildPriceSelector();
+        freshPS.id = "priceSelectorWrap";
+        existingPS.parentNode.replaceChild(freshPS, existingPS);
+      }
+      onSelected();
+    });
+    grid.appendChild(btn);
+  });
+
+  wrap.appendChild(grid);
+  mc.appendChild(wrap);
+}
+
 function renderBatchPicker() {
+  if (!currentPrice) { showInlinePricePicker(renderBatchPicker); return; }
   var mc = document.getElementById("mainContent");
   mc.innerHTML = "";
   var wrap = document.createElement("div");
@@ -3967,6 +4027,7 @@ function renderBatchAngleGrid(wrap, focuses) {
 }
 
 function renderFocusPicker() {
+  if (!currentPrice) { showInlinePricePicker(renderFocusPicker); return; }
   if (currentPrice === "sellthesale") { renderSellTheSale(); return; }
   // FIX 5: Do not reset currentFocus here -- preserves angle when navigating back
 
