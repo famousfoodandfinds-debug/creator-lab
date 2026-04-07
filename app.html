@@ -704,7 +704,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.4.6";
+var APP_VERSION = "2.4.7";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1754,6 +1754,7 @@ function renderProductHub() {
   loadScriptsForProduct(currentProductId, function(scripts) {
     showToast("Building hub content...");
     mc.innerHTML = "";
+    try {
     var wrap = document.createElement("div");
     wrap.style.cssText = "padding:16px;";
 
@@ -1978,6 +1979,9 @@ function renderProductHub() {
     wrap.appendChild(deleteProductBtn);
 
     mc.appendChild(wrap);
+    } catch(e) {
+      mc.innerHTML = "<div style='padding:20px;color:var(--red);font-size:13px;font-family:monospace;'>" + (e.message || "Unknown error") + "<br><br>" + (e.stack || "") + "</div>";
+    }
   });
 }
 
