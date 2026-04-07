@@ -517,6 +517,7 @@ textarea::placeholder { color: var(--muted2); }
 .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
 .sync-dot.syncing { background: var(--gold); animation: pulse-dot 1s ease-in-out infinite; }
 @keyframes pulse-dot { 0%,100%{opacity:0.4} 50%{opacity:1} }
+@keyframes hub-ready { 0%{box-shadow:0 0 0 0 rgba(192,192,192,0.4)} 70%{box-shadow:0 0 0 8px rgba(192,192,192,0)} 100%{box-shadow:0 0 0 0 rgba(192,192,192,0)} }
 </style>
 </head>
 <body>
@@ -698,7 +699,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.4.1";
+var APP_VERSION = "2.4.2";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1813,12 +1814,20 @@ function renderProductHub() {
           hubPriceTopLbl.innerHTML = "Price range selected <span style='font-size:9px;padding:2px 7px;border-radius:999px;background:rgba(45,201,138,0.15);border:1px solid rgba(45,201,138,0.3);color:#2DC98A;'>READY</span>";
           hubPriceTopWrap.style.borderColor = "rgba(45,201,138,0.25)";
           hubPriceTopWrap.style.background = "rgba(45,201,138,0.04)";
-          // Enable generate buttons
+          // Activate generate buttons and scroll to them
           document.querySelectorAll(".hub-gen-btn").forEach(function(b) {
             b.disabled = false;
             b.style.opacity = "1";
             b.style.cursor = "pointer";
           });
+          // Scroll to the build section so user sees active buttons
+          setTimeout(function() {
+            var buildSection = document.querySelector(".hub-gen-btn");
+            if (buildSection) {
+              buildSection.scrollIntoView({ behavior: "smooth", block: "center" });
+              buildSection.style.animation = "hub-ready 0.6s ease-out 2";
+            }
+          }, 200);
         });
       })(opt.key, pbtn);
       hubPriceTopGrid.appendChild(pbtn);
