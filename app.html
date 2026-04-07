@@ -689,8 +689,9 @@ var streakDays = 0;
 var favorites = {};
 var userVertical = null;
 var currentMotivation = "";
+var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.1.0";
+var APP_VERSION = "2.2.0";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -2952,6 +2953,7 @@ function generateScriptBank() {
   } else if (isOutdoor && !isIndoor) {
     useContext = " USE CONTEXT: This is an OUTDOOR or portable product. Scenes should reflect outdoor, patio, backyard, or on-the-go use.";
   }
+  currentUseContext = useContext; // store for wizard step calls
 
   // ── CALL 1: Think through the product before writing anything ──
   var thinkPrompt = "Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
@@ -5073,6 +5075,7 @@ function generateBody2AndPreclose(body1Line, hookLine) {
   var focusContext = currentFocus ? " Buyer angle: " + currentFocus.focus + "." : "";
   var prompt = "You are writing the pre-close and body 2 for a TikTok Shop script. Read every detail carefully." +
     " PRODUCT: " + currentProduct +
+    currentUseContext +
     " SCRIPT SO FAR -- HOOK: " + (hookLine || "") +
     " BODY 1: " + body1Line +
     focusContext +
@@ -5099,6 +5102,7 @@ function generateBody2AndPreclose(body1Line, hookLine) {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1200,
+      system: system,
       messages: [{ role: "user", content: prompt }]
     })
   })
@@ -5322,6 +5326,7 @@ function generateCTA(hookLine, body1Line, preCloseLine, body2Line) {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1200,
+      system: system,
       messages: [{ role: "user", content: prompt }]
     })
   })
