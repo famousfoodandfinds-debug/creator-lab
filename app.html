@@ -691,7 +691,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.3.1";
+var APP_VERSION = "2.3.3";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1567,7 +1567,7 @@ function saveProduct(name, bank, callback) {
           setSyncing(false);
           if (result.error) { showToast("Save error: " + result.error.message); if (callback) callback(); return; }
           currentProductId = result.data.id;
-          currentProduct = result.data.name;
+          currentProduct = result.data.description || result.data.name;
           buildSelect();
           if (callback) callback();
         });
@@ -1577,7 +1577,7 @@ function saveProduct(name, bank, callback) {
           setSyncing(false);
           if (result.error) { showToast("Save error: " + result.error.message); if (callback) callback(); return; }
           currentProductId = result.data.id;
-          currentProduct = result.data.name;
+          currentProduct = result.data.description || result.data.name;
           buildSelect();
           if (callback) callback();
         });
@@ -1589,7 +1589,7 @@ function saveProduct(name, bank, callback) {
     setSyncing(false);
     if (result.error) { showToast("Save error: " + result.error.message); if (callback) callback(); return; }
     currentProductId = result.data.id;
-    currentProduct = result.data.name;
+    currentProduct = result.data.description || result.data.name;
     buildSelect();
     if (callback) callback();
   });
@@ -2195,7 +2195,7 @@ function generate() {
   wrap.appendChild(loading);
   mc.appendChild(wrap);
 
-  var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles for short-form video content. Product: " + product + ". Generate 5 distinct buyer desire angles. Each angle describes a specific type of person or real-life situation this product speaks to -- not a feature. Return ONLY valid JSON: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER use Social Media, Influencer, Viral, or any platform-related desire -- these are not buyer desires, they are discovery channels. TONE CALIBRATION -- before generating angles, read the product and classify it: CRITICAL CLASSIFICATION -- get this right before generating any angle. Ask one question: does this product CREATE something the buyer wants, or SOLVE something the buyer does not want to have? (1) Experience/Lifestyle product: anything that makes food, creates a ritual, or enables an activity the buyer chooses -- pizza makers, waffle irons, ice cream makers, sandwich presses, fondue sets, cocktail tools, entertaining accessories, beauty tools, gifts, pool and party items. These buyers are not fixing a problem -- they are adding something they want. Angles must feel fun, ritual-driven, social, indulgent -- pizza night with the kids, Friday tradition, the thing guests always ask about. NEVER give these products pain-relief or problem-solving angles -- they did not have a problem before. (2) Functional/Need product: vacuums, air purifiers, storage systems, cleaning tools, organizational products, anything that fixes a problem the buyer has whether they want it or not. Angles should feel empowering and problem-solving. (3) Hybrid: premium cookware, quality home goods that are both aspirational and functional -- blend experience and upgrade tones. A pizza maker is category 1 not category 2. A margarita tumbler is category 1 not category 2. A vacuum is category 2 not category 1. focus is a short 4-8 word phrase that references THIS specific product, use case, or moment -- never a generic phrase that works for any product. BANNED focus names: Fix the daily frustration, The upgrade they keep putting off, Show up differently, The one that actually works, Worth every round, Finally found the right one, or any phrase that contains no reference to what this product actually does or who specifically uses it. RIGHT: Friday pizza night tradition, The crust delivery cannot match, Kids want it every week. WRONG: Fix the daily frustration, The upgrade they keep putting off. description is one sentence about who this buyer is and what they feel.";
+  var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles for short-form video content. Product: " + product + ". Generate 5 distinct buyer desire angles. Each angle describes a specific type of person or real-life situation this product speaks to -- not a feature. Return ONLY valid JSON: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER use Social Media, Influencer, Viral, or any platform-related desire -- these are not buyer desires, they are discovery channels. TONE CALIBRATION -- before generating angles, read the product and classify it: CRITICAL CLASSIFICATION -- get this right before generating any angle. Ask one question: does this product CREATE something the buyer wants, or SOLVE something the buyer does not want to have? (1) Experience/Lifestyle product: anything that makes food, creates a ritual, or enables an activity the buyer chooses -- pizza makers, waffle irons, ice cream makers, sandwich presses, fondue sets, cocktail tools, entertaining accessories, beauty tools, gifts, pool and party items. These buyers are not fixing a problem -- they are adding something they want. Angles must feel fun, ritual-driven, social, indulgent -- pizza night with the kids, Friday tradition, the thing guests always ask about. NEVER give these products pain-relief or problem-solving angles -- they did not have a problem before. (2) Functional/Need product: vacuums, air purifiers, storage systems, cleaning tools, organizational products, anything that fixes a problem the buyer has whether they want it or not. Angles should feel empowering and problem-solving. (3) Hybrid: premium cookware, quality home goods that are both aspirational and functional -- blend experience and upgrade tones. A pizza maker is category 1 not category 2. A margarita tumbler is category 1 not category 2. A vacuum is category 2 not category 1. focus is a short 4-8 word phrase that references THIS specific product, use case, or moment -- never a generic phrase that works for any product. description is one sentence about who this buyer is and what they feel.";
 
   fetch("/api/claude", {
     method: "POST",
@@ -2980,8 +2980,6 @@ function generateScriptBankSilent(onComplete) {
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
       (getBuyerMotivation() ? " CREATOR INSIGHT: " + getBuyerMotivation() : "") +
       " Product: " + currentProduct + ". " + getPriceContext() + "." + useCtx + uNote +
-      " CRITICAL: Every focus name must reference THIS specific product, use case, or moment -- never generic phrases." +
-      " BANNED focus names: Fix the daily frustration, The upgrade they keep putting off, Show up differently, The one that actually works, Worth every round." +
       " Return JSON: {productName:str,hooks:{\"Worse alternative\":[3],\"Desired transformation\":[3],\"Curiosity loop\":[3],\"Social proof\":[3],\"Scarcity and FOMO\":[3],\"Identity and aspiration\":[3],\"Skepticism disarm\":[3],\"Friction removal\":[3],\"Sensory observation\":[3]},body:{\"Feature to feeling\":[3],\"Quality proof\":[3],\"Simplicity and ease\":[3],\"Value reframe\":[3],\"Legacy and emotion\":[3],\"Multi-use reveal\":[3]},preClose:[4],seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
 
     fetch("/api/claude", {
@@ -3689,7 +3687,7 @@ function renderBatchPicker() {
   wrap.appendChild(loadingDiv);
   mc.appendChild(wrap);
 
-  var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles. Product: " + currentProduct + ". Generate 5 distinct buyer desire angles. Return ONLY valid JSON with no markdown: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER use Social Media, Influencer, Viral. CRITICAL: Every focus name must reference THIS specific product, use case, or buyer moment -- never a generic phrase that could apply to any product. BANNED: Fix the daily frustration, The upgrade they keep putting off, Show up differently, The one that actually works, Worth every round, or any phrase with no reference to what this product does. RIGHT: Friday pizza night tradition, The crust delivery cannot match. WRONG: Fix the daily frustration. TONE CALIBRATION: Ask first -- does this product CREATE something wanted (pizza maker, waffle iron, cocktail tool, beauty tool, entertaining item) or SOLVE something unwanted (vacuum, air purifier, storage)? Experience/lifestyle products need fun ritual social angles -- NOT pain-relief angles. Functional products need empowering problem-solving angles. Hybrid products blend both.";
+  var focusPrompt = "You are analyzing a TikTok Shop product to identify the strongest buyer desire angles. Product: " + currentProduct + ". Generate 5 distinct buyer desire angles. Return ONLY valid JSON with no markdown: {focuses:[{focus:string,desire:string,description:string}]} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER use Social Media, Influencer, Viral. TONE CALIBRATION: Ask first -- does this product CREATE something wanted (pizza maker, waffle iron, cocktail tool, beauty tool, entertaining item) or SOLVE something unwanted (vacuum, air purifier, storage)? Experience/lifestyle products need fun ritual social angles -- NOT pain-relief angles. Functional products need empowering problem-solving angles. Hybrid products blend both.";
 
   fetch("/api/claude", {
     method: "POST",
@@ -3858,7 +3856,7 @@ function renderBatchAngleGrid(wrap, focuses) {
         e.stopPropagation();
         btnEl.innerHTML = "⟳"; btnEl.style.opacity = "0.5";
         var existingNames = focuses.map(function(f){ return f.focus; }).join(", ");
-        var refreshPrompt = "You are analyzing a TikTok Shop product to identify buyer desire angles. Product: " + currentProduct + ". Generate exactly 1 NEW buyer desire angle completely different from these: " + existingNames + ". TONE CALIBRATION: Does this product CREATE something wanted (pizza maker, waffle iron, cocktail tool, beauty tool) or SOLVE something unwanted (vacuum, cleaner, organizer)? Experience products need fun ritual angles. Functional products need problem-solving angles. CRITICAL: Every focus name must reference THIS specific product, use case, or buyer moment -- never a generic phrase that could apply to any product. BANNED: Fix the daily frustration, The upgrade they keep putting off, Show up differently, The one that actually works, Worth every round, or any phrase with no reference to what this product does. RIGHT: Friday pizza night tradition, The crust delivery cannot match. WRONG: Fix the daily frustration. Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation.";
+        var refreshPrompt = "You are analyzing a TikTok Shop product to identify buyer desire angles. Product: " + currentProduct + ". Generate exactly 1 NEW buyer desire angle completely different from these: " + existingNames + ". TONE CALIBRATION: Does this product CREATE something wanted (pizza maker, waffle iron, cocktail tool, beauty tool) or SOLVE something unwanted (vacuum, cleaner, organizer)? Experience products need fun ritual angles. Functional products need problem-solving angles. Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation.";
         fetch("/api/claude", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
@@ -4005,20 +4003,19 @@ function renderFocusPicker() {
       console.log("Focus parse error:", e.message);
     }
     if(focuses.length === 0) {
-      // API failed or returned empty -- use universal fallback angles
-      // that work for any product rather than showing an error
-      focuses = [
-        { focus: "Fix the daily frustration", desire: "Pain/Problem Relief",
-          description: "Someone who has been living with a specific annoyance and is ready for the thing that actually fixes it." },
-        { focus: "The upgrade they keep putting off", desire: "Fear of Future Regret",
-          description: "Someone who knows they need this but keeps telling themselves what they have is fine." },
-        { focus: "Show up differently", desire: "Emotion/Identity",
-          description: "Someone who wants the version of themselves that has the right thing for the moment." },
-        { focus: "The one that actually works", desire: "Skepticism disarm",
-          description: "Someone who has tried other options and been disappointed -- they need proof before they believe this one is different." },
-        { focus: "Worth every round", desire: "Status/Upgrade",
-          description: "Someone who takes what they do seriously and wants gear that matches that energy." }
-      ];
+      // API returned empty -- show retry rather than generic fallbacks
+      if(loading && loading.parentNode === wrap) wrap.removeChild(loading);
+      var errDiv = document.createElement("div");
+      errDiv.style.cssText = "padding:16px 0;";
+      errDiv.innerHTML = "<div style='font-size:13px;color:var(--muted);margin-bottom:12px;'>Could not load angles -- tap to try again.</div>";
+      var retryBtn = document.createElement("button");
+      retryBtn.className = "next-btn";
+      retryBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white);";
+      retryBtn.textContent = "Try again";
+      retryBtn.addEventListener("click", function(){ renderFocusPicker(); });
+      errDiv.appendChild(retryBtn);
+      wrap.appendChild(errDiv);
+      return;
     }
     renderFocusOptionsForBuilder(wrap, loading, focuses);
   })
@@ -4026,19 +4023,17 @@ function renderFocusPicker() {
     if(e.message !== "rate_limit") logError("focus_picker", e, { product: currentProduct });
     if(e.message !== "rate_limit") {
       // Use fallback angles on any error
-      var fallbackFocuses = [
-        { focus: "Fix the daily frustration", desire: "Pain/Problem Relief",
-          description: "Someone who has been living with a specific annoyance and is ready for the thing that actually fixes it." },
-        { focus: "The upgrade they keep putting off", desire: "Fear of Future Regret",
-          description: "Someone who knows they need this but keeps telling themselves what they have is fine." },
-        { focus: "Show up differently", desire: "Emotion/Identity",
-          description: "Someone who wants the version of themselves that has the right thing for the moment." },
-        { focus: "The one that actually works", desire: "Skepticism disarm",
-          description: "Someone who has tried other options and been disappointed -- they need proof before they believe this one is different." },
-        { focus: "Worth every round", desire: "Status/Upgrade",
-          description: "Someone who takes what they do seriously and wants gear that matches that energy." }
-      ];
-      renderFocusOptionsForBuilder(wrap, loading, fallbackFocuses);
+      if(loading && loading.parentNode === wrap) wrap.removeChild(loading);
+      var errDiv2 = document.createElement("div");
+      errDiv2.style.cssText = "padding:16px 0;";
+      errDiv2.innerHTML = "<div style='font-size:13px;color:var(--muted);margin-bottom:12px;'>Something went wrong loading angles. Tap to try again.</div>";
+      var retryBtn2 = document.createElement("button");
+      retryBtn2.className = "next-btn";
+      retryBtn2.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white);";
+      retryBtn2.textContent = "Try again";
+      retryBtn2.addEventListener("click", function(){ renderFocusPicker(); });
+      errDiv2.appendChild(retryBtn2);
+      wrap.appendChild(errDiv2);
     }
   });
 }
