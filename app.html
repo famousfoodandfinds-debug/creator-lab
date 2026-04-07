@@ -143,6 +143,11 @@ textarea::placeholder { color: var(--muted2); }
 /* STEP PANEL */
 .step-panel { display: none; padding-top: 16px; }
 .step-panel.active { display: block; }
+/* Hub mode -- hides input area when viewing a library product */
+body.hub-mode #inputSection { display: none !important; }
+body.hub-mode #genBtn { display: none !important; }
+body.hub-mode #priceWrap { display: none !important; }
+body.hub-mode #priceSelectorMount { display: none !important; }
 .step-summary { display:none; padding:12px 16px; margin:0 16px 8px; background:var(--surface); border:1px solid var(--border-md); border-radius:var(--radius-sm); cursor:pointer; }
 .step-summary.visible { display:flex; align-items:center; gap:10px; }
 .step-summary-check { width:18px;height:18px;border-radius:50%;background:rgba(45,201,138,0.15);border:1px solid rgba(45,201,138,0.4);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:#2DC98A; }
@@ -699,7 +704,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.4.4";
+var APP_VERSION = "2.4.5";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -998,11 +1003,7 @@ function onSignedIn() {
     psMount.appendChild(buildPriceSelector());
   }
   // Show full UI for all users immediately
-  document.getElementById("inputSection").style.display = "block";
-  var gBtn = document.getElementById("genBtn");
-  if (gBtn) gBtn.style.display = "block";
-  var pw = document.getElementById("priceWrap");
-  if (pw) pw.style.display = "block";
+  document.body.classList.remove("hub-mode");
 }
 
 
@@ -1524,32 +1525,10 @@ function loadProductById(id) {
     allData.onScreenText = allData.onScreenText || [];
     currentMotivation = result.data.motivation || "";
     setBuyerMotivation(currentMotivation);
-    currentProductName = result.data.name; // keep name separate for display
+    currentProductName = result.data.name;
     resetPicks();
-    document.getElementById("inputSection").style.display = "none";
-    document.getElementById("genBtn").style.display = "none";
-    var pw = document.getElementById("priceWrap");
-    if (pw) pw.style.display = "none";
-    var psm = document.getElementById("priceSelectorMount");
-    if (psm) psm.style.display = "none";
-
-    // Auto-regenerate if bank was saved under an older prompt version
-    var savedVersion = allData._promptVersion || "0";
-    if (savedVersion !== APP_VERSION && currentProduct && currentPrice) {
-      // Show hub immediately with saved data, then silently refresh the bank
-      renderProductHub();
-      var silentNotice = document.createElement("div");
-      silentNotice.style.cssText = "margin:0 16px 12px;padding:10px 13px;background:rgba(192,192,192,0.08);border:1px solid rgba(192,192,192,0.2);border-radius:6px;font-size:12px;color:var(--muted);";
-      silentNotice.textContent = "Refreshing script bank with latest improvements...";
-      var mc = document.getElementById("mainContent");
-      if (mc && mc.firstChild) mc.insertBefore(silentNotice, mc.firstChild);
-      generateScriptBankSilent(function() {
-        silentNotice.textContent = "Script bank updated.";
-        setTimeout(function() { if (silentNotice.parentNode) silentNotice.parentNode.removeChild(silentNotice); }, 2000);
-      });
-    } else {
-      renderProductHub();
-    }
+    document.body.classList.add("hub-mode");
+    renderProductHub();
   });
 }
 
@@ -1767,10 +1746,10 @@ function generateScreenTextOptions(hooksData, callback) {
 
 function renderProductHub() {
   var mc = document.getElementById("mainContent");
-  mc.innerHTML = '<div class="loading-wrap"><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><div class="loading-title">Loading scripts...</div></div>';
+  if (!mc) return;
+  mc.innerHTML = '<div class="loading-wrap"><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><div class="loading-title">Loading...</div></div>';
 
   loadScriptsForProduct(currentProductId, function(scripts) {
-    try {
     mc.innerHTML = "";
     var wrap = document.createElement("div");
     wrap.style.cssText = "padding:16px;";
@@ -1859,7 +1838,7 @@ function renderProductHub() {
         var ta = document.createElement("textarea"); ta.style.cssText = "width:100%;min-height:140px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:12px 14px;outline:none;resize:vertical;line-height:1.6;box-sizing:border-box;-webkit-user-select:text;user-select:text;"; ta.value = desc; ta.maxLength = 1000;
         var charRow = document.createElement("div"); charRow.style.cssText = "font-size:11px;color:var(--muted);text-align:right;margin:4px 0 12px;"; charRow.textContent = desc.length + " / 1000"; ta.addEventListener("input", function(){ charRow.textContent = ta.value.length + " / 1000"; });
         var genBtn2 = document.createElement("button"); genBtn2.className = "next-btn"; genBtn2.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;"; genBtn2.innerHTML = "🧠&nbsp; Generate Focus Angles";
-        genBtn2.addEventListener("click", function(){ var nd = ta.value.trim(); if(!nd){ showToast("Description cannot be empty"); return; } document.getElementById("productInput").value = nd; document.getElementById("charCount").textContent = nd.length; document.getElementById("inputSection").style.display = "block"; document.getElementById("genBtn").style.display = "block"; var pw = document.getElementById("priceWrap"); if(pw) pw.style.display = "block"; generate(); });
+        genBtn2.addEventListener("click", function(){ var nd = ta.value.trim(); if(!nd){ showToast("Description cannot be empty"); return; } document.getElementById("productInput").value = nd; document.getElementById("charCount").textContent = nd.length; document.body.classList.remove("hub-mode"); generate(); });
         editWrap.appendChild(ta); editWrap.appendChild(charRow); editWrap.appendChild(genBtn2); mc.appendChild(editWrap);
         setTimeout(function(){ ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }, 150); window.scrollTo(0,0);
       };
@@ -1987,19 +1966,15 @@ function renderProductHub() {
         allData = {};
         resetPicks();
         buildSelect();
-        document.getElementById("inputSection").style.display = "block";
-        document.getElementById("genBtn").style.display = "block";
-        var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block"; var rpsm = document.getElementById("priceSelectorMount"); if(rpsm) rpsm.style.display = "block";
+        document.body.classList.remove("hub-mode");
         mc.innerHTML = '<div class="state-box"><div class="state-icon">✨</div><div class="state-title">Product deleted</div><div class="state-desc">Select another product or generate a new one.</div></div>';
+        document.body.classList.remove("hub-mode");
         showToast("Product deleted");
       });
     });
     wrap.appendChild(deleteProductBtn);
 
     mc.appendChild(wrap);
-    } catch(hubErr) {
-      mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:13px;'>Could not load product hub: " + (hubErr.message||"Unknown error") + "<br><br><button onclick='renderProductHub()' style='margin-top:8px;padding:8px 16px;border-radius:6px;border:1px solid var(--border-md);background:transparent;color:var(--white);font-family:inherit;cursor:pointer;'>Try again</button></div>";
-    }
   });
 }
 
@@ -2053,9 +2028,7 @@ function handleUpload(event) {
   document.getElementById("imgStatus").textContent = "Reading images...";
   document.getElementById("imgStatus").className = "img-status reading";
   document.getElementById("imgPreviewWrap").style.display = "block";
-  document.getElementById("inputSection").style.display = "block";
-  document.getElementById("genBtn").style.display = "block";
-  var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block"; var rpsm = document.getElementById("priceSelectorMount"); if(rpsm) rpsm.style.display = "block";
+  document.body.classList.remove("hub-mode");
   document.getElementById("imgThumb").src = "";
   document.getElementById("imgName").textContent = files.length + " screenshot" + (files.length > 1 ? "s" : "") + " selected";
   var total = files.length;
@@ -2157,9 +2130,7 @@ function showNew() {
   allData = {};
   resetPicks();
   document.getElementById("productSelect").value = "";
-  document.getElementById("inputSection").style.display = "block";
-  document.getElementById("genBtn").style.display = "block";
-  var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block"; var rpsm = document.getElementById("priceSelectorMount"); if(rpsm) rpsm.style.display = "block";
+  document.body.classList.remove("hub-mode");
   document.getElementById("productInput").value = "";
   document.getElementById("charCount").textContent = "0";
   currentMotivation = "";
@@ -3440,8 +3411,7 @@ function renderOnboarding() {
       onboardingComplete = true; // Skip checklist after first run
       saveOnboarding();
       // Show normal app state
-      document.getElementById("inputSection").style.display = "block";
-      document.getElementById("genBtn").style.display = "block";
+      document.body.classList.remove("hub-mode");
       mc.innerHTML = "<div class='state-box'><div class='state-icon'>✨</div><div class='state-title'>Your Script Bank</div><div class='state-desc'>Describe your product above and generate your custom script bank. Start with the brand name.</div></div>";
     });
     wrap.appendChild(setGoalBtn);
@@ -4440,8 +4410,7 @@ function checkOnboarding() {
 function renderOnboarding() {
   var mc = document.getElementById("mainContent");
   mc.innerHTML = "";
-  document.getElementById("inputSection").style.display = "none";
-  document.getElementById("genBtn").style.display = "none";
+  document.body.classList.add("hub-mode");
 
   var wrap = document.createElement("div");
   wrap.className = "onboard-wrap";
@@ -4506,8 +4475,7 @@ function renderOnboarding() {
     startBtn.className = "next-btn";
     startBtn.textContent = "Generate my first product";
     startBtn.addEventListener("click", function() {
-      document.getElementById("inputSection").style.display = "block";
-      document.getElementById("genBtn").style.display = "block";
+      document.body.classList.remove("hub-mode");
       mc.innerHTML = "<div class='state-box'><div class='state-icon'>✨</div><div class='state-title'>Your Script Bank</div><div class='state-desc'>Describe your product above and generate your first script bank.</div></div>";
     });
     wrap.appendChild(startBtn);
@@ -4521,14 +4489,11 @@ function renderOnboarding() {
         saveLocalData();
         fireConfetti();
         setTimeout(function() {
-          document.getElementById("inputSection").style.display = "block";
-          document.getElementById("genBtn").style.display = "block";
+          document.body.classList.remove("hub-mode");
           mc.innerHTML = "<div class='state-box'><div class='state-icon'>✨</div><div class='state-title'>Your Script Bank</div><div class='state-desc'>Describe your product and generate your custom script bank.</div></div>";
         }, 2500);
       } else {
-        document.getElementById("inputSection").style.display = "block";
-        document.getElementById("genBtn").style.display = "block";
-        var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block"; var rpsm = document.getElementById("priceSelectorMount"); if(rpsm) rpsm.style.display = "block";
+        document.body.classList.remove("hub-mode");
         mc.innerHTML = "<div class='state-box'><div class='state-icon'>✨</div><div class='state-title'>Your Script Bank</div><div class='state-desc'>Describe your product and generate your custom script bank.</div></div>";
       }
     });
