@@ -2504,6 +2504,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000,
+      system: system,
       messages: [{ role: "user", content: prompt }]
     })
   })
@@ -3068,7 +3069,7 @@ function generateScriptBank() {
     fetch("/api/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4500, messages: [{ role: "user", content: prompt }] }),
+      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4500, system: system, messages: [{ role: "user", content: prompt }] }),
       signal: controller.signal
     })
     .then(function(r) { clearTimeout(timeoutId); return r.json(); })
@@ -3124,7 +3125,7 @@ function generateScriptBank() {
     fetch("/api/claude", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4500, messages: [{ role: "user", content: prompt }] }),
+      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4500, system: system, messages: [{ role: "user", content: prompt }] }),
       signal: controller2.signal
     })
     .then(function(r) { clearTimeout(timeoutId2); return r.json(); })
