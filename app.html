@@ -699,7 +699,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.4.3";
+var APP_VERSION = "2.4.4";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1770,6 +1770,7 @@ function renderProductHub() {
   mc.innerHTML = '<div class="loading-wrap"><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><div class="loading-title">Loading scripts...</div></div>';
 
   loadScriptsForProduct(currentProductId, function(scripts) {
+    try {
     mc.innerHTML = "";
     var wrap = document.createElement("div");
     wrap.style.cssText = "padding:16px;";
@@ -1996,6 +1997,9 @@ function renderProductHub() {
     wrap.appendChild(deleteProductBtn);
 
     mc.appendChild(wrap);
+    } catch(hubErr) {
+      mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:13px;'>Could not load product hub: " + (hubErr.message||"Unknown error") + "<br><br><button onclick='renderProductHub()' style='margin-top:8px;padding:8px 16px;border-radius:6px;border:1px solid var(--border-md);background:transparent;color:var(--white);font-family:inherit;cursor:pointer;'>Try again</button></div>";
+    }
   });
 }
 
