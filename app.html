@@ -691,7 +691,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.2.1";
+var APP_VERSION = "2.3.1";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1494,15 +1494,15 @@ function loadProductById(id) {
     setSyncing(false);
     if (result.error || !result.data) return;
     currentProductId = result.data.id;
-    currentProduct = result.data.name;
+    currentProduct = result.data.description || result.data.name;
     allData = result.data.bank || {};
-    // Defensive defaults -- handle products saved under any previous schema
+    // Defensive defaults
     allData.hooks = allData.hooks || {};
     allData.body = allData.body || {};
     allData.preClose = allData.preClose || allData.preclose || [];
     allData.cta = allData.cta || {};
-    allData.ctaLive = {};     // always start fresh -- generated live
-    allData.body2Live = {};   // always start fresh -- generated live
+    allData.ctaLive = {};
+    allData.body2Live = {};
     allData.seo = allData.seo || {};
     allData.onScreenText = allData.onScreenText || [];
     currentMotivation = result.data.motivation || "";
@@ -1510,7 +1510,24 @@ function loadProductById(id) {
     resetPicks();
     document.getElementById("inputSection").style.display = "none";
     document.getElementById("genBtn").style.display = "none";
-    renderProductHub();
+
+    // Auto-regenerate if bank was saved under an older prompt version
+    var savedVersion = allData._promptVersion || "0";
+    if (savedVersion !== APP_VERSION && currentProduct && currentPrice) {
+      // Show hub immediately with saved data, then silently refresh the bank
+      renderProductHub();
+      var silentNotice = document.createElement("div");
+      silentNotice.style.cssText = "margin:0 16px 12px;padding:10px 13px;background:rgba(192,192,192,0.08);border:1px solid rgba(192,192,192,0.2);border-radius:6px;font-size:12px;color:var(--muted);";
+      silentNotice.textContent = "Refreshing script bank with latest improvements...";
+      var mc = document.getElementById("mainContent");
+      if (mc && mc.firstChild) mc.insertBefore(silentNotice, mc.firstChild);
+      generateScriptBankSilent(function() {
+        silentNotice.textContent = "Script bank updated.";
+        setTimeout(function() { if (silentNotice.parentNode) silentNotice.parentNode.removeChild(silentNotice); }, 2000);
+      });
+    } else {
+      renderProductHub();
+    }
   });
 }
 
@@ -1535,7 +1552,7 @@ function saveProduct(name, bank, callback) {
   setSyncing(true);
   var desc = document.getElementById("productInput") ? document.getElementById("productInput").value.trim() : "";
   var motivation = getBuyerMotivation();
-  var payload = { user_id: currentUser.id, name: name, bank: bank, description: desc, motivation: motivation || null, updated_at: new Date().toISOString() };
+  var payload = { user_id: currentUser.id, name: name, bank: Object.assign({}, bank, { _promptVersion: APP_VERSION }), description: desc, motivation: motivation || null, updated_at: new Date().toISOString() };
   var promise;
   if (currentProductId) {
     // Update existing product
@@ -2930,6 +2947,73 @@ function renderBatchResults(scripts, angles) {
 // ============================================================
 // SCRIPT BANK GENERATION
 // ============================================================
+// Silent background regeneration -- runs when a library product has a stale bank version
+// Does not touch the UI. Saves new bank to Supabase and updates allData when done.
+function generateScriptBankSilent(onComplete) {
+  if (!currentProduct || !currentPrice) { if (onComplete) onComplete(); return; }
+
+  var productLower = currentProduct.toLowerCase();
+  var isIndoor = /kitchen|countertop|counter top|indoor|stovetop|stove top|plug.?in|electric|without.*oven|home oven|at home|inside/.test(productLower);
+  var isOutdoor = /outdoor|backyard|back yard|patio|grill|campfire|wood.?fired|portable|camp/.test(productLower);
+  var useCtx = "";
+  if (isIndoor && !isOutdoor) useCtx = " USE CONTEXT -- CRITICAL: This is an INDOOR kitchen appliance. Never reference backyard, patio, outdoor, or portable use.";
+  else if (isOutdoor && !isIndoor) useCtx = " USE CONTEXT: This is an OUTDOOR or portable product.";
+  currentUseContext = useCtx;
+
+  var thinkPrompt = "Think through this product before writing anything. Product: " + currentProduct + ". Price: " + getPriceContext() + "." + useCtx +
+    (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
+    " Answer: 1. WHO actually buys this? 2. WHAT do they already have? 3. WHAT is the real differentiator? 4. EMOTIONAL FRAME for this price?" +
+    " Return ONLY valid JSON: {who:string,already_have:string,differentiator:string,emotional_frame:string}";
+
+  fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: thinkPrompt }] })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(thinkData) {
+    var understanding = {};
+    try { var tt = ""; thinkData.content.forEach(function(b){ if(b.type==="text") tt+=b.text; }); understanding = JSON.parse(tt.replace(/```json|```/g,"").trim()); } catch(e) {}
+    var uNote = understanding.who ? " WHO: " + understanding.who + " ALREADY HAS: " + understanding.already_have + " DIFFERENTIATOR: " + understanding.differentiator + " FRAME: " + understanding.emotional_frame : "";
+
+    var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend." +
+      " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
+      (getBuyerMotivation() ? " CREATOR INSIGHT: " + getBuyerMotivation() : "") +
+      " Product: " + currentProduct + ". " + getPriceContext() + "." + useCtx + uNote +
+      " CRITICAL: Every focus name must reference THIS specific product, use case, or moment -- never generic phrases." +
+      " BANNED focus names: Fix the daily frustration, The upgrade they keep putting off, Show up differently, The one that actually works, Worth every round." +
+      " Return JSON: {productName:str,hooks:{\"Worse alternative\":[3],\"Desired transformation\":[3],\"Curiosity loop\":[3],\"Social proof\":[3],\"Scarcity and FOMO\":[3],\"Identity and aspiration\":[3],\"Skepticism disarm\":[3],\"Friction removal\":[3],\"Sensory observation\":[3]},body:{\"Feature to feeling\":[3],\"Quality proof\":[3],\"Simplicity and ease\":[3],\"Value reframe\":[3],\"Legacy and emotion\":[3],\"Multi-use reveal\":[3]},preClose:[4],seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
+
+    fetch("/api/claude", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4500, system: system, messages: [{ role: "user", content: prompt }] })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.error) { if (onComplete) onComplete(); return; }
+      var text = ""; data.content.forEach(function(b){ if(b.type==="text") text+=b.text; });
+      var parsed = JSON.parse(text.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim());
+      allData = parsed || {};
+      allData.hooks = allData.hooks || {};
+      allData.body = allData.body || {};
+      allData.preClose = allData.preClose || [];
+      allData.cta = allData.cta || {};
+      allData.ctaLive = {};
+      allData.body2Live = {};
+      allData.seo = allData.seo || {};
+      allData.onScreenText = allData.onScreenText || [];
+      var pName = parsed.productName || currentProduct;
+      saveProduct(pName, parsed, function() {
+        generateOnScreenText(currentProduct, allData.hooks);
+        if (onComplete) onComplete();
+      });
+    })
+    .catch(function() { if (onComplete) onComplete(); });
+  })
+  .catch(function() { if (onComplete) onComplete(); });
+}
+
 function generateScriptBank() {
   var product = currentProduct;
   if (!product) { showToast("No product description found"); return; }
@@ -4597,32 +4681,59 @@ function rebuildPreclose() {
 // ============================================================
 function buildPriceSelector() {
   var wrap = document.createElement("div");
-  var label = document.createElement("div");
-  label.style.cssText = "font-size:10px;font-weight:500;color:var(--muted);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;";
-  label.textContent = currentPrice ? "Price range" : "Price range (required)";
-  label.style.color = currentPrice ? "var(--muted)" : "var(--gold)";
-  wrap.appendChild(label);
+  wrap.style.cssText = "margin-bottom:16px;";
+
+  // Section header -- required step treatment
+  var header = document.createElement("div");
+  header.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:10px;";
+
+  var stepLabel = document.createElement("div");
+  stepLabel.style.cssText = "font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;" +
+    (currentPrice ? "color:var(--muted);" : "color:var(--gold);");
+  stepLabel.textContent = currentPrice ? "Price range" : "Step 1 — Select price range";
+
+  var reqBadge = document.createElement("div");
+  reqBadge.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.06em;padding:2px 7px;border-radius:999px;display:" +
+    (currentPrice ? "none" : "block") + ";background:rgba(200,168,74,0.15);border:1px solid rgba(200,168,74,0.4);color:var(--gold);";
+  reqBadge.textContent = "REQUIRED";
+
+  header.appendChild(stepLabel);
+  header.appendChild(reqBadge);
+  wrap.appendChild(header);
 
   var btns = document.createElement("div");
   btns.className = "price-selector";
 
   var options = [
-    { key:"under25", label:"Under $25" },
-    { key:"mid", label:"$25 - $75" },
-    { key:"premium", label:"$75 - $150" },
-    { key:"luxury", label:"$150+" },
-    { key:"gift", label:"🎁 Gift" },
-    { key:"sellthesale", label:"⚡ Sell the Urgency" }
+    { key:"under25",    label:"Under $25",        desc:"Impulse buy" },
+    { key:"mid",        label:"$25 – $75",         desc:"Considered purchase" },
+    { key:"premium",    label:"$75 – $150",        desc:"Justified upgrade" },
+    { key:"luxury",     label:"$150+",             desc:"Aspirational" },
+    { key:"gift",       label:"🎁 Gift",           desc:"Buying for someone" },
+    { key:"sellthesale",label:"⚡ Sell the Urgency",desc:"Create urgency to buy now" }
   ];
 
   options.forEach(function(opt) {
     var btn = document.createElement("button");
-    btn.className = "price-btn" + (currentPrice === opt.key ? " selected" : "");
-    btn.textContent = opt.label;
+    var isSelected = currentPrice === opt.key;
+    btn.style.cssText = "flex:1;min-width:calc(50% - 4px);text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;" +
+      "font-family:'Instrument Sans',sans-serif;transition:all 0.15s;border:" +
+      (isSelected ? "1.5px solid var(--red);background:var(--red-dim);" : "1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);") ;
+
+    var name = document.createElement("div");
+    name.style.cssText = "font-size:12px;font-weight:600;margin-bottom:2px;color:" + (isSelected ? "var(--white)" : "var(--white-dim)") + ";";
+    name.textContent = opt.label;
+
+    var desc = document.createElement("div");
+    desc.style.cssText = "font-size:10px;color:" + (isSelected ? "rgba(255,255,255,0.7)" : "var(--muted)") + ";";
+    desc.textContent = opt.desc;
+
+    btn.appendChild(name);
+    btn.appendChild(desc);
+
     (function(k) {
       btn.addEventListener("click", function() {
         currentPrice = k;
-        // Rebuild price selector
         var existing = document.getElementById("priceSelectorWrap");
         if (existing) {
           var newSel = buildPriceSelector();
@@ -4633,7 +4744,17 @@ function buildPriceSelector() {
     })(opt.key);
     btns.appendChild(btn);
   });
+
   wrap.appendChild(btns);
+
+  // Helper text when nothing selected
+  if (!currentPrice) {
+    var hint = document.createElement("div");
+    hint.style.cssText = "font-size:11px;color:var(--gold);margin-top:4px;opacity:0.8;";
+    hint.textContent = "Price shapes the buyer psychology frame for every line generated.";
+    wrap.appendChild(hint);
+  }
+
   wrap.id = "priceSelectorWrap";
   return wrap;
 }
