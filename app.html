@@ -143,6 +143,12 @@ textarea::placeholder { color: var(--muted2); }
 /* STEP PANEL */
 .step-panel { display: none; padding-top: 16px; }
 .step-panel.active { display: block; }
+.step-summary { display:none; padding:12px 16px; margin:0 16px 8px; background:var(--surface); border:1px solid var(--border-md); border-radius:var(--radius-sm); cursor:pointer; }
+.step-summary.visible { display:flex; align-items:center; gap:10px; }
+.step-summary-check { width:18px;height:18px;border-radius:50%;background:rgba(45,201,138,0.15);border:1px solid rgba(45,201,138,0.4);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:10px;color:#2DC98A; }
+.step-summary-label { font-size:10px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:2px; }
+.step-summary-text { font-size:13px;color:var(--white);line-height:1.4;flex:1; }
+.step-summary-edit { font-size:11px;color:var(--red);border:1px solid rgba(232,40,78,0.3);border-radius:999px;padding:3px 10px;background:none;font-family:'Instrument Sans',sans-serif;cursor:pointer;flex-shrink:0; }
 .step-heading { font-family: 'Playfair Display', serif; font-size: 22px; color: var(--white); margin-bottom: 4px; font-weight: 700; }
 .step-heading em { font-style: italic; color: var(--silver-bright); }
 .step-sub { font-size: 13px; color: var(--white-dim); margin-bottom: 16px; font-weight: 400; }
@@ -691,12 +697,12 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.3.8";
+var APP_VERSION = "2.4.0";
 var authMode = "signin";
 
 // WIZARD STATE
 var wizardStep = 1;
-var picks = { hook: null, hookCat: null, body1: null, body1Cat: null, body2: null, body2Cat: null, cta: null, ctaCat: null };
+var picks = { hook: null, hookCat: null, body1: null, body1Cat: null, preclose: null, preClose: null, body2: null, body2Cat: null, cta: null, ctaCat: null };
 var expandedTrigger = { hooks: null, body: null, body1: null, body2: null, preclose: null, cta: null };
 
 // DISMISSED LINES -- session + account level
@@ -1922,7 +1928,7 @@ function renderProductHub() {
     curatedBtn.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;opacity:0.45;cursor:pointer;";
     curatedBtn.innerHTML = "🎯 &nbsp;Curated Script &nbsp;<span style='font-weight:400;font-size:12px;'>-- build one script step by step</span>";
     curatedBtn.onclick = function() {
-      if (!currentPrice) { showToast("Select a price range above first"); var pw = document.getElementById("hubPriceLblTop"); if(pw) pw.scrollIntoView({behavior:"smooth",block:"center"}); return; }
+      if (!currentPrice) { showPriceModal(function(){ resetPicks(); renderFocusPicker(); }); return; }
       resetPicks(); renderFocusPicker();
     };
 
@@ -1931,7 +1937,7 @@ function renderProductHub() {
     batchBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(192,192,192,0.3);color:var(--silver-bright);font-weight:600;opacity:0.45;cursor:pointer;";
     batchBtn.innerHTML = "⚡ &nbsp;Batch Scripts &nbsp;<span style='font-weight:400;font-size:12px;'>-- generate 5 scripts at once</span>";
     batchBtn.onclick = function() {
-      if (!currentPrice) { showToast("Select a price range above first"); var pw = document.getElementById("hubPriceLblTop"); if(pw) pw.scrollIntoView({behavior:"smooth",block:"center"}); return; }
+      if (!currentPrice) { showPriceModal(function(){ resetPicks(); renderBatchPicker(); }); return; }
       resetPicks(); renderBatchPicker();
     };
 
@@ -1940,7 +1946,7 @@ function renderProductHub() {
     skitBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(160,160,192,0.4);color:var(--purple);font-weight:600;opacity:0.45;cursor:pointer;";
     skitBtn.innerHTML = "🎭 &nbsp;Skit Script &nbsp;<span style='font-weight:400;font-size:12px;'>-- two-person dialogue script</span>";
     skitBtn.onclick = function() {
-      if (!currentPrice) { showToast("Select a price range above first"); var pw = document.getElementById("hubPriceLblTop"); if(pw) pw.scrollIntoView({behavior:"smooth",block:"center"}); return; }
+      if (!currentPrice) { showPriceModal(renderSkitMode); return; }
       renderSkitMode();
     };
 
@@ -2208,16 +2214,7 @@ function generate() {
   var product = document.getElementById("productInput").value.trim();
   if (!product) { showToast("Add a product description first"); document.getElementById("productInput").focus(); return; }
   if (!currentPrice) {
-    showToast("Select a price range first");
-    var pw = document.getElementById("priceSelectorWrap");
-    if (pw) {
-      pw.scrollIntoView({ behavior: "smooth", block: "center" });
-      pw.style.transition = "outline 0.1s";
-      pw.style.outline = "2px solid var(--gold)";
-      pw.style.borderRadius = "8px";
-      setTimeout(function(){ pw.style.outline = "none"; }, 1500);
-    }
-    return;
+    showPriceModal(generate); return;
   }
   // Capture motivation NOW before inputSection gets hidden
   currentMotivation = getBuyerMotivation();
@@ -3319,7 +3316,7 @@ function generateScriptBank() {
 
 
 function resetPicks(){
-  picks = { hook:null,hookCat:null,body1:null,body1Cat:null,preclose:null,body2:null,body2Cat:null,cta:null,ctaCat:null };
+  picks = { hook:null,hookCat:null,body1:null,body1Cat:null,preclose:null,preClose:null,body2:null,body2Cat:null,cta:null,ctaCat:null };
   expandedTrigger = { hooks:null,body:null,body1:null,preclose:null,body2:null,cta:null };
   screenTextPicks = {};
   currentFocus = null;
@@ -3729,66 +3726,8 @@ function generateUrgencyScripts(type) {
 }
 
 // Shown when user tries to generate from library without selecting a price
-function showInlinePricePicker(onSelected) {
-  var mc = document.getElementById("mainContent");
-  mc.innerHTML = "";
-  var wrap = document.createElement("div");
-  wrap.style.cssText = "padding:16px;";
-
-  var backBtn = document.createElement("button");
-  backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 16px;";
-  backBtn.innerHTML = "← Back to product";
-  backBtn.addEventListener("click", function(){ renderProductHub(); });
-  wrap.appendChild(backBtn);
-
-  var heading = document.createElement("div");
-  heading.className = "step-heading";
-  heading.innerHTML = "Select <em>Price Range</em>";
-  var sub = document.createElement("div");
-  sub.className = "step-sub";
-  sub.textContent = "Price shapes the buyer psychology behind every line. Select one to continue.";
-  sub.style.marginBottom = "20px";
-  wrap.appendChild(heading);
-  wrap.appendChild(sub);
-
-  var options = [
-    { key:"under25",    label:"Under $25",         desc:"Impulse buy" },
-    { key:"mid",        label:"$25 – $75",          desc:"Considered purchase" },
-    { key:"premium",    label:"$75 – $150",         desc:"Justified upgrade" },
-    { key:"luxury",     label:"$150+",              desc:"Aspirational" },
-    { key:"gift",       label:"🎁 Gift",            desc:"Buying for someone" },
-    { key:"sellthesale",label:"⚡ Sell the Urgency", desc:"Create urgency to buy now" }
-  ];
-
-  var grid = document.createElement("div");
-  grid.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;";
-
-  options.forEach(function(opt) {
-    var btn = document.createElement("button");
-    btn.style.cssText = "flex:1;min-width:calc(50% - 4px);text-align:left;padding:12px 14px;border-radius:8px;cursor:pointer;" +
-      "font-family:'Instrument Sans',sans-serif;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);transition:all 0.15s;";
-    btn.innerHTML = "<div style='font-size:13px;font-weight:600;color:var(--white);margin-bottom:2px;'>" + opt.label + "</div>" +
-      "<div style='font-size:11px;color:var(--muted);'>" + opt.desc + "</div>";
-    btn.addEventListener("click", function() {
-      currentPrice = opt.key;
-      // Sync the main price selector if visible
-      var existingPS = document.getElementById("priceSelectorWrap");
-      if (existingPS) {
-        var freshPS = buildPriceSelector();
-        freshPS.id = "priceSelectorWrap";
-        existingPS.parentNode.replaceChild(freshPS, existingPS);
-      }
-      onSelected();
-    });
-    grid.appendChild(btn);
-  });
-
-  wrap.appendChild(grid);
-  mc.appendChild(wrap);
-}
-
 function renderBatchPicker() {
-  if (!currentPrice) { showInlinePricePicker(renderBatchPicker); return; }
+  if (!currentPrice) { showPriceModal(renderBatchPicker); return; }
   var mc = document.getElementById("mainContent");
   mc.innerHTML = "";
   var wrap = document.createElement("div");
@@ -4078,7 +4017,7 @@ function renderBatchAngleGrid(wrap, focuses) {
 }
 
 function renderFocusPicker() {
-  if (!currentPrice) { showInlinePricePicker(renderFocusPicker); return; }
+  if (!currentPrice) { showPriceModal(renderFocusPicker); return; }
   if (currentPrice === "sellthesale") { renderSellTheSale(); return; }
   // FIX 5: Do not reset currentFocus here -- preserves angle when navigating back
 
@@ -5034,11 +4973,45 @@ function renderBuilder(){
   wrap.appendChild(backNav);
 
   wrap.appendChild(buildProgressBar());
-  wrap.appendChild(buildStepPanel("hooks",1));
-  wrap.appendChild(buildStepPanel("body1",2));
-  wrap.appendChild(buildPrecloseStep(3));
-  wrap.appendChild(buildStepPanel("body2",4));
-  wrap.appendChild(buildStepPanel("cta",5));
+
+  // Build summary + panel pairs for each step
+  var steps = [
+    { key:"hooks",  num:1, label:"Hook" },
+    { key:"body1",  num:2, label:"Body 1" },
+    { key:"preclose",num:3,label:"Pre-close" },
+    { key:"body2",  num:4, label:"Body 2" },
+    { key:"cta",    num:5, label:"CTA" }
+  ];
+
+  steps.forEach(function(s) {
+    // Summary card (hidden until step is completed)
+    var summary = document.createElement("div");
+    summary.className = "step-summary";
+    summary.id = "summary-" + s.num;
+    summary.innerHTML =
+      "<div class='step-summary-check'>✓</div>" +
+      "<div style='flex:1;'>" +
+        "<div class='step-summary-label'>" + s.label + "</div>" +
+        "<div class='step-summary-text' id='summary-text-" + s.num + "'></div>" +
+      "</div>" +
+      "<button class='step-summary-edit' id='summary-edit-" + s.num + "'>Edit</button>";
+    (function(num) {
+      summary.querySelector(".step-summary-edit").addEventListener("click", function(e) {
+        e.stopPropagation();
+        expandStepForEdit(num);
+      });
+      summary.addEventListener("click", function() { expandStepForEdit(num); });
+    })(s.num);
+    wrap.appendChild(summary);
+
+    // Step panel
+    if (s.num === 3) {
+      wrap.appendChild(buildPrecloseStep(3));
+    } else {
+      wrap.appendChild(buildStepPanel(s.key, s.num));
+    }
+  });
+
   wrap.appendChild(buildDonePanel());
   mc.appendChild(wrap);
   showStep(1);
@@ -5074,18 +5047,75 @@ function updateProgressBar() {
   }
 }
 
-function showStep(num) {
+// Returns the selected text for a completed step summary
+function getStepSummaryText(num) {
+  if (num === 1) return picks.hook || "";
+  if (num === 2) return picks.body1 || "";
+  if (num === 3) return picks.preClose || picks.preclose || "";
+  if (num === 4) return picks.body2 || "";
+  if (num === 5) return picks.cta || "";
+  return "";
+}
+
+// Collapse a completed step to its summary card
+function collapseStep(num) {
+  var panel = document.getElementById("step-" + num);
+  if (panel) { panel.classList.remove("active"); }
+  var summary = document.getElementById("summary-" + num);
+  var summaryText = document.getElementById("summary-text-" + num);
+  if (summary && summaryText) {
+    var txt = getStepSummaryText(num);
+    if (txt) {
+      summaryText.textContent = txt;
+      summary.classList.add("visible");
+    }
+  }
+}
+
+// Re-expand a step so the creator can change their pick
+function expandStepForEdit(num) {
+  // Collapse the step being edited back to panel mode
+  var summary = document.getElementById("summary-" + num);
+  if (summary) summary.classList.remove("visible");
+  var panel = document.getElementById("step-" + num);
+  if (panel) panel.classList.add("active");
   wizardStep = num;
-  document.querySelectorAll(".step-panel").forEach(function(p){p.classList.remove("active");});
-  var panel = document.getElementById("step-"+num);
-  if(panel) panel.classList.add("active");
   updateProgressBar();
-  if(num===6){var dpc=document.getElementById("donePanelContent");if(dpc)updateDonePanel();}
-  if(num===1&&document.getElementById("grid-hooks"))rebuildGrid("hooks");
-  if(num===2&&document.getElementById("grid-body1"))rebuildGrid("body1");
-  if(num===4&&document.getElementById("grid-body2"))rebuildGrid("body2");
-  if(num===5&&document.getElementById("grid-cta"))rebuildGrid("cta");
-  try{window.scrollTo(0,0);}catch(e){}
+  // Scroll to the reopened step
+  setTimeout(function() {
+    var el = document.getElementById("step-" + num);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, 50);
+}
+
+function showStep(num) {
+  // Collapse all steps before this one that have picks
+  for (var i = 1; i < num; i++) {
+    collapseStep(i);
+  }
+  // Hide summary for the step being opened (it's expanded, not summarised)
+  var activeSummary = document.getElementById("summary-" + num);
+  if (activeSummary) activeSummary.classList.remove("visible");
+  // Hide all step panels, show only the active one
+  document.querySelectorAll(".step-panel").forEach(function(p) { p.classList.remove("active"); });
+  var panel = document.getElementById("step-" + num);
+  if (panel) panel.classList.add("active");
+  wizardStep = num;
+  updateProgressBar();
+  if (num === 6) { var dpc = document.getElementById("donePanelContent"); if (dpc) updateDonePanel(); }
+  if (num === 1 && document.getElementById("grid-hooks")) rebuildGrid("hooks");
+  if (num === 2 && document.getElementById("grid-body1")) rebuildGrid("body1");
+  if (num === 4 && document.getElementById("grid-body2")) rebuildGrid("body2");
+  if (num === 5 && document.getElementById("grid-cta")) rebuildGrid("cta");
+  // Scroll to active step
+  setTimeout(function() {
+    var target = document.getElementById("step-" + num);
+    if (num > 1 && target) {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    } else {
+      try { window.scrollTo(0, 0); } catch(e) {}
+    }
+  }, 80);
 }
 
 function buildStepPanel(key,stepNum) {
@@ -6764,6 +6794,80 @@ function showLoading(){document.getElementById("mainContent").innerHTML='<div cl
 
 function copyRaw(text){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).catch(function(){fallbackCopy(text);});}else{fallbackCopy(text);}}
 function fallbackCopy(text){var ta=document.createElement("textarea");ta.value=text;ta.style.cssText="position:fixed;opacity:0;top:0;left:0;";document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand("copy");}catch(e){}document.body.removeChild(ta);}
+function showPriceModal(onSelected) {
+  // Remove any existing modal
+  var existing = document.getElementById("priceModal");
+  if (existing) existing.remove();
+
+  var overlay = document.createElement("div");
+  overlay.id = "priceModal";
+  overlay.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;";
+
+  var box = document.createElement("div");
+  box.style.cssText = "background:var(--surface);border:1px solid rgba(200,168,74,0.4);border-radius:12px;padding:24px;width:100%;max-width:380px;";
+
+  var title = document.createElement("div");
+  title.style.cssText = "font-size:16px;font-weight:700;color:var(--white);margin-bottom:6px;";
+  title.textContent = "Select a price range to continue";
+
+  var sub = document.createElement("div");
+  sub.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.5;";
+  sub.textContent = "Price shapes the buyer psychology behind every line generated. Select one to continue.";
+
+  box.appendChild(title);
+  box.appendChild(sub);
+
+  var options = [
+    { key:"under25",    label:"Under $25",         desc:"Impulse buy" },
+    { key:"mid",        label:"$25 – $75",          desc:"Considered purchase" },
+    { key:"premium",    label:"$75 – $150",         desc:"Justified upgrade" },
+    { key:"luxury",     label:"$150+",              desc:"Aspirational" },
+    { key:"gift",       label:"🎁 Gift",            desc:"Buying for someone" },
+    { key:"sellthesale",label:"⚡ Sell the Urgency", desc:"Create urgency to buy now" }
+  ];
+
+  var grid = document.createElement("div");
+  grid.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;";
+
+  options.forEach(function(opt) {
+    var btn = document.createElement("button");
+    btn.style.cssText = "flex:1;min-width:calc(50% - 4px);text-align:left;padding:10px 12px;border-radius:8px;cursor:pointer;" +
+      "font-family:'Instrument Sans',sans-serif;border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.04);transition:all 0.15s;";
+    btn.innerHTML = "<div style='font-size:12px;font-weight:600;color:var(--white);margin-bottom:2px;'>" + opt.label + "</div>" +
+      "<div style='font-size:10px;color:var(--muted);'>" + opt.desc + "</div>";
+    btn.addEventListener("click", function() {
+      currentPrice = opt.key;
+      // Sync main price selector if visible
+      var existingPS = document.getElementById("priceSelectorWrap");
+      if (existingPS) {
+        var freshPS = buildPriceSelector();
+        freshPS.id = "priceSelectorWrap";
+        existingPS.parentNode.replaceChild(freshPS, existingPS);
+      }
+      // Sync hub price picker if visible
+      var hubTop = document.getElementById("hubPriceLblTop");
+      if (hubTop) {
+        hubTop.innerHTML = "Price range selected <span style='font-size:9px;padding:2px 7px;border-radius:999px;background:rgba(45,201,138,0.15);border:1px solid rgba(45,201,138,0.3);color:#2DC98A;'>READY</span>";
+        document.querySelectorAll(".hub-gen-btn").forEach(function(b) { b.style.opacity="1"; b.style.cursor="pointer"; });
+      }
+      overlay.remove();
+      if (onSelected) onSelected();
+    });
+    grid.appendChild(btn);
+  });
+
+  box.appendChild(grid);
+
+  var cancelBtn = document.createElement("button");
+  cancelBtn.style.cssText = "width:100%;margin-top:12px;background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;cursor:pointer;padding:8px;";
+  cancelBtn.textContent = "Cancel";
+  cancelBtn.addEventListener("click", function() { overlay.remove(); });
+  box.appendChild(cancelBtn);
+
+  overlay.appendChild(box);
+  document.body.appendChild(overlay);
+}
+
 function showToast(msg){var t=document.getElementById("toast");t.textContent=msg||"Done";t.classList.add("show");setTimeout(function(){t.classList.remove("show");},2000);}
 
 // Cmd+V paste on desktop
