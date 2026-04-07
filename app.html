@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.5.2";
+var APP_VERSION = "2.5.3";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -2291,13 +2291,37 @@ function generate() {
     } catch(e) {}
     // Show mode choice then angles
     if(loading.parentNode === wrap) wrap.removeChild(loading);
-    renderModeChoice(wrap, focuses);
+    if (focuses.length === 0) {
+      var retryMsg = document.createElement("div");
+      retryMsg.style.cssText = "padding:16px 0;";
+      retryMsg.innerHTML = "<div style='font-size:13px;color:var(--muted);margin-bottom:12px;'>Could not load angles -- tap to try again.</div>";
+      var retryBtn = document.createElement("button");
+      retryBtn.className = "next-btn";
+      retryBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white);";
+      retryBtn.textContent = "Try again";
+      retryBtn.addEventListener("click", function(){ generate(); });
+      retryMsg.appendChild(retryBtn);
+      wrap.appendChild(retryMsg);
+      btn.disabled = false; btn.style.background = "var(--red)";
+      btn.innerHTML = "🧠&nbsp; Generate Focus Angles";
+    } else {
+      renderModeChoice(wrap, focuses);
+    }
   })
   .catch(function() {
     btn.disabled = false; btn.style.background = "var(--red)";
     btn.innerHTML = "🧠&nbsp; Generate Focus Angles";
     if (loading.parentNode === wrap) wrap.removeChild(loading);
-    renderModeChoice(wrap, []);
+    var retryMsg2 = document.createElement("div");
+    retryMsg2.style.cssText = "padding:16px 0;";
+    retryMsg2.innerHTML = "<div style='font-size:13px;color:var(--muted);margin-bottom:12px;'>Something went wrong -- tap to try again.</div>";
+    var retryBtn2 = document.createElement("button");
+    retryBtn2.className = "next-btn";
+    retryBtn2.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white);";
+    retryBtn2.textContent = "Try again";
+    retryBtn2.addEventListener("click", function(){ generate(); });
+    retryMsg2.appendChild(retryBtn2);
+    wrap.appendChild(retryMsg2);
   });
 }
 
