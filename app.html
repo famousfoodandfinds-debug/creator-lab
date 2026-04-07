@@ -599,7 +599,7 @@ body.hub-mode #priceSelectorMount { display: none !important; }
   </div>
   <div class="product-bar">
     <div class="product-select-wrap">
-      <select id="productSelect" onchange="loadProductById(this.value)">
+      <select id="productSelect" onchange="loadProductById(this.value)" onclick="if(this.value && this.value===document.getElementById('productSelect').dataset.last){loadProductById(this.value);} document.getElementById('productSelect').dataset.last=this.value;">
         <option value="">-- Select a saved product --</option>
       </select>
       <div id="manageList" style="display:none;max-height:200px;overflow-y:auto;"></div>
@@ -704,7 +704,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.4.8";
+var APP_VERSION = "2.5.0";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1483,9 +1483,20 @@ function buildSelect() {
       var opt = document.createElement("option");
       opt.value = p.id;
       opt.textContent = p.name.length > 48 ? p.name.substring(0, 48) + "..." : p.name;
-      if (p.id === currentProductId) opt.selected = true;
+      if (p.id === currentProductId) {
+        opt.selected = true;
+        sel.dataset.last = p.id; // track so onclick can detect re-selection
+      }
       sel.appendChild(opt);
     });
+    // If a product is already loaded, show its hub
+    if (currentProductId && !document.body.classList.contains("hub-mode")) {
+      // Only auto-render if we have product data already loaded
+      if (currentProduct && allData && allData.hooks) {
+        document.body.classList.add("hub-mode");
+        renderProductHub();
+      }
+    }
   });
 }
 
@@ -1498,11 +1509,10 @@ function toggleSort() {
 
 function loadProductById(id) {
   if (!id || !currentUser) return;
-  showToast("Loading product...");
   setSyncing(true);
   sb.from("products").select("*").eq("id", id).single().then(function(result) {
     setSyncing(false);
-    if (result.error || !result.data) { showToast("Load error: " + (result.error ? result.error.message : "no data")); return; }
+    if (result.error || !result.data) return;
     currentProductId = result.data.id;
     currentProduct = result.data.description || result.data.name;
     allData = result.data.bank || {};
@@ -1528,7 +1538,6 @@ function loadProductById(id) {
     setBuyerMotivation(currentMotivation);
     currentProductName = result.data.name;
     resetPicks();
-    showToast("Rendering hub...");
     document.body.classList.add("hub-mode");
     renderProductHub();
   });
@@ -1752,14 +1761,8 @@ function renderProductHub() {
   mc.innerHTML = '<div class="loading-wrap"><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><div class="loading-title">Loading...</div></div>';
 
   loadScriptsForProduct(currentProductId, function(scripts) {
-    showToast("Building hub content...");
     mc.innerHTML = "";
     try {
-    // DIAGNOSTIC: render minimal test content first
-    var testDiv = document.createElement("div");
-    testDiv.style.cssText = "padding:20px;background:red;color:white;font-size:20px;";
-    testDiv.textContent = "Hub loaded: " + (currentProductName || "no name");
-    mc.appendChild(testDiv);
     var wrap = document.createElement("div");
     wrap.style.cssText = "padding:16px;";
 
