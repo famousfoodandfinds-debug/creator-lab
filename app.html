@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.6.4";
+var APP_VERSION = "2.6.5";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -3711,7 +3711,7 @@ function generateUrgencyScripts(type) {
       card.appendChild(thSection);
 
       (function(section, loading, scriptText) {
-        var screenPrompt = "You are writing text hooks for a TikTok Shop video. The creator will SPEAK this script: \"" + scriptText + "\" Write exactly 3 text hooks (under 6 words each) that appear on screen WHILE they speak. These must create a curiosity gap -- never restate what is spoken, never be generic. Use one mechanism per hook: (1) mild discomfort about their current situation, (2) surprising claim they did not know, (3) direct challenge to their behavior. Return ONLY valid JSON: {options:[3 strings]}";
+        var screenPrompt = "You are writing text hooks for a TikTok Shop urgency video about: " + currentProduct + ". The creator will SPEAK this script: \"" + scriptText + "\" Write exactly 3 text hooks (under 6 words each) that appear on screen WHILE they speak. CRITICAL RULE: Every text hook must reference something SPECIFIC to this product -- a color, a feature, a brand detail, or the specific reason urgency exists. NEVER write generic hooks that work for any product. Wrong: You're probably missing this. Nobody talks about this detail. Why aren't you doing this? Right (for Staub peony pink): peony pink is back in stock. Staub pricing won't stay here. this color always sells out first. Return ONLY valid JSON: {options:[3 strings]}";
         fetch("/api/claude", {
           method:"POST", headers:{"Content-Type":"application/json","x-user-id":(currentUser?currentUser.id:"")},
           body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:150,messages:[{role:"user",content:screenPrompt}]})
