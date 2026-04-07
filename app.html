@@ -4430,6 +4430,7 @@ function buildPriceSelector() {
     { key:"mid", label:"$25 - $75" },
     { key:"premium", label:"$75 - $150" },
     { key:"luxury", label:"$150+" },
+    { key:"gift", label:"🎁 Gift" },
     { key:"sellthesale", label:"⚡ Sell the Urgency" }
   ];
 
@@ -5682,10 +5683,16 @@ function updateDailyMeter() {
 
 function getPriceContext() {
   var ctx = {
-    under25: "PRICE TIER: Under $25 impulse buy. Script must be SHORT and PUNCHY -- maximum 2 sentences total including hook. Hook does all the work. CTA is immediate. No time to think, just tap. If it runs longer than 15 seconds when spoken it is too long.",
-    mid: "PRICE TIER: $25-75 considered buy. The viewer wants to feel like they discovered something smart. 1-2 body lines max. Medium pace. Pre-close should feel like a moment of honest reflection. CTA confident and clear.",
-    premium: "PRICE TIER: $75-150 justified buy. The viewer needs permission to spend and wants to feel rational about it. Fuller script. Use real specs from the description to justify the investment. Pre-close should dissolve hesitation. CTA gives them permission: if you have been thinking about it, now is the time.",
-    luxury: "PRICE TIER: $150+ aspirational buy. Script must feel elevated and deliberate. The viewer is buying who they are, not what the product does. Identity language dominates every line. Never pushy. Soft close. The CTA respects their intelligence -- it invites rather than pushes.",
+    under25: "PRICE TIER -- UNDER $25 -- IMPULSE: This buyer does not need to justify this purchase. They see it, they want it, done. The script must feel immediate and fun -- not a sales pitch, just a real person saying you need to see this. Hook creates instant want. Body delivers the one thing that seals it. Pre-close is light and almost playful -- nothing heavy at this price. CTA is direct and confident. Never explain value or justify cost. If it runs longer than 15 seconds when spoken it is too long.",
+
+    mid: "PRICE TIER -- $25-75 -- CONSIDERED: This buyer wants to feel smart about the purchase. They have been thinking about it or something like it. The hook names a specific frustration or desire they recognize immediately. Body shows them the thing that makes this one different from what they already have. Pre-close is a real honest moment -- slight hesitation that matches what someone at this price would actually feel. CTA is confident. They want permission to buy, not a hard sell.",
+
+    premium: "PRICE TIER -- $75-150 -- JUSTIFIED UPGRADE: This buyer has been living with good enough and finally hit their limit. They need to feel like this is the right decision, not an indulgence. The hook names the gap between what they have and what they want. Body gives them real specific reasons this is worth it -- not vague, actual details from the description. Pre-close matches the real hesitation: is this actually better or am I just spending money. CTA gives them clear permission: yes, this is the one.",
+
+    luxury: "PRICE TIER -- $150+ -- ASPIRATIONAL: This buyer is not solving a problem. They already have a solution. They are completing a vision of how their life looks and feels. Do NOT frame this as fixing something broken. Do NOT manufacture pain that does not exist. The hook names the gap in an otherwise complete picture -- something that does not match the rest of the life they have built. Every line speaks to identity and aspiration. The pre-close is about deserving it or finally giving themselves permission -- never about whether it works. CTA is a soft invitation, never a push. The product is the last piece of something they have been building.",
+
+    gift: "PURCHASE FRAME -- GIFT: The buyer is not buying for themselves. They are buying for the feeling of being the person who found the perfect thing. The hook speaks directly to the gift giver -- someone who has been looking for something that actually fits this person. Body shows why this is the one -- specific enough that it sounds personal, not generic. Pre-close is the moment they almost did not get it or almost went with something safer. Body 2 is the moment the recipient opens it and the giver feels like they got it exactly right. CTA speaks to the giver: be the one who found it. Never speak to the recipient directly.",
+
     sellthesale: "SELL THE URGENCY: Known brand. Do NOT educate. Do NOT say the price. Do NOT name the platform. Create urgency and get them to tap. Maximum 3 sentences."
   };
   return ctx[currentPrice] || ctx.mid;
