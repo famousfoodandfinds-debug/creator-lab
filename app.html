@@ -691,7 +691,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.3.3";
+var APP_VERSION = "2.3.4";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1496,6 +1496,15 @@ function loadProductById(id) {
     currentProductId = result.data.id;
     currentProduct = result.data.description || result.data.name;
     allData = result.data.bank || {};
+    // Reset price so each product requires a conscious price selection
+    currentPrice = null;
+    // Rebuild price selector to show unselected state
+    var existingPS = document.getElementById("priceSelectorWrap");
+    if (existingPS) {
+      var freshPS = buildPriceSelector();
+      freshPS.id = "priceSelectorWrap";
+      existingPS.parentNode.replaceChild(freshPS, existingPS);
+    }
     // Defensive defaults
     allData.hooks = allData.hooks || {};
     allData.body = allData.body || {};
@@ -1949,6 +1958,14 @@ document.getElementById("productInput").addEventListener("input", function() {
 function clearText() {
   document.getElementById("productInput").value = "";
   document.getElementById("charCount").textContent = "0";
+  // Reset price so the new product requires a fresh selection
+  currentPrice = null;
+  var existingPS = document.getElementById("priceSelectorWrap");
+  if (existingPS) {
+    var freshPS = buildPriceSelector();
+    freshPS.id = "priceSelectorWrap";
+    existingPS.parentNode.replaceChild(freshPS, existingPS);
+  }
 }
 
 function handleUpload(event) {
