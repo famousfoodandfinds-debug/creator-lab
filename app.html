@@ -764,6 +764,7 @@ var triggerDescriptions = {
   "Identity and aspiration": "Speak to who they are becoming",
   "Skepticism disarm": "Address the objection first",
   "Friction removal": "Make the decision feel easy",
+  "Sensory observation": "Let them feel it before they buy it",
   "Feature to feeling": "Connect features to emotions",
   "Quality proof": "One concrete reason to believe",
   "Simplicity and ease": "Show it is easier than they think",
@@ -810,6 +811,10 @@ var triggerPsychology = {
   "Friction removal": {
     why: "Every purchase has invisible friction -- the mental effort of deciding, the fear of wasting money, the hassle of returning. Hooks in this category dissolve that friction before it builds. Make the decision feel effortless.",
     example: "\"Took care of it in an afternoon\" eliminates the time and effort objection before the viewer forms it."
+  },
+  "Sensory observation": {
+    why: "The most underused hook type. Before a viewer can want a product they have to be able to feel it. A specific sound, texture, weight, or smell bypasses the analytical brain entirely and creates a visceral pull. The viewer does not evaluate the product -- they experience it before they buy it.",
+    example: "\"The satisfying clink of the bottle opener hitting the cap catcher\" makes the viewer feel the product in their hand before they see the price."
   },
   "Feature to feeling": {
     why: "Features are facts. Feelings are purchase decisions. This body line technique connects a specific product detail to an emotional payoff. The viewer does not buy the stainless steel -- they buy the feeling of having a clean counter.",
@@ -2913,76 +2918,210 @@ function generateScriptBank() {
   var priceLine = " " + getPriceContext();
   var voiceNote = getVoiceProfileNote();
 
-  var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend about something they found. Not an ad. Not a brand. A person." +
+  // ── CALL 1: Think through the product before writing anything ──
+  var thinkPrompt = "Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
+    " Product: " + product + ". Price: " + getPriceContext() + "." +
+    (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
+    (currentFocus ? " Buyer angle this script is targeting: " + currentFocus.focus + ". " + (currentFocus.description || "") + "." : "") +
+    " Answer these four questions in 2-3 sentences each:" +
+    " 1. WHO actually buys this? Not a demographic -- a specific person in a specific moment of their life. What does their day look like before they found this product?" +
+    " 2. WHAT do they already have? This is almost never someone's first solution. What are they upgrading from and why did that stop being enough?" +
+    " 3. WHAT is the one real differentiator? Not the feature list -- the single thing that makes someone who already has a solution want this one instead." +
+    " 4. EMOTIONAL FRAME: " + getPriceContext() + " This price frame overrides every angle. Even a Pain/Problem angle at $150+ is NOT about something broken -- it is about the one thing that does not yet match the life they have built. The price frame tells you how every single line must feel." +
+    " Write your thinking plainly. No headers. No bullet points. Just think out loud." +
+    " Return ONLY valid JSON: {who:string,already_have:string,differentiator:string,emotional_frame:string}";
 
-    (getBuyerMotivation() ? " CREATOR INSIGHT -- WHY PEOPLE BUY THIS (read this first): " + getBuyerMotivation() + " Let this shape every hook, body line, and pre-close. If the creator says this is an upgrade purchase, never position it as a solution to having nothing." : "") +
-    " Product: " + product + "." + focusLine + priceLine + voiceNote +
-
-    " THE ONLY TEST FOR EVERY LINE: Would I actually say this out loud to my best friend right now? If it sounds written, rewrite it until it sounds spoken." +
-
-    " HOOK RULES (hard limit: 12 words maximum -- count every word, if over 12 cut the second clause entirely): Name one specific experience the viewer is already having. MANDATORY CUT RULE: Find the AND, BUT, or SO in your hook. Delete everything after it. The hook ends at the tension. Never at the resolution. Wrong: You have been carrying the same bag since you bought it and wondering why nothing feels right. Right: You have been carrying the same bag since you bought it. Wrong: The cooler that needs tools before your first party is the cooler that sits in the garage. Right: That cooler has been in your garage for two summers. Count the words. If over 12 -- cut. BANNED: Never start with You are the person who. Never start with People who need this. Never start with I, My, I was." +
-
-    " DESIRED TRANSFORMATION HOOKS: Must open with the tension of not yet being that person -- the frustration of the gap. Wrong: The kind of person who always has the right gear. Right: Every round you show up wishing your setup felt more like you." +
-
-    " BODY LINE RULES (under 25 words each): Jump straight to the feeling. No cause-effect chains. No X means Y so you can Z. Text message version wins every time. Wrong: The removable panel means you can swap it out so it actually looks like yours. Right: The front panel detaches. Thirty seconds and it is completely different." +
-
-    " PRE-CLOSE RULES (one sentence, statement not question): One honest human moment. Private thought. Real hesitation. Stays awkward -- does not resolve into a lesson or justify the purchase. The moment a pre-close proves the purchase was smart it becomes a sales line. Wrong: I almost did not buy this but then I realized how much better my rounds would be. Right: I almost did not buy this. Full stop." +
-
-    " FAILURE MODE -- IDENTITY ANNOUNCEMENT: Never write: You become the person who. You are the person who. You are suddenly the person who. Describe the moment instead and let the viewer claim the identity. Wrong: You become the person who shows up with the right setup. Right: You walk up and your bag actually looks like you for once." +
-
-    " BANNED WORDS: price cost worth deal investment game-changer elevate transform engineered crafted vessel intentional-as-lifestyle we our link in bio check it out guys gals ladies boys girls men women." +
-
-    " Return JSON with the productName and these script option banks -- no CTAs needed, those are written separately:" +
-    " {productName:str," +
-    "hooks:{Worse alternative:[3],Desired transformation:[3],Curiosity loop:[3],Social proof:[3],Scarcity and FOMO:[3],Identity and aspiration:[3],Skepticism disarm:[3],Friction removal:[3]}," +
-    "body:{Feature to feeling:[3],Quality proof:[3],Simplicity and ease:[3],Value reframe:[3],Legacy and emotion:[3],Multi-use reveal:[3]}," +
-    "preClose:[4]," +
-    "seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
-
-  var controller = new AbortController();
-  var timeoutId = setTimeout(function() {
-    controller.abort();
-    showError("Request timed out. Please try again.");
-  }, 55000);
-
+  // ── CALL 1: Get product understanding first ──
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4500, messages: [{ role: "user", content: prompt }] }),
-    signal: controller.signal
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600,
+      messages: [{ role: "user", content: thinkPrompt }] })
   })
-  .then(function(r) { clearTimeout(timeoutId); return r.json(); })
-  .then(function(data) {
-    btn.disabled = false; btn.style.background = "var(--red)";
-    btn.innerHTML = "🧠&nbsp; Generate Focus Angles";
-    if (data.error) throw new Error(data.error.message);
-    var text = "";
-    data.content.forEach(function(b) { if (b.type === "text") text += b.text; });
-    var clean = text.replace(/```json|```/g, "").trim();
-    var parsed = JSON.parse(clean);
-    // Defensive defaults -- ensure all expected fields exist
-    // regardless of when this product was originally generated
-    allData = parsed || {};
-    allData.hooks = allData.hooks || {};
-    allData.body = allData.body || {};
-    allData.preClose = allData.preClose || allData.preclose || [];
-    allData.cta = allData.cta || {}; // old saved data may have this
-    allData.ctaLive = allData.ctaLive || {}; // new live-generated CTAs
-    allData.body2Live = allData.body2Live || {};
-    allData.seo = allData.seo || {};
-    allData.onScreenText = allData.onScreenText || [];
-    var pName = parsed.productName || currentProduct;
-    saveProduct(pName, parsed, function() {
-      generateOnScreenText(product, allData.hooks);
-      renderBuilder();
+  .then(function(r) { return r.json(); })
+  .then(function(thinkData) {
+    var understanding = {};
+    try {
+      var tt = ""; thinkData.content.forEach(function(b){ if(b.type==="text") tt+=b.text; });
+      understanding = JSON.parse(tt.replace(/```json|```/g,"").trim());
+    } catch(e) {}
+
+    var understandingNote = understanding.who ?
+      " PRODUCT UNDERSTANDING -- read this before writing a single word:" +
+      " WHO THIS BUYER IS: " + understanding.who +
+      " WHAT THEY ALREADY HAVE: " + understanding.already_have +
+      " THE REAL DIFFERENTIATOR: " + understanding.differentiator +
+      " EMOTIONAL FRAME FOR THIS PRICE: " + understanding.emotional_frame
+      : "";
+
+    // ── CALL 2: Write the full script bank from that understanding ──
+    var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend about something they found. Not an ad. Not a brand. A person." +
+
+      " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point." +
+
+      (getBuyerMotivation() ? " CREATOR INSIGHT -- WHY PEOPLE BUY THIS (read this first): " + getBuyerMotivation() + " Let this shape every hook, body line, and pre-close. If the creator says this is an upgrade purchase, never position it as a solution to having nothing." : "") +
+      " Product: " + product + "." + focusLine + priceLine + voiceNote +
+      understandingNote +
+
+      " THE ONLY TEST FOR EVERY LINE: Would I actually say this out loud to my best friend right now? If it sounds written, rewrite it until it sounds spoken." +
+
+      " HOOK RULES (hard limit: 12 words maximum): Name one specific experience the viewer is already having. Find the AND, BUT, or SO in your hook -- delete everything after it. The hook ends at the tension, never the resolution. Count the words. If over 12 -- cut. BANNED: Never start with You are the person who, People who need this, I, My, I was." +
+
+      " SENSORY OBSERVATION HOOKS -- the most underused type: Instead of naming a frustration, make the viewer FEEL the product before they buy it. Specific sounds, textures, weights, or moments of use. Example: The satisfying clink of the bottle opener hitting the cap catcher. Example: The lid clicks shut and you just know it is sealed. Example: The weight of it in your hand before the first pour. A good sensory hook makes the viewer reach for a product they can already feel." +
+
+      " DESIRED TRANSFORMATION HOOKS: Must open with the tension of not yet being that person -- the frustration of the gap. Wrong: The kind of person who always has the right gear. Right: Every round you show up wishing your setup felt more like you." +
+
+      " BODY LINE RULES (under 25 words each): Jump straight to the feeling. No cause-effect chains. No X means Y so you can Z. Text message version wins every time." +
+
+      " PRE-CLOSE RULES (one sentence, statement not question): One honest human moment. Private thought. Real hesitation. Stays awkward -- does not resolve into a lesson or justify the purchase." +
+
+      " FAILURE MODE -- IDENTITY ANNOUNCEMENT: Never write: You become the person who. You are the person who. Describe the moment instead." +
+
+      " GOLD STANDARD EXAMPLES -- these are the quality bar for every line you write:" +
+
+      " EXAMPLE 1 ($200 food storage, identity buyer):" +
+      " Hook: Your counters look amazing and then you open the fridge." +
+      " Body 1: Caraway glass with ceramic coating -- no staining, no smell, every lid has a match, and the caddies keep them stacked instead of falling out every time." +
+      " Pre-close: I kept putting this off because I felt ridiculous spending this much on food containers." +
+      " Body 2: You open the fridge now and it looks like the rest of your kitchen finally caught up." +
+      " WHY: Hook names a gap in an otherwise complete picture. Pre-close matches the real hesitation of a $200 buyer. Body 2 describes a feeling not a feature." +
+
+      " EXAMPLE 2 ($200 vacuum, functional upgrade buyer):" +
+      " Hook: You clean the vacuum more than it cleans your floors." +
+      " Body 1: The PowerFins nozzle is self-cleaning so pet hair never wraps around it. You just run it and put it away." +
+      " Pre-close: I kept telling myself the old one was fine because it technically still picked things up." +
+      " Body 2: You actually vacuum more because it stopped being the thing you dread doing." +
+      " WHY: Hook names something the viewer does without realizing it is absurd. Pre-close is the exact thought a $200 vacuum buyer has." +
+
+      " EXAMPLE 3 ($60 poncho, experiential lifestyle buyer):" +
+      " Hook: You never have to do the parking lot towel dance again." +
+      " Body 1: The fit is so oversized you can slip your whole suit off underneath it without showing anything. Turkish organic cotton, quick-dry, sand-resistant -- you are changed and walking to the car before anyone noticed." +
+      " Pre-close: I genuinely cannot believe I spent three summers doing the towel chin hold instead of just having this." +
+      " Body 2: You walk to the car dry, changed, and looking like someone who had a plan the whole time." +
+      " WHY: Hook names a specific embarrassing moment every beach person knows. Pre-close is self-deprecating and real." +
+
+      " EXAMPLE 4 ($40 wellness drink, emotional buyer):" +
+      " Hook: You do not feel bad exactly. You just do not feel like you." +
+      " Body 1: Nello Superbalance has adaptogens, magnesium, and Shatavari -- ingredients that work with your body's stress and mood pathways. One drink a day, tastes good, no prescription." +
+      " Pre-close: I kept telling myself this was just stress and I needed to push through it." +
+      " Body 2: Three weeks in and I remembered what it felt like to just be even. Not perfect. Just even." +
+      " WHY: Hook names a feeling she has not been able to articulate. Pre-close is the exact dismissal she has been telling herself." +
+
+      " EXAMPLE 5 ($75 laundry detergent, status and sensory buyer):" +
+      " Hook: Nobody knows why your clothes smell that good and you are not telling them." +
+      " Body 1: Fine fragrance detergent formulated for delicates and luxury fabrics -- phosphate free, gentle on lingerie and linens, and the scent stays through the whole day not just the first hour." +
+      " Pre-close: This is the kind of thing you find and quietly keep to yourself." +
+      " Body 2: Getting dressed becomes a whole experience instead of just getting ready." +
+      " WHY: Hook creates instant intrigue and identity. Pre-close confirms the exclusivity feeling. Body 2 elevates a mundane moment." +
+
+      " BANNED WORDS: price cost worth deal investment game-changer elevate transform engineered crafted vessel intentional-as-lifestyle we our link in bio check it out guys gals ladies boys girls men women." +
+
+      " Return JSON with the productName and these script option banks -- no CTAs needed, those are written separately:" +
+      " {productName:str," +
+      "hooks:{\"Worse alternative\":[3],\"Desired transformation\":[3],\"Curiosity loop\":[3],\"Social proof\":[3],\"Scarcity and FOMO\":[3],\"Identity and aspiration\":[3],\"Skepticism disarm\":[3],\"Friction removal\":[3],\"Sensory observation\":[3]}," +
+      "body:{\"Feature to feeling\":[3],\"Quality proof\":[3],\"Simplicity and ease\":[3],\"Value reframe\":[3],\"Legacy and emotion\":[3],\"Multi-use reveal\":[3]}," +
+      "preClose:[4]," +
+      "seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
+
+    var controller = new AbortController();
+    var timeoutId = setTimeout(function() {
+      controller.abort();
+      showError("Request timed out. Please try again.");
+    }, 55000);
+
+    fetch("/api/claude", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4500, messages: [{ role: "user", content: prompt }] }),
+      signal: controller.signal
+    })
+    .then(function(r) { clearTimeout(timeoutId); return r.json(); })
+    .then(function(data) {
+      btn.disabled = false; btn.style.background = "var(--red)";
+      btn.innerHTML = "🧠&nbsp; Generate Focus Angles";
+      if (data.error) throw new Error(data.error.message);
+      var text = "";
+      data.content.forEach(function(b) { if (b.type === "text") text += b.text; });
+      var clean = text.replace(/```json|```/g, "").trim();
+      var parsed = JSON.parse(clean);
+      allData = parsed || {};
+      allData.hooks = allData.hooks || {};
+      allData.body = allData.body || {};
+      allData.preClose = allData.preClose || allData.preclose || [];
+      allData.cta = allData.cta || {};
+      allData.ctaLive = allData.ctaLive || {};
+      allData.body2Live = allData.body2Live || {};
+      allData.seo = allData.seo || {};
+      allData.onScreenText = allData.onScreenText || [];
+      var pName = parsed.productName || currentProduct;
+      saveProduct(pName, parsed, function() {
+        generateOnScreenText(product, allData.hooks);
+        renderBuilder();
+      });
+    })
+    .catch(function(err) {
+      clearTimeout(timeoutId);
+      logError("curated_script_bank", err, { product: currentProduct });
+      btn.disabled = false; btn.style.background = "var(--red)";
+      btn.innerHTML = "🧠&nbsp; Generate Focus Angles";
+      var mc = document.getElementById("mainContent");
+      if (mc) mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:14px;'>Something went wrong: " + (err.message || "Please try again") + "</div>";
     });
   })
-  .catch(function(err) {
-    logError("curated_script_bank", err, { product: currentProduct });
-    btn.disabled = false; btn.style.background = "var(--red)";
-    btn.innerHTML = "🧠&nbsp; Generate Focus Angles";
-    var mc = document.getElementById("mainContent");
-    if (mc) mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:14px;'>Something went wrong: " + (err.message || "Please try again") + "</div>";
+  .catch(function() {
+    // Call 1 failed -- fall through to write without product understanding
+    var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend." +
+      " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
+      (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
+      " Product: " + product + "." + focusLine + priceLine + voiceNote +
+      " HOOK RULES (12 words max): One specific experience. No AND or BUT. Never: You are the person who, I, My." +
+      " SENSORY OBSERVATION HOOKS: Make the viewer feel the product -- sounds, textures, moments of use. Example: The satisfying clink of the bottle opener hitting the cap catcher." +
+      " BODY RULES (under 25 words): Jump to the feeling. No cause-effect chains." +
+      " PRE-CLOSE: One honest awkward human moment. Never resolves into a lesson." +
+      " BANNED: price cost worth deal game-changer you become the person who." +
+      " Return JSON: {productName:str,hooks:{\"Worse alternative\":[3],\"Desired transformation\":[3],\"Curiosity loop\":[3],\"Social proof\":[3],\"Scarcity and FOMO\":[3],\"Identity and aspiration\":[3],\"Skepticism disarm\":[3],\"Friction removal\":[3],\"Sensory observation\":[3]},body:{\"Feature to feeling\":[3],\"Quality proof\":[3],\"Simplicity and ease\":[3],\"Value reframe\":[3],\"Legacy and emotion\":[3],\"Multi-use reveal\":[3]},preClose:[4],seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
+
+    var controller2 = new AbortController();
+    var timeoutId2 = setTimeout(function() { controller2.abort(); showError("Request timed out. Please try again."); }, 55000);
+
+    fetch("/api/claude", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4500, messages: [{ role: "user", content: prompt }] }),
+      signal: controller2.signal
+    })
+    .then(function(r) { clearTimeout(timeoutId2); return r.json(); })
+    .then(function(data) {
+      btn.disabled = false; btn.style.background = "var(--red)";
+      btn.innerHTML = "🧠&nbsp; Generate Focus Angles";
+      if (data.error) throw new Error(data.error.message);
+      var text = "";
+      data.content.forEach(function(b) { if (b.type === "text") text += b.text; });
+      var clean = text.replace(/```json|```/g, "").trim();
+      var parsed = JSON.parse(clean);
+      allData = parsed || {};
+      allData.hooks = allData.hooks || {};
+      allData.body = allData.body || {};
+      allData.preClose = allData.preClose || allData.preclose || [];
+      allData.cta = allData.cta || {};
+      allData.ctaLive = allData.ctaLive || {};
+      allData.body2Live = allData.body2Live || {};
+      allData.seo = allData.seo || {};
+      allData.onScreenText = allData.onScreenText || [];
+      var pName = parsed.productName || currentProduct;
+      saveProduct(pName, parsed, function() {
+        generateOnScreenText(product, allData.hooks);
+        renderBuilder();
+      });
+    })
+    .catch(function(err) {
+      clearTimeout(timeoutId2);
+      logError("curated_script_bank", err, { product: currentProduct });
+      btn.disabled = false; btn.style.background = "var(--red)";
+      btn.innerHTML = "🧠&nbsp; Generate Focus Angles";
+      var mc = document.getElementById("mainContent");
+      if (mc) mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:14px;'>Something went wrong: " + (err.message || "Please try again") + "</div>";
+    });
   });
 }
 
@@ -4765,7 +4904,7 @@ function buildTriggerCard(cat,lines,catTags,catScreens,sectionKey) {
     var scrollTagMap={
       "Worse alternative":"Pattern interrupt","Desired transformation":"Transformation","Curiosity loop":"Curiosity gap",
       "Social proof":"Social proof","Scarcity and FOMO":"Urgency","Identity and aspiration":"Identity",
-      "Skepticism disarm":"Objection handler","Friction removal":"Ease close",
+      "Skepticism disarm":"Objection handler","Friction removal":"Ease close","Sensory observation":"Visceral pull",
       "Feature to feeling":"Emotional bridge","Quality proof":"Credibility","Simplicity and ease":"Low effort",
       "Value reframe":"Value anchor","Legacy and emotion":"Emotional pull","Multi-use reveal":"Versatility",
       "Scarcity":"Urgency close","Price anchor":"Value close","Soft close":"Gentle nudge",
