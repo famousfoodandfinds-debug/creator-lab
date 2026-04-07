@@ -620,8 +620,8 @@ textarea::placeholder { color: var(--muted2); }
       <span class="char-ct"><span id="charCount">0</span>/1000</span>
       <button class="clr-btn" onclick="clearText()">Clear</button>
     </div>
-    <div class="panel-lbl" style="margin-top:12px;color:var(--muted);">Why do people really buy this?</div>
-    <textarea id="buyerMotivation" placeholder="Why do you think people purchase this? The more honest you are here the better your scripts. Think: what are they upgrading from, what is the real reason they want it, what would they tell a friend. If left blank scripts will be generated from the product description alone and may feel more generic." maxlength="500" style="min-height:72px;-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;"></textarea>
+    <div class="panel-lbl" style="margin-top:12px;color:var(--muted);">What would the buyer say to a friend the day after getting this?</div>
+    <textarea id="buyerMotivation" placeholder="What would this buyer say to a friend the day after they get this? Even one sentence helps. (Optional -- if left blank the tool will work harder to find the insight on its own)" maxlength="500" style="min-height:72px;-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;"></textarea>
     <div class="panel-foot" style="margin-top:4px;">
       <span class="char-ct"><span id="motivationCount">0</span>/500</span>
     </div>
@@ -691,7 +691,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.3.4";
+var APP_VERSION = "2.3.5";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1803,8 +1803,8 @@ function renderProductHub() {
       var existing = document.getElementById("motivationEditWrapTop");
       if(existing) { existing.remove(); return; }
       var mw = document.createElement("div"); mw.id = "motivationEditWrapTop"; mw.style.cssText = "margin-top:8px;background:var(--surface2);border:1px solid rgba(144,144,240,0.3);border-radius:var(--radius-sm);padding:14px;";
-      var ml = document.createElement("div"); ml.style.cssText = "font-size:11px;color:var(--purple);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;"; ml.textContent = "Why do people really buy this?";
-      var mi = document.createElement("textarea"); mi.style.cssText = "width:100%;min-height:80px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-xs);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px 12px;outline:none;box-sizing:border-box;line-height:1.5;resize:vertical;"; mi.placeholder = "Why do you think people purchase this? What are they upgrading from, what is the real reason they want it."; mi.maxLength = 500; mi.value = currentMotivation || "";
+      var ml = document.createElement("div"); ml.style.cssText = "font-size:11px;color:var(--purple);font-weight:600;letter-spacing:0.08em;text-transform:uppercase;margin-bottom:8px;"; ml.textContent = "What would the buyer say to a friend the day after getting this?";
+      var mi = document.createElement("textarea"); mi.style.cssText = "width:100%;min-height:80px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-xs);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px 12px;outline:none;box-sizing:border-box;line-height:1.5;resize:vertical;"; mi.placeholder = "What would this buyer say to a friend the day after they get this? Even one sentence helps."; mi.maxLength = 500; mi.value = currentMotivation || "";
       var ms = document.createElement("button"); ms.className = "next-btn"; ms.style.cssText = "margin-top:8px;background:linear-gradient(135deg,rgba(144,144,240,0.3),rgba(144,144,240,0.15));border:1px solid rgba(144,144,240,0.4);color:var(--purple);font-weight:600;"; ms.textContent = "Save";
       ms.addEventListener("click", function() {
         var val = mi.value.trim(); currentMotivation = val;
@@ -2436,8 +2436,8 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     " 2. WHAT do they already have? This is almost never someone's first solution. What are they upgrading from and why did that stop being enough?" +
     " 3. WHAT is the one real differentiator? Not the feature list -- the single thing that makes someone who already has a solution want this one instead." +
     " 4. EMOTIONAL FRAME: " + getPriceContext() + " This price frame overrides every angle. Even a Pain/Problem angle at $150+ is NOT about something broken -- it is about the one thing that does not yet match the life they have built. Even a Convenience angle at $150+ is not about saving time -- it is about everything working the way someone at this level expects it to. The price frame tells you how every single line must feel, regardless of angle." +
-    " Write your thinking plainly. No headers. No bullet points. Just think out loud." +
-    " Return ONLY valid JSON: {who:string, already_have:string, differentiator:string, emotional_frame:string}";
+    " 5. CULTURAL MOMENT: What is the one thing everyone in this product's world just accepts and works around -- the shared frustration nobody questions because it is just how it is? This is where the best hooks live. A golf drink dispenser: golfers wait on the cart girl. A beach poncho: everyone does the parking lot towel change. A food storage set: everyone's fridge looks like chaos no matter how nice the kitchen is. Find the equivalent for this product and state it in one plain sentence the way a real person would say it. Write your thinking plainly. No headers. No bullet points. Just think out loud." +
+    " Return ONLY valid JSON: {who:string, already_have:string, differentiator:string, emotional_frame:string, cultural_moment:string}";
 
   // ── CALL 1: Get product understanding first ──
   fetch("/api/claude", {
@@ -2459,7 +2459,8 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
       " WHO THIS BUYER IS: " + understanding.who +
       " WHAT THEY ALREADY HAVE: " + understanding.already_have +
       " THE REAL DIFFERENTIATOR: " + understanding.differentiator +
-      " EMOTIONAL FRAME FOR THIS PRICE: " + understanding.emotional_frame
+      " EMOTIONAL FRAME FOR THIS PRICE: " + understanding.emotional_frame +
+      (understanding.cultural_moment ? " CULTURAL MOMENT -- this is where the best hook for this product lives. At least one hook must open with this shared experience that everyone in this world knows: " + understanding.cultural_moment : "")
       : "";
 
     // ── CALL 2: Write scripts from that understanding ──
@@ -3065,8 +3066,8 @@ function generateScriptBank() {
     " 2. WHAT do they already have? This is almost never someone's first solution. What are they upgrading from and why did that stop being enough?" +
     " 3. WHAT is the one real differentiator? Not the feature list -- the single thing that makes someone who already has a solution want this one instead." +
     " 4. EMOTIONAL FRAME: " + getPriceContext() + " This price frame overrides every angle. Even a Pain/Problem angle at $150+ is NOT about something broken -- it is about the one thing that does not yet match the life they have built. The price frame tells you how every single line must feel." +
-    " Write your thinking plainly. No headers. No bullet points. Just think out loud." +
-    " Return ONLY valid JSON: {who:string,already_have:string,differentiator:string,emotional_frame:string}";
+    " 5. CULTURAL MOMENT: What is the one thing everyone in this product's world just accepts and works around -- the shared frustration nobody questions because it is just how it is? This is where the best hooks live. A golf drink dispenser: golfers wait on the cart girl. A beach poncho: everyone does the parking lot towel change. A food storage set: everyone's fridge looks like chaos no matter how nice the kitchen is. Find the equivalent for this product and state it in one plain sentence the way a real person would say it. Write your thinking plainly. No headers. No bullet points. Just think out loud." +
+    " Return ONLY valid JSON: {who:string,already_have:string,differentiator:string,emotional_frame:string,cultural_moment:string}";
 
   // ── CALL 1: Get product understanding first ──
   fetch("/api/claude", {
@@ -3088,7 +3089,8 @@ function generateScriptBank() {
       " WHO THIS BUYER IS: " + understanding.who +
       " WHAT THEY ALREADY HAVE: " + understanding.already_have +
       " THE REAL DIFFERENTIATOR: " + understanding.differentiator +
-      " EMOTIONAL FRAME FOR THIS PRICE: " + understanding.emotional_frame
+      " EMOTIONAL FRAME FOR THIS PRICE: " + understanding.emotional_frame +
+      (understanding.cultural_moment ? " CULTURAL MOMENT -- this is where the best hook for this product lives. At least one hook must open with this shared experience that everyone in this world knows: " + understanding.cultural_moment : "")
       : "";
 
     // ── CALL 2: Write the full script bank from that understanding ──
