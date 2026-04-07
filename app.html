@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.6.5";
+var APP_VERSION = "2.6.6";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -3267,7 +3267,7 @@ function generateScriptBank() {
       var text = "";
       data.content.forEach(function(b) { if (b.type === "text") text += b.text; });
       var clean = text.replace(/```json|```/g, "").trim();
-      var parsed = JSON.parse(clean);
+      var parsed = JSON.parse(clean); console.log("Bank keys:", Object.keys(parsed), "hook keys:", Object.keys(parsed.hooks||{}));
       allData = parsed || {};
       allData.hooks = allData.hooks || {};
       allData.body = allData.body || {};
