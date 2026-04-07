@@ -691,7 +691,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.3.7";
+var APP_VERSION = "2.3.8";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1919,24 +1919,30 @@ function renderProductHub() {
 
     var curatedBtn = document.createElement("button");
     curatedBtn.className = "next-btn hub-gen-btn";
-    curatedBtn.disabled = true;
-    curatedBtn.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;opacity:0.4;cursor:not-allowed;";
+    curatedBtn.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;opacity:0.45;cursor:pointer;";
     curatedBtn.innerHTML = "🎯 &nbsp;Curated Script &nbsp;<span style='font-weight:400;font-size:12px;'>-- build one script step by step</span>";
-    curatedBtn.onclick = function() { if(currentPrice) { resetPicks(); renderFocusPicker(); } };
+    curatedBtn.onclick = function() {
+      if (!currentPrice) { showToast("Select a price range above first"); var pw = document.getElementById("hubPriceLblTop"); if(pw) pw.scrollIntoView({behavior:"smooth",block:"center"}); return; }
+      resetPicks(); renderFocusPicker();
+    };
 
     var batchBtn = document.createElement("button");
     batchBtn.className = "next-btn hub-gen-btn";
-    batchBtn.disabled = true;
-    batchBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(192,192,192,0.3);color:var(--silver-bright);font-weight:600;opacity:0.4;cursor:not-allowed;";
+    batchBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(192,192,192,0.3);color:var(--silver-bright);font-weight:600;opacity:0.45;cursor:pointer;";
     batchBtn.innerHTML = "⚡ &nbsp;Batch Scripts &nbsp;<span style='font-weight:400;font-size:12px;'>-- generate 5 scripts at once</span>";
-    batchBtn.onclick = function() { if(currentPrice) { resetPicks(); renderBatchPicker(); } };
+    batchBtn.onclick = function() {
+      if (!currentPrice) { showToast("Select a price range above first"); var pw = document.getElementById("hubPriceLblTop"); if(pw) pw.scrollIntoView({behavior:"smooth",block:"center"}); return; }
+      resetPicks(); renderBatchPicker();
+    };
 
     var skitBtn = document.createElement("button");
     skitBtn.className = "next-btn hub-gen-btn";
-    skitBtn.disabled = true;
-    skitBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(160,160,192,0.4);color:var(--purple);font-weight:600;opacity:0.4;cursor:not-allowed;";
+    skitBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(160,160,192,0.4);color:var(--purple);font-weight:600;opacity:0.45;cursor:pointer;";
     skitBtn.innerHTML = "🎭 &nbsp;Skit Script &nbsp;<span style='font-weight:400;font-size:12px;'>-- two-person dialogue script</span>";
-    skitBtn.onclick = function() { if(currentPrice) { renderSkitMode(); } };
+    skitBtn.onclick = function() {
+      if (!currentPrice) { showToast("Select a price range above first"); var pw = document.getElementById("hubPriceLblTop"); if(pw) pw.scrollIntoView({behavior:"smooth",block:"center"}); return; }
+      renderSkitMode();
+    };
 
     wrap.appendChild(curatedBtn);
     wrap.appendChild(batchBtn);
