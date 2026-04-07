@@ -691,7 +691,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.3.6";
+var APP_VERSION = "2.3.7";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1766,6 +1766,56 @@ function renderProductHub() {
     heading.textContent = currentProduct;
     wrap.appendChild(heading);
 
+    // ── Price picker -- first thing, always required ──
+    currentPrice = null;
+    var hubPriceTopWrap = document.createElement("div");
+    hubPriceTopWrap.style.cssText = "margin-bottom:20px;padding:14px;background:rgba(200,168,74,0.06);border:1px solid rgba(200,168,74,0.25);border-radius:8px;";
+    var hubPriceTopLbl = document.createElement("div");
+    hubPriceTopLbl.id = "hubPriceLblTop";
+    hubPriceTopLbl.style.cssText = "font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--gold);margin-bottom:10px;";
+    hubPriceTopLbl.innerHTML = "Step 1 &nbsp;&mdash;&nbsp; Select price range <span style='font-size:9px;padding:2px 7px;border-radius:999px;background:rgba(200,168,74,0.15);border:1px solid rgba(200,168,74,0.3);'>REQUIRED</span>";
+    hubPriceTopWrap.appendChild(hubPriceTopLbl);
+    var hubPriceTopGrid = document.createElement("div");
+    hubPriceTopGrid.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;";
+    var hubPriceTopOptions = [
+      { key:"under25", label:"Under $25", desc:"Impulse" },
+      { key:"mid", label:"$25 – $75", desc:"Considered" },
+      { key:"premium", label:"$75 – $150", desc:"Upgrade" },
+      { key:"luxury", label:"$150+", desc:"Aspirational" },
+      { key:"gift", label:"🎁 Gift", desc:"For someone" },
+      { key:"sellthesale", label:"⚡ Urgency", desc:"Buy now" }
+    ];
+    hubPriceTopOptions.forEach(function(opt) {
+      var pbtn = document.createElement("button");
+      pbtn.style.cssText = "flex:1;min-width:calc(33% - 4px);text-align:left;padding:8px 10px;border-radius:6px;cursor:pointer;" +
+        "font-family:'Instrument Sans',sans-serif;border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);transition:all 0.15s;";
+      pbtn.innerHTML = "<div style='font-size:11px;font-weight:600;color:var(--white);'>" + opt.label + "</div>" +
+        "<div style='font-size:10px;color:var(--muted);'>" + opt.desc + "</div>";
+      (function(k, el) {
+        el.addEventListener("click", function() {
+          currentPrice = k;
+          hubPriceTopGrid.querySelectorAll("button").forEach(function(b) {
+            b.style.borderColor = "rgba(255,255,255,0.1)";
+            b.style.background = "rgba(255,255,255,0.03)";
+          });
+          el.style.borderColor = "var(--red)";
+          el.style.background = "var(--red-dim)";
+          hubPriceTopLbl.innerHTML = "Price range selected <span style='font-size:9px;padding:2px 7px;border-radius:999px;background:rgba(45,201,138,0.15);border:1px solid rgba(45,201,138,0.3);color:#2DC98A;'>READY</span>";
+          hubPriceTopWrap.style.borderColor = "rgba(45,201,138,0.25)";
+          hubPriceTopWrap.style.background = "rgba(45,201,138,0.04)";
+          // Enable generate buttons
+          document.querySelectorAll(".hub-gen-btn").forEach(function(b) {
+            b.disabled = false;
+            b.style.opacity = "1";
+            b.style.cursor = "pointer";
+          });
+        });
+      })(opt.key, pbtn);
+      hubPriceTopGrid.appendChild(pbtn);
+    });
+    hubPriceTopWrap.appendChild(hubPriceTopGrid);
+    wrap.appendChild(hubPriceTopWrap);
+
     // Product info section -- right under the product name
     var productInfoLblTop = document.createElement("div");
     productInfoLblTop.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);padding:8px 0 8px;";
@@ -1862,39 +1912,34 @@ function renderProductHub() {
     }
 
 
-    var buildLbl
     var buildLbl = document.createElement("div");
     buildLbl.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);padding:16px 0 8px;";
     buildLbl.textContent = "Build more scripts";
     wrap.appendChild(buildLbl);
 
     var curatedBtn = document.createElement("button");
-    curatedBtn.className = "next-btn";
-    curatedBtn.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;";
+    curatedBtn.className = "next-btn hub-gen-btn";
+    curatedBtn.disabled = true;
+    curatedBtn.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;opacity:0.4;cursor:not-allowed;";
     curatedBtn.innerHTML = "🎯 &nbsp;Curated Script &nbsp;<span style='font-weight:400;font-size:12px;'>-- build one script step by step</span>";
-    curatedBtn.addEventListener("click", function() {
-      resetPicks();
-      renderFocusPicker();
-    });
-    wrap.appendChild(curatedBtn);
+    curatedBtn.onclick = function() { if(currentPrice) { resetPicks(); renderFocusPicker(); } };
 
     var batchBtn = document.createElement("button");
-    batchBtn.className = "next-btn";
-    batchBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(192,192,192,0.3);color:var(--silver-bright);font-weight:600;";
+    batchBtn.className = "next-btn hub-gen-btn";
+    batchBtn.disabled = true;
+    batchBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(192,192,192,0.3);color:var(--silver-bright);font-weight:600;opacity:0.4;cursor:not-allowed;";
     batchBtn.innerHTML = "⚡ &nbsp;Batch Scripts &nbsp;<span style='font-weight:400;font-size:12px;'>-- generate 5 scripts at once</span>";
-    batchBtn.addEventListener("click", function() {
-      resetPicks();
-      renderBatchPicker();
-    });
+    batchBtn.onclick = function() { if(currentPrice) { resetPicks(); renderBatchPicker(); } };
 
-    wrap.appendChild(batchBtn);
-
-    // FIX 2: Skit Script button
     var skitBtn = document.createElement("button");
-    skitBtn.className = "next-btn";
-    skitBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(160,160,192,0.4);color:var(--purple);font-weight:600;";
+    skitBtn.className = "next-btn hub-gen-btn";
+    skitBtn.disabled = true;
+    skitBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(160,160,192,0.4);color:var(--purple);font-weight:600;opacity:0.4;cursor:not-allowed;";
     skitBtn.innerHTML = "🎭 &nbsp;Skit Script &nbsp;<span style='font-weight:400;font-size:12px;'>-- two-person dialogue script</span>";
-    skitBtn.addEventListener("click", function() { renderSkitMode(); });
+    skitBtn.onclick = function() { if(currentPrice) { renderSkitMode(); } };
+
+    wrap.appendChild(curatedBtn);
+    wrap.appendChild(batchBtn);
     wrap.appendChild(skitBtn);
 
 
