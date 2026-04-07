@@ -1547,7 +1547,7 @@ function saveProduct(name, bank, callback) {
         currentProductId = check.data.id;
         sb.from("products").update(payload).eq("id", currentProductId).select().single().then(function(result) {
           setSyncing(false);
-          if (result.error) { showToast("Save error: " + result.error.message); return; }
+          if (result.error) { showToast("Save error: " + result.error.message); if (callback) callback(); return; }
           currentProductId = result.data.id;
           currentProduct = result.data.name;
           buildSelect();
@@ -1557,7 +1557,7 @@ function saveProduct(name, bank, callback) {
         // New product -- insert
         sb.from("products").insert(payload).select().single().then(function(result) {
           setSyncing(false);
-          if (result.error) { showToast("Save error: " + result.error.message); return; }
+          if (result.error) { showToast("Save error: " + result.error.message); if (callback) callback(); return; }
           currentProductId = result.data.id;
           currentProduct = result.data.name;
           buildSelect();
@@ -1569,7 +1569,7 @@ function saveProduct(name, bank, callback) {
   }
   promise.then(function(result) {
     setSyncing(false);
-    if (result.error) { showToast("Save error: " + result.error.message); return; }
+    if (result.error) { showToast("Save error: " + result.error.message); if (callback) callback(); return; }
     currentProductId = result.data.id;
     currentProduct = result.data.name;
     buildSelect();
@@ -2121,7 +2121,18 @@ function generateOnScreenText(productDesc, hooks) {
 function generate() {
   var product = document.getElementById("productInput").value.trim();
   if (!product) { showToast("Add a product description first"); document.getElementById("productInput").focus(); return; }
-  if (!currentPrice) { showToast("Select a price range first"); return; }
+  if (!currentPrice) {
+    showToast("Select a price range first");
+    var pw = document.getElementById("priceSelectorWrap");
+    if (pw) {
+      pw.scrollIntoView({ behavior: "smooth", block: "center" });
+      pw.style.transition = "outline 0.1s";
+      pw.style.outline = "2px solid var(--gold)";
+      pw.style.borderRadius = "8px";
+      setTimeout(function(){ pw.style.outline = "none"; }, 1500);
+    }
+    return;
+  }
   // Capture motivation NOW before inputSection gets hidden
   currentMotivation = getBuyerMotivation();
 
