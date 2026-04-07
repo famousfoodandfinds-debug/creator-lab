@@ -683,6 +683,7 @@ var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 var currentUser = null;
 var currentProductId = null;
 var currentProduct = "";
+var currentProductName = ""; // display name only -- currentProduct holds the full description
 var allData = {};
 var sortMode = "alpha";
 var onboardingDone = false;
@@ -697,7 +698,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.4.0";
+var APP_VERSION = "2.4.1";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1522,9 +1523,12 @@ function loadProductById(id) {
     allData.onScreenText = allData.onScreenText || [];
     currentMotivation = result.data.motivation || "";
     setBuyerMotivation(currentMotivation);
+    currentProductName = result.data.name; // keep name separate for display
     resetPicks();
     document.getElementById("inputSection").style.display = "none";
     document.getElementById("genBtn").style.display = "none";
+    var pw = document.getElementById("priceWrap");
+    if (pw) pw.style.display = "none";
 
     // Auto-regenerate if bank was saved under an older prompt version
     var savedVersion = allData._promptVersion || "0";
@@ -1769,7 +1773,7 @@ function renderProductHub() {
 
     var heading = document.createElement("div");
     heading.className = "step-heading";
-    heading.textContent = currentProduct;
+    heading.textContent = currentProductName || currentProduct.slice(0, 60);
     wrap.appendChild(heading);
 
     // ── Price picker -- first thing, always required ──
@@ -1973,6 +1977,7 @@ function renderProductHub() {
         buildSelect();
         document.getElementById("inputSection").style.display = "block";
         document.getElementById("genBtn").style.display = "block";
+        var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block";
         mc.innerHTML = '<div class="state-box"><div class="state-icon">✨</div><div class="state-title">Product deleted</div><div class="state-desc">Select another product or generate a new one.</div></div>';
         showToast("Product deleted");
       });
@@ -2035,6 +2040,7 @@ function handleUpload(event) {
   document.getElementById("imgPreviewWrap").style.display = "block";
   document.getElementById("inputSection").style.display = "block";
   document.getElementById("genBtn").style.display = "block";
+  var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block";
   document.getElementById("imgThumb").src = "";
   document.getElementById("imgName").textContent = files.length + " screenshot" + (files.length > 1 ? "s" : "") + " selected";
   var total = files.length;
@@ -2138,6 +2144,7 @@ function showNew() {
   document.getElementById("productSelect").value = "";
   document.getElementById("inputSection").style.display = "block";
   document.getElementById("genBtn").style.display = "block";
+  var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block";
   document.getElementById("productInput").value = "";
   document.getElementById("charCount").textContent = "0";
   currentMotivation = "";
@@ -2238,6 +2245,7 @@ function generate() {
   btn.disabled = true; btn.style.background = "var(--muted2)";
   btn.innerHTML = "&#8987;&nbsp; Finding angles...";
   currentProduct = product;
+  currentProductName = product.split('.')[0].slice(0, 60).trim();
   resetPicks();
 
   var mc = document.getElementById("mainContent");
@@ -4505,6 +4513,7 @@ function renderOnboarding() {
       } else {
         document.getElementById("inputSection").style.display = "block";
         document.getElementById("genBtn").style.display = "block";
+        var rpw = document.getElementById("priceWrap"); if(rpw) rpw.style.display = "block";
         mc.innerHTML = "<div class='state-box'><div class='state-icon'>✨</div><div class='state-title'>Your Script Bank</div><div class='state-desc'>Describe your product and generate your custom script bank.</div></div>";
       }
     });
