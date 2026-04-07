@@ -704,7 +704,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.4.5";
+var APP_VERSION = "2.4.6";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1498,10 +1498,11 @@ function toggleSort() {
 
 function loadProductById(id) {
   if (!id || !currentUser) return;
+  showToast("Loading product...");
   setSyncing(true);
   sb.from("products").select("*").eq("id", id).single().then(function(result) {
     setSyncing(false);
-    if (result.error || !result.data) return;
+    if (result.error || !result.data) { showToast("Load error: " + (result.error ? result.error.message : "no data")); return; }
     currentProductId = result.data.id;
     currentProduct = result.data.description || result.data.name;
     allData = result.data.bank || {};
@@ -1527,6 +1528,7 @@ function loadProductById(id) {
     setBuyerMotivation(currentMotivation);
     currentProductName = result.data.name;
     resetPicks();
+    showToast("Rendering hub...");
     document.body.classList.add("hub-mode");
     renderProductHub();
   });
@@ -1750,6 +1752,7 @@ function renderProductHub() {
   mc.innerHTML = '<div class="loading-wrap"><div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><div class="loading-title">Loading...</div></div>';
 
   loadScriptsForProduct(currentProductId, function(scripts) {
+    showToast("Building hub content...");
     mc.innerHTML = "";
     var wrap = document.createElement("div");
     wrap.style.cssText = "padding:16px;";
