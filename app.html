@@ -688,7 +688,7 @@ body.hub-mode #priceSelectorMount { display: none !important; }
   </div>
 </div>
 
-<div id="priceSelectorMount"></div>
+<div id="priceSelectorMount" style="margin-top:20px;padding-top:20px;border-top:1px solid var(--border);"></div>
 <div class="gen-wrap" id="priceWrap">
   <div style="padding:0 0 10px;">
     
@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.9.1";
+var APP_VERSION = "2.9.2";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -4890,7 +4890,7 @@ function buildPriceSelector() {
   var stepLabel = document.createElement("div");
   stepLabel.style.cssText = "font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;" +
     (currentPrice ? "color:var(--muted);" : "color:var(--gold);");
-  stepLabel.textContent = currentPrice ? "Price range" : "Step 1 — Select price range";
+  stepLabel.textContent = currentPrice ? "Price range selected" : "Select price range";
 
   var reqBadge = document.createElement("div");
   reqBadge.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.06em;padding:2px 7px;border-radius:999px;display:" +
