@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "3.0.1";
+var APP_VERSION = "3.0.2";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -2559,9 +2559,15 @@ function renderModeChoice(wrap, focuses) {
   skitBtn2.innerHTML = "<div class='mode-btn-title'>\uD83C\uDFAD Skit Script</div><div class='mode-btn-desc'>Two-person dialogue. Pick a relationship and get a full skit.</div>";
   skitBtn2.addEventListener("click", function(){ renderSkitMode(); });
 
+  var filmingBtn2 = document.createElement("button");
+  filmingBtn2.className = "mode-btn";
+  filmingBtn2.innerHTML = "<div class='mode-btn-title'>🎬 Filming Session</div><div class='mode-btn-desc'>Pick formats, get 5 ready-to-film scripts for one session.</div>";
+  filmingBtn2.addEventListener("click", function(){ selectedFormats = []; renderFormatPicker(); });
+
   modeWrap.appendChild(curatedBtn);
   modeWrap.appendChild(batchBtn);
   modeWrap.appendChild(skitBtn2);
+  modeWrap.appendChild(filmingBtn2);
   wrap.appendChild(modeWrap);
 
   // Curated section -- focus angle cards
