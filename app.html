@@ -93,8 +93,8 @@ select option { background: #1a1a1a; }
 .field-hints span { font-size: 11px; color: rgba(255,255,255,0.38); line-height: 1.6; font-style: italic; }
 .field-hints span::before { content: "· "; }
 .field-hints-line { font-size: 11px; color: rgba(255,255,255,0.35); font-style: italic; margin-bottom: 7px; padding-left: 1px; line-height: 1.5; }
-.field-required-badge { font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: rgba(200,168,74,0.12); border: 1px solid rgba(200,168,74,0.3); color: var(--gold); }
-.field-required-badge.satisfied { background: rgba(45,201,138,0.12); border-color: rgba(45,201,138,0.3); color: #2DC98A; }
+.field-required-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; background: rgba(200,168,74,0.18); border: 1px solid rgba(200,168,74,0.5); color: var(--gold); }
+.field-required-badge.satisfied { background: rgba(45,201,138,0.15); border-color: rgba(45,201,138,0.5); color: #2DC98A; }
 #textPanel textarea { background: var(--surface); border: 1px solid var(--border-md); border-top: none; border-bottom: none; display: block; width: 100%; box-sizing: border-box; }
 #textPanel .panel-foot { background: var(--surface); border: 1px solid var(--border-md); border-top: 1px solid var(--border); border-radius: 0 0 var(--radius) var(--radius); }
 textarea { width: 100%; background: transparent; border: none; color: var(--white); font-family: 'Instrument Sans', sans-serif; font-size: 14px; font-weight: 300; line-height: 1.65; padding: 8px 14px 12px; resize: none; outline: none; min-height: 80px; -webkit-user-select: text; user-select: text; touch-action: manipulation; cursor: text; }
@@ -638,23 +638,27 @@ body.hub-mode #priceSelectorMount { display: none !important; }
 
     <!-- Field 1: Why you chose this product -->
     <div class="field-block" id="field1Block">
-      <div class="field-label">When you chose this product...</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+        <div class="field-label" style="margin-bottom:0;">When you chose this product...</div>
+        <div class="field-required-badge" id="field1Badge">Required</div>
+      </div>
       <div class="field-hints-line">Why did you choose it? What makes it unique? Who is it for? What feeling are they chasing?</div>
       <textarea id="buyerInsightInput" maxlength="800" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Describe the person who buys this and why you chose it. The more specific you are, the better your scripts."></textarea>
       <div class="panel-foot">
         <span class="char-ct"><span id="insightCount">0</span>/800</span>
-        <div class="field-required-badge" id="field1Badge">Required</div>
       </div>
     </div>
 
     <!-- Field 2: Product details -->
     <div class="field-block field-block-2" id="field2Block">
-      <div class="field-label">Product details</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:5px;">
+        <div class="field-label" style="margin-bottom:0;">Product details</div>
+        <div class="field-required-badge" id="field2Badge">Required</div>
+      </div>
       <div class="field-hints-line">Brand name, key features, specs. This becomes the proof in your body lines.</div>
       <textarea id="productInput" maxlength="1000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Brand name, key features and specs."></textarea>
       <div class="panel-foot">
         <span class="char-ct"><span id="charCount">0</span>/1000</span>
-        <div class="field-required-badge" id="field2Badge">Required</div>
         <button class="clr-btn" onclick="clearText()">Clear</button>
       </div>
     </div>
@@ -730,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.9.0";
+var APP_VERSION = "2.9.1";
 var authMode = "signin";
 
 // WIZARD STATE
