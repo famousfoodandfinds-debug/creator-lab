@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.9.7";
+var APP_VERSION = "3.0.0";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -2101,9 +2101,20 @@ function renderProductHub() {
       renderSkitMode();
     };
 
+    var filmingBtn = document.createElement("button");
+    filmingBtn.className = "next-btn hub-gen-btn";
+    filmingBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(255,165,0,0.4);color:rgba(255,165,0,0.9);font-weight:600;opacity:0.45;cursor:pointer;";
+    filmingBtn.innerHTML = "🎬 &nbsp;Filming Session &nbsp;<span style='font-weight:400;font-size:12px;'>-- pick formats, get 5 ready-to-film scripts</span>";
+    filmingBtn.onclick = function() {
+      if (!currentPrice) { showPriceModal(function(){ renderFormatPicker(); }); return; }
+      if (!currentBuyerInsight) { showInsightPrompt(function(){ renderFormatPicker(); }); return; }
+      renderFormatPicker();
+    };
+
     wrap.appendChild(curatedBtn);
     wrap.appendChild(batchBtn);
     wrap.appendChild(skitBtn);
+    wrap.appendChild(filmingBtn);
 
 
 
@@ -3670,6 +3681,502 @@ var skitUsedTurns = new Set([
   "okay but why did no one tell me this",
   "That tracks actually"
 ]);
+
+// ============================================================
+// FILMING SESSION -- FORMAT-BASED SCRIPT GENERATION
+// ============================================================
+
+var FILMING_FORMATS = [
+  {
+    id: "unboxing",
+    name: "Unboxing",
+    emoji: "📦",
+    desc: "First contact, first impressions",
+    psychology: "Dopamine/Instant Gratification",
+    openingRule: "Opens at the moment of first physical contact -- the feel, the weight, the first impression before you even use it.",
+    structure: "First impression hook → what surprised you → one feature that landed → pre-close is the moment you realized it was worth it → CTA",
+    voiceNote: "High energy, present tense, sensory details."
+  },
+  {
+    id: "why_youll_love_it",
+    name: "Why You'll Love It",
+    emoji: "❤️",
+    desc: "3 feelings, not 3 features",
+    psychology: "Identity/Social Proof",
+    openingRule: "Hook opens on who this is specifically for -- calls out the person not the product.",
+    structure: "Identity hook → reason 1 (practical) → reason 2 (emotional) → pre-close → reason 3 (social/identity) → CTA",
+    voiceNote: "Warm, personal, like telling a friend."
+  },
+  {
+    id: "it_fixed_this",
+    name: "It Fixed This For Me",
+    emoji: "🔧",
+    desc: "Specific problem, real solution",
+    psychology: "Pain/Problem Relief",
+    openingRule: "Opens on the specific frustration in the creator's life -- not generic, the exact moment or situation.",
+    structure: "Specific frustration hook → what they tried before → how this fixed it → pre-close is the admission they waited too long → CTA closes on original frustration",
+    voiceNote: "Direct, honest, slightly frustrated energy in the hook."
+  },
+  {
+    id: "before_after",
+    name: "My Life Before vs After",
+    emoji: "✨",
+    desc: "Real before, specific after",
+    psychology: "Transformation",
+    openingRule: "Opens on the before state -- specific and honest, not dramatic.",
+    structure: "Before hook → the specific before moment → the turning point → after moment (one scene not a list) → pre-close is the realization → CTA",
+    voiceNote: "Two distinct tones -- heavier before, lighter after."
+  },
+  {
+    id: "honest_take",
+    name: "My Honest Take",
+    emoji: "🎯",
+    desc: "Skepticism + real verdict",
+    psychology: "Trust/Skepticism Disarm",
+    openingRule: "Opens with the admission they were skeptical -- what almost stopped them from buying.",
+    structure: "Skepticism hook → what they doubted → what changed their mind → one thing that exceeded expectations → pre-close is one honest small caveat → CTA",
+    voiceNote: "Measured, real, the caveat is what makes it believable."
+  },
+  {
+    id: "watch_me_use",
+    name: "Watch Me Use It",
+    emoji: "👀",
+    desc: "Demo in action, mid-moment",
+    psychology: "Convenience/Demonstration",
+    openingRule: "Opens mid-action -- already in the moment of use, not introducing the product.",
+    structure: "In-action hook → what is happening → the result the viewer can see → pre-close is how they do this differently now → CTA",
+    voiceNote: "Present tense throughout, active verbs, no setup."
+  },
+  {
+    id: "expectation_vs_reality",
+    name: "What I Expected vs What I Got",
+    emoji: "🔄",
+    desc: "Built-in pattern interrupt",
+    psychology: "Curiosity/Pattern Interrupt",
+    openingRule: "Opens on the expectation -- what they assumed before buying. The gap is the engine.",
+    structure: "Expectation hook → what they thought → the reveal of what actually happened → pre-close is the surprise admission → CTA closes on the gap",
+    voiceNote: "Two-part energy -- confident in the first half, surprised in the second."
+  },
+  {
+    id: "who_its_for",
+    name: "Who This Is Really For",
+    emoji: "🎯",
+    desc: "Call out the exact person",
+    psychology: "Identity/Audience Filter",
+    openingRule: "Opens by calling out a very specific person or situation -- not demographics, a recognizable life moment.",
+    structure: "Identity recognition hook → why this fits that specific person → what it gives them that others miss → pre-close is the creator identifying with that person → CTA",
+    voiceNote: "Direct, specific, the viewer should feel called out."
+  },
+  {
+    id: "tried_so_you_dont",
+    name: "I Tried It So You Don't Have To",
+    emoji: "🧪",
+    desc: "Creator as scout",
+    psychology: "Reciprocity/Trust",
+    openingRule: "Opens on the effort or risk the creator took -- they did the work so the viewer doesn't have to.",
+    structure: "Scout hook → what they tested or risked → what they found → the one thing the viewer needs to know → pre-close is the honest bottom line → CTA",
+    voiceNote: "Generous energy, creator is doing the viewer a favor."
+  },
+  {
+    id: "day_with_this",
+    name: "A Day With This",
+    emoji: "☀️",
+    desc: "Woven into real life",
+    psychology: "Habit/Routine/Lifestyle",
+    openingRule: "Opens at a specific time of day or life moment -- the product appears naturally not as the subject.",
+    structure: "Time/situation hook → the moment it shows up in the day → what changes because it's there → pre-close is how the day feels different now → CTA",
+    voiceNote: "Relaxed, observational, the product is part of the scene not the star."
+  },
+  {
+    id: "voiceover_action",
+    name: "Voice Over -- In Action",
+    emoji: "🎙️",
+    desc: "Narrate over product footage",
+    psychology: "Curiosity/Specificity",
+    openingRule: "Narrating over product in use. No direct address. Short sentences with natural pause points. Hook works WITH what's on screen.",
+    structure: "Observation hook matching on-screen action → what the viewer is seeing explained through feeling → the detail nobody notices → pre-close is quiet honest moment → CTA clean and direct",
+    voiceNote: "VOICE OVER RULES: Short sentences. Natural pauses. No 'you are watching' or 'look at this'. Third person observation or first person reflection. Lines should feel like they breathe between shots."
+  },
+  {
+    id: "voiceover_lifestyle",
+    name: "Voice Over -- Lifestyle",
+    emoji: "🌿",
+    desc: "Narrate over lifestyle footage",
+    psychology: "Identity/Emotion",
+    openingRule: "Narrating over slower lifestyle footage -- the organized space, the beautiful product, the morning ritual. Reflective, slower pace.",
+    structure: "Atmospheric observation hook → the feeling of the space or moment → what this product represents in that life → pre-close is a quiet personal admission → CTA feels like an invitation not a push",
+    voiceNote: "VOICE OVER RULES: Short sentences. Atmospheric. Slower pace than talking head. Lines should feel like they have space around them. No urgency energy -- this is lifestyle, not conversion pressure."
+  }
+];
+
+var selectedFormats = []; // array of format IDs, can repeat
+
+function renderFormatPicker() {
+  var mc = document.getElementById("mainContent");
+  mc.innerHTML = "";
+  var wrap = document.createElement("div");
+  wrap.style.cssText = "padding:16px;";
+
+  var backBtn = document.createElement("button");
+  backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 14px;";
+  backBtn.innerHTML = "← Back to product";
+  backBtn.addEventListener("click", function(){ selectedFormats = []; renderProductHub(); });
+  wrap.appendChild(backBtn);
+
+  var heading = document.createElement("div");
+  heading.className = "step-heading";
+  heading.innerHTML = "Build your <em>Filming Session</em>";
+  var sub = document.createElement("div");
+  sub.className = "step-sub";
+  sub.style.marginBottom = "16px";
+  sub.textContent = "Pick up to 5 formats. You can pick the same format more than once for different angles.";
+  wrap.appendChild(heading);
+  wrap.appendChild(sub);
+
+  // Selection counter
+  var counter = document.createElement("div");
+  counter.id = "formatCounter";
+  counter.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:14px;";
+  counter.textContent = "0 of 5 selected";
+  wrap.appendChild(counter);
+
+  // Format grid
+  var grid = document.createElement("div");
+  grid.style.cssText = "display:flex;flex-direction:column;gap:8px;margin-bottom:20px;";
+
+  FILMING_FORMATS.forEach(function(fmt) {
+    var card = document.createElement("div");
+    card.style.cssText = "background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius);padding:14px 16px;cursor:pointer;transition:all 0.15s;display:flex;align-items:center;justify-content:space-between;gap:12px;";
+    card.id = "fmt-card-" + fmt.id;
+
+    var left = document.createElement("div");
+    left.style.flex = "1";
+    var nameRow = document.createElement("div");
+    nameRow.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:3px;";
+    var emojiEl = document.createElement("span");
+    emojiEl.style.fontSize = "16px";
+    emojiEl.textContent = fmt.emoji;
+    var nameEl = document.createElement("span");
+    nameEl.style.cssText = "font-size:14px;font-weight:600;color:var(--white);";
+    nameEl.textContent = fmt.name;
+    nameRow.appendChild(emojiEl);
+    nameRow.appendChild(nameEl);
+    var descEl = document.createElement("div");
+    descEl.style.cssText = "font-size:11px;color:var(--muted);";
+    descEl.textContent = fmt.desc;
+    left.appendChild(nameRow);
+    left.appendChild(descEl);
+
+    // Count badge
+    var badge = document.createElement("div");
+    badge.id = "fmt-badge-" + fmt.id;
+    badge.style.cssText = "display:none;width:24px;height:24px;border-radius:999px;background:rgba(255,165,0,0.2);border:1px solid rgba(255,165,0,0.6);color:rgba(255,165,0,0.9);font-size:12px;font-weight:700;align-items:center;justify-content:center;flex-shrink:0;";
+
+    card.appendChild(left);
+    card.appendChild(badge);
+
+    (function(f, cardEl, badgeEl) {
+      cardEl.addEventListener("click", function() {
+        var count = selectedFormats.filter(function(id){ return id === f.id; }).length;
+        var total = selectedFormats.length;
+        if (total >= 5) { showToast("5 formats selected -- remove one to add another"); return; }
+        selectedFormats.push(f.id);
+        count++;
+        total++;
+        // Update badge
+        badgeEl.textContent = count;
+        badgeEl.style.display = "flex";
+        cardEl.style.borderColor = "rgba(255,165,0,0.5)";
+        cardEl.style.background = "rgba(255,165,0,0.05)";
+        // Update counter
+        updateFormatCounter();
+        updateGenerateBtn();
+      });
+    })(fmt, card, badge);
+
+    grid.appendChild(card);
+  });
+  wrap.appendChild(grid);
+
+  // Selected formats summary
+  var summaryWrap = document.createElement("div");
+  summaryWrap.id = "formatSummary";
+  summaryWrap.style.cssText = "margin-bottom:16px;";
+  wrap.appendChild(summaryWrap);
+
+  // Generate button
+  var genBtn = document.createElement("button");
+  genBtn.id = "formatGenBtn";
+  genBtn.className = "next-btn";
+  genBtn.style.cssText = "background:linear-gradient(135deg,rgba(255,165,0,0.8),rgba(255,140,0,0.9));color:#080808;font-weight:700;border:none;opacity:0.4;cursor:default;";
+  genBtn.innerHTML = "🎬 &nbsp;Generate Filming Session Scripts";
+  genBtn.disabled = true;
+  genBtn.addEventListener("click", function() {
+    if (selectedFormats.length === 0) return;
+    generateFormatScripts();
+  });
+  wrap.appendChild(genBtn);
+
+  // Clear selection button
+  var clearBtn = document.createElement("button");
+  clearBtn.style.cssText = "width:100%;margin-top:8px;padding:10px;background:transparent;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;cursor:pointer;";
+  clearBtn.textContent = "Clear selection";
+  clearBtn.addEventListener("click", function() {
+    selectedFormats = [];
+    FILMING_FORMATS.forEach(function(f) {
+      var b = document.getElementById("fmt-badge-" + f.id);
+      var c = document.getElementById("fmt-card-" + f.id);
+      if (b) { b.style.display = "none"; b.textContent = ""; }
+      if (c) { c.style.borderColor = ""; c.style.background = ""; }
+    });
+    updateFormatCounter();
+    updateGenerateBtn();
+  });
+  wrap.appendChild(clearBtn);
+
+  mc.appendChild(wrap);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function updateFormatCounter() {
+  var counter = document.getElementById("formatCounter");
+  if (!counter) return;
+  var n = selectedFormats.length;
+  counter.textContent = n + " of 5 selected";
+  counter.style.color = n === 5 ? "var(--green)" : "var(--muted)";
+
+  // Update summary
+  var summary = document.getElementById("formatSummary");
+  if (!summary) return;
+  summary.innerHTML = "";
+  if (n === 0) return;
+  var lbl = document.createElement("div");
+  lbl.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;";
+  lbl.textContent = "Your session";
+  summary.appendChild(lbl);
+  selectedFormats.forEach(function(id, idx) {
+    var fmt = FILMING_FORMATS.find(function(f){ return f.id === id; });
+    if (!fmt) return;
+    var row = document.createElement("div");
+    row.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:5px;background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.2);border-radius:6px;padding:7px 10px;";
+    var num = document.createElement("span");
+    num.style.cssText = "font-size:10px;font-weight:700;color:rgba(255,165,0,0.7);flex-shrink:0;";
+    num.textContent = (idx + 1) + ".";
+    var name = document.createElement("span");
+    name.style.cssText = "font-size:12px;color:var(--white);";
+    name.textContent = fmt.emoji + " " + fmt.name;
+    // Remove button
+    var rm = document.createElement("button");
+    rm.style.cssText = "margin-left:auto;background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;flex-shrink:0;";
+    rm.textContent = "✕";
+    (function(i) {
+      rm.addEventListener("click", function() {
+        selectedFormats.splice(i, 1);
+        // Recalculate badges
+        FILMING_FORMATS.forEach(function(f) {
+          var cnt = selectedFormats.filter(function(sid){ return sid === f.id; }).length;
+          var b = document.getElementById("fmt-badge-" + f.id);
+          var c = document.getElementById("fmt-card-" + f.id);
+          if (b) { b.textContent = cnt; b.style.display = cnt > 0 ? "flex" : "none"; }
+          if (c) { c.style.borderColor = cnt > 0 ? "rgba(255,165,0,0.5)" : ""; c.style.background = cnt > 0 ? "rgba(255,165,0,0.05)" : ""; }
+        });
+        updateFormatCounter();
+        updateGenerateBtn();
+      });
+    })(idx);
+    row.appendChild(num); row.appendChild(name); row.appendChild(rm);
+    summary.appendChild(row);
+  });
+}
+
+function updateGenerateBtn() {
+  var btn = document.getElementById("formatGenBtn");
+  if (!btn) return;
+  var n = selectedFormats.length;
+  btn.disabled = n === 0;
+  btn.style.opacity = n === 0 ? "0.4" : "1";
+  btn.style.cursor = n === 0 ? "default" : "pointer";
+  btn.innerHTML = n === 0
+    ? "🎬 &nbsp;Generate Filming Session Scripts"
+    : "🎬 &nbsp;Generate " + n + " Script" + (n > 1 ? "s" : "") + " for This Session";
+}
+
+function generateFormatScripts() {
+  var mc = document.getElementById("mainContent");
+  mc.innerHTML = "";
+  var wrap = document.createElement("div");
+  wrap.style.cssText = "padding:16px;";
+  var loading = document.createElement("div");
+  loading.className = "loading-wrap";
+  loading.innerHTML = "<div class='dots'><div class='dot'></div><div class='dot'></div><div class='dot'></div></div><div class='loading-title'>Writing your filming session...</div><div class='loading-sub'>Building " + selectedFormats.length + " scripts, one for each format</div>";
+  wrap.appendChild(loading);
+  mc.appendChild(wrap);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+
+  // Build format list for prompt
+  var formatsForPrompt = selectedFormats.map(function(id, idx) {
+    var fmt = FILMING_FORMATS.find(function(f){ return f.id === id; });
+    if (!fmt) return "";
+    return "Script " + (idx+1) + ": " + fmt.name + " (" + fmt.psychology + ")\n" +
+      "Opening rule: " + fmt.openingRule + "\n" +
+      "Structure: " + fmt.structure + "\n" +
+      "Voice: " + fmt.voiceNote;
+  }).join("\n\n");
+
+  var prompt = "You are writing a complete filming session -- " + selectedFormats.length + " scripts, each in a different format, all for the same product.\n\n" +
+    "PRODUCT: " + currentProduct + "\n" +
+    "PRICE CONTEXT: " + getPriceContext() + "\n\n" +
+    "CRITICAL: Each script must feel genuinely different from the others. Different opening energy, different structure, different emotional register. A creator should be able to film all " + selectedFormats.length + " back to back without them sounding like variations of the same video.\n\n" +
+    "UNIVERSAL RULES FOR ALL SCRIPTS:\n" +
+    "- Never start with I, My, This is, It is\n" +
+    "- No em dashes anywhere\n" +
+    "- No identity announcements (You become the person who, You are the person who)\n" +
+    "- No banned words: game-changer, elevate, transform, journey, invest, worth, price, cost\n" +
+    "- CTAs must echo the specific hook tension -- never standalone Grab yours below\n" +
+    "- Pre-close is one honest human moment -- never a lesson, never a question, never an aphorism\n\n" +
+    "FORMATS TO WRITE:\n\n" + formatsForPrompt + "\n\n" +
+    "Return ONLY valid JSON:\n" +
+    "{\"scripts\":[{\"format\":\"format name\",\"hook\":\"string\",\"body1\":\"string\",\"preClose\":\"string\",\"body2\":\"string\",\"cta\":\"string\",\"caption\":\"string\",\"hashtags\":[\"string\",\"string\",\"string\",\"string\",\"string\"]}]}\n" +
+    "Generate exactly " + selectedFormats.length + " scripts in the scripts array, in the order listed above.";
+
+  fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 5000,
+      system: system,
+      messages: [{ role: "user", content: prompt }]
+    })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.error) throw new Error(data.error.message);
+    var text = "";
+    data.content.forEach(function(b){ if(b.type==="text") text+=b.text; });
+    var clean = text.replace(/```json|```/g,"").trim();
+    var parsed = JSON.parse(clean);
+    renderFilmingSessionResults(parsed.scripts || [], mc);
+  })
+  .catch(function(err) {
+    mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:14px;'>Could not generate scripts -- " + (err.message || "please try again") + "<br><br><button onclick='renderFormatPicker()' style='margin-top:12px;padding:10px 20px;border-radius:8px;border:1px solid var(--border-md);background:transparent;color:var(--white);font-family:inherit;cursor:pointer;'>Try again</button></div>";
+  });
+}
+
+function renderFilmingSessionResults(scripts, mc) {
+  mc.innerHTML = "";
+  var wrap = document.createElement("div");
+  wrap.style.cssText = "padding:16px;";
+
+  var backBtn = document.createElement("button");
+  backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 14px;";
+  backBtn.innerHTML = "← Back to formats";
+  backBtn.addEventListener("click", function(){ renderFormatPicker(); });
+  wrap.appendChild(backBtn);
+
+  var heading = document.createElement("div");
+  heading.className = "step-heading";
+  heading.innerHTML = "Your <em>Filming Session</em>";
+  var sub = document.createElement("div");
+  sub.className = "step-sub";
+  sub.style.marginBottom = "20px";
+  sub.textContent = scripts.length + " scripts ready to film. Tap any script to copy it.";
+  wrap.appendChild(heading);
+  wrap.appendChild(sub);
+
+  scripts.forEach(function(sc, idx) {
+    var card = document.createElement("div");
+    card.style.cssText = "background:var(--surface);border:1px solid rgba(255,165,0,0.25);border-radius:var(--radius);padding:16px;margin-bottom:14px;";
+
+    // Header
+    var header = document.createElement("div");
+    header.style.cssText = "display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;";
+    var fmtLabel = document.createElement("div");
+    fmtLabel.style.cssText = "font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:rgba(255,165,0,0.8);";
+    fmtLabel.textContent = "Script " + (idx+1) + " — " + (sc.format || "");
+    var copyBtn = document.createElement("button");
+    copyBtn.className = "script-btn";
+    copyBtn.textContent = "Copy";
+    var fullText = [sc.hook, sc.body1, sc.preClose, sc.body2, sc.cta].filter(Boolean).join(" ");
+    copyBtn.addEventListener("click", function(){ copyRaw(fullText); showToast("Script " + (idx+1) + " copied"); });
+    header.appendChild(fmtLabel); header.appendChild(copyBtn);
+    card.appendChild(header);
+
+    // Script lines
+    [
+      { label: "HOOK", val: sc.hook },
+      { label: "BODY 1", val: sc.body1 },
+      { label: "PRE-CLOSE", val: sc.preClose },
+      { label: "BODY 2", val: sc.body2 },
+      { label: "CTA", val: sc.cta }
+    ].filter(function(s){ return s.val; }).forEach(function(s) {
+      var row = document.createElement("div");
+      row.style.cssText = "margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border);";
+      var lbl = document.createElement("div");
+      lbl.style.cssText = "font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;";
+      lbl.textContent = s.label;
+      var txt = document.createElement("div");
+      txt.style.cssText = "font-size:13px;color:var(--white);line-height:1.6;font-weight:300;";
+      txt.textContent = s.val;
+      row.appendChild(lbl); row.appendChild(txt);
+      card.appendChild(row);
+    });
+
+    // Caption
+    if (sc.caption) {
+      var capRow = document.createElement("div");
+      capRow.style.cssText = "margin-top:8px;padding-top:8px;border-top:1px solid var(--border);";
+      var capLbl = document.createElement("div");
+      capLbl.style.cssText = "font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:3px;";
+      capLbl.textContent = "CAPTION";
+      var capTxt = document.createElement("div");
+      capTxt.style.cssText = "font-size:12px;color:var(--white-dim);line-height:1.5;margin-bottom:6px;";
+      capTxt.textContent = sc.caption;
+      if (sc.hashtags && sc.hashtags.length) {
+        var tags = document.createElement("div");
+        tags.style.cssText = "font-size:11px;color:var(--muted);";
+        tags.textContent = sc.hashtags.map(function(h){ return "#" + h.replace(/^#/,""); }).join(" ");
+        capRow.appendChild(capLbl); capRow.appendChild(capTxt); capRow.appendChild(tags);
+      } else {
+        capRow.appendChild(capLbl); capRow.appendChild(capTxt);
+      }
+      card.appendChild(capRow);
+    }
+
+    // Action row
+    var actRow = document.createElement("div");
+    actRow.style.cssText = "display:flex;gap:8px;margin-top:12px;";
+    var copyFullBtn = document.createElement("button");
+    copyFullBtn.className = "next-btn";
+    copyFullBtn.style.cssText = "flex:1;background:transparent;border:1px solid rgba(192,192,192,0.4);color:var(--silver-bright);font-weight:600;font-size:13px;";
+    copyFullBtn.textContent = "Copy script";
+    (function(ft){ copyFullBtn.addEventListener("click", function(){ copyRaw(ft); showToast("Copied"); }); })(fullText);
+    var postedBtn = document.createElement("button");
+    postedBtn.className = "next-btn";
+    postedBtn.style.cssText = "flex:1;background:transparent;border:1px solid rgba(45,201,138,0.4);color:var(--green);font-weight:600;font-size:13px;";
+    postedBtn.textContent = "Mark as Posted";
+    postedBtn.addEventListener("click", function() {
+      markAsPosted(currentProduct, null);
+      postedBtn.textContent = "✓ Posted";
+      postedBtn.style.opacity = "0.6"; postedBtn.style.cursor = "default";
+    });
+    actRow.appendChild(copyFullBtn); actRow.appendChild(postedBtn);
+    card.appendChild(actRow);
+
+    wrap.appendChild(card);
+  });
+
+  // New session button
+  var newSessionBtn = document.createElement("button");
+  newSessionBtn.className = "next-btn";
+  newSessionBtn.style.cssText = "background:linear-gradient(135deg,rgba(255,165,0,0.8),rgba(255,140,0,0.9));color:#080808;font-weight:700;border:none;margin-top:8px;";
+  newSessionBtn.innerHTML = "🎬 &nbsp;Build Another Session";
+  newSessionBtn.addEventListener("click", function(){ selectedFormats = []; renderFormatPicker(); });
+  wrap.appendChild(newSessionBtn);
+
+  mc.appendChild(wrap);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
 
 function renderSkitMode() {
   var mc = document.getElementById("mainContent");
