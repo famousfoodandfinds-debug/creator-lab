@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.8.1";
+var APP_VERSION = "2.8.4";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1978,6 +1978,7 @@ function renderProductHub() {
     curatedBtn.innerHTML = "🎯 &nbsp;Curated Script &nbsp;<span style='font-weight:400;font-size:12px;'>-- build one script step by step</span>";
     curatedBtn.onclick = function() {
       if (!currentPrice) { showPriceModal(function(){ resetPicks(); renderFocusPicker(); }); return; }
+      if (!currentBuyerInsight) { showInsightPrompt(function(){ resetPicks(); renderFocusPicker(); }); return; }
       resetPicks(); renderFocusPicker();
     };
 
@@ -1987,6 +1988,7 @@ function renderProductHub() {
     batchBtn.innerHTML = "⚡ &nbsp;Batch Scripts &nbsp;<span style='font-weight:400;font-size:12px;'>-- generate 5 scripts at once</span>";
     batchBtn.onclick = function() {
       if (!currentPrice) { showPriceModal(function(){ resetPicks(); renderBatchPicker(); }); return; }
+      if (!currentBuyerInsight) { showInsightPrompt(function(){ resetPicks(); renderBatchPicker(); }); return; }
       resetPicks(); renderBatchPicker();
     };
 
@@ -1996,6 +1998,7 @@ function renderProductHub() {
     skitBtn.innerHTML = "🎭 &nbsp;Skit Script &nbsp;<span style='font-weight:400;font-size:12px;'>-- two-person dialogue script</span>";
     skitBtn.onclick = function() {
       if (!currentPrice) { showPriceModal(renderSkitMode); return; }
+      if (!currentBuyerInsight) { showInsightPrompt(renderSkitMode); return; }
       renderSkitMode();
     };
 
@@ -2078,6 +2081,8 @@ document.getElementById("buyerMotivation") && document.getElementById("buyerMoti
       }
     }
   });
+  // Trigger initial state check
+  bi.dispatchEvent(new Event("input"));
 })();
 
 document.getElementById("productInput").addEventListener("input", function() {
@@ -6974,6 +6979,68 @@ function showLoading(){document.getElementById("mainContent").innerHTML='<div cl
 
 function copyRaw(text){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).catch(function(){fallbackCopy(text);});}else{fallbackCopy(text);}}
 function fallbackCopy(text){var ta=document.createElement("textarea");ta.value=text;ta.style.cssText="position:fixed;opacity:0;top:0;left:0;";document.body.appendChild(ta);ta.focus();ta.select();try{document.execCommand("copy");}catch(e){}document.body.removeChild(ta);}
+function showInsightPrompt(onComplete) {
+  var existing = document.getElementById("insightModal");
+  if (existing) existing.parentNode.removeChild(existing);
+
+  var modal = document.createElement("div");
+  modal.id = "insightModal";
+  modal.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;z-index:9000;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.8);";
+
+  var box = document.createElement("div");
+  box.style.cssText = "background:var(--surface);border:1px solid var(--border-md);border-radius:16px;padding:24px;max-width:420px;width:100%;";
+
+  var title = document.createElement("div");
+  title.style.cssText = "font-size:15px;font-weight:700;color:var(--white);margin-bottom:6px;";
+  title.textContent = "When you chose this product...";
+
+  var sub = document.createElement("div");
+  sub.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.6;";
+  sub.textContent = "This helps the tool write scripts for the right person. The more specific you are, the better your scripts.";
+
+  var hints = document.createElement("div");
+  hints.style.cssText = "margin-bottom:10px;";
+  ["Why did you choose this one?", "What makes it unique?", "What would they use it for?", "Why would they want this?"].forEach(function(q) {
+    var h = document.createElement("div");
+    h.style.cssText = "font-size:11px;color:rgba(255,255,255,0.25);font-style:italic;line-height:1.7;";
+    h.textContent = "· " + q;
+    hints.appendChild(h);
+  });
+
+  var ta = document.createElement("textarea");
+  ta.style.cssText = "width:100%;min-height:100px;background:var(--surface2);border:1px solid var(--border-md);border-radius:8px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:12px;outline:none;resize:vertical;line-height:1.6;box-sizing:border-box;-webkit-user-select:text;user-select:text;margin-bottom:12px;";
+  ta.placeholder = "Tell me about the person who buys this...";
+  ta.value = currentBuyerInsight || "";
+
+  var saveBtn = document.createElement("button");
+  saveBtn.className = "next-btn";
+  saveBtn.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;";
+  saveBtn.textContent = "Save and continue";
+  saveBtn.addEventListener("click", function() {
+    var val = ta.value.trim();
+    if (!val) { showToast("Add a few words about this product first"); ta.focus(); return; }
+    currentBuyerInsight = val;
+    currentMotivation = val;
+    // Update currentProduct to include the insight
+    var descOnly = currentProduct.indexOf(" PRODUCT DETAILS: ") > -1
+      ? currentProduct.split(" PRODUCT DETAILS: ")[1]
+      : currentProduct;
+    currentProduct = val + " PRODUCT DETAILS: " + descOnly;
+    // Save to DB
+    if (currentProductId) {
+      sb.from("products").update({ motivation: val }).eq("id", currentProductId).then(function(){}).catch(function(){});
+    }
+    modal.parentNode.removeChild(modal);
+    if (onComplete) onComplete();
+  });
+
+  box.appendChild(title); box.appendChild(sub); box.appendChild(hints);
+  box.appendChild(ta); box.appendChild(saveBtn);
+  modal.appendChild(box);
+  document.body.appendChild(modal);
+  setTimeout(function(){ ta.focus(); }, 150);
+}
+
 function showPriceModal(onSelected) {
   // Remove any existing modal
   var existing = document.getElementById("priceModal");
