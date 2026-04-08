@@ -170,7 +170,7 @@ body.hub-mode #priceSelectorMount { display: none !important; }
 .trigger-card.expanded .trigger-arrow { transform: rotate(90deg); }
 .trigger-options { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); flex-direction: column; gap: 7px; }
 .trigger-card.expanded .trigger-options { display: flex; }
-.option-line { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 11px 13px; cursor: pointer; transition: all 0.15s; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.option-line { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 11px 13px; cursor: pointer; transition: all 0.15s; display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; touch-action: manipulation; -webkit-tap-highlight-color: rgba(255,255,255,0.1); user-select: none; -webkit-user-select: none; }
 .option-line:hover { border-color: var(--border-strong); }
 .option-line.picked { border-color: var(--silver); background: rgba(192,192,192,0.12); }
 .option-line.picked-b2 { border-color: var(--gold); background: var(--gold-dim); }
@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.7.6";
+var APP_VERSION = "2.7.7";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -5346,7 +5346,11 @@ function buildTriggerCard(cat,lines,catTags,catScreens,sectionKey) {
     opt.appendChild(thumbUpBtn);
     opt.appendChild(thumbBtn);
 
-    (function(l,c,sk){opt.addEventListener("click",function(e){e.stopPropagation();if(!dismissedLines[l])selectLine(l,c,sk);});})(line,cat,sectionKey);
+    (function(l,c,sk){
+      function handleSelect(e){ e.stopPropagation(); e.preventDefault(); if(!dismissedLines[l]) selectLine(l,c,sk); }
+      opt.addEventListener("click", handleSelect);
+      opt.addEventListener("touchend", handleSelect);
+    })(line,cat,sectionKey);
     opts.appendChild(opt);
   });
   card.appendChild(opts);
@@ -5766,7 +5770,6 @@ function selectLine(line,cat,key){
   else if(key==="cta"){
     picks.cta=picks.cta===line?null:line;
     picks.ctaCat=picks.cta?cat:null;
-    showToast(picks.cta ? "CTA selected" : "CTA cleared");
     // Keep category expanded so user can see their selection
     expandedTrigger.cta = cat;
     var nb5=document.getElementById("next-5");
