@@ -639,9 +639,9 @@ body.hub-mode #priceSelectorMount { display: none !important; }
     <!-- Field 1: Why you chose this product -->
     <div class="field-block" id="field1Block">
       <div class="field-label">When you chose this product...</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
         <div class="field-hints-line" style="margin-bottom:0;">Why did you choose it? What makes it unique? Who is it for? What feeling are they chasing?</div>
-        <div class="field-required-badge" id="field1Badge" style="flex-shrink:0;margin-left:10px;">Required</div>
+        <div class="field-required-badge" id="field1Badge" style="flex-shrink:0;">Required</div>
       </div>
       <textarea id="buyerInsightInput" maxlength="800" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Describe the person who buys this and why you chose it. The more specific you are, the better your scripts."></textarea>
       <div class="panel-foot">
@@ -652,9 +652,9 @@ body.hub-mode #priceSelectorMount { display: none !important; }
     <!-- Field 2: Product details -->
     <div class="field-block field-block-2" id="field2Block">
       <div class="field-label">Product details</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
         <div class="field-hints-line" style="margin-bottom:0;">Brand name, key features, specs. This becomes the proof in your body lines.</div>
-        <div class="field-required-badge" id="field2Badge" style="flex-shrink:0;margin-left:10px;">Required</div>
+        <div class="field-required-badge" id="field2Badge" style="flex-shrink:0;">Required</div>
       </div>
       <textarea id="productInput" maxlength="1000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Brand name, key features and specs."></textarea>
       <div class="panel-foot">
@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.9.3";
+var APP_VERSION = "2.9.4";
 var authMode = "signin";
 
 // WIZARD STATE
