@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.6.6";
+var APP_VERSION = "2.6.7";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -3178,7 +3178,7 @@ function generateScriptBank() {
       (understanding.cultural_moment ? " CULTURAL MOMENT -- this is where the best hook for this product lives. At least one hook must open with this shared experience that everyone in this world knows: " + understanding.cultural_moment : "")
       : "";
 
-    console.log("Reached Call 2 in curated"); // ── CALL 2: Write the full script bank from that understanding ──
+    // ── CALL 2: Write the full script bank from that understanding ──
     var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend about something they found. Not an ad. Not a brand. A person." +
 
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point." +
@@ -3267,7 +3267,7 @@ function generateScriptBank() {
       var text = "";
       data.content.forEach(function(b) { if (b.type === "text") text += b.text; });
       var clean = text.replace(/```json|```/g, "").trim();
-      var parsed = JSON.parse(clean); console.log("Bank keys:", Object.keys(parsed), "hook keys:", Object.keys(parsed.hooks||{}));
+      var parsed = JSON.parse(clean);
       allData = parsed || {};
       allData.hooks = allData.hooks || {};
       allData.body = allData.body || {};
@@ -4190,7 +4190,11 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
       cardEl.addEventListener("click", function(e){
         if(e.target === btnEl || btnEl.contains(e.target)) return;
         if(e.target.closest && e.target.closest(".desire-badge-curated")) return;
-        currentFocus=focusObj; allData.currentFocus=focusObj; renderBuilder();
+        currentFocus=focusObj; allData.currentFocus=focusObj;
+        // If bank is empty, generate it -- don't render an empty builder
+        var hookKeys = Object.keys(allData.hooks || {});
+        var hasHooks = hookKeys.some(function(k){ return allData.hooks[k] && allData.hooks[k].length > 0; });
+        if (!hasHooks) { generateScriptBank(); } else { renderBuilder(); }
       });
       btnEl.addEventListener("click", function(e){
         e.stopPropagation();
@@ -4208,7 +4212,7 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
           var newDc = desireColors[newF.desire]||"var(--muted)";
           innerEl.innerHTML = "<div style='flex:1;'><div style='font-size:14px;font-weight:600;color:var(--white);margin-bottom:4px;'>"+newF.focus+"</div><div style='font-size:12px;color:var(--white-dim);line-height:1.5;font-weight:400;'>"+newF.description+"</div></div><div style='font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+newDc+";background:rgba(0,0,0,0.3);border:1px solid "+newDc+";border-radius:999px;padding:3px 8px;white-space:nowrap;flex-shrink:0;margin-top:2px;'>"+newF.desire+"</div>";
           allFocuses[index] = newF;
-          cardEl.onclick = function(e){ if(e.target===btnEl||btnEl.contains(e.target))return; currentFocus=newF; allData.currentFocus=newF; renderBuilder(); };
+          cardEl.onclick = function(e){ if(e.target===btnEl||btnEl.contains(e.target))return; currentFocus=newF; allData.currentFocus=newF; var hk=Object.keys(allData.hooks||{}); var hasH=hk.some(function(k){return allData.hooks[k]&&allData.hooks[k].length>0;}); if(!hasH){generateScriptBank();}else{renderBuilder();} };
           btnEl.innerHTML="↺ New angle"; btnEl.style.opacity="1";
           showToast("New angle loaded");
         })
@@ -4701,7 +4705,6 @@ function buildPrecloseStep(stepNum) {
 
   // Get preclose lines from allData
   var precloseLines = (allData.preClose || allData.preclose || []);
-  console.log("PRE-CLOSE DEBUG:", JSON.stringify({preClose: allData.preClose, preclose: allData.preclose, lines: precloseLines}));
   
   // If no pre-close lines from AI, use fallback lines
   if (!precloseLines || precloseLines.length === 0) {
