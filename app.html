@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.8.5";
+var APP_VERSION = "2.8.6";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -2307,18 +2307,13 @@ function generate() {
   var insight = document.getElementById("buyerInsightInput") ? document.getElementById("buyerInsightInput").value.trim() : "";
   var product = document.getElementById("productInput").value.trim();
   if (!insight) {
-    showToast("Tell us about the person who buys this first");
-    var el = document.getElementById("buyerInsightInput");
-    if(el) el.focus();
-    var b = document.getElementById("field1Badge");
-    if(b){ b.style.borderColor="var(--red)"; b.style.color="var(--red)"; b.textContent="Required"; setTimeout(function(){ b.style.borderColor=""; b.style.color=""; b.textContent="Required"; },2000); }
+    showInsightPrompt(generate);
     return;
   }
   if (!product) {
-    showToast("Add product details first");
-    document.getElementById("productInput").focus();
-    var b2 = document.getElementById("field2Badge");
-    if(b2){ b2.style.borderColor="var(--red)"; b2.style.color="var(--red)"; b2.textContent="Required"; setTimeout(function(){ b2.style.borderColor=""; b2.style.color=""; b2.textContent="Required"; },2000); }
+    showToast("Add product details in the second field first");
+    var pd = document.getElementById("productInput");
+    if(pd) { pd.focus(); pd.style.borderColor = "var(--red)"; setTimeout(function(){ pd.style.borderColor = ""; }, 2000); }
     return;
   }
   if (!currentPrice) {
