@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.8.8";
+var APP_VERSION = "2.8.9";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -2330,7 +2330,7 @@ function generate() {
     btn.disabled = true; btn.style.background = "var(--muted2)";
     btn.innerHTML = "&#8987;&nbsp; Loading...";
     currentProduct = combined;
-    saveProduct(product, allData, function(){});
+    saveProduct(currentProductName || product.split(".")[0].slice(0,60), allData, function(){});
     renderSellTheSale();
     btn.disabled = false;
     btn.style.background = "linear-gradient(135deg,#C0C0C0,#E8E8E8)";
@@ -2344,7 +2344,7 @@ function generate() {
   btn.disabled = true; btn.style.background = "var(--muted2)";
   btn.innerHTML = "&#8987;&nbsp; Finding angles...";
   currentProduct = combined;
-  currentProductName = product.split('.')[0].slice(0, 60).trim();
+  currentProductName = product.split('\n')[0].split('--')[0].split(',')[0].trim().slice(0, 60);
   resetPicks();
 
   var mc = document.getElementById("mainContent");
@@ -3102,7 +3102,7 @@ function renderBatchResults(scripts, angles) {
 
   // If no product ID yet, save the product first then save scripts
   if(currentUser && !currentProductId) {
-    saveProduct(currentProduct, allData, function() {
+    saveProduct(currentProductName || currentProduct.split(" PRODUCT DETAILS: ")[0].slice(0,60), allData, function() {
       saveBatchScripts();
     });
   } else if(currentUser && currentProductId) {
@@ -3204,7 +3204,7 @@ function generateScriptBankSilent(onComplete) {
       allData.body2Live = {};
       allData.seo = allData.seo || {};
       allData.onScreenText = allData.onScreenText || [];
-      var pName = parsed.productName || currentProduct;
+      var pName = parsed.productName || currentProductName || currentProduct.split(" PRODUCT DETAILS: ")[0].slice(0,60);
       saveProduct(pName, parsed, function() {
         generateOnScreenText(currentProduct, allData.hooks);
         if (onComplete) onComplete();
@@ -3376,7 +3376,7 @@ function generateScriptBank() {
       allData.body2Live = allData.body2Live || {};
       allData.seo = allData.seo || {};
       allData.onScreenText = allData.onScreenText || [];
-      var pName = parsed.productName || currentProduct;
+      var pName = parsed.productName || currentProductName || currentProduct.split(" PRODUCT DETAILS: ")[0].slice(0,60);
       saveProduct(pName, parsed, function() {
         generateOnScreenText(product, allData.hooks);
         renderBuilder();
@@ -3430,7 +3430,7 @@ function generateScriptBank() {
       allData.body2Live = allData.body2Live || {};
       allData.seo = allData.seo || {};
       allData.onScreenText = allData.onScreenText || [];
-      var pName = parsed.productName || currentProduct;
+      var pName = parsed.productName || currentProductName || currentProduct.split(" PRODUCT DETAILS: ")[0].slice(0,60);
       saveProduct(pName, parsed, function() {
         generateOnScreenText(product, allData.hooks);
         renderBuilder();
