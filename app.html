@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.6.7";
+var APP_VERSION = "2.6.8";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -4718,7 +4718,7 @@ function buildPrecloseStep(stepNum) {
   
   precloseLines.forEach(function(line, i) {
     var card = document.createElement("div");
-    card.className = "trigger-card" + (picks.preclose === line ? " selected" : "");
+    card.className = "trigger-card" + (picks.preClose === line ? " selected" : "");
     card.style.cssText = "cursor:pointer;";
 
     var conf = (allData.precloseConf || [])[i] || "solid";
@@ -4735,12 +4735,12 @@ function buildPrecloseStep(stepNum) {
             "<span class='tag tag-preclose' style='font-size:9px;padding:1px 6px;'>Pre-close</span>" +
           "</div>" +
         "</div>" +
-        (picks.preclose === line ? "<div style='color:var(--red);font-size:14px;flex-shrink:0;'>✓</div>" : "") +
+        (picks.preClose === line ? "<div style='color:var(--red);font-size:14px;flex-shrink:0;'>✓</div>" : "") +
       "</div>";
 
     (function(l) {
       card.addEventListener("click", function() {
-        picks.preclose = picks.preclose === l ? null : l;
+        picks.preClose = picks.preClose === l ? null : l;
         rebuildPreclose();
         updateNextBtn(3);
       });
@@ -4754,14 +4754,14 @@ function buildPrecloseStep(stepNum) {
   skipBtn.className = "next-btn";
   skipBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid var(--border-md);color:var(--muted);";
   skipBtn.textContent = "Skip pre-close -- go to Body 2";
-  skipBtn.addEventListener("click", function() { picks.preclose = null; showStep(4); });
+  skipBtn.addEventListener("click", function() { picks.preClose = null; showStep(4); });
   panel.appendChild(grid);
   panel.appendChild(skipBtn);
 
   var nextBtn = document.createElement("button");
   nextBtn.className = "next-btn";
   nextBtn.id = "next-3";
-  nextBtn.disabled = !picks.preclose;
+  nextBtn.disabled = !picks.preClose;
   nextBtn.textContent = "Next -- Add Body 2";
   nextBtn.addEventListener("click", function() { showStep(4); });
   panel.appendChild(nextBtn);
@@ -4892,7 +4892,7 @@ function markAsPosted() {
     product: currentProduct,
     hook: picks.hook || "",
     body1: picks.body1 || "",
-    preclose: picks.preclose || "",
+    preclose: picks.preClose || "",
     body2: picks.body2 || "",
     cta: picks.cta || "",
     posted: true
@@ -5087,7 +5087,7 @@ function updateProgressBar() {
 function getStepSummaryText(num) {
   if (num === 1) return picks.hook || "";
   if (num === 2) return picks.body1 || "";
-  if (num === 3) return picks.preClose || picks.preclose || "";
+  if (num === 3) return picks.preClose || picks.preClose || "";
   if (num === 4) return picks.body2 || "";
   if (num === 5) return picks.cta || "";
   return "";
@@ -5520,7 +5520,7 @@ function rebuildPrecloseStep() {
     check.textContent = "✓";
     row.appendChild(check);
     card.appendChild(row);
-    (function(l){ card.addEventListener("click",function(e){ if(e.target.tagName==="BUTTON") return; picks.preClose=picks.preClose===l?null:l; rebuildPrecloseStep(); updateScriptSlots(); }); })(cleanLine);
+    (function(l){ card.addEventListener("click",function(e){ if(e.target.tagName==="BUTTON") return; picks.preClose=picks.preClose===l?null:l; rebuildPrecloseStep(); updateScriptSlots(); if(picks.preClose) setTimeout(function(){ showStep(4); }, 400); }); })(cleanLine);
     grid.appendChild(card);
   });
 
@@ -5750,7 +5750,7 @@ function selectLine(line,cat,key){
     var nb=document.getElementById("next-4");if(nb)nb.disabled=!picks.body2; 
   }
   else if(key==="cta"){ picks.cta=picks.cta===line?null:line; picks.ctaCat=picks.cta?cat:null; expandedTrigger.cta=null; var nb5=document.getElementById("next-5");if(nb5)nb5.disabled=!picks.cta; }
-  else if(key==="preclose"){ picks.preclose=picks.preclose===line?null:line; }
+  else if(key==="preclose"){ picks.preClose=picks.preClose===line?null:line; }
   else if(key==="body"){ picks.body1=picks.body1===line?null:line; picks.body1Cat=picks.body1?cat:null; }
 
   // Collapse other trigger categories after a pick is made
@@ -5770,6 +5770,15 @@ function selectLine(line,cat,key){
   rebuildGrid(key);
   updateNextBtn(wizardStep);
   updateScriptSlots();
+
+  // Auto-advance to next step after a pick is made
+  var nextStepMap = { hooks: 2, body1: 3, body2: 5, cta: 6 };
+  var nextStep = nextStepMap[key];
+  if (nextStep && pickMade) {
+    setTimeout(function() {
+      showStep(nextStep);
+    }, 400);
+  }
 }
 
 function rebuildTextHookGrid() {
@@ -5986,7 +5995,7 @@ function rebuildPreClose() {
     check.textContent = "✓";
     row.appendChild(check);
     card.appendChild(row);
-    (function(l){card.addEventListener("click",function(){picks.preClose=picks.preClose===l?null:l;rebuildPreClose();updateScriptSlots();});})(cleanLine);
+    (function(l){card.addEventListener("click",function(){picks.preClose=picks.preClose===l?null:l;rebuildPreClose();updateScriptSlots();if(picks.preClose)setTimeout(function(){showStep(4);},400);});})(cleanLine);
     grid.appendChild(card);
   });
   updateScriptSlots();
@@ -6207,7 +6216,7 @@ function updateDonePanel(){
   var sub=document.createElement("div");sub.className="step-sub";sub.textContent="Copy it, save it, or start over";
   el.appendChild(heading);el.appendChild(sub);
   // Clean assembled script at top
-  var fullScript = [picks.hook, picks.body1, picks.preclose, picks.body2, picks.cta].filter(Boolean).join(" ");
+  var fullScript = [picks.hook, picks.body1, picks.preClose, picks.body2, picks.cta].filter(Boolean).join(" ");
   var fullBox = document.createElement("div");
   fullBox.style.cssText = "background:var(--surface-2);border:1px solid var(--border-md);border-radius:12px;padding:16px;margin-bottom:16px;";
   var fullLbl = document.createElement("div");
@@ -6234,7 +6243,7 @@ function updateDonePanel(){
   actions.appendChild(copyBtn);actions.appendChild(saveBtn);head.appendChild(title);head.appendChild(actions);sp.appendChild(head);
   var slots=document.createElement("div");slots.className="script-slots";
   var sectionMap={hook:"hooks","body1":"body","body2":"body",cta:"cta"};
-  [{label:"Hook",val:picks.hook,key:"hook"},{label:"Body 1",val:picks.body1,key:"body1"},{label:"Pre-close",val:picks.preclose,key:"preclose"},{label:"Body 2",val:picks.body2,key:"body2"},{label:"CTA",val:picks.cta,key:"cta"}].forEach(function(s){
+  [{label:"Hook",val:picks.hook,key:"hook"},{label:"Body 1",val:picks.body1,key:"body1"},{label:"Pre-close",val:picks.preClose,key:"preclose"},{label:"Body 2",val:picks.body2,key:"body2"},{label:"CTA",val:picks.cta,key:"cta"}].forEach(function(s){
     if(!s.val)return;
     // Only show on screen text for hook -- use selected option or first available
     var screenTxt = "";
@@ -6434,7 +6443,7 @@ function saveScript(){
   if(!picks.hook&&!picks.cta){showToast("Select at least a hook and CTA first");return;}
   if(!currentProductId){showToast("No product selected");return;}
   recordStyleChoice(picks.hookCat, picks.body1Cat, picks.body2Cat, picks.ctaCat);
-  saveScriptToCloud({hook:picks.hook,body1:picks.body1,preclose:picks.preclose,body2:picks.body2,cta:picks.cta},function(saved){
+  saveScriptToCloud({hook:picks.hook,body1:picks.body1,preclose:picks.preClose,body2:picks.body2,cta:picks.cta},function(saved){
     showToast("Script saved");
     if (!onboardingSteps.script) { onboardingSteps.script = true; saveLocalData(); }
     var dpc=document.getElementById("donePanelContent");if(dpc)updateDonePanel();
