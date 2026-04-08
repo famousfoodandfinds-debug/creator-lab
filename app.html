@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.6.9";
+var APP_VERSION = "2.7.0";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -5143,15 +5143,16 @@ function showStep(num) {
   if (num === 2 && document.getElementById("grid-body1")) rebuildGrid("body1");
   if (num === 4 && document.getElementById("grid-body2")) rebuildGrid("body2");
   if (num === 5 && document.getElementById("grid-cta")) rebuildGrid("cta");
-  // Scroll to active step
+  // Scroll to active step -- longer delay to let DOM settle after collapses
   setTimeout(function() {
     var target = document.getElementById("step-" + num);
     if (num > 1 && target) {
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      var top = target.getBoundingClientRect().top + window.pageYOffset - 16;
+      window.scrollTo({ top: top, behavior: "smooth" });
     } else {
-      try { window.scrollTo(0, 0); } catch(e) {}
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
-  }, 80);
+  }, 200);
 }
 
 function buildStepPanel(key,stepNum) {
@@ -5759,11 +5760,14 @@ function selectLine(line,cat,key){
   updateNextBtn(wizardStep);
   updateScriptSlots();
 
+  // Auto-advance to next step after a pick is made
+  var nextStepMap = { hooks: 2, body2: 5, cta: 6 };
+  var nextStep = nextStepMap[key];
   if (pickMade) {
-    // Auto-advance to next step
-    var nextStepMap = { hooks: 2, body1: 3, body2: 5, cta: 6 };
-    var nextStep = nextStepMap[key];
-    if (nextStep) {
+    if (key === "body1") {
+      // Body 1 needs to generate Body 2 + Pre-close before advancing
+      setTimeout(function() { generateBody2AndPreclose(picks.body1, picks.hook); }, 350);
+    } else if (nextStep) {
       setTimeout(function() { showStep(nextStep); }, 350);
     }
   } else {
@@ -5829,7 +5833,7 @@ function clearPick(id,key){
 }
 
 function updateScriptSlots(){
-  ["hooks","body","cta"].forEach(function(key){
+  ["hooks","body","preclose","cta"].forEach(function(key){
     var existing=document.getElementById("slots-"+key);
     if(!existing||!existing.parentNode)return;
     var newSlots=buildScriptSlots(key);
