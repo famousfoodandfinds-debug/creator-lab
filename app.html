@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.9.5";
+var APP_VERSION = "2.9.6";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1802,32 +1802,8 @@ function renderSavedScriptView(sc, mc) {
   backBtn.addEventListener("click", function(){ renderProductHub(); });
   wrap.appendChild(backBtn);
 
-  // Performance badge if marked
-  var isTop = sc.top_performer || false;
-  var perfBadge = document.createElement("div");
-  perfBadge.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:14px;";
-  var perfBtn = document.createElement("button");
-  perfBtn.style.cssText = "display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;cursor:pointer;font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;transition:all 0.2s;" +
-    (isTop ? "background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.5);color:#FFD700;" : "background:rgba(255,255,255,0.05);border:1px solid var(--border-md);color:var(--muted);");
-  perfBtn.innerHTML = (isTop ? "⭐ Top Performer" : "☆ Mark as Top Performer");
-
-  perfBtn.addEventListener("click", function() {
-    isTop = !isTop;
-    sc.top_performer = isTop;
-    perfBtn.style.cssText = "display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;cursor:pointer;font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;transition:all 0.2s;" +
-      (isTop ? "background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.5);color:#FFD700;" : "background:rgba(255,255,255,0.05);border:1px solid var(--border-md);color:var(--muted);");
-    perfBtn.innerHTML = (isTop ? "⭐ Top Performer" : "☆ Mark as Top Performer");
-    // Save to DB
-    if (sc.id) {
-      sb.from("scripts").update({ top_performer: isTop }).eq("id", sc.id)
-        .then(function(){ showToast(isTop ? "Marked as top performer" : "Removed from top performers"); })
-        .catch(function(){ showToast("Could not save -- try again"); });
-    }
-  });
-  perfBadge.appendChild(perfBtn);
-  wrap.appendChild(perfBadge);
-
   // Full script display
+  var isTop = sc.top_performer || false;
   var sections = [
     { label: "HOOK", val: sc.hook },
     { label: "BODY 1", val: sc.body1 },
@@ -1878,6 +1854,25 @@ function renderSavedScriptView(sc, mc) {
   copyBtn.textContent = "Copy script";
   copyBtn.addEventListener("click", function(){ copyRaw(fullScript); showToast("Copied"); });
 
+  var perfBtn = document.createElement("button");
+  perfBtn.className = "next-btn";
+  perfBtn.style.cssText = "flex:1;" + (isTop
+    ? "background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.6);color:#FFD700;font-weight:700;"
+    : "background:transparent;border:1px solid var(--border-md);color:var(--muted);font-weight:600;");
+  perfBtn.innerHTML = isTop ? "🏆 Top Performer" : "🏆 Top Performer";
+  perfBtn.addEventListener("click", function() {
+    isTop = !isTop;
+    sc.top_performer = isTop;
+    perfBtn.style.cssText = "flex:1;" + (isTop
+      ? "background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.6);color:#FFD700;font-weight:700;"
+      : "background:transparent;border:1px solid var(--border-md);color:var(--muted);font-weight:600;");
+    if (sc.id) {
+      sb.from("scripts").update({ top_performer: isTop }).eq("id", sc.id)
+        .then(function(){ showToast(isTop ? "🏆 Marked as top performer" : "Removed from top performers"); })
+        .catch(function(){ showToast("Could not save -- try again"); });
+    }
+  });
+
   var postedBtn = document.createElement("button");
   postedBtn.className = "next-btn";
   postedBtn.style.cssText = "flex:1;background:transparent;border:1px solid rgba(45,201,138,0.4);color:var(--green);";
@@ -1891,7 +1886,9 @@ function renderSavedScriptView(sc, mc) {
     postedBtn.style.cssText = "flex:1;background:var(--green-dim);border:1px solid var(--green);color:var(--green);opacity:0.7;cursor:default;";
   });
 
-  actRow.appendChild(copyBtn); actRow.appendChild(postedBtn);
+  actRow.appendChild(copyBtn);
+  actRow.appendChild(perfBtn);
+  actRow.appendChild(postedBtn);
   wrap.appendChild(actRow);
 
   mc.appendChild(wrap);
