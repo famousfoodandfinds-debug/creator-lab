@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.9.4";
+var APP_VERSION = "2.9.5";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1790,6 +1790,114 @@ function generateScreenTextOptions(hooksData, callback) {
   .catch(function() { callback(null); });
 }
 
+function renderSavedScriptView(sc, mc) {
+  mc.innerHTML = "";
+  var wrap = document.createElement("div");
+  wrap.style.cssText = "padding:16px;";
+
+  // Back button
+  var backBtn = document.createElement("button");
+  backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 16px;";
+  backBtn.innerHTML = "← Back to product";
+  backBtn.addEventListener("click", function(){ renderProductHub(); });
+  wrap.appendChild(backBtn);
+
+  // Performance badge if marked
+  var isTop = sc.top_performer || false;
+  var perfBadge = document.createElement("div");
+  perfBadge.style.cssText = "display:flex;align-items:center;gap:8px;margin-bottom:14px;";
+  var perfBtn = document.createElement("button");
+  perfBtn.style.cssText = "display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;cursor:pointer;font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;transition:all 0.2s;" +
+    (isTop ? "background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.5);color:#FFD700;" : "background:rgba(255,255,255,0.05);border:1px solid var(--border-md);color:var(--muted);");
+  perfBtn.innerHTML = (isTop ? "⭐ Top Performer" : "☆ Mark as Top Performer");
+
+  perfBtn.addEventListener("click", function() {
+    isTop = !isTop;
+    sc.top_performer = isTop;
+    perfBtn.style.cssText = "display:flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;cursor:pointer;font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;transition:all 0.2s;" +
+      (isTop ? "background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.5);color:#FFD700;" : "background:rgba(255,255,255,0.05);border:1px solid var(--border-md);color:var(--muted);");
+    perfBtn.innerHTML = (isTop ? "⭐ Top Performer" : "☆ Mark as Top Performer");
+    // Save to DB
+    if (sc.id) {
+      sb.from("scripts").update({ top_performer: isTop }).eq("id", sc.id)
+        .then(function(){ showToast(isTop ? "Marked as top performer" : "Removed from top performers"); })
+        .catch(function(){ showToast("Could not save -- try again"); });
+    }
+  });
+  perfBadge.appendChild(perfBtn);
+  wrap.appendChild(perfBadge);
+
+  // Full script display
+  var sections = [
+    { label: "HOOK", val: sc.hook },
+    { label: "BODY 1", val: sc.body1 },
+    { label: "PRE-CLOSE", val: sc.preclose || sc.preClose || sc.pre_close },
+    { label: "BODY 2", val: sc.body2 },
+    { label: "CTA", val: sc.cta }
+  ].filter(function(s){ return s.val; });
+
+  var scriptBox = document.createElement("div");
+  scriptBox.style.cssText = "background:var(--surface);border:1px solid var(--border-md);border-radius:12px;padding:16px;margin-bottom:14px;";
+
+  // Full script copy row
+  var fullScript = sections.map(function(s){ return s.val; }).join(" ");
+  var topRow = document.createElement("div");
+  topRow.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;";
+  var scriptLbl = document.createElement("div");
+  scriptLbl.style.cssText = "font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);";
+  scriptLbl.textContent = "Complete Script";
+  var copyAllBtn = document.createElement("button");
+  copyAllBtn.className = "script-btn";
+  copyAllBtn.textContent = "Copy all";
+  copyAllBtn.addEventListener("click", function(){ copyRaw(fullScript); showToast("Script copied"); });
+  topRow.appendChild(scriptLbl); topRow.appendChild(copyAllBtn);
+  scriptBox.appendChild(topRow);
+
+  // Individual lines
+  sections.forEach(function(s) {
+    var row = document.createElement("div");
+    row.style.cssText = "margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);";
+    var lbl = document.createElement("div");
+    lbl.style.cssText = "font-size:9px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;";
+    lbl.textContent = s.label;
+    var txt = document.createElement("div");
+    txt.style.cssText = "font-size:14px;color:var(--white);line-height:1.6;font-weight:300;";
+    txt.textContent = s.val;
+    row.appendChild(lbl); row.appendChild(txt);
+    scriptBox.appendChild(row);
+  });
+  wrap.appendChild(scriptBox);
+
+  // Action buttons
+  var actRow = document.createElement("div");
+  actRow.style.cssText = "display:flex;gap:8px;flex-wrap:wrap;";
+
+  var copyBtn = document.createElement("button");
+  copyBtn.className = "next-btn";
+  copyBtn.style.cssText = "flex:1;background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;";
+  copyBtn.textContent = "Copy script";
+  copyBtn.addEventListener("click", function(){ copyRaw(fullScript); showToast("Copied"); });
+
+  var postedBtn = document.createElement("button");
+  postedBtn.className = "next-btn";
+  postedBtn.style.cssText = "flex:1;background:transparent;border:1px solid rgba(45,201,138,0.4);color:var(--green);";
+  postedBtn.textContent = sc.posted ? "✓ Posted" : "Mark as Posted";
+  if (sc.posted) postedBtn.style.cssText += "opacity:0.6;cursor:default;";
+  postedBtn.addEventListener("click", function() {
+    if (sc.posted) return;
+    markAsPosted(currentProduct, null);
+    sc.posted = true;
+    postedBtn.textContent = "✓ Posted";
+    postedBtn.style.cssText = "flex:1;background:var(--green-dim);border:1px solid var(--green);color:var(--green);opacity:0.7;cursor:default;";
+  });
+
+  actRow.appendChild(copyBtn); actRow.appendChild(postedBtn);
+  wrap.appendChild(actRow);
+
+  mc.appendChild(wrap);
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 function renderProductHub() {
   var mc = document.getElementById("mainContent");
   if (!mc) return;
@@ -1934,7 +2042,7 @@ function renderProductHub() {
         card.className = "saved-card";
         card.style.marginBottom = "8px";
         card.innerHTML =
-          "<div class='saved-card-name' style='font-size:13px;color:var(--white);margin-bottom:5px;'>Script " + (idx+1) + "</div>" +
+          "<div class='saved-card-name' style='font-size:13px;color:var(--white);margin-bottom:5px;display:flex;align-items:center;gap:6px;'>Script " + (idx+1) + (sc.top_performer ? " <span style='font-size:11px;color:#FFD700;'>⭐</span>" : "") + "</div>" +
           "<div class='saved-card-preview' style='white-space:normal;font-size:12px;color:var(--muted);line-height:1.5;'>" + (sc.hook || "No hook") + "</div>" +
           "<div class='saved-card-foot'><span class='saved-card-date'>" + (sc.created_at ? new Date(sc.created_at).toLocaleDateString() : "") + "</span>" +
           "<button class='saved-del' data-id='" + sc.id + "'>Delete</button></div>";
@@ -1946,13 +2054,7 @@ function renderProductHub() {
         });
 
         card.addEventListener("click", function() {
-          picks.hook = sc.hook || null; picks.hookCat = null;
-          picks.body1 = sc.body1 || null; picks.body1Cat = null;
-          picks.body2 = sc.body2 || null; picks.body2Cat = null;
-          picks.cta = sc.cta || null; picks.ctaCat = null;
-          wizardStep = 4;
-          renderBuilder();
-          setTimeout(function() { showStep(4); }, 80);
+          renderSavedScriptView(sc, mc);
         });
 
         wrap.appendChild(card);
