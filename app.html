@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.9.6";
+var APP_VERSION = "2.9.7";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1850,22 +1850,22 @@ function renderSavedScriptView(sc, mc) {
 
   var copyBtn = document.createElement("button");
   copyBtn.className = "next-btn";
-  copyBtn.style.cssText = "flex:1;background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;";
+  copyBtn.style.cssText = "flex:1;background:transparent;border:1px solid rgba(192,192,192,0.5);color:var(--silver-bright);font-weight:600;";
   copyBtn.textContent = "Copy script";
   copyBtn.addEventListener("click", function(){ copyRaw(fullScript); showToast("Copied"); });
 
   var perfBtn = document.createElement("button");
   perfBtn.className = "next-btn";
   perfBtn.style.cssText = "flex:1;" + (isTop
-    ? "background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.6);color:#FFD700;font-weight:700;"
-    : "background:transparent;border:1px solid var(--border-md);color:var(--muted);font-weight:600;");
-  perfBtn.innerHTML = isTop ? "🏆 Top Performer" : "🏆 Top Performer";
+    ? "background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.7);color:#FFD700;font-weight:700;"
+    : "background:transparent;border:1px solid rgba(255,215,0,0.35);color:rgba(255,215,0,0.6);font-weight:600;");
+  perfBtn.innerHTML = "🏆 Top Performer";
   perfBtn.addEventListener("click", function() {
     isTop = !isTop;
     sc.top_performer = isTop;
     perfBtn.style.cssText = "flex:1;" + (isTop
-      ? "background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.6);color:#FFD700;font-weight:700;"
-      : "background:transparent;border:1px solid var(--border-md);color:var(--muted);font-weight:600;");
+      ? "background:rgba(255,215,0,0.15);border:1px solid rgba(255,215,0,0.7);color:#FFD700;font-weight:700;"
+      : "background:transparent;border:1px solid rgba(255,215,0,0.35);color:rgba(255,215,0,0.6);font-weight:600;");
     if (sc.id) {
       sb.from("scripts").update({ top_performer: isTop }).eq("id", sc.id)
         .then(function(){ showToast(isTop ? "🏆 Marked as top performer" : "Removed from top performers"); })
@@ -1875,15 +1875,15 @@ function renderSavedScriptView(sc, mc) {
 
   var postedBtn = document.createElement("button");
   postedBtn.className = "next-btn";
-  postedBtn.style.cssText = "flex:1;background:transparent;border:1px solid rgba(45,201,138,0.4);color:var(--green);";
+  postedBtn.style.cssText = "flex:1;background:transparent;border:1px solid rgba(45,201,138,0.4);color:var(--green);font-weight:600;";
   postedBtn.textContent = sc.posted ? "✓ Posted" : "Mark as Posted";
-  if (sc.posted) postedBtn.style.cssText += "opacity:0.6;cursor:default;";
+  if (sc.posted) postedBtn.style.opacity = "0.6";
   postedBtn.addEventListener("click", function() {
     if (sc.posted) return;
     markAsPosted(currentProduct, null);
     sc.posted = true;
     postedBtn.textContent = "✓ Posted";
-    postedBtn.style.cssText = "flex:1;background:var(--green-dim);border:1px solid var(--green);color:var(--green);opacity:0.7;cursor:default;";
+    postedBtn.style.cssText = "flex:1;background:rgba(45,201,138,0.1);border:1px solid rgba(45,201,138,0.5);color:var(--green);font-weight:600;opacity:0.7;cursor:default;";
   });
 
   actRow.appendChild(copyBtn);
