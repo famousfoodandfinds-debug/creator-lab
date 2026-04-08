@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.8.6";
+var APP_VERSION = "2.8.7";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -2304,7 +2304,7 @@ function generateOnScreenText(productDesc, hooks) {
 }
 
 function generate() {
-  var insight = document.getElementById("buyerInsightInput") ? document.getElementById("buyerInsightInput").value.trim() : "";
+  var insight = (document.getElementById("buyerInsightInput") ? document.getElementById("buyerInsightInput").value.trim() : "") || currentBuyerInsight;
   var product = document.getElementById("productInput").value.trim();
   if (!insight) {
     showInsightPrompt(generate);
