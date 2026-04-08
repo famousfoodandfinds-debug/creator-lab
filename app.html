@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.6.8";
+var APP_VERSION = "2.6.9";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -5753,31 +5753,21 @@ function selectLine(line,cat,key){
   else if(key==="preclose"){ picks.preClose=picks.preClose===line?null:line; }
   else if(key==="body"){ picks.body1=picks.body1===line?null:line; picks.body1Cat=picks.body1?cat:null; }
 
-  // Collapse other trigger categories after a pick is made
+  // After a pick: collapse all unselected cards, highlight selected
   var pickMade = (key==="hooks"&&picks.hook) || (key==="body1"&&picks.body1) || (key==="body2"&&picks.body2) || (key==="cta"&&picks.cta);
-  if(pickMade){
-    var grid = document.getElementById("grid-"+key);
-    if(grid){
-      // Find the selected card and hide the others
-      var allCards = grid.querySelectorAll(".trigger-card");
-      allCards.forEach(function(tc){
-        var isSelected = tc.querySelector(".trigger-option.selected");
-        if(!isSelected) tc.style.display="none";
-      });
-    }
-  }
 
-  rebuildGrid(key);
   updateNextBtn(wizardStep);
   updateScriptSlots();
 
-  // Auto-advance to next step after a pick is made
-  var nextStepMap = { hooks: 2, body1: 3, body2: 5, cta: 6 };
-  var nextStep = nextStepMap[key];
-  if (nextStep && pickMade) {
-    setTimeout(function() {
-      showStep(nextStep);
-    }, 400);
+  if (pickMade) {
+    // Auto-advance to next step
+    var nextStepMap = { hooks: 2, body1: 3, body2: 5, cta: 6 };
+    var nextStep = nextStepMap[key];
+    if (nextStep) {
+      setTimeout(function() { showStep(nextStep); }, 350);
+    }
+  } else {
+    rebuildGrid(key);
   }
 }
 
@@ -5814,7 +5804,7 @@ function buildScriptSlots(key){
   var title=document.createElement("span");title.className="script-panel-title";title.textContent="Your script so far";
   head.appendChild(title);wrap.appendChild(head);
   var slots=document.createElement("div");slots.className="script-slots";slots.id="scriptslots-"+key;
-  [{id:"hook",label:"Hook",val:picks.hook},{id:"body1",label:"Body 1",val:picks.body1},{id:"body2",label:"Body 2",val:picks.body2},{id:"cta",label:"CTA",val:picks.cta}].forEach(function(s){
+  [{id:"hook",label:"Hook",val:picks.hook},{id:"body1",label:"Body 1",val:picks.body1},{id:"preClose",label:"Pre-close",val:picks.preClose},{id:"body2",label:"Body 2",val:picks.body2},{id:"cta",label:"CTA",val:picks.cta}].forEach(function(s){
     var slot=document.createElement("div");slot.className="script-slot"+(s.val?" filled":"");
     var lbl=document.createElement("span");lbl.className="slot-lbl";lbl.textContent=s.label;slot.appendChild(lbl);
     if(s.val){var val=document.createElement("span");val.className="slot-val";val.textContent=s.val;slot.appendChild(val);
@@ -6424,7 +6414,7 @@ function updateDonePanel(){
 
 function copyScript(){
   var parts=[];
-  [{key:"hook",label:"HOOK",val:picks.hook},{key:"body1",label:"BODY 1",val:picks.body1},{key:"body2",label:"BODY 2",val:picks.body2},{key:"cta",label:"CTA",val:picks.cta}].forEach(function(s){
+  [{key:"hook",label:"HOOK",val:picks.hook},{key:"body1",label:"BODY 1",val:picks.body1},{key:"preClose",label:"PRE-CLOSE",val:picks.preClose},{key:"body2",label:"BODY 2",val:picks.body2},{key:"cta",label:"CTA",val:picks.cta}].forEach(function(s){
     if(!s.val)return;
     // Only add on screen text for hook
     var sc = "";
