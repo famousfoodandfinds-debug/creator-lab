@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.8.4";
+var APP_VERSION = "2.8.5";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -2231,7 +2231,10 @@ function showNew() {
   document.getElementById("productInput").value = "";
   document.getElementById("charCount").textContent = "0";
   currentMotivation = "";
+  currentBuyerInsight = "";
   setBuyerMotivation("");
+  var biField = document.getElementById("buyerInsightInput");
+  if (biField) { biField.value = ""; biField.dispatchEvent(new Event("input")); }
   document.getElementById("mainContent").innerHTML = '<div class="state-box"><div class="state-icon">✨</div><div class="state-title">Your Script Bank</div><div class="state-desc">Describe your product and generate your custom script bank.</div></div>';
 }
 
