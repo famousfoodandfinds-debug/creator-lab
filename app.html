@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.7.4";
+var APP_VERSION = "2.7.5";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -5763,7 +5763,19 @@ function selectLine(line,cat,key){
     if(prevB2!==picks.body2){ picks.cta=null; picks.ctaCat=null; allData.ctaLive={}; }
     var nb=document.getElementById("next-4");if(nb)nb.disabled=!picks.body2; 
   }
-  else if(key==="cta"){ picks.cta=picks.cta===line?null:line; picks.ctaCat=picks.cta?cat:null; expandedTrigger.cta=null; var nb5=document.getElementById("next-5");if(nb5)nb5.disabled=!picks.cta; }
+  else if(key==="cta"){
+    picks.cta=picks.cta===line?null:line;
+    picks.ctaCat=picks.cta?cat:null;
+    // Keep category expanded so user can see their selection
+    expandedTrigger.cta = cat;
+    var nb5=document.getElementById("next-5");
+    if(nb5) nb5.disabled=!picks.cta;
+    // Rebuild immediately to show selection highlight
+    rebuildGrid("cta");
+    updateNextBtn(5);
+    updateScriptSlots();
+    return;
+  }
   else if(key==="preclose"){ picks.preClose=picks.preClose===line?null:line; }
   else if(key==="body"){ picks.body1=picks.body1===line?null:line; picks.body1Cat=picks.body1?cat:null; }
 
