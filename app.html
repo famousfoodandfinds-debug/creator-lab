@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.7.0";
+var APP_VERSION = "2.7.1";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -5143,16 +5143,19 @@ function showStep(num) {
   if (num === 2 && document.getElementById("grid-body1")) rebuildGrid("body1");
   if (num === 4 && document.getElementById("grid-body2")) rebuildGrid("body2");
   if (num === 5 && document.getElementById("grid-cta")) rebuildGrid("cta");
-  // Scroll to active step -- longer delay to let DOM settle after collapses
+  // Scroll to active step -- use wizard top + step offset
   setTimeout(function() {
     var target = document.getElementById("step-" + num);
-    if (num > 1 && target) {
-      var top = target.getBoundingClientRect().top + window.pageYOffset - 16;
-      window.scrollTo({ top: top, behavior: "smooth" });
-    } else {
+    if (!target) return;
+    if (num === 1) {
       window.scrollTo({ top: 0, behavior: "smooth" });
+    } else {
+      // Scroll to just above the step panel
+      var rect = target.getBoundingClientRect();
+      var scrollTop = window.pageYOffset + rect.top - 60;
+      window.scrollTo({ top: Math.max(0, scrollTop), behavior: "smooth" });
     }
-  }, 200);
+  }, 250);
 }
 
 function buildStepPanel(key,stepNum) {
@@ -5761,12 +5764,15 @@ function selectLine(line,cat,key){
   updateScriptSlots();
 
   // Auto-advance to next step after a pick is made
-  var nextStepMap = { hooks: 2, body2: 5, cta: 6 };
+  var nextStepMap = { hooks: 2, cta: 6 };
   var nextStep = nextStepMap[key];
   if (pickMade) {
     if (key === "body1") {
       // Body 1 needs to generate Body 2 + Pre-close before advancing
       setTimeout(function() { generateBody2AndPreclose(picks.body1, picks.hook); }, 350);
+    } else if (key === "body2") {
+      // Body 2 needs to generate CTA before advancing
+      setTimeout(function() { generateCTA(picks.hook, picks.body1, picks.preClose, picks.body2); }, 350);
     } else if (nextStep) {
       setTimeout(function() { showStep(nextStep); }, 350);
     }
