@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.7.5";
+var APP_VERSION = "2.7.6";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -5766,6 +5766,7 @@ function selectLine(line,cat,key){
   else if(key==="cta"){
     picks.cta=picks.cta===line?null:line;
     picks.ctaCat=picks.cta?cat:null;
+    showToast(picks.cta ? "CTA selected" : "CTA cleared");
     // Keep category expanded so user can see their selection
     expandedTrigger.cta = cat;
     var nb5=document.getElementById("next-5");
