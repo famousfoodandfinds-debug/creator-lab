@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.7.8";
+var APP_VERSION = "2.7.9";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -5347,9 +5347,18 @@ function buildTriggerCard(cat,lines,catTags,catScreens,sectionKey) {
     opt.appendChild(thumbBtn);
 
     (function(l,c,sk){
-      function handleSelect(e){ e.stopPropagation(); e.preventDefault(); if(!dismissedLines[l]) selectLine(l,c,sk); }
-      opt.addEventListener("click", handleSelect);
-      opt.addEventListener("touchend", handleSelect);
+      var _touched = false;
+      opt.addEventListener("touchend", function(e){
+        e.stopPropagation(); e.preventDefault();
+        _touched = true;
+        if(!dismissedLines[l]) selectLine(l,c,sk);
+        setTimeout(function(){ _touched = false; }, 600);
+      });
+      opt.addEventListener("click", function(e){
+        e.stopPropagation();
+        if(_touched){ return; }
+        if(!dismissedLines[l]) selectLine(l,c,sk);
+      });
     })(line,cat,sectionKey);
     opts.appendChild(opt);
   });
