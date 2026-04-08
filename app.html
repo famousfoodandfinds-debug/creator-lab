@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "3.0.0";
+var APP_VERSION = "3.0.1";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -3896,6 +3896,18 @@ function renderFormatPicker() {
 
     grid.appendChild(card);
   });
+
+  // Restore badge states from selectedFormats array
+  FILMING_FORMATS.forEach(function(f) {
+    var cnt = selectedFormats.filter(function(id){ return id === f.id; }).length;
+    if (cnt > 0) {
+      var b = document.getElementById("fmt-badge-" + f.id);
+      var c2 = document.getElementById("fmt-card-" + f.id);
+      if (b) { b.textContent = cnt; b.style.display = "flex"; }
+      if (c2) { c2.style.borderColor = "rgba(255,165,0,0.5)"; c2.style.background = "rgba(255,165,0,0.05)"; }
+    }
+  });
+
   wrap.appendChild(grid);
 
   // Selected formats summary
@@ -3970,18 +3982,10 @@ function updateFormatCounter() {
     rm.style.cssText = "margin-left:auto;background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;flex-shrink:0;";
     rm.textContent = "✕";
     (function(i) {
-      rm.addEventListener("click", function() {
+      rm.addEventListener("click", function(e) {
+        e.stopPropagation();
         selectedFormats.splice(i, 1);
-        // Recalculate badges
-        FILMING_FORMATS.forEach(function(f) {
-          var cnt = selectedFormats.filter(function(sid){ return sid === f.id; }).length;
-          var b = document.getElementById("fmt-badge-" + f.id);
-          var c = document.getElementById("fmt-card-" + f.id);
-          if (b) { b.textContent = cnt; b.style.display = cnt > 0 ? "flex" : "none"; }
-          if (c) { c.style.borderColor = cnt > 0 ? "rgba(255,165,0,0.5)" : ""; c.style.background = cnt > 0 ? "rgba(255,165,0,0.05)" : ""; }
-        });
-        updateFormatCounter();
-        updateGenerateBtn();
+        renderFormatPicker();
       });
     })(idx);
     row.appendChild(num); row.appendChild(name); row.appendChild(rm);
@@ -4162,6 +4166,44 @@ function renderFilmingSessionResults(scripts, mc) {
     });
     actRow.appendChild(copyFullBtn); actRow.appendChild(postedBtn);
     card.appendChild(actRow);
+
+    // Text hooks -- async per script
+    var thSection = document.createElement("div");
+    thSection.style.cssText = "margin-top:12px;padding-top:12px;border-top:1px solid var(--border);";
+    var thLbl = document.createElement("div");
+    thLbl.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:var(--purple);margin-bottom:6px;";
+    thLbl.textContent = "Text Hook";
+    var thLoading = document.createElement("div");
+    thLoading.style.cssText = "font-size:11px;color:var(--muted);";
+    thLoading.textContent = "Generating...";
+    thSection.appendChild(thLbl);
+    thSection.appendChild(thLoading);
+    card.appendChild(thSection);
+
+    (function(section, loadingEl, scriptText, formatName) {
+      var thPrompt = "You are writing text hooks for a TikTok Shop video about: " + currentProduct + ". Format: " + formatName + ". The creator will SPEAK this script: \"" + scriptText + "\" Write exactly 3 text hooks (under 6 words each) that appear on screen WHILE they speak. CRITICAL: Every text hook must reference something SPECIFIC to this product. NEVER write generic hooks. The incomplete thought principle: text hooks should open a loop the script does not close -- make the viewer need to watch to resolve the tension. Return ONLY valid JSON: {options:[3 strings]}";
+      fetch("/api/claude", {
+        method:"POST", headers:{"Content-Type":"application/json","x-user-id":(currentUser?currentUser.id:"")},
+        body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:150,messages:[{role:"user",content:thPrompt}]})
+      })
+      .then(function(r){return r.json();})
+      .then(function(data){
+        var opts=[]; try{var t="";data.content.forEach(function(b){if(b.type==="text")t+=b.text;});opts=JSON.parse(t.replace(/```json|```/g,"").trim()).options||[];}catch(e){}
+        section.removeChild(loadingEl);
+        var grid=document.createElement("div");grid.style.cssText="display:flex;flex-direction:column;gap:5px;";
+        opts.forEach(function(opt){
+          var row=document.createElement("div");
+          row.style.cssText="display:flex;align-items:center;justify-content:space-between;background:var(--surface2);border:1px solid rgba(144,144,240,0.2);border-radius:6px;padding:7px 10px;cursor:pointer;";
+          var t2=document.createElement("span");t2.style.cssText="font-size:13px;color:var(--white);font-weight:400;flex:1;";t2.textContent=opt;
+          var cp=document.createElement("span");cp.style.cssText="font-size:10px;color:var(--purple);flex-shrink:0;margin-left:8px;font-weight:600;";cp.textContent="Copy";
+          row.appendChild(t2);row.appendChild(cp);
+          (function(o){row.addEventListener("click",function(){copyRaw(o);showToast("Text hook copied");});})(opt);
+          grid.appendChild(row);
+        });
+        section.appendChild(grid);
+      })
+      .catch(function(){ section.removeChild(loadingEl); });
+    })(thSection, thLoading, fullText, sc.format || "");
 
     wrap.appendChild(card);
   });
