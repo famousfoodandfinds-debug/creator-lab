@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.7.1";
+var APP_VERSION = "2.7.2";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -5143,17 +5143,14 @@ function showStep(num) {
   if (num === 2 && document.getElementById("grid-body1")) rebuildGrid("body1");
   if (num === 4 && document.getElementById("grid-body2")) rebuildGrid("body2");
   if (num === 5 && document.getElementById("grid-cta")) rebuildGrid("cta");
-  // Scroll to active step -- use wizard top + step offset
+  // Always scroll to top of wizard wrap so user sees progress bar
   setTimeout(function() {
-    var target = document.getElementById("step-" + num);
-    if (!target) return;
-    if (num === 1) {
-      window.scrollTo({ top: 0, behavior: "smooth" });
+    var wizard = document.getElementById("wizardWrap");
+    if (wizard) {
+      var wizTop = wizard.getBoundingClientRect().top + window.pageYOffset - 8;
+      window.scrollTo({ top: Math.max(0, wizTop), behavior: "smooth" });
     } else {
-      // Scroll to just above the step panel
-      var rect = target.getBoundingClientRect();
-      var scrollTop = window.pageYOffset + rect.top - 60;
-      window.scrollTo({ top: Math.max(0, scrollTop), behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   }, 250);
 }
@@ -5764,7 +5761,7 @@ function selectLine(line,cat,key){
   updateScriptSlots();
 
   // Auto-advance to next step after a pick is made
-  var nextStepMap = { hooks: 2, cta: 6 };
+  var nextStepMap = { hooks: 2 };
   var nextStep = nextStepMap[key];
   if (pickMade) {
     if (key === "body1") {
