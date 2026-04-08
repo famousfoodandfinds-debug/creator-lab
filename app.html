@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.7.7";
+var APP_VERSION = "2.7.8";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -5774,10 +5774,14 @@ function selectLine(line,cat,key){
     expandedTrigger.cta = cat;
     var nb5=document.getElementById("next-5");
     if(nb5) nb5.disabled=!picks.cta;
-    // Rebuild immediately to show selection highlight
+    // Rebuild to show selection highlight
     rebuildGrid("cta");
     updateNextBtn(5);
     updateScriptSlots();
+    // Auto-advance to build script after short delay
+    if (picks.cta) {
+      setTimeout(function(){ showStep(6); }, 500);
+    }
     return;
   }
   else if(key==="preclose"){ picks.preClose=picks.preClose===line?null:line; }
