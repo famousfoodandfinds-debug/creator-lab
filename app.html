@@ -89,7 +89,7 @@ select option { background: #1a1a1a; }
 .field-block { display: flex; flex-direction: column; }
 .field-label { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--silver-bright); margin-bottom: 5px; padding-left: 1px; }
 .field-hints { display: flex; flex-direction: column; gap: 2px; margin-bottom: 8px; padding-left: 2px; }
-.field-hints span { font-size: 11px; color: rgba(255,255,255,0.25); line-height: 1.6; font-style: italic; }
+.field-hints span { font-size: 11px; color: rgba(255,255,255,0.38); line-height: 1.6; font-style: italic; }
 .field-hints span::before { content: "· "; }
 .field-required-badge { font-size: 9px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 7px; border-radius: 999px; background: rgba(200,168,74,0.12); border: 1px solid rgba(200,168,74,0.3); color: var(--gold); }
 .field-required-badge.satisfied { background: rgba(45,201,138,0.12); border-color: rgba(45,201,138,0.3); color: #2DC98A; }
@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.8.7";
+var APP_VERSION = "2.8.8";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -7019,6 +7019,9 @@ function showInsightPrompt(onComplete) {
     if (!val) { showToast("Add a few words about this product first"); ta.focus(); return; }
     currentBuyerInsight = val;
     currentMotivation = val;
+    // Update the visible field so it shows the saved value
+    var biField = document.getElementById("buyerInsightInput");
+    if (biField) { biField.value = val; biField.dispatchEvent(new Event("input")); }
     // Update currentProduct to include the insight
     var descOnly = currentProduct.indexOf(" PRODUCT DETAILS: ") > -1
       ? currentProduct.split(" PRODUCT DETAILS: ")[1]
