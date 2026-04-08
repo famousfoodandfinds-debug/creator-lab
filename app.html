@@ -703,7 +703,7 @@ var userVertical = null;
 var currentMotivation = "";
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "2.7.3";
+var APP_VERSION = "2.7.4";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -5143,15 +5143,9 @@ function showStep(num) {
   if (num === 2 && document.getElementById("grid-body1")) rebuildGrid("body1");
   if (num === 4 && document.getElementById("grid-body2")) rebuildGrid("body2");
   if (num === 5 && document.getElementById("grid-cta")) rebuildGrid("cta");
-  // Always scroll to top of wizard wrap so user sees progress bar
+  // Scroll to top so user sees progress bar and active step
   setTimeout(function() {
-    var wizard = document.getElementById("wizardWrap");
-    if (wizard) {
-      var wizTop = wizard.getBoundingClientRect().top + window.pageYOffset - 8;
-      window.scrollTo({ top: Math.max(0, wizTop), behavior: "smooth" });
-    } else {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }, 250);
 }
 
@@ -5435,7 +5429,13 @@ function generateBody2AndPreclose(body1Line, hookLine) {
     // Rebuild step 3 (pre-close) and step 4 (body 2) with new data
     rebuildPrecloseStep();
     rebuildBody2Step();
-    showStep(3);
+    // Activate step 3 without re-calling showStep to avoid double scroll
+    document.querySelectorAll(".step-panel").forEach(function(p){ p.classList.remove("active"); });
+    var s3 = document.getElementById("step-3");
+    if (s3) s3.classList.add("active");
+    wizardStep = 3;
+    updateProgressBar();
+    setTimeout(function(){ window.scrollTo({ top: 0, behavior: "smooth" }); }, 250);
   })
   .catch(function(err) {
     logError("preclose_body2", err, { product: currentProduct, hook: picks.hook });
@@ -5653,7 +5653,13 @@ function generateCTA(hookLine, body1Line, preCloseLine, body2Line) {
     var parsed = JSON.parse(clean);
     allData.ctaLive = parsed.cta || {};
     rebuildCTAStep();
-    showStep(5);
+    // Activate step 5 without calling showStep which would rebuildGrid and lose expansion
+    document.querySelectorAll(".step-panel").forEach(function(p){ p.classList.remove("active"); });
+    var s5 = document.getElementById("step-5");
+    if (s5) s5.classList.add("active");
+    wizardStep = 5;
+    updateProgressBar();
+    setTimeout(function(){ window.scrollTo({ top: 0, behavior: "smooth" }); }, 250);
   })
   .catch(function(err) {
     logError("cta_generation", err, { product: currentProduct, hook: picks.hook });
@@ -5713,7 +5719,9 @@ function rebuildGrid(key){
     Object.keys(source).forEach(function(cat){grid.appendChild(buildTriggerCard(cat,source[cat],[],[],key));});
   } else if(key==="cta"){
     var source=allData.ctaLive||{};
-    Object.keys(source).forEach(function(cat){grid.appendChild(buildTriggerCard(cat,source[cat],[],[],key));});
+    var ctaCats=Object.keys(source);
+    if(ctaCats.length>0 && !expandedTrigger.cta) expandedTrigger.cta=ctaCats[0];
+    ctaCats.forEach(function(cat){grid.appendChild(buildTriggerCard(cat,source[cat],[],[],key));});
   } else {
     var sourceKey=(key==="body1")?"body":key;
     var source=allData[sourceKey]||{};
