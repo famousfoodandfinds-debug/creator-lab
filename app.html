@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "3.0.2";
+var APP_VERSION = "3.0.3";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -2104,7 +2104,7 @@ function renderProductHub() {
     var filmingBtn = document.createElement("button");
     filmingBtn.className = "next-btn hub-gen-btn";
     filmingBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(255,165,0,0.4);color:rgba(255,165,0,0.9);font-weight:600;opacity:0.45;cursor:pointer;";
-    filmingBtn.innerHTML = "🎬 &nbsp;Filming Session &nbsp;<span style='font-weight:400;font-size:12px;'>-- pick formats, get 5 ready-to-film scripts</span>";
+    filmingBtn.innerHTML = "🎬 &nbsp;Filming Session &nbsp;<span style='font-weight:400;font-size:12px;'>-- one product, multiple formats</span>";
     filmingBtn.onclick = function() {
       if (!currentPrice) { showPriceModal(function(){ renderFormatPicker(); }); return; }
       if (!currentBuyerInsight) { showInsightPrompt(function(){ renderFormatPicker(); }); return; }
@@ -2552,7 +2552,7 @@ function renderModeChoice(wrap, focuses) {
 
   var batchBtn = document.createElement("button");
   batchBtn.className = "mode-btn";
-  batchBtn.innerHTML = "<div class='mode-btn-title'>\u26A1 Batch Scripts</div><div class='mode-btn-desc'>Select up to 5 angles. Get 5 complete scripts at once.</div>";
+  batchBtn.innerHTML = "<div class='mode-btn-title'>\u26A1 Batch Scripts</div><div class='mode-btn-desc'>5 scripts at once -- the tool picks the buyer angles for you.</div>";
 
   var skitBtn2 = document.createElement("button");
   skitBtn2.className = "mode-btn";
@@ -2561,7 +2561,7 @@ function renderModeChoice(wrap, focuses) {
 
   var filmingBtn2 = document.createElement("button");
   filmingBtn2.className = "mode-btn";
-  filmingBtn2.innerHTML = "<div class='mode-btn-title'>🎬 Filming Session</div><div class='mode-btn-desc'>Pick formats, get 5 ready-to-film scripts for one session.</div>";
+  filmingBtn2.innerHTML = "<div class='mode-btn-title'>🎬 Filming Session</div><div class='mode-btn-desc'>One product, multiple formats -- unboxing, voice over, honest take and more.</div>";
   filmingBtn2.addEventListener("click", function(){ selectedFormats = []; renderFormatPicker(); });
 
   modeWrap.appendChild(curatedBtn);
