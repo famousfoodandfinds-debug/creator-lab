@@ -3,7 +3,6 @@
 // Adds the buyer's email to paid_users table in Supabase
 
 exports.handler = async function(event, context) {
-  // Only allow POST requests
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method not allowed" };
   }
@@ -16,7 +15,6 @@ exports.handler = async function(event, context) {
       return { statusCode: 500, body: "Missing environment variables" };
     }
 
-    // Parse the incoming request body
     let body;
     try {
       body = JSON.parse(event.body);
@@ -24,15 +22,12 @@ exports.handler = async function(event, context) {
       return { statusCode: 400, body: "Invalid JSON" };
     }
 
-    // Get email from the request -- Zapier will send it as { email: "..." }
     const email = body.email ? body.email.trim().toLowerCase() : null;
-
     if (!email) {
       return { statusCode: 400, body: "No email provided" };
     }
 
-    // Insert into paid_users -- ON CONFLICT DO UPDATE sets active back to true
-    // (handles case where someone cancelled and resubscribed)
+    // Works with both legacy eyJ keys and new sb_secret_ keys
     const response = await fetch(`${SUPABASE_URL}/rest/v1/paid_users`, {
       method: "POST",
       headers: {
@@ -41,10 +36,7 @@ exports.handler = async function(event, context) {
         "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
         "Prefer": "resolution=merge-duplicates"
       },
-      body: JSON.stringify({
-        email: email,
-        active: true
-      })
+      body: JSON.stringify({ email: email, active: true })
     });
 
     if (!response.ok) {
@@ -54,10 +46,7 @@ exports.handler = async function(event, context) {
     }
 
     console.log("Added paid user:", email);
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ success: true, email: email })
-    };
+    return { statusCode: 200, body: JSON.stringify({ success: true, email: email }) };
 
   } catch(err) {
     console.error("Function error:", err);
