@@ -2804,7 +2804,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     " 4. EMOTIONAL FRAME: " + getPriceContext() + " This price frame overrides every angle. Even a Pain/Problem angle at $150+ is NOT about something broken -- it is about the one thing that does not yet match the life they have built. Even a Convenience angle at $150+ is not about saving time -- it is about everything working the way someone at this level expects it to. The price frame tells you how every single line must feel, regardless of angle." +
     " 5. CULTURAL MOMENT: What is the one thing everyone in this product's world just accepts and works around -- the shared frustration nobody questions because it is just how it is? This is where the best hooks live. A golf drink dispenser: golfers wait on the cart girl. A beach poncho: everyone does the parking lot towel change. A food storage set: everyone's fridge looks like chaos no matter how nice the kitchen is. A travel bag for hair tools: everyone just accepts that tools get damaged in luggage. Find the equivalent for this product and state it in one plain sentence." +" 6. PURCHASE TYPE -- CRITICAL FOR HOOK FRAMING: Is this an AESTHETIC purchase or a FUNCTIONAL purchase? AESTHETIC: bought because of how it makes the owner feel, look, or how their space looks -- identity and appearance drive the purchase, not performance. Examples: golf bag, premium cookware, luxury home goods, fashion accessories, lifestyle gear, hair tool travel case. FUNCTIONAL: bought to solve a specific daily problem. Examples: vacuum, stain remover, supplement, organizer, cleaning tool. State your answer as exactly: AESTHETIC PURCHASE or FUNCTIONAL PURCHASE. This controls how every hook must be framed -- aesthetic products must never be framed as performance or function improvements. GIFT FRAME: If price tier is Gift, question 1 must describe the GIFT GIVER not the product user. Write your thinking plainly. No headers. No bullet points. Just think out loud." +
     "  6. GOLD STANDARD HOOK: Now write the single best hook for this product and this buyer. This is one focused task. Read the buyer insight. Pick the hook type that fits best from: CULTURAL MOMENT, IDENTITY FILTER, FRUSTRATION, RELATABLE PROBLEM/QUESTION, SENSORY, SOCIAL PROOF, SKEPTICISM, CURIOSITY/REACTION, IDENTITY GAP, CONFESSION, REVEAL. Write toward this quality -- these are the benchmarks: We are not waiting on the cart girl. I have a pillow graveyard in my bedroom. Why are we wasting money on epsom salt. Your counters look amazing and then you open the fridge. You clean the vacuum more than it cleans your floors. Rules: Under 10 words. Declarative. Stop at the tension. No AND or BUT. Never starts with I or My. If the hook is over 10 words cut it. If it starts with I or My rewrite it. The buyer insight is your brief -- the hook must connect to what the creator told you. " +
-     "Return ONLY valid JSON: {who:string, already_have:string, differentiator:string, emotional_frame:string, cultural_moment:string, purchase_type:string, gold_standard_hook:string}";
+     "Return ONLY valid JSON: {who:string, already_have:string, differentiator:string, emotional_frame:string, cultural_moment:string, purchase_type:string}";
 
   // ── CALL 1: Get product understanding first ──
   fetch("/api/claude", {
@@ -2829,8 +2829,57 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
       " EMOTIONAL FRAME FOR THIS PRICE: " + understanding.emotional_frame +
       (understanding.cultural_moment ? " CULTURAL MOMENT -- this is where the best hook for this product lives. At least one hook must open with this shared experience that everyone in this world knows: " + understanding.cultural_moment : "") +
       (understanding.purchase_type === "AESTHETIC PURCHASE" ? " AESTHETIC PURCHASE OVERRIDE -- CRITICAL: This product is bought for identity and appearance, not function or performance. Every hook must be about how owning this makes the buyer feel or look -- never about what it does or how it performs. Never frame as solving a problem. Never suggest it improves performance or function. The hook lives in the gap between who they are and who they want to be seen as. Examples of what NOT to do for a golf bag: helps your game, performs better on the course, improves your round. Examples of what TO DO: names the cultural moment of showing up with the wrong bag, the look of someone whose gear matches their level, the feeling of finally having a setup that looks like you." : "") +
-      (understanding.gold_standard_hook ? " GOLD STANDARD HOOK -- THIS IS YOUR BENCHMARK: The single best hook for this product and buyer has already been written. Every hook you write must match this quality and stay anchored to this buyer situation. If your hook could work for a different product or buyer, it is wrong -- rewrite it until it only works for this specific person. The gold standard hook is: " + understanding.gold_standard_hook + ". Study it. Write toward it. The buyer insight is: " + getBuyerMotivation() + "." : "")
       : "";
+    understandingNote += goldHookNote;
+
+  // ── CALL 1.5: Write the gold standard hook in isolation ──
+  var goldHookPrompt = "You have one job. Write the single best verbal hook for this product and this buyer." +
+    " YOUR PRIMARY BRIEF: " + getBuyerMotivation() + "." +
+    " PRODUCT DETAILS: " + currentProduct.split(' PRODUCT DETAILS: ').pop() + "." +
+    " PRODUCT UNDERSTANDING: " + (understanding.who ? understanding.who : "") + ". Cultural moment: " + (understanding.cultural_moment || "") + "." +
+    " HOOK TYPE FRAMEWORK -- pick the type that fits best:" +
+    " 1. CULTURAL MOMENT: names the shared unspoken truth everyone in this world accepts." +
+    " 2. IDENTITY FILTER: immediately identifies exactly who this is for." +
+    " 3. FRUSTRATION: names the active pain, stops at the tension." +
+    " 4. RELATABLE PROBLEM/QUESTION: reveals a problem they did not know they had." +
+    " 5. SENSORY: makes the viewer feel the product before they see it." +
+    " 6. SOCIAL PROOF: opens on someone elses reaction or verdict." +
+    " 7. SKEPTICISM: opens with the creators own doubt." +
+    " 8. CURIOSITY/REACTION: personal response that only makes sense after watching." +
+    " 9. IDENTITY GAP: names something that does not match the life they built." +
+    " 10. CONFESSION: creator admits something the viewer recognizes in themselves." +
+    " 11. REVEAL: opens on an unexpected fact that reframes something." +
+    " GOLD STANDARD BENCHMARK -- write toward this quality and length:" +
+    " We are not waiting on the cart girl." +
+    " I have a pillow graveyard in my bedroom." +
+    " Why are we wasting money on epsom salt." +
+    " Your counters look amazing and then you open the fridge." +
+    " You clean the vacuum more than it cleans your floors." +
+    " Thick chalky protein shakes that feel like punishment." +
+    " RULES: Under 10 words. Declarative. Stop at the tension. No AND or BUT. Never starts with I or My." +
+    " Do not explain the product. Do not name the product. Name the buyer moment and stop." +
+    " Return ONLY valid JSON: {hook:string, hook_type:string}";
+
+  fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 150,
+      messages: [{ role: "user", content: goldHookPrompt }] })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(goldData) {
+    var goldHook = "";
+    var goldHookType = "";
+    try {
+      var gt = ""; goldData.content.forEach(function(b){ if(b.type==="text") gt+=b.text; });
+      var goldParsed = JSON.parse(gt.replace(/```json|```/g,"").trim());
+      goldHook = goldParsed.hook || "";
+      goldHookType = goldParsed.hook_type || "";
+    } catch(e) {}
+
+    // Safety check -- if over 10 words or starts with I/My, note it for Call 2 to tighten
+    var goldWordCount = goldHook.split(' ').length;
+    var goldHookNote = goldHook ? " GOLD STANDARD HOOK -- THIS IS YOUR BENCHMARK: Every hook you write must match this quality and stay anchored to this buyer. If your hook could work for a different product or buyer it is wrong. Gold standard hook: " + goldHook + " (" + goldHookType + "). " + (goldWordCount > 10 ? "NOTE: This benchmark is slightly long -- tighten your hooks to under 10 words." : "") + " Buyer insight: " + getBuyerMotivation() + "." : "";
 
     // ── CALL 2: Write scripts from that understanding ──
     var prompt = "You write TikTok Shop scripts that sound exactly like a real person talking to a friend about something they genuinely love." +
@@ -2949,6 +2998,13 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     var mc = document.getElementById("mainContent");
     if(mc) mc.innerHTML = "<div style='padding:16px;color:var(--red);font-size:14px;'>Something went wrong: " + (err.message||"Please try again") + "</div>";
   });
+  })
+  .catch(function() {
+    // Call 1.5 (gold hook) failed -- proceed with empty benchmark
+    var goldHookNote = "";
+    // ── CALL 2 fallback: Write scripts without gold standard hook ──
+    generateBatchScriptsWithProfile(angles, priceCtx, profileNote);
+  })
   })
   .catch(function() {
     // Call 1 failed -- fall back to writing without product understanding
@@ -3441,7 +3497,7 @@ function generateScriptBank() {
     " 4. EMOTIONAL FRAME: " + getPriceContext() + " This price frame overrides every angle. Even a Pain/Problem angle at $150+ is NOT about something broken -- it is about the one thing that does not yet match the life they have built. The price frame tells you how every single line must feel." +
     " 5. CULTURAL MOMENT: What is the one thing everyone in this product's world just accepts and works around -- the shared frustration nobody questions because it is just how it is? This is where the best hooks live. A golf drink dispenser: golfers wait on the cart girl. A beach poncho: everyone does the parking lot towel change. A food storage set: everyone's fridge looks like chaos no matter how nice the kitchen is. A travel bag for hair tools: everyone just accepts that tools get damaged in luggage. Find the equivalent for this product and state it in one plain sentence." +" 6. PURCHASE TYPE -- CRITICAL FOR HOOK FRAMING: Is this an AESTHETIC purchase or a FUNCTIONAL purchase? AESTHETIC: bought because of how it makes the owner feel, look, or how their space looks -- identity and appearance drive the purchase, not performance. Examples: golf bag, premium cookware, luxury home goods, fashion accessories, lifestyle gear, hair tool travel case. FUNCTIONAL: bought to solve a specific daily problem. Examples: vacuum, stain remover, supplement, organizer, cleaning tool. State your answer as exactly: AESTHETIC PURCHASE or FUNCTIONAL PURCHASE. This controls how every hook must be framed -- aesthetic products must never be framed as performance or function improvements. GIFT FRAME: If price tier is Gift, question 1 must describe the GIFT GIVER not the product user. Write your thinking plainly. No headers. No bullet points. Just think out loud." +
     "  6. GOLD STANDARD HOOK: Now write the single best hook for this product and this buyer. This is one focused task. Read the buyer insight. Pick the hook type that fits best from: CULTURAL MOMENT, IDENTITY FILTER, FRUSTRATION, RELATABLE PROBLEM/QUESTION, SENSORY, SOCIAL PROOF, SKEPTICISM, CURIOSITY/REACTION, IDENTITY GAP, CONFESSION, REVEAL. Write toward this quality -- these are the benchmarks: We are not waiting on the cart girl. I have a pillow graveyard in my bedroom. Why are we wasting money on epsom salt. Your counters look amazing and then you open the fridge. You clean the vacuum more than it cleans your floors. Rules: Under 10 words. Declarative. Stop at the tension. No AND or BUT. Never starts with I or My. If the hook is over 10 words cut it. If it starts with I or My rewrite it. The buyer insight is your brief -- the hook must connect to what the creator told you. " +
-     "Return ONLY valid JSON: {who:string,already_have:string,differentiator:string,emotional_frame:string,cultural_moment:string,gold_standard_hook:string}";
+     "Return ONLY valid JSON: {who:string,already_have:string,differentiator:string,emotional_frame:string,cultural_moment:string}";
 
   // ── CALL 1: Get product understanding first ──
   fetch("/api/claude", {
@@ -3466,7 +3522,6 @@ function generateScriptBank() {
       " EMOTIONAL FRAME FOR THIS PRICE: " + understanding.emotional_frame +
       (understanding.cultural_moment ? " CULTURAL MOMENT -- this is where the best hook for this product lives. At least one hook must open with this shared experience that everyone in this world knows: " + understanding.cultural_moment : "") +
       (understanding.purchase_type === "AESTHETIC PURCHASE" ? " AESTHETIC PURCHASE OVERRIDE -- CRITICAL: This product is bought for identity and appearance, not function or performance. Every hook must be about how owning this makes the buyer feel or look -- never about what it does or how it performs. Never frame as solving a problem. Never suggest it improves performance or function. The hook lives in the gap between who they are and who they want to be seen as. Examples of what NOT to do for a golf bag: helps your game, performs better on the course, improves your round. Examples of what TO DO: names the cultural moment of showing up with the wrong bag, the look of someone whose gear matches their level, the feeling of finally having a setup that looks like you." : "") +
-      (understanding.gold_standard_hook ? " GOLD STANDARD HOOK -- THIS IS YOUR BENCHMARK: The single best hook for this product and buyer has already been written. Every hook you write must match this quality and stay anchored to this buyer situation. If your hook could work for a different product or buyer, it is wrong -- rewrite it until it only works for this specific person. The gold standard hook is: " + understanding.gold_standard_hook + ". Study it. Write toward it. The buyer insight is: " + getBuyerMotivation() + "." : "")
       : "";
 
     // ── CALL 2: Write the full script bank from that understanding ──
