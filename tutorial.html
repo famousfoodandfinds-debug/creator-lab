@@ -14,6 +14,7 @@
   --silver: #C0C0C0; --silver-bright: #E8E8E8; --silver-dim: rgba(192,192,192,0.12);
   --white: #F0F0F0; --white-dim: rgba(240,240,240,0.55); --muted: #666666; --muted2: #404040;
   --green: #2DC98A; --gold: #D4AF37; --gold-dim: rgba(212,175,55,0.12);
+  --orange: rgba(255,165,0,0.9); --orange-dim: rgba(255,165,0,0.1);
   --radius: 14px; --radius-sm: 9px;
 }
 html, body { background: var(--black); color: var(--white); font-family: 'Instrument Sans', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
@@ -69,6 +70,30 @@ body { padding-bottom: 80px; }
 .section-text { font-size: 14px; color: var(--white-dim); line-height: 1.75; font-weight: 300; }
 .section-text strong { color: var(--white); font-weight: 600; }
 
+/* INSIGHT SPOTLIGHT -- hero treatment for buyer insight field */
+.insight-spotlight { background: linear-gradient(135deg, rgba(212,175,55,0.12), rgba(212,175,55,0.04)); border: 1px solid rgba(212,175,55,0.4); border-radius: var(--radius); padding: 22px; position: relative; overflow: hidden; }
+.insight-spotlight::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--gold), transparent); }
+.insight-spotlight-label { font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; color: var(--gold); margin-bottom: 10px; }
+.insight-spotlight-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--white); margin-bottom: 10px; line-height: 1.2; }
+.insight-spotlight-title em { font-style: italic; color: var(--gold); }
+.insight-spotlight-text { font-size: 14px; color: var(--white-dim); line-height: 1.75; font-weight: 300; }
+.insight-spotlight-text strong { color: var(--white); font-weight: 600; }
+
+/* FIELD CARDS */
+.field-card { background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 16px; }
+.field-card.gold { border-color: rgba(212,175,55,0.35); background: rgba(212,175,55,0.05); }
+.field-card.silver { border-color: rgba(192,192,192,0.25); background: rgba(192,192,192,0.04); }
+.field-card-label { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; margin-bottom: 6px; }
+.field-card.gold .field-card-label { color: var(--gold); }
+.field-card.silver .field-card-label { color: var(--silver); }
+.field-card-title { font-size: 13px; font-weight: 600; color: var(--white); margin-bottom: 6px; }
+.field-card-desc { font-size: 12px; color: var(--white-dim); line-height: 1.6; font-weight: 300; }
+
+/* EXAMPLE BOX */
+.example-box { background: var(--surface3); border-left: 3px solid var(--gold); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; padding: 14px 16px; }
+.example-label { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin-bottom: 8px; }
+.example-text { font-size: 13px; color: var(--white); line-height: 1.65; font-weight: 300; font-style: italic; }
+
 /* FRAMEWORK GRID */
 .framework-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
 .framework-card { background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 14px; transition: all 0.2s; }
@@ -82,15 +107,20 @@ body { padding-bottom: 80px; }
 .step-item:last-child { border-bottom: none; }
 .step-item strong { color: var(--white); font-weight: 600; }
 .step-dot { width: 8px; height: 8px; flex-shrink: 0; margin-top: 7px; border-radius: 50%; background: linear-gradient(135deg, var(--silver), var(--silver-bright)); box-shadow: 0 0 6px rgba(192,192,192,0.3); }
+.step-dot.gold { background: linear-gradient(135deg, #D4AF37, #F0D060); box-shadow: 0 0 6px rgba(212,175,55,0.4); }
 
 /* TIP */
 .tip { background: var(--gold-dim); border: 1px solid rgba(212,175,55,0.2); border-radius: var(--radius-sm); padding: 14px 16px; font-size: 13px; color: var(--white-dim); line-height: 1.65; font-weight: 300; }
 .tip strong { color: var(--gold); font-weight: 600; }
 
+/* WARNING / EMPHASIS */
+.warning { background: rgba(212,175,55,0.08); border: 1px solid rgba(212,175,55,0.35); border-radius: var(--radius-sm); padding: 14px 16px; font-size: 13px; color: var(--white-dim); line-height: 1.65; font-weight: 300; }
+.warning strong { color: var(--gold); font-weight: 700; }
+
 /* CALLOUT */
 .psych-callout { background: linear-gradient(135deg, rgba(192,192,192,0.08), rgba(192,192,192,0.04)); border: 1px solid rgba(192,192,192,0.18); border-radius: var(--radius); padding: 20px; position: relative; overflow: hidden; }
 .psych-callout::before { content: '"'; position: absolute; top: -10px; right: 16px; font-family: 'Playfair Display', serif; font-size: 80px; font-style: italic; color: rgba(192,192,192,0.08); line-height: 1; pointer-events: none; }
-.psych-callout-title { font-size: 10px; font-weight: 600; font-style: normal; color: var(--silver); margin-bottom: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
+.psych-callout-title { font-size: 10px; font-weight: 600; color: var(--silver); margin-bottom: 10px; letter-spacing: 0.12em; text-transform: uppercase; }
 .psych-callout-text { font-size: 15px; color: var(--white); line-height: 1.75; font-weight: 300; }
 .psych-callout-text em { font-style: italic; color: var(--silver-bright); }
 
@@ -103,13 +133,15 @@ body { padding-bottom: 80px; }
 .mode-badge.pain { background: rgba(232,40,78,0.12); color: #E8284E; border: 1px solid rgba(232,40,78,0.2); }
 .mode-badge.aspiration { background: rgba(212,175,55,0.12); color: var(--gold); border: 1px solid rgba(212,175,55,0.2); }
 .mode-badge.both { background: var(--silver-dim); color: var(--silver-bright); border: 1px solid rgba(192,192,192,0.2); }
+.mode-badge.orange { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(255,165,0,0.3); }
 .mode-card-text { font-size: 13px; color: var(--white-dim); line-height: 1.65; font-weight: 300; }
 
-/* CUSTOM ANGLE */
-.custom-angle { background: var(--surface2); border: 1px solid rgba(192,192,192,0.2); border-radius: var(--radius-sm); padding: 16px; display: flex; gap: 12px; align-items: flex-start; }
-.custom-angle-icon { width: 36px; height: 36px; flex-shrink: 0; background: var(--silver-dim); border: 1px solid rgba(192,192,192,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; }
-.custom-angle-title { font-size: 13px; font-weight: 600; color: var(--silver-bright); margin-bottom: 5px; }
-.custom-angle-desc { font-size: 12px; color: var(--white-dim); line-height: 1.6; font-weight: 300; }
+/* FILMING FORMAT GRID */
+.format-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 4px; }
+.format-card { background: var(--surface2); border: 1px solid rgba(255,165,0,0.15); border-radius: var(--radius-sm); padding: 12px 14px; }
+.format-emoji { font-size: 18px; margin-bottom: 6px; display: block; }
+.format-name { font-size: 12px; font-weight: 600; color: var(--white); margin-bottom: 3px; }
+.format-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
 
 /* VOICE */
 .voice-items { display: flex; flex-direction: column; gap: 8px; }
@@ -168,11 +200,13 @@ body { padding-bottom: 80px; }
   <a href="#section2" class="nav-pill"><span class="nav-num">2</span> Buyer Psychology</a>
   <a href="#section3" class="nav-pill"><span class="nav-num">3</span> Script Builder</a>
   <a href="#section4" class="nav-pill"><span class="nav-num">4</span> Hook Framing</a>
-  <a href="#section5" class="nav-pill"><span class="nav-num">5</span> Daily Goal</a>
-  <a href="#section6" class="nav-pill"><span class="nav-num">6</span> Voice Learning</a>
-  <a href="#section7" class="nav-pill"><span class="nav-num">7</span> Skit Scripts</a>
+  <a href="#section5" class="nav-pill"><span class="nav-num">5</span> Filming Session</a>
+  <a href="#section6" class="nav-pill"><span class="nav-num">6</span> Daily Goal</a>
+  <a href="#section7" class="nav-pill"><span class="nav-num">7</span> Voice Learning</a>
+  <a href="#section8" class="nav-pill"><span class="nav-num">8</span> Skit Scripts</a>
 </div>
 
+<!-- SECTION 1 -->
 <div id="section1" class="section">
   <div class="section-head">
     <div class="section-num">1</div>
@@ -188,13 +222,14 @@ body { padding-bottom: 80px; }
   </div>
 </div>
 
+<!-- SECTION 2 -->
 <div id="section2" class="section">
   <div class="section-head">
     <div class="section-num">2</div>
     <div class="section-title">Why <em>Buyer Psychology</em> Works</div>
   </div>
   <div class="section-body">
-    <div class="section-text">Every purchase decision is driven by a core desire, something the buyer wants to feel, become, or stop experiencing. Psych Lab identifies which desire your product triggers and builds every line of your script around it.</div>
+    <div class="section-text">Every purchase decision is driven by a core desire -- something the buyer wants to feel, become, or stop experiencing. Psych Lab identifies which desire your product triggers and builds every line of your script around it.</div>
     <div class="section-text">This matters because <strong>most scripts describe the product.</strong> The scripts that convert <strong>describe the buyer.</strong> When someone watches your video and thinks "that's me," that's buyer psychology working exactly the way it should.</div>
     <div class="framework-grid">
       <div class="framework-card"><div class="framework-name">Pain / Problem Relief</div><div class="framework-desc">Most urgent driver. People spend to stop hurting.</div></div>
@@ -210,31 +245,73 @@ body { padding-bottom: 80px; }
   </div>
 </div>
 
+<!-- SECTION 3 -->
 <div id="section3" class="section">
   <div class="section-head">
     <div class="section-num">3</div>
     <div class="section-title">How to use the <em>Script Builder</em></div>
   </div>
   <div class="section-body">
-    <div class="section-text">Start by describing your product in the input box. The more specific you are, the better your angles will be. Include the brand name, what it does, and who it's for.</div>
+
+    <!-- BUYER INSIGHT SPOTLIGHT -->
+    <div class="insight-spotlight">
+      <div class="insight-spotlight-label">The most important thing you will do in this tool</div>
+      <div class="insight-spotlight-title">Field 1 -- <em>When You Chose This Product...</em></div>
+      <div class="insight-spotlight-text">
+        This field is the single biggest quality lever in Psych Lab. <strong>The more specific you are here, the better every script will be.</strong> This is not a product description. This is your understanding of the buyer -- who they are, what their life looks like before they found this, and why you chose this product for them.
+      </div>
+    </div>
+
+    <div class="section-text">Think of Field 1 as your briefing to the AI. Before writing a single word, Psych Lab reads what you wrote here and answers: who actually buys this, what do they already have, and what does their day look like before this product is in it. That understanding shapes every hook, body line, and CTA.</div>
+
+    <div class="warning">
+      <strong>The difference is real.</strong> A product description alone gives you generic scripts. Your buyer insight gives you scripts that make someone stop mid-scroll and think "how does this know me?" Fill Field 1 before you do anything else.
+    </div>
+
+    <div class="example-box">
+      <div class="example-label">What good buyer insight looks like</div>
+      <div class="example-text">"Women 50+ who cook for their family every night and are tired of cheap pans that warp and stain. They have replaced their cookware multiple times and keep being disappointed. They want to buy something once and be done with it. They care about how their kitchen looks as much as how it functions."</div>
+    </div>
+
+    <div class="section-text">That level of specificity tells the tool exactly who to write for. Compare that to just typing the brand and features -- the scripts will be completely different.</div>
+
+    <div class="section-text" style="margin-top:4px;"><strong>What to include in Field 1:</strong></div>
+
+    <div class="step-flow">
+      <div class="step-item"><div class="step-dot gold"></div><span><strong>Why you chose this product</strong> -- what made you decide to promote it</span></div>
+      <div class="step-item"><div class="step-dot gold"></div><span><strong>Who the buyer is</strong> -- not a demographic, a real person in a specific moment of their life</span></div>
+      <div class="step-item"><div class="step-dot gold"></div><span><strong>What they already have</strong> -- what they are upgrading from or replacing</span></div>
+      <div class="step-item"><div class="step-dot gold"></div><span><strong>What feeling they are chasing</strong> -- what they want their life to feel like after this purchase</span></div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:4px;">
+      <div class="field-card gold">
+        <div class="field-card-label">Field 1 -- When You Chose This Product</div>
+        <div class="field-card-title">Your buyer insight</div>
+        <div class="field-card-desc">Who buys this and why. What their life looks like. Why you chose it. This is the most important field in the tool. The AI reads this first and everything it writes flows from here.</div>
+      </div>
+      <div class="field-card silver">
+        <div class="field-card-label">Field 2 -- Product Details</div>
+        <div class="field-card-title">Brand name, features, specs</div>
+        <div class="field-card-desc">The factual details about the product. Brand name, key features, what it does. This becomes the proof in your body lines -- the specific details that back up the feeling you opened with.</div>
+      </div>
+    </div>
+
+    <div class="section-text">Both fields are required. Neither works well without the other. Field 1 is the emotional truth. Field 2 is the factual proof.</div>
+
     <div class="step-flow">
       <div class="step-item"><div class="step-dot"></div><span><strong>Select price range</strong> -- impulse, considered, or premium. This shapes the pacing, energy, and pre-close believability of every script.</span></div>
       <div class="step-item"><div class="step-dot"></div><span><strong>Pick your focus angle</strong> -- Psych Lab generates 5 distinct buyer desire angles for your product. Each targets a different type of person. Pick the one that matches who you want to speak to in this video.</span></div>
-      <div class="step-item"><div class="step-dot"></div><span><strong>Choose your mode</strong> -- Curated builds one script step by step. Batch generates up to 5 complete scripts at once, each targeting a different angle. Skit generates two-person dialogue scripts with relationship types.</span></div>
+      <div class="step-item"><div class="step-dot"></div><span><strong>Choose your mode</strong> -- Curated builds one script step by step. Batch generates up to 5 complete scripts at once. Skit generates two-person dialogue. Filming Session builds multiple format scripts for the same product in one session.</span></div>
       <div class="step-item"><div class="step-dot"></div><span><strong>Review your script</strong> -- every script includes a hook, body lines, pre-close, CTA, on-screen text options, a ready-to-post caption, and hashtags.</span></div>
       <div class="step-item"><div class="step-dot"></div><span><strong>Save and track</strong> -- save scripts to your product library, mark videos as posted, and track your daily streak. Your script bank grows with every product you add.</span></div>
     </div>
-    <div class="custom-angle">
-      <div class="custom-angle-icon">✏️</div>
-      <div>
-        <div class="custom-angle-title">You can also write your own angle</div>
-        <div class="custom-angle-desc">If you know exactly who you're speaking to, skip the generated angles and type a custom focus. You can add the same custom angle multiple times -- useful in batch and skit mode when you want variations of the same angle targeting different relationship types or buyer moods.</div>
-      </div>
-    </div>
+
     <div class="tip"><strong>Pro tip:</strong> Use batch mode when you need a full day of content fast. Five angles, five complete scripts, one generation. Each targets a completely different buyer so you're not posting the same video five times.</div>
   </div>
 </div>
 
+<!-- SECTION 4 -->
 <div id="section4" class="section">
   <div class="section-head">
     <div class="section-num">4</div>
@@ -260,9 +337,47 @@ body { padding-bottom: 80px; }
   </div>
 </div>
 
+<!-- SECTION 5 -- FILMING SESSION (NEW) -->
 <div id="section5" class="section">
   <div class="section-head">
     <div class="section-num">5</div>
+    <div class="section-title"><em>Filming Session</em></div>
+  </div>
+  <div class="section-body">
+    <div class="section-text">Filming Session lets you build multiple scripts for the same product in one generation -- each written in a completely different format. Instead of posting the same video five times, you get five scripts that each feel like a different type of content.</div>
+
+    <div class="psych-callout">
+      <div class="psych-callout-title">Why this matters</div>
+      <div class="psych-callout-text">The algorithm rewards <em>variety within consistency.</em> Posting the same product five times in the same format trains your audience to skip it. Five different formats keeps the same product feeling fresh every time.</div>
+    </div>
+
+    <div class="section-text">Pick up to 5 formats. You can pick the same format more than once if you want variations of the same approach. Each script is written from scratch for that format's specific energy and structure.</div>
+
+    <div class="format-grid">
+      <div class="format-card"><span class="format-emoji">📦</span><div class="format-name">Unboxing</div><div class="format-desc">First contact, first impressions</div></div>
+      <div class="format-card"><span class="format-emoji">❤️</span><div class="format-name">Why You'll Love It</div><div class="format-desc">3 feelings, not 3 features</div></div>
+      <div class="format-card"><span class="format-emoji">🔧</span><div class="format-name">It Fixed This For Me</div><div class="format-desc">Specific problem, real solution</div></div>
+      <div class="format-card"><span class="format-emoji">✨</span><div class="format-name">Before vs After</div><div class="format-desc">Real before, specific after</div></div>
+      <div class="format-card"><span class="format-emoji">🎯</span><div class="format-name">My Honest Take</div><div class="format-desc">Skepticism plus real verdict</div></div>
+      <div class="format-card"><span class="format-emoji">👀</span><div class="format-name">Watch Me Use It</div><div class="format-desc">Demo in action, mid-moment</div></div>
+      <div class="format-card"><span class="format-emoji">🔄</span><div class="format-name">Expected vs Got</div><div class="format-desc">Built-in pattern interrupt</div></div>
+      <div class="format-card"><span class="format-emoji">🎯</span><div class="format-name">Who This Is For</div><div class="format-desc">Call out the exact person</div></div>
+      <div class="format-card"><span class="format-emoji">🧪</span><div class="format-name">I Tried It For You</div><div class="format-desc">Creator as scout</div></div>
+      <div class="format-card"><span class="format-emoji">☀️</span><div class="format-name">A Day With This</div><div class="format-desc">Woven into real life</div></div>
+      <div class="format-card"><span class="format-emoji">🎙️</span><div class="format-name">Voice Over -- Action</div><div class="format-desc">Narrate over product footage</div></div>
+      <div class="format-card"><span class="format-emoji">🌿</span><div class="format-name">Voice Over -- Lifestyle</div><div class="format-desc">Narrate over lifestyle footage</div></div>
+    </div>
+
+    <div class="section-text" style="margin-top:8px;">Each format has its own opening rule, structure, and voice notes built in. The tool knows that a Watch Me Use It script opens mid-action, that an Honest Take starts with skepticism, and that a Voice Over script needs short sentences with natural pause points. You just pick the formats.</div>
+
+    <div class="tip"><strong>How to access it:</strong> Open any saved product in your library, select a price range, then tap <strong>Filming Session</strong>. Text hooks generate for each script automatically after the results appear.</div>
+  </div>
+</div>
+
+<!-- SECTION 6 -->
+<div id="section6" class="section">
+  <div class="section-head">
+    <div class="section-num">6</div>
     <div class="section-title">Setting your <em>Daily Goal</em></div>
   </div>
   <div class="section-body">
@@ -275,9 +390,10 @@ body { padding-bottom: 80px; }
   </div>
 </div>
 
-<div id="section6" class="section">
+<!-- SECTION 7 -->
+<div id="section7" class="section">
   <div class="section-head">
-    <div class="section-num">6</div>
+    <div class="section-num">7</div>
     <div class="section-title">Voice <em>Learning</em></div>
   </div>
   <div class="section-body">
@@ -300,9 +416,10 @@ body { padding-bottom: 80px; }
   </div>
 </div>
 
-<div id="section7" class="section">
+<!-- SECTION 8 -->
+<div id="section8" class="section">
   <div class="section-head">
-    <div class="section-num">7</div>
+    <div class="section-num">8</div>
     <div class="section-title">Skit <em>Scripts</em></div>
   </div>
   <div class="section-body">
@@ -318,7 +435,7 @@ body { padding-bottom: 80px; }
         <div class="mode-card-text">Equal energy. Casual sharing, no selling. YOU found something and cannot stop thinking about it. Best for lifestyle, beauty, kitchen, home goods.</div>
       </div>
       <div class="mode-card">
-        <div class="mode-card-title"><span class="mode-badge pain">Spouse</span></div>
+        <div class="mode-card-title"><span class="mode-badge pain">Couple</span></div>
         <div class="mode-card-text">One skeptic, one believer. Warm domestic humor. The I told you so energy when THEM finally comes around. Works incredibly well for home goods and kitchen.</div>
       </div>
       <div class="mode-card">
@@ -330,28 +447,25 @@ body { padding-bottom: 80px; }
         <div class="mode-card-text">YOU brings specific knowledge THEM does not have. THEM asks the questions the viewer is thinking. Best for supplements, wellness, tech -- anything where the why matters.</div>
       </div>
     </div>
-    <div class="section-text" style="margin-top:8px;">Each angle card has its own relationship selector. Tap a relationship, then tap + to add that angle and relationship combination to your batch. You can add the same angle multiple times with different relationships to get variations.</div>
-    <div class="tip"><strong>Pro tip:</strong> Skit mode generates one script at a time so you see each one appear as it finishes. Five skits takes about 30-40 seconds total -- each one is being written fresh with Sonnet, not templated.</div>
+    <div class="tip"><strong>How to access it:</strong> Open any saved product, select a price range, then tap <strong>Skit Script</strong>. Pick a relationship type and your script is ready in seconds.</div>
   </div>
 </div>
 
 <div class="cta-section">
   <div class="cta-title">Ready to build your <em>first script?</em></div>
-  <div class="cta-sub">Describe a product, pick your focus angle, and your script is ready in under 2 minutes.</div>
+  <div class="cta-sub">Fill in your buyer insight, describe the product, pick your focus angle, and your script is ready in under 2 minutes.</div>
   <a class="cta-btn" href="https://psychscriptlab.app/app.html">🧠 &nbsp;Open Psych Lab</a>
 </div>
 
 <div class="footer">Built by <strong>Famous</strong> &nbsp;·&nbsp; Psych Lab &nbsp;·&nbsp; © 2026</div>
 
 <script>
-// Scroll-triggered section reveal
 const sections = document.querySelectorAll('.section');
 const observer = new IntersectionObserver((entries) => {
   entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
 }, { threshold: 0.08, rootMargin: '0px 0px -30px 0px' });
 sections.forEach(s => observer.observe(s));
 
-// Active nav highlight on scroll
 const pills = document.querySelectorAll('.nav-pill');
 const sectionEls = document.querySelectorAll('.section[id]');
 window.addEventListener('scroll', () => {
@@ -360,7 +474,6 @@ window.addEventListener('scroll', () => {
   pills.forEach(p => p.classList.toggle('active', p.getAttribute('href') === '#' + current));
 }, { passive: true });
 
-// Smooth scroll
 pills.forEach(p => {
   p.addEventListener('click', e => {
     e.preventDefault();
