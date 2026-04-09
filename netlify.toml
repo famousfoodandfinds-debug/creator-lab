@@ -1,6 +1,5 @@
 [functions]
-  directory = "."
-  node_bundler = "esbuild"
+directory = "netlify/functions"  node_bundler = "esbuild"
 [functions."claude"]
   timeout = 60
 [[redirects]]
