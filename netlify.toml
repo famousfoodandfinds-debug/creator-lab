@@ -1,15 +1,20 @@
 [functions]
-directory = "netlify/functions"  node_bundler = "esbuild"
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
 [functions."claude"]
   timeout = 60
+
 [[redirects]]
   from = "/api/claude"
   to = "/.netlify/functions/claude"
   status = 200
+
 [[redirects]]
   from = "/api/signup-webhook"
   to = "/.netlify/functions/signup-webhook"
   status = 200
+
 [[redirects]]
   from = "/api/cancel-webhook"
   to = "/.netlify/functions/cancel-webhook"
