@@ -3,7 +3,6 @@
 // Sets active: false for the email in paid_users table
 
 exports.handler = async function(event, context) {
-  // Only allow POST requests
   if (event.httpMethod !== "POST") {
     return { statusCode: 405, body: "Method not allowed" };
   }
@@ -16,7 +15,6 @@ exports.handler = async function(event, context) {
       return { statusCode: 500, body: "Missing environment variables" };
     }
 
-    // Parse the incoming request body
     let body;
     try {
       body = JSON.parse(event.body);
@@ -24,14 +22,11 @@ exports.handler = async function(event, context) {
       return { statusCode: 400, body: "Invalid JSON" };
     }
 
-    // Get email from the request
     const email = body.email ? body.email.trim().toLowerCase() : null;
-
     if (!email) {
       return { statusCode: 400, body: "No email provided" };
     }
 
-    // Set active: false for this email
     const response = await fetch(
       `${SUPABASE_URL}/rest/v1/paid_users?email=eq.${encodeURIComponent(email)}`,
       {
@@ -52,10 +47,7 @@ exports.handler = async function(event, context) {
     }
 
     console.log("Cancelled paid user:", email);
-    return {
-      statusCode: 200,
-      body: JSON.stringify({ success: true, email: email })
-    };
+    return { statusCode: 200, body: JSON.stringify({ success: true, email: email }) };
 
   } catch(err) {
     console.error("Function error:", err);
