@@ -2791,9 +2791,9 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
   }
 
   var thinkPrompt = "CRITICAL -- READ THIS FIRST: The creator has told you exactly who buys this product and why in their buyer insight below. This is your brief. Everything you write must serve this insight. The product description gives you facts to use as proof. The creator's insight tells you who you are writing for and what they care about. If your hooks do not directly connect to what the creator said, they are wrong -- rewrite them until they do. The product's feature list does not override the creator's insight. The creator's insight always wins. Before finalizing any hook ask: does this speak to the exact person the creator described? If the answer is no, start over. Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
-    " Product: " + currentProduct + ". Price: " + priceCtx + "." +
+    " YOUR PRIMARY BRIEF -- READ THIS BEFORE ANYTHING ELSE: " + getBuyerMotivation() + ". This is who you are writing for. Every hook must speak to this person. If a hook does not connect to this brief, rewrite it." +
+    " PRODUCT DETAILS (use only as proof for the feeling above): " + currentProduct.split(' PRODUCT DETAILS: ').pop() + ". Price: " + priceCtx + "." +
     batchUseContext +
-    (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
     " Answer these four questions in 2-3 sentences each:" +
     " 1. WHO actually buys this? Not a demographic -- a specific person in a specific moment of their life. What does their day look like before they found this product?" +
     " 2. WHAT do they already have? This is almost never someone's first solution. What are they upgrading from and why did that stop being enough?" +
@@ -2835,7 +2835,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
 
       " VOICE: Would a real person actually say this out loud to a friend right now? If a marketing person would say it, delete it. If you would text it, keep it." +
 
-      " Product: " + currentProduct + ". Price context: " + priceCtx + "." +
+      " YOUR PRIMARY BRIEF (hooks must serve this): " + getBuyerMotivation() + ". PRODUCT DETAILS (proof only): " + currentProduct.split(' PRODUCT DETAILS: ').pop() + ". Price context: " + priceCtx + "." +
       batchUseContext +
       understandingNote +
       " " + profileNote +
@@ -3425,9 +3425,9 @@ function generateScriptBank() {
 
   // ── CALL 1: Think through the product before writing anything ──
   var thinkPrompt = "CRITICAL -- READ THIS FIRST: The creator has told you exactly who buys this product and why in their buyer insight below. This is your brief. Everything you write must serve this insight. The product description gives you facts to use as proof. The creator's insight tells you who you are writing for and what they care about. If your hooks do not directly connect to what the creator said, they are wrong -- rewrite them until they do. The product's feature list does not override the creator's insight. The creator's insight always wins. Before finalizing any hook ask: does this speak to the exact person the creator described? If the answer is no, start over. Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
-    " Product: " + product + ". Price: " + getPriceContext() + "." +
+    " YOUR PRIMARY BRIEF -- READ THIS BEFORE ANYTHING ELSE: " + getBuyerMotivation() + ". This is who you are writing for. Every hook must speak to this person. If a hook does not connect to this brief, rewrite it." +
+    " PRODUCT DETAILS (use only as proof for the feeling above): " + product.split(' PRODUCT DETAILS: ').pop() + ". Price: " + getPriceContext() + "." +
     useContext +
-    (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
     (currentFocus ? " Buyer angle this script is targeting: " + currentFocus.focus + ". " + (currentFocus.description || "") + "." : "") +
     " Answer these four questions in 2-3 sentences each:" +
     " 1. WHO actually buys this? Not a demographic -- a specific person in a specific moment of their life. What does their day look like before they found this product?" +
