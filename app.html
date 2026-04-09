@@ -2790,7 +2790,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     batchUseContext = " USE CONTEXT: This is an OUTDOOR or portable product. Scenes should reflect outdoor, patio, backyard, or on-the-go use.";
   }
 
-  var thinkPrompt = "Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
+  var thinkPrompt = "CRITICAL -- READ THIS FIRST: The creator has told you exactly who buys this product and why in their buyer insight below. This is your brief. Everything you write must serve this insight. The product description gives you facts to use as proof. The creator's insight tells you who you are writing for and what they care about. If your hooks do not directly connect to what the creator said, they are wrong -- rewrite them until they do. The product's feature list does not override the creator's insight. The creator's insight always wins. Before finalizing any hook ask: does this speak to the exact person the creator described? If the answer is no, start over. Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
     " Product: " + currentProduct + ". Price: " + priceCtx + "." +
     batchUseContext +
     (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
@@ -2830,7 +2830,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     // ── CALL 2: Write scripts from that understanding ──
     var prompt = "You write TikTok Shop scripts that sound exactly like a real person talking to a friend about something they genuinely love." +
 
-      " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point." +
+      " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point. FIELD 1 ANCHOR -- THIS IS MANDATORY: Before writing any hook, read the creator insight again: " + (getBuyerMotivation() || "") + ". Every hook must speak to the person described in that insight. If a hook could apply to a different buyer than the one described, rewrite it. The product features only matter as proof for the feeling the creator already identified. Feature-first hooks are wrong if the creator gave you a buyer insight." +
       hookTypeContext +
 
       " VOICE: Would a real person actually say this out loud to a friend right now? If a marketing person would say it, delete it. If you would text it, keep it." +
@@ -3424,7 +3424,7 @@ function generateScriptBank() {
   currentUseContext = useContext; // store for wizard step calls
 
   // ── CALL 1: Think through the product before writing anything ──
-  var thinkPrompt = "Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
+  var thinkPrompt = "CRITICAL -- READ THIS FIRST: The creator has told you exactly who buys this product and why in their buyer insight below. This is your brief. Everything you write must serve this insight. The product description gives you facts to use as proof. The creator's insight tells you who you are writing for and what they care about. If your hooks do not directly connect to what the creator said, they are wrong -- rewrite them until they do. The product's feature list does not override the creator's insight. The creator's insight always wins. Before finalizing any hook ask: does this speak to the exact person the creator described? If the answer is no, start over. Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
     " Product: " + product + ". Price: " + getPriceContext() + "." +
     useContext +
     (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
@@ -3465,9 +3465,9 @@ function generateScriptBank() {
     // ── CALL 2: Write the full script bank from that understanding ──
     var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend about something they found. Not an ad. Not a brand. A person." +
 
-      " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point." +
+      " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point. FIELD 1 ANCHOR -- THIS IS MANDATORY: Before writing any hook, read the creator insight again: " + (getBuyerMotivation() || "") + ". Every hook must speak to the person described in that insight. If a hook could apply to a different buyer than the one described, rewrite it. The product features only matter as proof for the feeling the creator already identified. Feature-first hooks are wrong if the creator gave you a buyer insight." +
 
-      (getBuyerMotivation() ? " CREATOR INSIGHT -- WHY PEOPLE BUY THIS (read this first): " + getBuyerMotivation() + " Let this shape every hook, body line, and pre-close. If the creator says this is an upgrade purchase, never position it as a solution to having nothing." : "") +
+      (getBuyerMotivation() ? " CREATOR INSIGHT -- THIS IS YOUR BRIEF AND IT OVERRIDES EVERYTHING ELSE: " + getBuyerMotivation() + " Every hook must speak to the exact person described here. If a hook does not connect to this insight, rewrite it. The product features are only proof for the feeling this creator already identified. Let this shape every hook, body line, and pre-close. If the creator says this is an upgrade purchase, never position it as a solution to having nothing." : "") +
       " Product: " + product + "." + focusLine + priceLine + voiceNote +
       useContext +
       understandingNote +
