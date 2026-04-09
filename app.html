@@ -2741,13 +2741,42 @@ function generateBatchScripts(angles) {
 
 function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
   // Build angles text -- flag duplicates as variations
+  // Assign hook types to each script slot
+  var DESIRE_HOOK_MAP = {
+    "Pain/Problem Relief": "FRUSTRATION",
+    "Emotion/Identity": "IDENTITY GAP",
+    "Dopamine/Instant Gratification": "SENSORY",
+    "Urgency/Scarcity": "SOCIAL PROOF",
+    "Status/Upgrade": "IDENTITY FILTER",
+    "Habit/Routine": "CONFESSION",
+    "Trust/Brand Recognition": "SKEPTICISM",
+    "Convenience": "RELATABLE PROBLEM/QUESTION",
+    "Social Proof/Belonging": "SOCIAL PROOF",
+    "Fear of Future Regret": "CULTURAL MOMENT",
+    "Transformation": "IDENTITY GAP"
+  };
+  var HOOK_ROTATION = ["CULTURAL MOMENT","IDENTITY FILTER","FRUSTRATION","CONFESSION","RELATABLE PROBLEM/QUESTION","IDENTITY GAP","REVEAL","SOCIAL PROOF","SKEPTICISM","SENSORY","CURIOSITY/REACTION"];
+  var usedHookTypes = [];
+  var hookTypeAssignments = angles.map(function(a, i) {
+    var preferred = DESIRE_HOOK_MAP[a.desire] || HOOK_ROTATION[i % HOOK_ROTATION.length];
+    if (usedHookTypes.indexOf(preferred) > -1) {
+      for (var r = 0; r < HOOK_ROTATION.length; r++) {
+        var candidate = HOOK_ROTATION[(i + r) % HOOK_ROTATION.length];
+        if (usedHookTypes.indexOf(candidate) === -1) { preferred = candidate; break; }
+      }
+    }
+    usedHookTypes.push(preferred);
+    return preferred;
+  });
+  if (hookTypeAssignments.indexOf("CULTURAL MOMENT") === -1) hookTypeAssignments[0] = "CULTURAL MOMENT";
+
   var angleCounts = {};
   angles.forEach(function(a){ angleCounts[a.focus] = (angleCounts[a.focus]||0)+1; });
   var angleVariationTrack = {};
   var anglesText = angles.map(function(a,i){
     angleVariationTrack[a.focus] = (angleVariationTrack[a.focus]||0)+1;
     var varNote = angleCounts[a.focus] > 1 ? " VARIATION " + angleVariationTrack[a.focus] + " OF " + angleCounts[a.focus] + " -- must be meaningfully different hook opening, different body angle, different CTA phrasing from other variations of this angle" : "";
-    return "Script " + (i+1) + " angle: " + a.focus + " (" + a.desire + ") -- " + a.description + varNote;
+    return "Script " + (i+1) + " angle: " + a.focus + " (" + a.desire + ") -- " + a.description + varNote + " ASSIGNED HOOK TYPE FOR THIS SCRIPT: " + hookTypeAssignments[i] + " -- write the hook as a " + hookTypeAssignments[i] + " hook only.";
   }).join(". ");
 
   // ── CALL 1: Think through the product before writing anything ──
@@ -2802,6 +2831,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     var prompt = "You write TikTok Shop scripts that sound exactly like a real person talking to a friend about something they genuinely love." +
 
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point." +
+      hookTypeContext +
 
       " VOICE: Would a real person actually say this out loud to a friend right now? If a marketing person would say it, delete it. If you would text it, keep it." +
 
@@ -2813,7 +2843,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
       " Write " + angles.length + " scripts, one for each angle: " + anglesText +
       " Each script must be written exclusively for the specific person in that angle -- not a general audience. If someone reading script 1 could feel equally spoken to by script 2, rewrite it." +
 
-      " HOOK (12 words maximum): Name the exact moment or feeling. Stop there. Do not explain it. One idea. No AND or BUT. Never: I, My, You are the person who, People who, For anyone who." +
+      " HOOK TYPE FRAMEWORK -- every hook must be written as one of these specific types. The type is assigned to this script. Write the hook for that type only. 1. CULTURAL MOMENT: Names the one shared unspoken truth everyone in this product world has accepted without question. When you name it the viewer feels instantly seen. Examples: We are not waiting on the cart girl. Your pillow graveyard keeps growing. 2. IDENTITY FILTER: Opens with a line that immediately identifies exactly who this video is for. Short, direct. Examples: This hack is only for over packers. If you travel and have a lot of hair tools. 3. FRUSTRATION: Names the active pain the viewer is feeling right now. Stops at the tension, never explains the consequence. Examples: You clean the vacuum more than it cleans your floors. Your drink dies on the back nine. 4. RELATABLE PROBLEM/QUESTION: Reveals a problem the viewer did not know they had. Examples: Why are we wasting money on epsom salt. Why are we breaking our hair tools. Why would I want to freshen my gut. 5. SENSORY: Makes the viewer physically feel the product before they see it. A specific sound, weight, or texture. Examples: The satisfying clink of the bottle opener hitting the cap catcher. The lid clicks shut and you just know it is sealed. 6. SOCIAL PROOF: Opens on someone else's reaction or verdict that creates curiosity. Not a claim, a human response. Examples: It does not stop selling out. Everyone I sent this to ordered before I finished explaining. 7. SKEPTICISM: Opens with the creator's own doubt -- what almost stopped them from buying. Examples: I almost talked myself out of this three times. I did not believe the reviews until I tried it. 8. CURIOSITY/REACTION: A personal response that only makes sense after watching. Creates a loop the viewer must close. Examples: I was not ready for this. Nobody warned me. Took me long enough. 9. IDENTITY GAP: Names something that does not match the rest of the life the viewer has built. Examples: Your counters look amazing and then you open the fridge. Everyone sees what you are bringing to the course. 10. CONFESSION: Creator admits something embarrassing the viewer immediately recognizes in themselves. Examples: I have a pillow graveyard in my bedroom. I cannot believe I played this many rounds without one. 11. REVEAL: Opens on an unexpected fact that reframes something the viewer thought they understood. Examples: Magnesium flakes have more magnesium than epsom salt. They look like fish eggs but they are actually mints. HOOK LENGTH RULE: Under 10 words is the target. Under 12 is the hard limit. Declarative beats explanatory. Stop at the tension. If there is an AND or BUT in the hook, cut everything after it. HOOK (10 words target, 12 words maximum): Write the hook as the assigned hook type above. Name the moment and stop. One idea. No AND or BUT. Never: I, My, You are the person who." +
 
       " BODY 1 (under 20 words): The one specific thing that surprised you. Jump straight to the feeling. Only use details from the product description. Never invent scenarios." +
 
@@ -3331,6 +3361,7 @@ function generateScriptBankSilent(onComplete) {
 
     var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend." +
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
+      hookTypeContext +
       (getBuyerMotivation() ? " CREATOR INSIGHT: " + getBuyerMotivation() : "") +
       " Product: " + currentProduct + ". " + getPriceContext() + "." + useCtx + uNote +
       " Return JSON: {productName:str,hooks:{\"Worse alternative\":[3],\"Desired transformation\":[3],\"Curiosity loop\":[3],\"Social proof\":[3],\"Scarcity and FOMO\":[3],\"Identity and aspiration\":[3],\"Skepticism disarm\":[3],\"Friction removal\":[3],\"Sensory observation\":[3]},body:{\"Feature to feeling\":[3],\"Quality proof\":[3],\"Simplicity and ease\":[3],\"Value reframe\":[3],\"Legacy and emotion\":[3],\"Multi-use reveal\":[3]},preClose:[4],seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
@@ -3373,6 +3404,9 @@ function generateScriptBank() {
   if (btn) { btn.disabled = true; btn.style.background = "var(--muted2)"; btn.innerHTML = "&#8987;&nbsp; Writing your script bank..."; }
   showLoading();
 
+  var _dhm2 = {"Pain/Problem Relief":"FRUSTRATION","Emotion/Identity":"IDENTITY GAP","Dopamine/Instant Gratification":"SENSORY","Urgency/Scarcity":"SOCIAL PROOF","Status/Upgrade":"IDENTITY FILTER","Habit/Routine":"CONFESSION","Trust/Brand Recognition":"SKEPTICISM","Convenience":"RELATABLE PROBLEM/QUESTION","Social Proof/Belonging":"SOCIAL PROOF","Fear of Future Regret":"CULTURAL MOMENT","Transformation":"IDENTITY GAP"};
+  var _assignedHookType = currentFocus ? (currentFocus.hookType || _dhm2[currentFocus.desire] || "CULTURAL MOMENT") : "CULTURAL MOMENT";
+  var hookTypeContext = " HOOK TYPE FRAMEWORK -- every hook must be written as one of these specific types. The type is assigned. Write hooks toward that type. 1. CULTURAL MOMENT: Names the shared unspoken truth everyone in this world accepts. Examples: We are not waiting on the cart girl. Your pillow graveyard keeps growing. 2. IDENTITY FILTER: Immediately identifies exactly who this is for. Examples: This hack is only for over packers. If you travel and have a lot of hair tools. 3. FRUSTRATION: Names the active pain, stops at the tension. Examples: You clean the vacuum more than it cleans your floors. Your drink dies on the back nine. 4. RELATABLE PROBLEM/QUESTION: Reveals a problem the viewer did not know they had. Examples: Why are we wasting money on epsom salt. Why are we breaking our hair tools. 5. SENSORY: Makes the viewer feel the product before they see it. Examples: The satisfying clink of the bottle opener hitting the cap catcher. 6. SOCIAL PROOF: Opens on someone elses reaction or verdict. Examples: It does not stop selling out. 7. SKEPTICISM: Opens with the creators own doubt. Examples: I almost talked myself out of this three times. 8. CURIOSITY/REACTION: Personal response that only makes sense after watching. Examples: I was not ready for this. Nobody warned me. 9. IDENTITY GAP: Names something that does not match the life they built. Examples: Your counters look amazing and then you open the fridge. 10. CONFESSION: Creator admits something the viewer recognizes in themselves. Examples: I have a pillow graveyard in my bedroom. 11. REVEAL: Opens on an unexpected fact that reframes something. Examples: Magnesium flakes have more magnesium than epsom salt. HOOK LENGTH RULE: Under 10 words target. Under 12 hard limit. Declarative beats explanatory. Stop at the tension. Cut after AND or BUT. ASSIGNED HOOK TYPE: " + _assignedHookType + " -- at least 3 hooks must be of this type.";
   var focusLine = currentFocus ? " BUYER ANGLE: Every hook, body line, and pre-close must speak specifically to this exact person and situation: " + currentFocus.focus + ". " + (currentFocus.description || "") + " Do not write generically about the product -- write for THIS buyer experiencing THIS situation." : "";
   var priceLine = " " + getPriceContext();
   var voiceNote = getVoiceProfileNote();
@@ -3552,6 +3586,7 @@ function generateScriptBank() {
     // Call 1 failed -- fall through to write without product understanding
     var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend." +
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
+      hookTypeContext +
       (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
       " Product: " + product + "." + focusLine + priceLine + voiceNote +
       useContext +
@@ -3744,6 +3779,7 @@ var FILMING_FORMATS = [
     openingRule: "Opens at the moment of first physical contact -- the feel, the weight, the first impression before you even use it.",
     structure: "First impression hook → what surprised you → one feature that landed → pre-close is the moment you realized it was worth it → CTA",
     voiceNote: "High energy, present tense, sensory details."
+    hookType: "SENSORY",
   },
   {
     id: "why_youll_love_it",
@@ -3754,6 +3790,7 @@ var FILMING_FORMATS = [
     openingRule: "Hook opens on who this is specifically for -- calls out the person not the product.",
     structure: "Identity hook → reason 1 (practical) → reason 2 (emotional) → pre-close → reason 3 (social/identity) → CTA",
     voiceNote: "Warm, personal, like telling a friend."
+    hookType: "IDENTITY FILTER",
   },
   {
     id: "it_fixed_this",
@@ -3764,6 +3801,7 @@ var FILMING_FORMATS = [
     openingRule: "Opens on the specific frustration in the creator's life -- not generic, the exact moment or situation.",
     structure: "Specific frustration hook → what they tried before → how this fixed it → pre-close is the admission they waited too long → CTA closes on original frustration",
     voiceNote: "Direct, honest, slightly frustrated energy in the hook."
+    hookType: "FRUSTRATION",
   },
   {
     id: "before_after",
@@ -3774,6 +3812,7 @@ var FILMING_FORMATS = [
     openingRule: "Opens on the before state -- specific and honest, not dramatic.",
     structure: "Before hook → the specific before moment → the turning point → after moment (one scene not a list) → pre-close is the realization → CTA",
     voiceNote: "Two distinct tones -- heavier before, lighter after."
+    hookType: "IDENTITY GAP",
   },
   {
     id: "honest_take",
@@ -3784,6 +3823,7 @@ var FILMING_FORMATS = [
     openingRule: "Opens with the admission they were skeptical -- what almost stopped them from buying.",
     structure: "Skepticism hook → what they doubted → what changed their mind → one thing that exceeded expectations → pre-close is one honest small caveat → CTA",
     voiceNote: "Measured, real, the caveat is what makes it believable."
+    hookType: "SKEPTICISM",
   },
   {
     id: "watch_me_use",
@@ -3794,6 +3834,7 @@ var FILMING_FORMATS = [
     openingRule: "Opens mid-action -- already in the moment of use, not introducing the product.",
     structure: "In-action hook → what is happening → the result the viewer can see → pre-close is how they do this differently now → CTA",
     voiceNote: "Present tense throughout, active verbs, no setup."
+    hookType: "CONFESSION",
   },
   {
     id: "expectation_vs_reality",
@@ -3804,6 +3845,7 @@ var FILMING_FORMATS = [
     openingRule: "Opens on the expectation -- what they assumed before buying. The gap is the engine.",
     structure: "Expectation hook → what they thought → the reveal of what actually happened → pre-close is the surprise admission → CTA closes on the gap",
     voiceNote: "Two-part energy -- confident in the first half, surprised in the second."
+    hookType: "REVEAL",
   },
   {
     id: "who_its_for",
@@ -3814,6 +3856,7 @@ var FILMING_FORMATS = [
     openingRule: "Opens by calling out a very specific person or situation -- not demographics, a recognizable life moment.",
     structure: "Identity recognition hook → why this fits that specific person → what it gives them that others miss → pre-close is the creator identifying with that person → CTA",
     voiceNote: "Direct, specific, the viewer should feel called out."
+    hookType: "IDENTITY FILTER",
   },
   {
     id: "tried_so_you_dont",
@@ -3824,6 +3867,7 @@ var FILMING_FORMATS = [
     openingRule: "Opens on the effort or risk the creator took -- they did the work so the viewer doesn't have to.",
     structure: "Scout hook → what they tested or risked → what they found → the one thing the viewer needs to know → pre-close is the honest bottom line → CTA",
     voiceNote: "Generous energy, creator is doing the viewer a favor."
+    hookType: "RELATABLE PROBLEM/QUESTION",
   },
   {
     id: "day_with_this",
@@ -3834,6 +3878,7 @@ var FILMING_FORMATS = [
     openingRule: "Opens at a specific time of day or life moment -- the product appears naturally not as the subject.",
     structure: "Time/situation hook → the moment it shows up in the day → what changes because it's there → pre-close is how the day feels different now → CTA",
     voiceNote: "Relaxed, observational, the product is part of the scene not the star."
+    hookType: "CULTURAL MOMENT",
   },
   {
     id: "voiceover_action",
@@ -3844,6 +3889,7 @@ var FILMING_FORMATS = [
     openingRule: "Narrating over product in use. No direct address. Short sentences with natural pause points. Hook works WITH what's on screen.",
     structure: "Observation hook matching on-screen action → what the viewer is seeing explained through feeling → the detail nobody notices → pre-close is quiet honest moment → CTA clean and direct",
     voiceNote: "VOICE OVER RULES: Short sentences. Natural pauses. No 'you are watching' or 'look at this'. Third person observation or first person reflection. Lines should feel like they breathe between shots."
+    hookType: "SENSORY",
   },
   {
     id: "voiceover_lifestyle",
@@ -3854,6 +3900,7 @@ var FILMING_FORMATS = [
     openingRule: "Narrating over slower lifestyle footage -- the organized space, the beautiful product, the morning ritual. Reflective, slower pace.",
     structure: "Atmospheric observation hook → the feeling of the space or moment → what this product represents in that life → pre-close is a quiet personal admission → CTA feels like an invitation not a push",
     voiceNote: "VOICE OVER RULES: Short sentences. Atmospheric. Slower pace than talking head. Lines should feel like they have space around them. No urgency energy -- this is lifestyle, not conversion pressure."
+    hookType: "IDENTITY GAP",
   }
 ];
 
@@ -4070,6 +4117,7 @@ function generateFormatScripts() {
     var fmt = FILMING_FORMATS.find(function(f){ return f.id === id; });
     if (!fmt) return "";
     return "Script " + (idx+1) + ": " + fmt.name + " (" + fmt.psychology + ")\n" +
+      "ASSIGNED HOOK TYPE: " + (fmt.hookType || "FRUSTRATION") + " -- write the hook as this type only.\n" +
       "Opening rule: " + fmt.openingRule + "\n" +
       "Structure: " + fmt.structure + "\n" +
       "Voice: " + fmt.voiceNote;
@@ -4086,7 +4134,7 @@ function generateFormatScripts() {
     "- No banned words: game-changer, elevate, transform, journey, invest, worth, price, cost\n" +
     "- CTAs must echo the specific hook tension -- never standalone Grab yours below\n" +
     "- Pre-close is one honest human moment -- never a lesson, never a question, never an aphorism\n\n" +
-    "FORMATS TO WRITE:\n\n" + formatsForPrompt + "\n\n" +
+    "HOOK TYPE FRAMEWORK -- every hook must be written as one of these specific types. The type is assigned to this script. Write the hook for that type only. 1. CULTURAL MOMENT: Names the one shared unspoken truth everyone in this product world has accepted. Examples: We are not waiting on the cart girl. Your pillow graveyard keeps growing. 2. IDENTITY FILTER: Immediately identifies exactly who this video is for. Examples: This hack is only for over packers. If you travel and have a lot of hair tools. 3. FRUSTRATION: Names the active pain. Stops at the tension, never explains the consequence. Examples: You clean the vacuum more than it cleans your floors. Your drink dies on the back nine. 4. RELATABLE PROBLEM/QUESTION: Reveals a problem the viewer did not know they had. Examples: Why are we wasting money on epsom salt. Why are we breaking our hair tools. 5. SENSORY: Makes the viewer physically feel the product before they see it. Examples: The satisfying clink of the bottle opener hitting the cap catcher. 6. SOCIAL PROOF: Opens on someone else's reaction or verdict. Examples: It does not stop selling out. Everyone I sent this to ordered before I finished explaining. 7. SKEPTICISM: Opens with the creator's own doubt. Examples: I almost talked myself out of this three times. 8. CURIOSITY/REACTION: Personal response that only makes sense after watching. Examples: I was not ready for this. Nobody warned me. 9. IDENTITY GAP: Names something that does not match the life the viewer has built. Examples: Your counters look amazing and then you open the fridge. 10. CONFESSION: Creator admits something embarrassing the viewer recognizes in themselves. Examples: I have a pillow graveyard in my bedroom. 11. REVEAL: Opens on an unexpected fact that reframes something the viewer thought they understood. Examples: Magnesium flakes have more magnesium than epsom salt. They look like fish eggs but they are actually mints. HOOK LENGTH RULE: Under 10 words target. Under 12 hard limit. Declarative beats explanatory. Stop at the tension. Cut everything after AND or BUT.\n\nFORMATS TO WRITE:\n\n" + formatsForPrompt + "\n\n" +
     "Return ONLY valid JSON:\n" +
     "{\"scripts\":[{\"format\":\"format name\",\"hook\":\"string\",\"body1\":\"string\",\"preClose\":\"string\",\"body2\":\"string\",\"cta\":\"string\",\"caption\":\"string\",\"hashtags\":[\"string\",\"string\",\"string\",\"string\",\"string\"]}]}\n" +
     "Generate exactly " + selectedFormats.length + " scripts in the scripts array, in the order listed above.";
@@ -4995,6 +5043,8 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
       cardEl.addEventListener("click", function(e){
         if(e.target === btnEl || btnEl.contains(e.target)) return;
         if(e.target.closest && e.target.closest(".desire-badge-curated")) return;
+        var _dhm = {"Pain/Problem Relief":"FRUSTRATION","Emotion/Identity":"IDENTITY GAP","Dopamine/Instant Gratification":"SENSORY","Urgency/Scarcity":"SOCIAL PROOF","Status/Upgrade":"IDENTITY FILTER","Habit/Routine":"CONFESSION","Trust/Brand Recognition":"SKEPTICISM","Convenience":"RELATABLE PROBLEM/QUESTION","Social Proof/Belonging":"SOCIAL PROOF","Fear of Future Regret":"CULTURAL MOMENT","Transformation":"IDENTITY GAP"};
+        focusObj.hookType = _dhm[focusObj.desire] || "CULTURAL MOMENT";
         currentFocus=focusObj; allData.currentFocus=focusObj;
         // If bank is empty, generate it -- don't render an empty builder
         var hookKeys = Object.keys(allData.hooks || {});
