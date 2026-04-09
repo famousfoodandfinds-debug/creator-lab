@@ -1795,7 +1795,9 @@ function generateScreenTextOptions(hooksData, callback) {
     return (i+1) + ". [" + h.cat + "] " + h.line;
   }).join("\n");
 
-  var screenPrompt = "You write on-screen text hooks for TikTok Shop videos. These appear on screen while the creator speaks -- a completely separate layer that works simultaneously with the verbal hook.\n\nTHE ONE RULE: The text hook and verbal hook must create two completely different reasons to keep watching. They can never do the same job. Never restate, echo, or hint at what the verbal hook says.\n\nTEXT HOOK TYPES -- for each verbal hook pick the type that creates the most contrast:\n- Social proof curiosity: it does not stop selling out\n- Problem awareness: why are we breaking our hair tools\n- Confusion: why would I want to freshen my gut\n- Challenge: stop blaming your artist\n- Personal reaction: I did not expect that from this\n- Personal verdict: the only way I travel now\n- Question: why are we wasting money on epsom salt\n\nTHE PAYOFF RULE: The question created by the text hook does not have to be answered by the verbal hook -- it can be answered anywhere in the script. The viewer just has to keep watching.\n\nBANNED: anything that describes the product, previews the verbal hook, echoes the verbal hook energy, or resolves itself without watching.\n\nUnder 6 words. Lowercase.\n\nVerbal hooks to write text hooks for:\n" + hookListText + "\n\nReturn ONLY valid JSON. Keys are hook numbers (1, 2, 3...), values are arrays of exactly 3 on-screen text options. No markdown, no explanation.";
+  var screenPrompt = "You write on-screen text hooks for TikTok Shop videos. " +
+  " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer. If it could work for any other product or buyer it is wrong -- rewrite it. " +
+  "These appear on screen while the creator speaks -- a completely separate layer that works simultaneously with the verbal hook.\n\nTHE ONE RULE: The text hook and verbal hook must create two completely different reasons to keep watching. They can never do the same job. Never restate, echo, or hint at what the verbal hook says.\n\nTEXT HOOK TYPES -- for each verbal hook pick the type that creates the most contrast:\n- Social proof curiosity: it does not stop selling out\n- Problem awareness: why are we breaking our hair tools\n- Confusion: why would I want to freshen my gut\n- Challenge: stop blaming your artist\n- Personal reaction: I did not expect that from this\n- Personal verdict: the only way I travel now\n- Question: why are we wasting money on epsom salt\n\nTHE PAYOFF RULE: The question created by the text hook does not have to be answered by the verbal hook -- it can be answered anywhere in the script. The viewer just has to keep watching.\n\nBANNED: anything that describes the product, previews the verbal hook, echoes the verbal hook energy, or resolves itself without watching.\n\nUnder 6 words. Lowercase.\n\nVerbal hooks to write text hooks for:\n" + hookListText + "\n\nReturn ONLY valid JSON. Keys are hook numbers (1, 2, 3...), values are arrays of exactly 3 on-screen text options. No markdown, no explanation.";
 
   fetch("/api/claude", {
     method: "POST",
@@ -2682,7 +2684,7 @@ function generateBatchScreenTexts(hooks, product, callback) {
     " BANNED: anything that describes the product, previews the verbal hook, echoes the verbal hook energy, or resolves itself without watching." +
     " Under 6 words each. Lowercase." +
 
-    "\n\nProduct: " + product +
+    "\n\nBUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer. If it could work for any product it is wrong. Product: " + product +
     "\n\nVerbal hooks to write text hooks for:\n" + hookList +
     "\n\nFor each hook return exactly 3 options labeled a, b, c. Each option should be a different text hook type." +
     "\nReturn ONLY valid JSON: {screenTexts:[[optionA, optionB, optionC] per hook]}";
@@ -4282,7 +4284,9 @@ function renderFilmingSessionResults(scripts, mc) {
     card.appendChild(thSection);
 
     (function(section, loadingEl, scriptText, formatName) {
-      var thPrompt = "You write on-screen text hooks for TikTok Shop videos. The creator will SPEAK this script out loud: \"" + scriptText + "\" Format: " + formatName + "." +
+      var thPrompt = "You write on-screen text hooks for TikTok Shop videos. " +
+      " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer. If it could work for any other product or buyer it is wrong -- rewrite it. " +
+      " The creator will SPEAK this script out loud: \"" + scriptText + "\" Format: " + formatName + "." +
       " THE ONE RULE: The text hook and verbal hook must create two completely different reasons to keep watching. Never restate, echo, or hint at what the verbal hook says." +
       " TEXT HOOK TYPES -- pick 3 different types for maximum variety:" +
       " Social proof curiosity (it does not stop selling out) | Problem awareness (why are we breaking our hair tools) | Confusion (why would I want to freshen my gut) | Challenge (stop blaming your artist) | Personal reaction (I did not expect that from this) | Personal verdict (the only way I travel now) | Question (why are we wasting money on epsom salt)" +
@@ -4564,7 +4568,9 @@ function generateUrgencyScripts(type) {
       card.appendChild(thSection);
 
       (function(section, loading, scriptText) {
-        var screenPrompt = "You write on-screen text hooks for TikTok Shop urgency videos. The creator will SPEAK this script: \"" + scriptText + "\" Product: " + currentProduct + "." +
+        var screenPrompt = "You write on-screen text hooks for TikTok Shop urgency videos. " +
+        " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer. If it could work for any other product or buyer it is wrong -- rewrite it. " +
+        " The creator will SPEAK this script: \"" + scriptText + "\" Product: " + currentProduct + "." +
         " THE ONE RULE: Text hook and verbal hook must create two different reasons to keep watching. Never echo the verbal hook." +
         " For urgency videos, the best text hook types are:" +
         " Social proof curiosity (it does not stop selling out | everyone is grabbing this) | Problem awareness (specific to why this product matters right now) | Personal verdict (the only time I do this) | Confusion (something specific about this product that demands explanation)" +
@@ -7230,7 +7236,9 @@ function updateDonePanel(){
 
     // Generate live from complete script
     var fullScriptForScreen = [picks.hook, picks.body1, picks.preClose, picks.body2, picks.cta].filter(Boolean).join(" ");
-    var screenPrompt = "You write on-screen text hooks for TikTok Shop videos. The creator will SPEAK this script: \"" + fullScriptForScreen + "\"" +
+    var screenPrompt = "You write on-screen text hooks for TikTok Shop videos. " +
+    " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer. If it could work for any other product or buyer it is wrong -- rewrite it. " +
+    " The creator will SPEAK this script: \"" + fullScriptForScreen + "\"" +
       " THE ONE RULE: The text hook and verbal hook must create two completely different reasons to keep watching. Never restate, echo, or preview the verbal hook." +
       " TEXT HOOK TYPES -- write 3 options, each a different type:" +
       " Social proof curiosity (it does not stop selling out) | Problem awareness (why are we breaking our hair tools) | Confusion (why would I want to freshen my gut) | Challenge (stop blaming your artist) | Personal reaction (I did not expect that from this) | Personal verdict (the only way I travel now) | Question (why are we wasting money on epsom salt)" +
