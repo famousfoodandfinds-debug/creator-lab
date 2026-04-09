@@ -734,7 +734,7 @@ var currentMotivation = "";
 var currentBuyerInsight = ""; // Field 1: why creator chose this product
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
-var APP_VERSION = "3.0.3";
+var APP_VERSION = "3.0.4";
 var authMode = "signin";
 
 // WIZARD STATE
@@ -1000,9 +1000,42 @@ function handleAuth() {
   btn.disabled = true;
   btn.textContent = authMode === "signin" ? "Signing in..." : "Creating account...";
   msg.textContent = "";
-  var promise = authMode === "signin"
-    ? sb.auth.signInWithPassword({ email: email, password: password })
-    : sb.auth.signUp({ email: email, password: password });
+  var promise;
+  if (authMode === "signup") {
+    // Paywall check -- verify email is in paid_users before creating account
+    btn.textContent = "Checking access...";
+    sb.from("paid_users").select("email, active").eq("email", email).eq("active", true).maybeSingle().then(function(check) {
+      if (!check.data) {
+        btn.disabled = false;
+        btn.textContent = "Create Account";
+        msg.innerHTML = "This email isn't associated with an active Psych Lab subscription.<br><br><a href='https://stan.store/famousfoodandfinds/p/psych-lab' target='_blank' style='color:var(--gold);text-decoration:underline;font-weight:600;'>Get access at Stan.store →</a>";
+        msg.className = "auth-msg error";
+        return;
+      }
+      // Email verified -- proceed with signup
+      sb.auth.signUp({ email: email, password: password }).then(function(result) {
+        btn.disabled = false;
+        btn.textContent = "Create Account";
+        if (result.error) {
+          msg.textContent = result.error.message;
+          msg.className = "auth-msg error";
+        } else if (!result.data.session) {
+          msg.textContent = "Check your email to confirm your account, then sign in.";
+          msg.className = "auth-msg success";
+        } else {
+          currentUser = result.data.user;
+          onSignedIn();
+        }
+      });
+    }).catch(function() {
+      btn.disabled = false;
+      btn.textContent = "Create Account";
+      msg.textContent = "Could not verify access -- please try again.";
+      msg.className = "auth-msg error";
+    });
+    return;
+  }
+  promise = sb.auth.signInWithPassword({ email: email, password: password });
   promise.then(function(result) {
     btn.disabled = false;
     btn.textContent = authMode === "signin" ? "Sign In" : "Create Account";
