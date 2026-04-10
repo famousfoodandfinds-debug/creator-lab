@@ -2705,7 +2705,190 @@ function generateBatchScreenTexts(hooks, product, callback) {
   .catch(function(err){ logError("batch_screen_text", err, { product: currentProduct }); callback([]); });
 }
 
-function generateBatchScripts(angles) {
+// ── HOOK PICKER ──
+
+function generateHookOptions(callback) {
+  var hookPrompt = "You write TikTok hooks. Generate exactly 5 hooks for this product and buyer -- one using each of the 5 WOW mechanisms listed below." +
+    " BUYER INSIGHT -- THIS IS EVERYTHING: " + getBuyerMotivation() + ". This is the only person you are writing for." +
+    " PRODUCT: " + currentProduct.split(' PRODUCT DETAILS: ').pop() + "." +
+    " Generate one hook for EACH of these 5 mechanisms. Pick the unexpected angle not the obvious one for each:" +
+    " 1. THE REFRAME: flip something they feel bad about into an advantage. Like: Your procrastination paid off." +
+    " 2. NOT YOUR FAULT: tell them it was never their fault. Like: You're not bad at keeping up, your vacuum just made it harder." +
+    " 3. THE VERDICT: render judgment on something they normalized. Like: The cleanup after the cleanup is not normal." +
+    " 4. THE STATUS THREAT: name the gap between who they are and who they could be. Like: Stop packing like a rookie." +
+    " 5. THE PIVOT: set up one thing, land somewhere unexpected. Like: Your counters look amazing and then you open the fridge." +
+    " GOLD STANDARD BENCHMARK -- every hook must feel like it belongs here:" +
+    " We're not waiting on the cart girl." +
+    " You clean the vacuum more than it cleans your floors." +
+    " Stop packing like a rookie." +
+    " You shouldn't have to gag to take care of your gut." +
+    " Does epsom salt actually do anything." +
+    " Your ink didn't fade, you just didn't know how to take care of it." +
+    " Cooking for eight people shouldn't require a military operation." +
+    " HARD RULES FOR EVERY HOOK:" +
+    " Category or product name in words 1-5 for TikTok SEO." +
+    " Under 10 words. Count them. Over 10 is a failure." +
+    " First word cannot be I or My -- automatic failure, rewrite." +
+    " Stop at the tension. Never explain the consequence." +
+    " One idea only. No AND or BUT." +
+    " The obvious version is always wrong. Find the unexpected angle." +
+    " Return ONLY valid JSON: {hooks: [{mechanism: string, hook: string}, ...]} with exactly 5 hooks in order of the 5 mechanisms above.";
+
+  fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 600,
+      messages: [{ role: "user", content: hookPrompt }] })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var hooks = [];
+    try {
+      var t = ""; data.content.forEach(function(b){ if(b.type==="text") t+=b.text; });
+      var parsed = JSON.parse(t.replace(/```json|```/g,"").trim());
+      hooks = parsed.hooks || [];
+    } catch(e) {}
+    callback(hooks);
+  })
+  .catch(function() { callback([]); });
+}
+
+function renderHookPicker(onHookSelected, backFn) {
+  var mc = document.getElementById("mainContent");
+  mc.innerHTML = "";
+  var wrap = document.createElement("div");
+  wrap.style.cssText = "padding:16px;";
+
+  var backBtn = document.createElement("button");
+  backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 12px;";
+  backBtn.innerHTML = "← Back";
+  backBtn.addEventListener("click", function(){ backFn ? backFn() : renderProductHub(); });
+  wrap.appendChild(backBtn);
+
+  var heading = document.createElement("div");
+  heading.className = "step-heading";
+  heading.innerHTML = "Pick your <em>Hook</em>";
+  var sub = document.createElement("div");
+  sub.className = "step-sub";
+  sub.textContent = "Five different angles. Pick the one that feels most like you.";
+  sub.style.marginBottom = "20px";
+  wrap.appendChild(heading);
+  wrap.appendChild(sub);
+
+  var loadingEl = document.createElement("div");
+  loadingEl.style.cssText = "display:flex;align-items:center;gap:8px;padding:20px 0;";
+  loadingEl.innerHTML = "<div class='dots'><div class='dot'></div><div class='dot'></div><div class='dot'></div></div><span style='font-size:13px;color:var(--muted);'>Writing your hook options...</span>";
+  wrap.appendChild(loadingEl);
+  mc.appendChild(wrap);
+
+  var mechanismData = {
+    "THE REFRAME": {
+      label: "The Reframe",
+      color: "#FFD166",
+      why: "This hook takes something the viewer felt guilty about -- waiting, hesitating, putting it off -- and tells them that feeling was actually correct. Relief and surprise hit at the same time. The viewer who was about to scroll past stops because they didn't expect to be rewarded."
+    },
+    "NOT YOUR FAULT": {
+      label: "Not Your Fault",
+      color: "#2DC98A",
+      why: "This hook removes shame the viewer didn't even know they were carrying. They've been quietly feeling like they failed at something basic. When someone tells them it wasn't their fault, the relief stops the scroll before curiosity even kicks in."
+    },
+    "THE VERDICT": {
+      label: "The Verdict",
+      color: "#FF6B6B",
+      why: "This hook names something the viewer accepted as just how things are. When someone says out loud that it's NOT normal, the viewer feels simultaneously validated and slightly called out. They never questioned it until right now."
+    },
+    "THE STATUS THREAT": {
+      label: "The Status Threat",
+      color: "#C0C0C0",
+      why: "This hook creates mild social pressure by implying the viewer is currently in the wrong category. Nobody wants to be the rookie, the person who didn't know, the one who's behind. The desire to close that gap is what stops the scroll."
+    },
+    "THE PIVOT": {
+      label: "The Pivot",
+      color: "#B388FF",
+      why: "This hook works because the brain has to stop and process the gap between the setup and the landing. That half second of processing IS the scroll stop. The viewer filled in what was coming and got something different."
+    }
+  };
+
+  generateHookOptions(function(hooks) {
+    if (loadingEl.parentNode) loadingEl.parentNode.removeChild(loadingEl);
+
+    if (!hooks || hooks.length === 0) {
+      var errEl = document.createElement("div");
+      errEl.style.cssText = "color:var(--muted);font-size:13px;padding:20px 0;";
+      errEl.textContent = "Something went wrong generating hooks. Please try again.";
+      wrap.appendChild(errEl);
+      return;
+    }
+
+    var cardsWrap = document.createElement("div");
+    cardsWrap.style.cssText = "display:flex;flex-direction:column;gap:12px;";
+
+    hooks.forEach(function(hookObj) {
+      var mech = (hookObj.mechanism || "").toUpperCase();
+      var meta = mechanismData[mech] || { label: hookObj.mechanism, color: "var(--purple)", why: "" };
+
+      var card = document.createElement("div");
+      card.style.cssText = "background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;cursor:pointer;transition:border-color 0.15s;";
+      card.addEventListener("mouseenter", function(){ card.style.borderColor = meta.color; });
+      card.addEventListener("mouseleave", function(){
+        if (!card.classList.contains("hook-card-selected")) card.style.borderColor = "var(--border)";
+      });
+
+      var mechLabel = document.createElement("div");
+      mechLabel.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:" + meta.color + ";margin-bottom:8px;";
+      mechLabel.textContent = meta.label;
+
+      var hookText = document.createElement("div");
+      hookText.style.cssText = "font-size:16px;font-weight:600;color:var(--white);line-height:1.4;margin-bottom:12px;";
+      hookText.textContent = hookObj.hook;
+
+      var actionRow = document.createElement("div");
+      actionRow.style.cssText = "display:flex;align-items:center;gap:10px;";
+
+      var whyBtn = document.createElement("button");
+      whyBtn.style.cssText = "background:none;border:1px solid var(--border-md);border-radius:999px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:11px;padding:4px 12px;cursor:pointer;";
+      whyBtn.textContent = "Why this works \u25be";
+      var whyExpanded = false;
+      var whyEl = document.createElement("div");
+      whyEl.style.cssText = "display:none;font-size:12px;color:var(--white-dim);line-height:1.6;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);";
+      whyEl.textContent = meta.why;
+      whyBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        whyExpanded = !whyExpanded;
+        whyEl.style.display = whyExpanded ? "block" : "none";
+        whyBtn.textContent = whyExpanded ? "Why this works \u25b4" : "Why this works \u25be";
+      });
+
+      var selectBtn = document.createElement("button");
+      selectBtn.style.cssText = "margin-left:auto;background:" + meta.color + ";border:none;border-radius:999px;color:#080808;font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;padding:6px 16px;cursor:pointer;";
+      selectBtn.textContent = "Use this hook";
+      selectBtn.addEventListener("click", function(e) {
+        e.stopPropagation();
+        document.querySelectorAll(".hook-card-selected").forEach(function(el){
+          el.classList.remove("hook-card-selected");
+          el.style.borderColor = "var(--border)";
+        });
+        card.classList.add("hook-card-selected");
+        card.style.borderColor = meta.color;
+        onHookSelected(hookObj.hook, hookObj.mechanism);
+      });
+
+      actionRow.appendChild(whyBtn);
+      actionRow.appendChild(selectBtn);
+      card.appendChild(mechLabel);
+      card.appendChild(hookText);
+      card.appendChild(actionRow);
+      card.appendChild(whyEl);
+      cardsWrap.appendChild(card);
+    });
+
+    wrap.appendChild(cardsWrap);
+  });
+}
+
+// ── BATCH SCRIPTS ──
+
+function generateBatchScripts(angles, chosenHook) {
   var mc = document.getElementById("mainContent");
   mc.innerHTML = "";
   var wrap = document.createElement("div");
@@ -2739,11 +2922,11 @@ function generateBatchScripts(angles) {
     });
     if (liked.length > 0) profileNote += " CREATOR VOICE PROFILE: This creator consistently rates these psychology styles as matching their voice: " + liked.join(", ") + ". Lean into these styles where they fit the angle.";
     if (disliked.length > 0) profileNote += " This creator has flagged these styles as not matching their voice: " + disliked.join(", ") + ". Avoid these framing styles.";
-    generateBatchScriptsWithProfile(angles, priceCtx, profileNote);
+    generateBatchScriptsWithProfile(angles, priceCtx, profileNote, chosenHook);
   });
 }
 
-function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
+function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, chosenHook) {
   // Build angles text -- flag duplicates as variations
   // Assign hook types to each script slot
   var DESIRE_HOOK_MAP = {
@@ -2876,13 +3059,15 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
 
     " Return ONLY valid JSON: {mechanism_used:string, hook:string}";
 
-  fetch("/api/claude", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 400,
-      messages: [{ role: "user", content: goldHookPrompt }] })
-  })
-  .then(function(r) { return r.json(); })
+  (chosenHook
+    ? Promise.resolve({ content: [{ type: "text", text: JSON.stringify({ mechanism_used: "USER CHOSEN", hook: chosenHook }) }] })
+    : fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 400,
+          messages: [{ role: "user", content: goldHookPrompt }] })
+      }).then(function(r) { return r.json(); })
+  )
   .then(function(goldData) {
     var goldHook = "";
     var goldHookType = "";
@@ -4099,7 +4284,9 @@ function renderFormatPicker() {
   genBtn.disabled = true;
   genBtn.addEventListener("click", function() {
     if (selectedFormats.length === 0) return;
-    generateFormatScripts();
+    renderHookPicker(function(chosenHook) {
+      generateFormatScripts(chosenHook);
+    }, function() { renderFormatPicker(); });
   });
   wrap.appendChild(genBtn);
 
@@ -4179,7 +4366,7 @@ function updateGenerateBtn() {
     : "🎬 &nbsp;Generate " + n + " Script" + (n > 1 ? "s" : "") + " for This Session";
 }
 
-function generateFormatScripts() {
+function generateFormatScripts(chosenHook) {
   var mc = document.getElementById("mainContent");
   mc.innerHTML = "";
   var wrap = document.createElement("div");
@@ -4206,6 +4393,7 @@ function generateFormatScripts() {
     "PRODUCT: " + currentProduct + "\n" +
     "PRICE CONTEXT: " + getPriceContext() + "\n\n" +
     "CRITICAL: Each script must feel genuinely different from the others. Different opening energy, different structure, different emotional register. A creator should be able to film all " + selectedFormats.length + " back to back without them sounding like variations of the same video.\n\n" +
+    (chosenHook ? "GOLD STANDARD HOOK -- THIS IS YOUR BENCHMARK: The creator chose this hook. Every script must feel anchored to the same voice, tension, and buyer as this hook. Gold standard hook: " + chosenHook + ". Buyer insight: " + getBuyerMotivation() + ".\n\n" : "") +
     "UNIVERSAL RULES FOR ALL SCRIPTS:\n" +
     "- Never start with I, My, This is, It is\n" +
     "- No em dashes anywhere\n" +
@@ -4791,7 +4979,10 @@ function renderBatchAngleGrid(wrap, focuses) {
   genBtn.disabled = true;
   genBtn.addEventListener("click", function() {
     if(selectedAngles.length === 0){ showToast("Select at least one angle"); return; }
-    generateBatchScripts(selectedAngles.slice());
+    var anglesSnapshot = selectedAngles.slice();
+    renderHookPicker(function(chosenHook) {
+      generateBatchScripts(anglesSnapshot, chosenHook);
+    }, function() { renderBatchPicker(); });
   });
 
   var grid = document.createElement("div");
