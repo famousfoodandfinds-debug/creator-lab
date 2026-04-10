@@ -1798,7 +1798,7 @@ function generateScreenTextOptions(hooksData, callback) {
   var screenPrompt = "You write on-screen text hooks for TikTok Shop videos." +
   " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer." +
   " These appear on screen while the creator speaks the verbal hook -- a completely separate psychological layer." +
-  " THE ONLY JOB: The verbal hook already created an emotional reaction. The text hook must create a completely different reason to keep watching. It is not a caption. It is not a summary. It is not a variation. It is a separate punch that makes the viewer need to stay to resolve something." +
+  " THE ONLY QUESTION: What is the one thing on screen that makes the viewer unable to leave before they find out what it means? Not a caption. Not a summary. A punch that creates an open loop the verbal hook does not close." +
   " THE PAIRING RULE: If someone could read the text hook and understand what the verbal hook is about -- rewrite it. They must do completely different jobs." +
   " GOLD STANDARD TEXT HOOK PAIRS -- study the relationship between each pair. Text and verbal hit from completely different directions. This is the standard:" +
   " PAIR: Text: you're just soaking in dirty water / Verbal: Does epsom salt actually do anything. Relationship: text unsettles first, verbal opens the door." +
@@ -2417,7 +2417,7 @@ function generateOnScreenText(productDesc, hooks) {
   var hookContext = hookSamples.slice(0,2).join(" / ");
   var prompt = "You write on-screen text hooks for TikTok Shop videos about this product: " + productDesc + "." +
     " These appear on screen while the creator speaks the verbal hook -- a completely separate psychological layer." +
-    " THE ONLY JOB: Create a reason to keep watching that is completely different from anything the verbal hook might say. Not a caption. Not a summary. A separate punch that makes the viewer need to stay to resolve something." +
+    " THE ONLY QUESTION: What is the one thing on screen that makes the viewer unable to leave before they find out what it means? Not a caption. Not a summary. A punch that creates an open loop the verbal hook does not close." +
     " THE PAIRING RULE: Write options that could pair with different verbal hook styles without overlapping any of them." +
     " GOLD STANDARD TEXT HOOK PAIRS -- the text hook and verbal hook must hit from completely different directions:" +
     " PAIR: Text: you're just soaking in dirty water / Verbal: Does epsom salt actually do anything. Relationship: unsettle then open the door." +
@@ -2668,7 +2668,7 @@ function generateBatchScreenTexts(hooks, product, callback) {
 
   var prompt = "You write on-screen text hooks for TikTok Shop videos. These appear on screen while the creator speaks the verbal hook -- a completely separate psychological layer." +
 
-    " THE ONLY JOB: The verbal hook already created an emotional reaction. The text hook must create a completely different reason to keep watching. Not a caption. Not a variation. A separate punch that makes the viewer need to stay to resolve something." +
+    " THE ONLY QUESTION: What is the one thing on screen that makes the viewer unable to leave before they find out what it means? Not a caption. Not a variation. A punch that creates an open loop the verbal hook does not close." +
 
     " THE PAIRING RULE: If someone could read the text hook and understand what the verbal hook is about -- rewrite it. They must do completely different jobs." +
 
@@ -2834,65 +2834,52 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     understandingNote += goldHookNote;
 
   // ── CALL 1.5: Write the gold standard hook in isolation ──
-  var goldHookPrompt = "You have one job. Write the single best verbal hook for this product and this buyer. Nothing else." +
-    " BUYER INSIGHT -- THIS IS YOUR ONLY BRIEF: " + getBuyerMotivation() + "." +
+  var goldHookPrompt = "You write TikTok hooks. One job. Stop the scroll." +
+    " BUYER INSIGHT -- THIS IS EVERYTHING: " + getBuyerMotivation() + ". This is the only person you are writing for." +
     " PRODUCT: " + currentProduct.split(' PRODUCT DETAILS: ').pop() + "." +
-    " WHAT YOU KNOW ABOUT THIS BUYER: " + (understanding.who ? understanding.who : "") + ". Cultural moment territory: " + (understanding.cultural_moment || "") + "." +
+    " WHAT YOU KNOW ABOUT THIS BUYER: " + (understanding.who ? understanding.who : "") + "." +
 
-    " STEP 1 -- MAKE A TONAL DECISION FIRST." +
-    " What emotional state best serves this product and this buyer? Pick exactly one:" +
-    " FUNNY: the hook gets a laugh of recognition." +
-    " VALIDATING: the hook makes them feel finally seen." +
-    " PROVOCATIVE: the hook makes them slightly defensive or challenged." +
-    " SURPRISING: the hook lands somewhere they did not expect." +
-    " VULNERABLE: the hook admits something embarrassing they share." +
-    " State your choice and one sentence explaining why. Then proceed." +
+    " THE ONLY QUESTION: What is the most unexpected true thing you can say about this product and this buyer? Not the obvious angle. Not the safe description. The thing that makes someone stop mid-scroll and think -- wow, that is exactly it." +
 
-    " STEP 2 -- FIND THE LIFE MOMENT." +
-    " Before writing the hook describe in one sentence the single most specific physical moment this buyer is in when this frustration or desire peaks. Real life. No product mention. This is your anchor." +
+    " PICK ONE OF THESE MECHANISMS AND COMMIT TO IT FULLY:" +
+    " THE REFRAME: flip something they feel bad about into an advantage. Example: Your procrastination paid off." +
+    " REMOVE THE BLAME: tell them it was never their fault. Example: You're not bad at keeping up, your vacuum just made it harder." +
+    " DISRUPT THE HABIT: name something they trusted without questioning. Example: Does epsom salt actually do anything." +
+    " THE STATUS THREAT: name the gap between who they are and who they could be. Example: Stop packing like a rookie." +
+    " THE VERDICT: render judgment on something they normalized. Example: The cleanup after the cleanup is not normal." +
+    " THE PIVOT: set up one thing, land somewhere they didn't expect. Example: Your counters look amazing and then you open the fridge." +
 
-    " STEP 3 -- WRITE THE HOOK FROM INSIDE THAT MOMENT." +
-    " The product or category name must appear naturally in words 1-5 -- this is required for TikTok SEO categorization." +
-    " Under 10 words. 6-8 is the sweet spot. Count before finalizing." +
-    " Stop at the tension. Never explain the consequence." +
-    " No AND or BUT connecting two ideas." +
-    " Never starts with I or My." +
-    " Must feel like it could only be about THIS buyer, not any buyer." +
-    " Fragments are fine. Complete sentences are fine. Whatever hits harder when spoken out loud." +
-
-    " SELF-CHECK before returning:" +
-    " Does this make the specific right person feel personally called out?" +
-    " Is the product or category in the first 5 words?" +
-    " Is it under 10 words?" +
-    " Does it stop at the tension without resolving it?" +
-    " If any answer is no -- rewrite before returning." +
-
-    " GOLD STANDARD BENCHMARK -- every hook must feel like it belongs in this list:" +
+    " GOLD STANDARD BENCHMARK -- your hook must feel like it belongs in this list:" +
     " We're not waiting on the cart girl." +
-    " I have a pillow graveyard in my bedroom." +
-    " Your counters look amazing and then you open the fridge." +
     " You clean the vacuum more than it cleans your floors." +
-    " This vacuum is premium, that's why most people wait for it to go on sale." +
-    " Thick chalky protein shakes that feel like punishment." +
     " Stop packing like a rookie." +
     " You shouldn't have to gag to take care of your gut." +
     " Does epsom salt actually do anything." +
+    " Your ink didn't fade, you just didn't know how to take care of it." +
+    " Cooking for eight people shouldn't require a military operation." +
+    " Your counters look amazing and then you open the fridge." +
 
-    " THE WOW PRINCIPLE -- the obvious version of every hook is wrong. Before finalizing ask: would a real person stop mid-scroll and say wow, that is exactly it? Find the unexpected angle the viewer never saw coming. These are the mechanisms that produce WOW:" +
-    " THE REFRAME: flip something the viewer feels bad about into an advantage. Your procrastination paid off." +
-    " REMOVE THE BLAME: take something they've silently blamed themselves for and reveal it was never their fault. You're not bad at keeping up, your vacuum just made it harder than it needed to be." +
-    " DISRUPT THE HABIT: name something they've trusted without questioning and make them doubt it. Does epsom salt actually do anything." +
-    " THE STATUS THREAT: create a gap between who they are now and who they could be. Stop packing like a rookie." +
-    " THE VERDICT: render a judgment on something they normalized. The cleanup after the cleanup is not normal." +
-    " THE PIVOT: set up one thing and land somewhere completely unexpected. Your counters look amazing and then you open the fridge." +
-    " If the hook describes the situation accurately but predictably -- throw it away. The unexpected entry point is the only one that earns the stop." +
+    " HARD RULES:" +
+    " Category or product name in words 1-5 for TikTok SEO." +
+    " Under 10 words. Count them. Over 10 is a failure." +
+    " First word cannot be I or My -- automatic failure, rewrite immediately." +
+    " Stop at the tension. Never explain the consequence." +
+    " One idea only. No AND or BUT." +
 
-    " Return ONLY valid JSON: {tone_decision:string, life_moment:string, hook:string, hook_type:string}";
+    " SELF CHECK -- answer before returning:" +
+    " Which mechanism did I use?" +
+    " Is this the unexpected version or the obvious version? If obvious -- rewrite." +
+    " Does it make the right person feel personally called out?" +
+    " First word is not I or My?" +
+    " Under 10 words?" +
+    " If any answer fails -- rewrite before returning." +
+
+    " Return ONLY valid JSON: {mechanism_used:string, hook:string}";
 
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 300,
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 400,
       messages: [{ role: "user", content: goldHookPrompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -2903,12 +2890,13 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
       var gt = ""; goldData.content.forEach(function(b){ if(b.type==="text") gt+=b.text; });
       var goldParsed = JSON.parse(gt.replace(/```json|```/g,"").trim());
       goldHook = goldParsed.hook || "";
-      goldHookType = goldParsed.hook_type || "";
+      goldHookType = goldParsed.mechanism_used || goldParsed.hook_type || "";
     } catch(e) {}
 
-    // Safety check -- if over 10 words or starts with I/My, note it for Call 2 to tighten
+    // Hard failure checks
+    var startsWithI = /^(I |I'm |I've |I was |My )/i.test(goldHook);
     var goldWordCount = goldHook.split(' ').length;
-    var goldHookNote = goldHook ? " GOLD STANDARD HOOK -- THIS IS YOUR BENCHMARK: Every hook you write must match this quality and stay anchored to this buyer. If your hook could work for a different product or buyer it is wrong. Gold standard hook: " + goldHook + " (" + goldHookType + "). " + (goldWordCount > 10 ? "NOTE: This benchmark is slightly long -- tighten your hooks to under 10 words." : "") + " Buyer insight: " + getBuyerMotivation() + "." : "";
+    var goldHookNote = goldHook ? " GOLD STANDARD HOOK -- THIS IS YOUR BENCHMARK: Every hook you write must match this quality and stay anchored to this buyer. If your hook could work for a different product or buyer it is wrong. Gold standard hook: " + goldHook + " (mechanism: " + goldHookType + "). " + (startsWithI ? "WARNING: This benchmark starts with I or My which is a banned opener -- every hook you write must NOT start with I or My, rewrite any that do." : "") + (goldWordCount > 10 ? " NOTE: This benchmark is slightly long -- tighten hooks to under 10 words." : "") + " Buyer insight: " + getBuyerMotivation() + "." : "";
 
     // ── CALL 2: Write scripts from that understanding ──
     var prompt = "You write TikTok Shop scripts that sound exactly like a real person talking to a friend about something they genuinely love." +
@@ -4371,7 +4359,7 @@ function renderFilmingSessionResults(scripts, mc) {
       var thPrompt = "You write on-screen text hooks for TikTok Shop videos." +
       " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer." +
       " The creator will SPEAK this script out loud: \"" + scriptText + "\" Format: " + formatName + "." +
-      " THE ONLY JOB: The verbal hook already created an emotional reaction. The text hook must create a completely different reason to keep watching. Not a caption. Not a variation. A separate punch that makes the viewer need to stay to resolve something." +
+      " THE ONLY QUESTION: What is the one thing on screen that makes the viewer unable to leave before they find out what it means? Not a caption. Not a variation. A punch that creates an open loop the verbal hook does not close." +
       " THE PAIRING RULE: If someone could read the text hook and understand what the verbal hook is about -- rewrite it. They must do completely different jobs." +
       " GOLD STANDARD TEXT HOOK PAIRS -- text and verbal hit from completely different directions:" +
       " PAIR: Text: you're just soaking in dirty water / Verbal: Does epsom salt actually do anything. Unsettle then open the door." +
@@ -4663,7 +4651,7 @@ function generateUrgencyScripts(type) {
         var screenPrompt = "You write on-screen text hooks for TikTok Shop urgency videos." +
         " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer." +
         " The creator will SPEAK this script: \"" + scriptText + "\" Product: " + currentProduct + "." +
-        " THE ONLY JOB: The verbal hook created an emotional reaction. The text hook must create a completely different reason to keep watching. Not a caption. A separate punch that makes the viewer need to stay." +
+        " THE ONLY QUESTION: What is the one thing on screen that makes the viewer unable to leave before they find out what it means? Not a caption. A punch that creates an open loop the verbal hook does not close." +
         " THE PAIRING RULE: If someone could read the text hook and understand what the verbal hook is about -- rewrite it." +
         " For urgency videos pick the approach that creates the most contrast:" +
         " Plants a question: why does this keep selling out." +
@@ -7336,7 +7324,7 @@ function updateDonePanel(){
     var screenPrompt = "You write on-screen text hooks for TikTok Shop videos." +
     " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer." +
     " The creator will SPEAK this script: \"" + fullScriptForScreen + "\"" +
-      " THE ONLY JOB: The verbal hook already created an emotional reaction. The text hook must create a completely different reason to keep watching. Not a caption. Not a variation. A separate punch that makes the viewer need to stay to resolve something." +
+      " THE ONLY QUESTION: What is the one thing on screen that makes the viewer unable to leave before they find out what it means? Not a caption. Not a variation. A punch that creates an open loop the verbal hook does not close." +
       " THE PAIRING RULE: If someone could read the text hook and understand what the verbal hook is about -- rewrite it. They must do completely different jobs." +
       " GOLD STANDARD TEXT HOOK PAIRS -- text and verbal hit from completely different directions:" +
       " PAIR: Text: you're just soaking in dirty water / Verbal: Does epsom salt actually do anything. Unsettle then open the door." +
