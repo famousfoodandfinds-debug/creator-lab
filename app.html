@@ -1795,9 +1795,21 @@ function generateScreenTextOptions(hooksData, callback) {
     return (i+1) + ". [" + h.cat + "] " + h.line;
   }).join("\n");
 
-  var screenPrompt = "You write on-screen text hooks for TikTok Shop videos. " +
-  " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer. If it could work for any other product or buyer it is wrong -- rewrite it. " +
-  "These appear on screen while the creator speaks -- a completely separate layer that works simultaneously with the verbal hook.\n\nTHE ONE RULE: The text hook and verbal hook must create two completely different reasons to keep watching. They can never do the same job. Never restate, echo, or hint at what the verbal hook says.\n\nTEXT HOOK TYPES -- for each verbal hook pick the type that creates the most contrast:\n- Social proof curiosity: it does not stop selling out\n- Problem awareness: why are we breaking our hair tools\n- Confusion: why would I want to freshen my gut\n- Challenge: stop blaming your artist\n- Personal reaction: I did not expect that from this\n- Personal verdict: the only way I travel now\n- Question: why are we wasting money on epsom salt\n\nTHE PAYOFF RULE: The question created by the text hook does not have to be answered by the verbal hook -- it can be answered anywhere in the script. The viewer just has to keep watching.\n\nBANNED: anything that describes the product, previews the verbal hook, echoes the verbal hook energy, or resolves itself without watching.\n\nUnder 6 words. Lowercase.\n\nVerbal hooks to write text hooks for:\n" + hookListText + "\n\nReturn ONLY valid JSON. Keys are hook numbers (1, 2, 3...), values are arrays of exactly 3 on-screen text options. No markdown, no explanation.";
+  var screenPrompt = "You write on-screen text hooks for TikTok Shop videos." +
+  " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer." +
+  " These appear on screen while the creator speaks the verbal hook -- a completely separate psychological layer." +
+  " THE ONLY JOB: The verbal hook already created an emotional reaction. The text hook must create a completely different reason to keep watching. It is not a caption. It is not a summary. It is not a variation. It is a separate punch that makes the viewer need to stay to resolve something." +
+  " THE PAIRING RULE: If someone could read the text hook and understand what the verbal hook is about -- rewrite it. They must do completely different jobs." +
+  " WHAT GREAT TEXT HOOKS DO -- pick the approach that creates the most contrast with the verbal hook:" +
+  " Plants a question they need answered: under there since when exactly." +
+  " Names the absurdity: the pre-vacuum vacuum is not normal." +
+  " Hints at a reveal or number: it is on sale right now." +
+  " Creates mild conspiracy: most people do not know this yet." +
+  " Names what they have been avoiding: the couch you definitely just cleaned." +
+  " States a surprising verdict: switched and never looked back." +
+  " THE PAYOFF RULE: The question the text hook creates can be answered anywhere in the script -- not just by the verbal hook. The viewer just has to keep watching." +
+  " HARD RULES: 8 words maximum. Count them. Over 8 is a failure. Lowercase always. Never restate, echo, preview, or hint at the verbal hook. Never describe the product. Must feel like the beginning of a secret, not the end of one." +
+  " Verbal hooks to write text hooks for:\n" + hookListText + "\n\nReturn ONLY valid JSON. Keys are hook numbers (1, 2, 3...), values are arrays of exactly 3 on-screen text options. No markdown, no explanation.";
 
   fetch("/api/claude", {
     method: "POST",
@@ -2402,33 +2414,20 @@ function generateOnScreenText(productDesc, hooks) {
     });
   }
   var hookContext = hookSamples.slice(0,2).join(" / ");
-  var prompt = "You are writing on-screen text overlays for a TikTok video about this product: " + productDesc + "." +
-    " These appear on screen BEFORE the viewer hears a single word. Your job is to make the viewer feel personally called out before the video even starts." +
-
-    " Write 6 on-screen text hooks for this product. These appear on screen while the creator speaks -- a completely separate layer from the verbal hook." +
-
-    " THE ONE RULE: A text hook and verbal hook must create two completely different reasons to keep watching. Write options that could pair with different types of verbal hooks without overlapping." +
-
-    " TEXT HOOK TYPES -- write 2 of each type, mixing freely:" +
-    " Social proof curiosity: something that makes the viewer wonder why everyone else is onto this" +
-    " Problem awareness: makes the viewer suddenly conscious of something they have been accepting" +
-    " Confusion: something that only makes sense after watching" +
-    " Personal reaction: sounds like a genuine surprised response" +
-    " Personal verdict: a strong conclusive opinion with no context" +
-    " Question: asks something the viewer suddenly needs answered" +
-
-    " GOLD STANDARD EXAMPLES from real products:" +
-    " it does not stop selling out (social proof curiosity -- pillow)" +
-    " why are we breaking our hair tools (problem awareness -- travel bag)" +
-    " why would I want to freshen my gut (confusion -- gut mints)" +
-    " stop blaming your artist (challenge -- tattoo aftercare)" +
-    " I did not expect that from this (personal reaction -- any product)" +
-    " the only way I travel now (personal verdict -- travel cubes)" +
-    " why are we wasting money on epsom salt (question -- magnesium flakes)" +
-
-    " BANNED: anything describing the product directly. Options that resolve themselves without watching. Generic hooks that work for any product." +
-    " Under 6 words each. Lowercase." +
-    " Return JSON only: {onScreenText:[6 strings]}";
+  var prompt = "You write on-screen text hooks for TikTok Shop videos about this product: " + productDesc + "." +
+    " These appear on screen while the creator speaks the verbal hook -- a completely separate psychological layer." +
+    " THE ONLY JOB: Create a reason to keep watching that is completely different from anything the verbal hook might say. Not a caption. Not a summary. A separate punch that makes the viewer need to stay to resolve something." +
+    " THE PAIRING RULE: Write options that could pair with different verbal hook styles without overlapping any of them." +
+    " WHAT GREAT TEXT HOOKS DO -- mix these approaches:" +
+    " Plants a question they need answered: under there since when exactly." +
+    " Names the absurdity: the pre-vacuum vacuum is not normal." +
+    " Hints at a reveal or number: it is on sale right now." +
+    " Creates mild conspiracy: most people do not know this yet." +
+    " Names what they have been avoiding: the couch you definitely just cleaned." +
+    " States a surprising verdict: switched and never looked back." +
+    " GOLD STANDARD EXAMPLES: it does not stop selling out. why are we breaking our hair tools. stop blaming your artist. the only way I travel now. why are we wasting money on epsom salt." +
+    " HARD RULES: 8 words maximum. Count them. Over 8 is a failure. Lowercase always. Never describe the product. Must feel like the beginning of a secret, not the end of one." +
+    " Write 6 options. Return JSON only: {onScreenText:[6 strings]}";
 
   fetch("/api/claude", {
     method: "POST",
@@ -2666,27 +2665,27 @@ function generateBatchCTAs(hooks, product, priceCtx, callback) {
 function generateBatchScreenTexts(hooks, product, callback) {
   var hookList = hooks.map(function(h, i){ return "Hook " + (i+1) + ": " + h; }).join("\n");
 
-  var prompt = "You write on-screen text hooks for TikTok Shop videos. These appear on screen while the creator speaks -- a completely separate layer working simultaneously with the verbal hook." +
+  var prompt = "You write on-screen text hooks for TikTok Shop videos. These appear on screen while the creator speaks the verbal hook -- a completely separate psychological layer." +
 
-    " THE ONE RULE: The text hook and verbal hook must create two completely different reasons to keep watching. They can never do the same job. Never restate, echo, or hint at what the verbal hook says." +
+    " THE ONLY JOB: The verbal hook already created an emotional reaction. The text hook must create a completely different reason to keep watching. Not a caption. Not a variation. A separate punch that makes the viewer need to stay to resolve something." +
 
-    " TEXT HOOK TYPES -- for each verbal hook pick 3 different types that create contrast:" +
-    " Social proof curiosity -- it does not stop selling out" +
-    " Problem awareness -- why are we breaking our hair tools" +
-    " Confusion -- why would I want to freshen my gut" +
-    " Challenge -- stop blaming your artist" +
-    " Personal reaction -- I did not expect that from this" +
-    " Personal verdict -- the only way I travel now" +
-    " Question -- why are we wasting money on epsom salt" +
+    " THE PAIRING RULE: If someone could read the text hook and understand what the verbal hook is about -- rewrite it. They must do completely different jobs." +
 
-    " THE PAYOFF RULE: The question the text hook creates does not have to be answered by the verbal hook. It can be answered anywhere in the script -- Body 1, Body 2, even implied. The viewer just has to keep watching to get it." +
+    " WHAT GREAT TEXT HOOKS DO -- for each verbal hook pick the approach that creates the most contrast:" +
+    " Plants a question they need answered: under there since when exactly." +
+    " Names the absurdity: the pre-vacuum vacuum is not normal." +
+    " Hints at a reveal or number: it is on sale right now." +
+    " Creates mild conspiracy: most people do not know this yet." +
+    " Names what they have been avoiding: the couch you definitely just cleaned." +
+    " States a surprising verdict: switched and never looked back." +
 
-    " BANNED: anything that describes the product, previews the verbal hook, echoes the verbal hook energy, or resolves itself without watching." +
-    " Under 6 words each. Lowercase." +
+    " THE PAYOFF RULE: The question the text hook creates can be answered anywhere in the script -- Body 1, Body 2, even implied. The viewer just has to keep watching." +
+
+    " HARD RULES: 8 words maximum. Count them. Over 8 is a failure. Lowercase always. Never restate, echo, preview, or hint at the verbal hook. Never describe the product. Must feel like the beginning of a secret, not the end of one." +
 
     "\n\nBUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer. If it could work for any product it is wrong. Product: " + product +
     "\n\nVerbal hooks to write text hooks for:\n" + hookList +
-    "\n\nFor each hook return exactly 3 options labeled a, b, c. Each option should be a different text hook type." +
+    "\n\nFor each hook return exactly 3 options labeled a, b, c. Each option should use a different approach from the list above." +
     "\nReturn ONLY valid JSON: {screenTexts:[[optionA, optionB, optionC] per hook]}";
 
   fetch("/api/claude", {
@@ -2833,37 +2832,53 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
     understandingNote += goldHookNote;
 
   // ── CALL 1.5: Write the gold standard hook in isolation ──
-  var goldHookPrompt = "You have one job. Write the single best verbal hook for this product and this buyer." +
-    " YOUR PRIMARY BRIEF: " + getBuyerMotivation() + "." +
-    " PRODUCT DETAILS: " + currentProduct.split(' PRODUCT DETAILS: ').pop() + "." +
-    " PRODUCT UNDERSTANDING: " + (understanding.who ? understanding.who : "") + ". Cultural moment: " + (understanding.cultural_moment || "") + "." +
-    " HOOK TYPE FRAMEWORK -- pick the type that fits best:" +
-    " 1. CULTURAL MOMENT: names the shared unspoken truth everyone in this world accepts." +
-    " 2. IDENTITY FILTER: immediately identifies exactly who this is for." +
-    " 3. FRUSTRATION: names the active pain, stops at the tension." +
-    " 4. RELATABLE PROBLEM/QUESTION: reveals a problem they did not know they had." +
-    " 5. SENSORY: makes the viewer feel the product before they see it." +
-    " 6. SOCIAL PROOF: opens on someone elses reaction or verdict." +
-    " 7. SKEPTICISM: opens with the creators own doubt." +
-    " 8. CURIOSITY/REACTION: personal response that only makes sense after watching." +
-    " 9. IDENTITY GAP: names something that does not match the life they built." +
-    " 10. CONFESSION: creator admits something the viewer recognizes in themselves." +
-    " 11. REVEAL: opens on an unexpected fact that reframes something." +
-    " GOLD STANDARD BENCHMARK -- write toward this quality and length:" +
+  var goldHookPrompt = "You have one job. Write the single best verbal hook for this product and this buyer. Nothing else." +
+    " BUYER INSIGHT -- THIS IS YOUR ONLY BRIEF: " + getBuyerMotivation() + "." +
+    " PRODUCT: " + currentProduct.split(' PRODUCT DETAILS: ').pop() + "." +
+    " WHAT YOU KNOW ABOUT THIS BUYER: " + (understanding.who ? understanding.who : "") + ". Cultural moment territory: " + (understanding.cultural_moment || "") + "." +
+
+    " STEP 1 -- MAKE A TONAL DECISION FIRST." +
+    " What emotional state best serves this product and this buyer? Pick exactly one:" +
+    " FUNNY: the hook gets a laugh of recognition." +
+    " VALIDATING: the hook makes them feel finally seen." +
+    " PROVOCATIVE: the hook makes them slightly defensive or challenged." +
+    " SURPRISING: the hook lands somewhere they did not expect." +
+    " VULNERABLE: the hook admits something embarrassing they share." +
+    " State your choice and one sentence explaining why. Then proceed." +
+
+    " STEP 2 -- FIND THE LIFE MOMENT." +
+    " Before writing the hook describe in one sentence the single most specific physical moment this buyer is in when this frustration or desire peaks. Real life. No product mention. This is your anchor." +
+
+    " STEP 3 -- WRITE THE HOOK FROM INSIDE THAT MOMENT." +
+    " The product or category name must appear naturally in words 1-5 -- this is required for TikTok SEO categorization." +
+    " Under 10 words. 6-8 is the sweet spot. Count before finalizing." +
+    " Stop at the tension. Never explain the consequence." +
+    " No AND or BUT connecting two ideas." +
+    " Never starts with I or My." +
+    " Must feel like it could only be about THIS buyer, not any buyer." +
+    " Fragments are fine. Complete sentences are fine. Whatever hits harder when spoken out loud." +
+
+    " SELF-CHECK before returning:" +
+    " Does this make the specific right person feel personally called out?" +
+    " Is the product or category in the first 5 words?" +
+    " Is it under 10 words?" +
+    " Does it stop at the tension without resolving it?" +
+    " If any answer is no -- rewrite before returning." +
+
+    " GOLD STANDARD BENCHMARK -- every hook must feel like it belongs in this list:" +
     " We are not waiting on the cart girl." +
     " I have a pillow graveyard in my bedroom." +
-    " Why are we wasting money on epsom salt." +
     " Your counters look amazing and then you open the fridge." +
     " You clean the vacuum more than it cleans your floors." +
+    " This vacuum is premium, that is why most people wait for it to go on sale." +
     " Thick chalky protein shakes that feel like punishment." +
-    " RULES: Under 10 words. Declarative. Stop at the tension. No AND or BUT. Never starts with I or My." +
-    " Do not explain the product. Do not name the product. Name the buyer moment and stop." +
-    " Return ONLY valid JSON: {hook:string, hook_type:string}";
+
+    " Return ONLY valid JSON: {tone_decision:string, life_moment:string, hook:string, hook_type:string}";
 
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 150,
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 300,
       messages: [{ role: "user", content: goldHookPrompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -4339,14 +4354,21 @@ function renderFilmingSessionResults(scripts, mc) {
     card.appendChild(thSection);
 
     (function(section, loadingEl, scriptText, formatName) {
-      var thPrompt = "You write on-screen text hooks for TikTok Shop videos. " +
-      " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer. If it could work for any other product or buyer it is wrong -- rewrite it. " +
+      var thPrompt = "You write on-screen text hooks for TikTok Shop videos." +
+      " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer." +
       " The creator will SPEAK this script out loud: \"" + scriptText + "\" Format: " + formatName + "." +
-      " THE ONE RULE: The text hook and verbal hook must create two completely different reasons to keep watching. Never restate, echo, or hint at what the verbal hook says." +
-      " TEXT HOOK TYPES -- pick 3 different types for maximum variety:" +
-      " Social proof curiosity (it does not stop selling out) | Problem awareness (why are we breaking our hair tools) | Confusion (why would I want to freshen my gut) | Challenge (stop blaming your artist) | Personal reaction (I did not expect that from this) | Personal verdict (the only way I travel now) | Question (why are we wasting money on epsom salt)" +
-      " THE PAYOFF RULE: The question created does not have to be answered by the verbal hook -- it can land anywhere in the script. The viewer just has to keep watching." +
-      " BANNED: anything that describes the product, echoes the verbal hook, or resolves itself without watching. Under 6 words. Lowercase. Return ONLY valid JSON: {options:[3 strings]}";
+      " THE ONLY JOB: The verbal hook already created an emotional reaction. The text hook must create a completely different reason to keep watching. Not a caption. Not a variation. A separate punch that makes the viewer need to stay to resolve something." +
+      " THE PAIRING RULE: If someone could read the text hook and understand what the verbal hook is about -- rewrite it. They must do completely different jobs." +
+      " WHAT GREAT TEXT HOOKS DO -- pick 3 different approaches for maximum contrast:" +
+      " Plants a question they need answered: under there since when exactly." +
+      " Names the absurdity: the pre-vacuum vacuum is not normal." +
+      " Hints at a reveal or number: it is on sale right now." +
+      " Creates mild conspiracy: most people do not know this yet." +
+      " Names what they have been avoiding: the couch you definitely just cleaned." +
+      " States a surprising verdict: switched and never looked back." +
+      " THE PAYOFF RULE: The question created does not have to be answered by the verbal hook -- it can land anywhere in the script." +
+      " HARD RULES: 8 words maximum. Count them. Over 8 is a failure. Lowercase always. Never describe the product. Must feel like the beginning of a secret, not the end of one." +
+      " Return ONLY valid JSON: {options:[3 strings]}";
       fetch("/api/claude", {
         method:"POST", headers:{"Content-Type":"application/json","x-user-id":(currentUser?currentUser.id:"")},
         body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:150,messages:[{role:"user",content:thPrompt}]})
@@ -4623,14 +4645,19 @@ function generateUrgencyScripts(type) {
       card.appendChild(thSection);
 
       (function(section, loading, scriptText) {
-        var screenPrompt = "You write on-screen text hooks for TikTok Shop urgency videos. " +
-        " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer. If it could work for any other product or buyer it is wrong -- rewrite it. " +
+        var screenPrompt = "You write on-screen text hooks for TikTok Shop urgency videos." +
+        " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer." +
         " The creator will SPEAK this script: \"" + scriptText + "\" Product: " + currentProduct + "." +
-        " THE ONE RULE: Text hook and verbal hook must create two different reasons to keep watching. Never echo the verbal hook." +
-        " For urgency videos, the best text hook types are:" +
-        " Social proof curiosity (it does not stop selling out | everyone is grabbing this) | Problem awareness (specific to why this product matters right now) | Personal verdict (the only time I do this) | Confusion (something specific about this product that demands explanation)" +
-        " BANNED: generic hooks, anything that works for any product, echoing the verbal hook." +
-        " Under 6 words. Lowercase. Return ONLY valid JSON: {options:[3 strings]}";
+        " THE ONLY JOB: The verbal hook created an emotional reaction. The text hook must create a completely different reason to keep watching. Not a caption. A separate punch that makes the viewer need to stay." +
+        " THE PAIRING RULE: If someone could read the text hook and understand what the verbal hook is about -- rewrite it." +
+        " For urgency videos pick the approach that creates the most contrast:" +
+        " Plants a question: why does this keep selling out." +
+        " Names the absurdity: checked three times before it stayed in cart." +
+        " Hints at a reveal: the price dropped again." +
+        " Creates mild conspiracy: most people are still sleeping on this." +
+        " States a verdict: the one I actually reordered." +
+        " HARD RULES: 8 words maximum. Count them. Over 8 is a failure. Lowercase always. Never echo the verbal hook. Must feel like the beginning of a secret." +
+        " Return ONLY valid JSON: {options:[3 strings]}";
         fetch("/api/claude", {
           method:"POST", headers:{"Content-Type":"application/json","x-user-id":(currentUser?currentUser.id:"")},
           body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:150,messages:[{role:"user",content:screenPrompt}]})
@@ -7291,15 +7318,21 @@ function updateDonePanel(){
 
     // Generate live from complete script
     var fullScriptForScreen = [picks.hook, picks.body1, picks.preClose, picks.body2, picks.cta].filter(Boolean).join(" ");
-    var screenPrompt = "You write on-screen text hooks for TikTok Shop videos. " +
-    " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer. If it could work for any other product or buyer it is wrong -- rewrite it. " +
+    var screenPrompt = "You write on-screen text hooks for TikTok Shop videos." +
+    " BUYER INSIGHT -- THIS IS YOUR BRIEF: " + getBuyerMotivation() + ". Every text hook must connect to this specific buyer." +
     " The creator will SPEAK this script: \"" + fullScriptForScreen + "\"" +
-      " THE ONE RULE: The text hook and verbal hook must create two completely different reasons to keep watching. Never restate, echo, or preview the verbal hook." +
-      " TEXT HOOK TYPES -- write 3 options, each a different type:" +
-      " Social proof curiosity (it does not stop selling out) | Problem awareness (why are we breaking our hair tools) | Confusion (why would I want to freshen my gut) | Challenge (stop blaming your artist) | Personal reaction (I did not expect that from this) | Personal verdict (the only way I travel now) | Question (why are we wasting money on epsom salt)" +
-      " THE PAYOFF RULE: The question the text hook creates can be answered anywhere in the script -- not just the verbal hook. The viewer just has to keep watching." +
-      " BANNED: echoing the verbal hook, describing the product, generic hooks that work for any product, resolving without watching." +
-      " Under 6 words. Lowercase. Return ONLY valid JSON: {options:[3 strings]}";
+      " THE ONLY JOB: The verbal hook already created an emotional reaction. The text hook must create a completely different reason to keep watching. Not a caption. Not a variation. A separate punch that makes the viewer need to stay to resolve something." +
+      " THE PAIRING RULE: If someone could read the text hook and understand what the verbal hook is about -- rewrite it. They must do completely different jobs." +
+      " WHAT GREAT TEXT HOOKS DO -- write 3 options, each using a different approach:" +
+      " Plants a question they need answered: under there since when exactly." +
+      " Names the absurdity: the pre-vacuum vacuum is not normal." +
+      " Hints at a reveal or number: it is on sale right now." +
+      " Creates mild conspiracy: most people do not know this yet." +
+      " Names what they have been avoiding: the couch you definitely just cleaned." +
+      " States a surprising verdict: switched and never looked back." +
+      " THE PAYOFF RULE: The question the text hook creates can be answered anywhere in the script. The viewer just has to keep watching." +
+      " HARD RULES: 8 words maximum. Count them. Over 8 is a failure. Lowercase always. Never echo the verbal hook. Never describe the product. Must feel like the beginning of a secret, not the end of one." +
+      " Return ONLY valid JSON: {options:[3 strings]}";
 
     fetch("/api/claude", {
       method: "POST",
