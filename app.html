@@ -694,7 +694,7 @@ body.hub-mode #priceSelectorMount { display: none !important; }
 <div class="gen-wrap" id="priceWrap">
   <div style="padding:0 0 10px;">
     
-  <button class="gen-btn" id="genBtn" onclick="generate()">🧠&nbsp; Generate Focus Angles</button>
+  <button class="gen-btn" id="genBtn" onclick="saveNewProduct()">✓&nbsp; Save Product</button>
 </div>
 
 <div id="mainContent">
@@ -2072,9 +2072,14 @@ function renderProductHub() {
         editWrap.appendChild(detailsDiv);
         var ta4 = document.createElement("textarea"); ta4.style.cssText = "width:100%;min-height:100px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:\'Instrument Sans\',sans-serif;font-size:14px;padding:12px 14px;outline:none;resize:vertical;line-height:1.6;box-sizing:border-box;-webkit-user-select:text;user-select:text;margin-bottom:20px;"; ta4.placeholder = "e.g. UV-resistant PE boxwood. Includes ground anchors. 12x12 inch planter. Weatherproof for indoor and outdoor use."; ta4.value = desc || ""; ta4.maxLength = 1000; editWrap.appendChild(ta4);
 
-        var genBtn2 = document.createElement("button"); genBtn2.className = "next-btn"; genBtn2.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;"; genBtn2.innerHTML = "🧠&nbsp; Generate Focus Angles";
+        // Product name edit
+        var nameLbl = document.createElement("div"); nameLbl.style.cssText = "font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;"; nameLbl.textContent = "Product name"; editWrap.appendChild(nameLbl);
+        var nameHint = document.createElement("div"); nameHint.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:8px;"; nameHint.textContent = "How it appears in your library."; editWrap.appendChild(nameHint);
+        var nameInput = document.createElement("input"); nameInput.type = "text"; nameInput.style.cssText = "width:100%;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:10px 14px;outline:none;box-sizing:border-box;margin-bottom:20px;"; nameInput.value = currentProductName || ""; nameInput.maxLength = 100; editWrap.appendChild(nameInput);
+
+        var genBtn2 = document.createElement("button"); genBtn2.className = "next-btn"; genBtn2.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;"; genBtn2.innerHTML = "✓&nbsp; Save and Return to Hub";
         genBtn2.addEventListener("click", function(){
-          var ni = ta1.value.trim(); var nrr = ta2.value.trim(); var ns = ta3.value.trim(); var nd = ta4.value.trim();
+          var ni = ta1.value.trim(); var nrr = ta2.value.trim(); var ns = ta3.value.trim(); var nd = ta4.value.trim(); var nn = nameInput.value.trim();
           if(!ni){ showToast("Tell us who is buying this and why"); ta1.focus(); return; }
           if(!nrr){ showToast("Tell us what made you want this product"); ta2.focus(); return; }
           if(!ns){ showToast("Tell us what would surprise someone about this product"); ta3.focus(); return; }
@@ -2083,17 +2088,22 @@ function renderProductHub() {
           currentMotivation = ni;
           currentRealReason = nrr;
           currentSurprise = ns;
+          if(nn) currentProductName = nn;
           var combined = ni + " REAL REASON: " + nrr + " SURPRISE DETAIL: " + ns + " PRODUCT DETAILS: " + nd;
           var biField = document.getElementById("buyerInsightInput");
           if(biField) biField.value = ni;
           document.getElementById("productInput").value = nd;
           document.getElementById("charCount").textContent = nd.length;
-          document.body.classList.remove("hub-mode");
           currentProduct = combined;
           if(currentProductId) {
-            sb.from("products").update({ motivation: ni, real_reason: nrr, surprise: ns }).eq("id", currentProductId).then(function(){}).catch(function(){});
+            var updatePayload = { motivation: ni, real_reason: nrr, surprise: ns, description: nd };
+            if(nn) updatePayload.name = nn;
+            sb.from("products").update(updatePayload).eq("id", currentProductId).then(function(){
+              buildSelect();
+            }).catch(function(){});
           }
-          generate();
+          document.body.classList.add("hub-mode");
+          renderProductHub();
         });
         editWrap.appendChild(genBtn2);
         mc.appendChild(editWrap);
@@ -2492,6 +2502,33 @@ function generateOnScreenText(productDesc, hooks) {
     } catch(e) {}
   })
   .catch(function(){});
+}
+
+function saveNewProduct() {
+  var insight = (document.getElementById("buyerInsightInput") ? document.getElementById("buyerInsightInput").value.trim() : "") || currentBuyerInsight;
+  var product = document.getElementById("productInput").value.trim();
+  if (!insight) { showInsightPrompt(saveNewProduct); return; }
+  if (!product) {
+    showToast("Add product details first");
+    var pd = document.getElementById("productInput");
+    if(pd) { pd.focus(); pd.style.borderColor = "var(--red)"; setTimeout(function(){ pd.style.borderColor = ""; }, 2000); }
+    return;
+  }
+  if (!currentPrice) { showPriceModal(saveNewProduct); return; }
+  if (!currentRealReason || !currentSurprise) { showHookFieldsModal(saveNewProduct); return; }
+  currentBuyerInsight = insight;
+  currentMotivation = insight;
+  var combined = insight + (currentRealReason ? " REAL REASON: " + currentRealReason : "") + (currentSurprise ? " SURPRISE DETAIL: " + currentSurprise : "") + " PRODUCT DETAILS: " + product;
+  currentProduct = combined;
+  var name = currentProductName || product.split(".")[0].slice(0, 60);
+  currentProductName = name;
+  var btn = document.getElementById("genBtn");
+  if(btn) { btn.disabled = true; btn.innerHTML = "Saving..."; }
+  saveProduct(name, allData, function() {
+    if(btn) { btn.disabled = false; btn.innerHTML = "✓&nbsp; Save Product"; }
+    document.body.classList.add("hub-mode");
+    renderProductHub();
+  });
 }
 
 function generate() {
