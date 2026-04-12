@@ -4628,25 +4628,30 @@ function generateSkitScript(relationshipType) {
   var prompt = "Write a two-person TikTok skit script for this product: " + currentProduct + ". Relationship: " + relDesc[relationshipType] +
     (currentRealReason ? " CREATOR REAL REASON -- what made them personally want this: " + currentRealReason + ". Person A's opening line should feel like it could come from this real experience." : "") +
     (currentSurprise ? " SURPRISE DETAIL -- something unexpected about this product: " + currentSurprise + ". If it fits naturally, work this into the conversation as the moment that changes B's mind." : "") +
-    " OPENING LINE RULE: Person A's first line must stop the scroll. It should make someone watching mid-scroll think 'wait, what are they talking about' and stay to find out. It should sound like the most interesting thing someone could say about this product in a casual conversation -- not a setup, not a pitch, just a line that creates instant curiosity." +
+    " OPENING LINE RULE: Person A's first line must stop the scroll. The best opening lines are honest confessions the viewer recognizes in themselves -- something slightly embarrassing but universally true. The confession test: would a real person hear this and think 'oh that is me' or would they think 'that is weird.' If weird -- dial it back until it is just embarrassingly specific and real. Examples that pass: 'I used to drink all the juice out of the pickle jar before the pickles were even gone.' Examples that fail: 'I have been squeezing the pickles dry just to get every last drop' -- too extreme, nobody does this. The opening must be something the viewer has actually experienced, not something theatrical." +
     " RULES: Sounds like a real conversation you might overhear. Neither person is an actor. No one is performing for a camera. Natural interruptions and overlaps are good. Under 60 words total. Max 5 exchanges." +
     " BRAND RULE: The ONLY brand name allowed is the brand of the product being promoted. Never mention any competitor, other brand, drink, food chain, app, store, or named product. Never say Gatorade, Amazon, Walmart, Starbucks, or any other named entity. Describe the category instead -- say sugary sports drinks not Gatorade, your usual coffee not Starbucks." +
     " TIKTOK MODERATION: Never use kill, killing, die, dying, dead, death in any line." +
     " BANNED REACTION LINES for Person B -- never use these exact phrases or close variations: " + bannedTurns + "." +
     " BANNED WORDS everywhere: game-changer, love this, obsessed, literally changed my life, you need this, must-have." +
-    " Return ONLY valid JSON: {lines:[{speaker:'A' or 'B', text:string}]}";
+    " Generate TWO completely different skit variations for this product. Each must have a different opening line with different energy -- one can be a confession, one can be a curiosity gap, one can be a reaction. Both must pass the confession test. Return ONLY valid JSON: {skits:[{lines:[{speaker:'A' or 'B', text:string}]},{lines:[{speaker:'A' or 'B', text:string}]}]}";
 
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 400, messages: [{ role: "user", content: prompt }] })
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 800, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
   .then(function(data) {
     if(data.error) throw new Error(data.error.message);
     var text = ""; data.content.forEach(function(b){ if(b.type==="text") text+=b.text; });
     var parsed = JSON.parse(text.replace(/```json|```/g,"").trim());
-    renderSkitResult(parsed.lines, relationshipType);
+    // Handle both two-variation format and legacy single format
+    if(parsed.skits && parsed.skits.length > 0) {
+      renderSkitResult(parsed.skits, relationshipType);
+    } else if(parsed.lines) {
+      renderSkitResult([{lines: parsed.lines}], relationshipType);
+    }
   })
   .catch(function(err){
     logError("skit_generation", err, { product: currentProduct });
@@ -4656,7 +4661,10 @@ function generateSkitScript(relationshipType) {
   });
 }
 
-function renderSkitResult(lines, relationshipType) {
+function renderSkitResult(skits, relationshipType) {
+  // Handle both array of skits and legacy single lines array
+  var skitArray = Array.isArray(skits) && skits[0] && skits[0].lines ? skits : [{lines: skits}];
+
   var mc = document.getElementById("mainContent");
   mc.innerHTML = "";
   var wrap = document.createElement("div"); wrap.style.cssText = "padding:16px;";
@@ -4665,37 +4673,52 @@ function renderSkitResult(lines, relationshipType) {
   backBtn.innerHTML = "← Try a different type";
   backBtn.addEventListener("click", function(){ renderSkitMode(); });
   wrap.appendChild(backBtn);
-  var heading = document.createElement("div"); heading.className = "step-heading"; heading.innerHTML = "Your <em>Skit Script</em>";
+
+  var heading = document.createElement("div"); heading.className = "step-heading";
+  heading.innerHTML = "Your <em>Skit Script</em>" + (skitArray.length > 1 ? " <span style='font-size:13px;font-weight:400;color:var(--muted);'>— " + skitArray.length + " options</span>" : "");
   wrap.appendChild(heading);
 
-  var scriptBox = document.createElement("div"); scriptBox.style.cssText = "background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;padding:16px;margin-bottom:16px;";
-  lines.forEach(function(line) {
-    skitUsedTurns.add(line.text);
-    var row = document.createElement("div"); row.style.cssText = "display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;";
-    var speaker = document.createElement("div"); speaker.style.cssText = "font-size:10px;font-weight:700;color:"+(line.speaker==="A"?"var(--red)":"var(--purple)")+";letter-spacing:0.08em;flex-shrink:0;padding-top:2px;min-width:16px;"; speaker.textContent = line.speaker+":";
-    var textEl = document.createElement("div"); textEl.style.cssText = "flex:1;font-size:14px;color:var(--white);line-height:1.6;font-weight:300;"; textEl.textContent = line.text;
-    var fbWrap = document.createElement("div"); fbWrap.style.cssText = "display:flex;gap:3px;flex-shrink:0;";
-    var upBtn = document.createElement("button"); upBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:11px;padding:0;opacity:0.3;"; upBtn.textContent = "👍";
-    var dnBtn = document.createElement("button"); dnBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:11px;padding:0;opacity:0.3;"; dnBtn.textContent = "👎";
-    (function(t, u, d){ u.addEventListener("click",function(){saveFeedback(t,"skit","skit",1);u.style.opacity="1";d.style.opacity="0.2";u.disabled=true;d.disabled=true;}); d.addEventListener("click",function(){saveFeedback(t,"skit","skit",-1);d.style.opacity="1";u.style.opacity="0.2";u.disabled=true;d.disabled=true;}); })(line.text, upBtn, dnBtn);
-    fbWrap.appendChild(upBtn); fbWrap.appendChild(dnBtn);
-    row.appendChild(speaker); row.appendChild(textEl); row.appendChild(fbWrap);
-    scriptBox.appendChild(row);
+  skitArray.forEach(function(skit, idx) {
+    var lines = skit.lines || [];
+
+    if(skitArray.length > 1) {
+      var optLabel = document.createElement("div");
+      optLabel.style.cssText = "font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--purple);margin-bottom:8px;margin-top:" + (idx > 0 ? "20px" : "0") + ";";
+      optLabel.textContent = "Option " + (idx + 1);
+      wrap.appendChild(optLabel);
+    }
+
+    var scriptBox = document.createElement("div"); scriptBox.style.cssText = "background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;padding:16px;margin-bottom:12px;";
+    lines.forEach(function(line) {
+      skitUsedTurns.add(line.text);
+      var row = document.createElement("div"); row.style.cssText = "display:flex;align-items:flex-start;gap:10px;margin-bottom:12px;";
+      var speaker = document.createElement("div"); speaker.style.cssText = "font-size:10px;font-weight:700;color:"+(line.speaker==="A"?"var(--red)":"var(--purple)")+";letter-spacing:0.08em;flex-shrink:0;padding-top:2px;min-width:16px;"; speaker.textContent = line.speaker+":";
+      var textEl = document.createElement("div"); textEl.style.cssText = "flex:1;font-size:14px;color:var(--white);line-height:1.6;font-weight:300;"; textEl.textContent = line.text;
+      var fbWrap = document.createElement("div"); fbWrap.style.cssText = "display:flex;gap:3px;flex-shrink:0;";
+      var upBtn = document.createElement("button"); upBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:11px;padding:0;opacity:0.3;"; upBtn.textContent = "👍";
+      var dnBtn = document.createElement("button"); dnBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:11px;padding:0;opacity:0.3;"; dnBtn.textContent = "👎";
+      (function(t, u, d){ u.addEventListener("click",function(){saveFeedback(t,"skit","skit",1);u.style.opacity="1";d.style.opacity="0.2";u.disabled=true;d.disabled=true;}); d.addEventListener("click",function(){saveFeedback(t,"skit","skit",-1);d.style.opacity="1";u.style.opacity="0.2";u.disabled=true;d.disabled=true;}); })(line.text, upBtn, dnBtn);
+      fbWrap.appendChild(upBtn); fbWrap.appendChild(dnBtn);
+      row.appendChild(speaker); row.appendChild(textEl); row.appendChild(fbWrap);
+      scriptBox.appendChild(row);
+    });
+
+    var fullText = lines.map(function(l){ return l.speaker + ": " + l.text; }).join("\n");
+    var btnRow = document.createElement("div"); btnRow.style.cssText = "display:flex;gap:8px;margin-bottom:8px;";
+    var copyBtn = document.createElement("button"); copyBtn.className = "next-btn"; copyBtn.style.cssText = "flex:1;"; copyBtn.textContent = "Copy Script";
+    copyBtn.addEventListener("click", function(){ copyRaw(fullText); showToast("Skit " + (idx+1) + " copied"); });
+    var postedBtn = document.createElement("button"); postedBtn.className = "next-btn"; postedBtn.style.cssText = "flex:1;background:transparent;border:1px solid rgba(45,201,138,0.4);color:var(--green);"; postedBtn.textContent = "Mark as Posted";
+    postedBtn.addEventListener("click", function(){ markAsPosted(currentProduct, null); postedBtn.textContent = "✓ Posted"; postedBtn.disabled = true; });
+    btnRow.appendChild(copyBtn); btnRow.appendChild(postedBtn);
+    wrap.appendChild(scriptBox);
+    wrap.appendChild(btnRow);
   });
-  wrap.appendChild(scriptBox);
 
-  var fullText = lines.map(function(l){ return l.speaker + ": " + l.text; }).join("\n");
-  var btnRow = document.createElement("div"); btnRow.style.cssText = "display:flex;gap:8px;margin-bottom:12px;";
-  var copyBtn = document.createElement("button"); copyBtn.className = "next-btn"; copyBtn.style.cssText = "flex:1;"; copyBtn.textContent = "Copy Script";
-  copyBtn.addEventListener("click", function(){ copyRaw(fullText); showToast("Skit copied"); });
-  var regenBtn = document.createElement("button"); regenBtn.className = "next-btn"; regenBtn.style.cssText = "flex:1;background:transparent;border:1px solid var(--border-md);color:var(--white-dim);"; regenBtn.textContent = "🔄 Regenerate";
+  // Regenerate button at the bottom
+  var regenBtn = document.createElement("button"); regenBtn.className = "next-btn"; regenBtn.style.cssText = "width:100%;background:transparent;border:1px solid var(--border-md);color:var(--white-dim);margin-top:8px;"; regenBtn.textContent = "🔄 Regenerate both options";
   regenBtn.addEventListener("click", function(){ generateSkitScript(relationshipType); });
-  btnRow.appendChild(copyBtn); btnRow.appendChild(regenBtn);
-  wrap.appendChild(btnRow);
+  wrap.appendChild(regenBtn);
 
-  var postedBtn = document.createElement("button"); postedBtn.className = "next-btn"; postedBtn.style.cssText = "background:transparent;border:1px solid rgba(45,201,138,0.4);color:var(--green);"; postedBtn.textContent = "Mark as Posted";
-  postedBtn.addEventListener("click", function(){ markAsPosted(currentProduct, null); postedBtn.textContent = "✓ Posted"; postedBtn.disabled = true; });
-  wrap.appendChild(postedBtn);
   mc.appendChild(wrap);
 }
 
