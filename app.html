@@ -638,25 +638,57 @@ body.hub-mode #priceSelectorMount { display: none !important; }
   </div>
   <div id="textPanel">
 
-    <!-- Field 1: Why you chose this product -->
+    <!-- Hook fields header -->
+    <div style="background:linear-gradient(135deg,rgba(144,144,240,0.15),rgba(144,144,240,0.05));border:1px solid rgba(144,144,240,0.3);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:4px;">Your hooks live in these answers</div>
+      <div style="font-size:12px;color:var(--white-dim);line-height:1.5;">The more specific and honest you are, the more scroll-stopping your hooks will be.</div>
+    </div>
+
+    <!-- Field 1: Who is buying and why -->
     <div class="field-block" id="field1Block">
-      <div class="field-label">When you chose this product...</div>
+      <div class="field-label">Who is buying this and why?</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
-        <div class="field-hints-line" style="margin-bottom:0;">Why did you choose it? What makes it unique? Who is it for? What feeling are they chasing?</div>
+        <div class="field-hints-line" style="margin-bottom:0;">Who is this person? What are they feeling before they find this product?</div>
         <div class="field-required-badge" id="field1Badge" style="flex-shrink:0;">Required</div>
       </div>
-      <textarea id="buyerInsightInput" maxlength="800" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Describe the person who buys this and why you chose it. The more specific you are, the better your scripts."></textarea>
+      <textarea id="buyerInsightInput" maxlength="600" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. Busy mom who keeps losing plants and feels embarrassed when guests come over. Wants her home to look put together without the maintenance."></textarea>
       <div class="panel-foot">
-        <span class="char-ct"><span id="insightCount">0</span>/800</span>
+        <span class="char-ct"><span id="insightCount">0</span>/600</span>
       </div>
     </div>
 
-    <!-- Field 2: Product details -->
-    <div class="field-block field-block-2" id="field2Block">
+    <!-- Field 2: Real reason -->
+    <div class="field-block" id="field2Block">
+      <div class="field-label">What made YOU want this product?</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+        <div class="field-hints-line" style="margin-bottom:0;">Say it like you are texting a friend. The moment you knew you needed it.</div>
+        <div class="field-required-badge" id="field2Badge" style="flex-shrink:0;">Required</div>
+      </div>
+      <textarea id="realReasonInput" maxlength="600" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. I kept buying real plants and losing them within a month. When I saw these I literally could not tell they were fake."></textarea>
+      <div class="panel-foot">
+        <span class="char-ct"><span id="realReasonCount">0</span>/600</span>
+      </div>
+    </div>
+
+    <!-- Field 3: The surprise -->
+    <div class="field-block" id="field3Block">
+      <div class="field-label">What would surprise someone about this product?</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+        <div class="field-hints-line" style="margin-bottom:0;">Something unexpected about how it looks, works, or feels that only someone who has seen it would know.</div>
+        <div class="field-required-badge" id="field3Badge" style="flex-shrink:0;">Required</div>
+      </div>
+      <textarea id="surpriseInput" maxlength="400" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. You genuinely cannot tell they are fake from the street. My neighbor asked me who does my landscaping."></textarea>
+      <div class="panel-foot">
+        <span class="char-ct"><span id="surpriseCount">0</span>/400</span>
+      </div>
+    </div>
+
+    <!-- Field 4: Product details -->
+    <div class="field-block field-block-2" id="field4Block" style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px;">
       <div class="field-label">Product details</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
         <div class="field-hints-line" style="margin-bottom:0;">Brand name, key features, specs. This becomes the proof in your body lines.</div>
-        <div class="field-required-badge" id="field2Badge" style="flex-shrink:0;">Required</div>
+        <div class="field-required-badge" style="flex-shrink:0;">Required</div>
       </div>
       <textarea id="productInput" maxlength="1000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Brand name, key features and specs."></textarea>
       <div class="panel-foot">
@@ -2291,8 +2323,49 @@ document.getElementById("buyerMotivation") && document.getElementById("buyerMoti
       }
     }
   });
-  // Trigger initial state check
   bi.dispatchEvent(new Event("input"));
+})();
+
+// Real reason field listeners
+(function() {
+  var rr = document.getElementById("realReasonInput");
+  if (!rr) return;
+  rr.addEventListener("input", function() {
+    var rc = document.getElementById("realReasonCount");
+    if (rc) rc.textContent = this.value.length;
+    var badge = document.getElementById("field2Badge");
+    if (badge) {
+      if (this.value.trim().length > 10) {
+        badge.classList.add("satisfied");
+        badge.textContent = "Ready";
+      } else {
+        badge.classList.remove("satisfied");
+        badge.textContent = "Required";
+      }
+    }
+  });
+  rr.dispatchEvent(new Event("input"));
+})();
+
+// Surprise field listeners
+(function() {
+  var sp = document.getElementById("surpriseInput");
+  if (!sp) return;
+  sp.addEventListener("input", function() {
+    var sc = document.getElementById("surpriseCount");
+    if (sc) sc.textContent = this.value.length;
+    var badge = document.getElementById("field3Badge");
+    if (badge) {
+      if (this.value.trim().length > 10) {
+        badge.classList.add("satisfied");
+        badge.textContent = "Ready";
+      } else {
+        badge.classList.remove("satisfied");
+        badge.textContent = "Required";
+      }
+    }
+  });
+  sp.dispatchEvent(new Event("input"));
 })();
 
 document.getElementById("productInput").addEventListener("input", function() {
@@ -2312,11 +2385,15 @@ document.getElementById("productInput").addEventListener("input", function() {
 
 function clearText() {
   var bi = document.getElementById("buyerInsightInput");
-  if (bi) { bi.value = ""; }
-  var ic = document.getElementById("insightCount");
-  if (ic) ic.textContent = "0";
+  if (bi) { bi.value = ""; bi.dispatchEvent(new Event("input")); }
+  var rr = document.getElementById("realReasonInput");
+  if (rr) { rr.value = ""; rr.dispatchEvent(new Event("input")); }
+  var sp = document.getElementById("surpriseInput");
+  if (sp) { sp.value = ""; sp.dispatchEvent(new Event("input")); }
   document.getElementById("productInput").value = "";
   document.getElementById("charCount").textContent = "0";
+  currentRealReason = "";
+  currentSurprise = "";
   // Reset price so the new product requires a fresh selection
   currentPrice = null;
   var existingPS = document.getElementById("priceSelectorWrap");
@@ -2506,8 +2583,12 @@ function generateOnScreenText(productDesc, hooks) {
 
 function saveNewProduct() {
   var insight = (document.getElementById("buyerInsightInput") ? document.getElementById("buyerInsightInput").value.trim() : "") || currentBuyerInsight;
+  var realReason = document.getElementById("realReasonInput") ? document.getElementById("realReasonInput").value.trim() : "";
+  var surprise = document.getElementById("surpriseInput") ? document.getElementById("surpriseInput").value.trim() : "";
   var product = document.getElementById("productInput").value.trim();
-  if (!insight) { showInsightPrompt(saveNewProduct); return; }
+  if (!insight) { showToast("Tell us who is buying this and why"); document.getElementById("buyerInsightInput").focus(); return; }
+  if (!realReason) { showToast("Tell us what made you want this product"); document.getElementById("realReasonInput").focus(); return; }
+  if (!surprise) { showToast("Tell us what would surprise someone about this product"); document.getElementById("surpriseInput").focus(); return; }
   if (!product) {
     showToast("Add product details first");
     var pd = document.getElementById("productInput");
@@ -2515,10 +2596,11 @@ function saveNewProduct() {
     return;
   }
   if (!currentPrice) { showPriceModal(saveNewProduct); return; }
-  if (!currentRealReason || !currentSurprise) { showHookFieldsModal(saveNewProduct); return; }
   currentBuyerInsight = insight;
   currentMotivation = insight;
-  var combined = insight + (currentRealReason ? " REAL REASON: " + currentRealReason : "") + (currentSurprise ? " SURPRISE DETAIL: " + currentSurprise : "") + " PRODUCT DETAILS: " + product;
+  currentRealReason = realReason;
+  currentSurprise = surprise;
+  var combined = insight + " REAL REASON: " + realReason + " SURPRISE DETAIL: " + surprise + " PRODUCT DETAILS: " + product;
   currentProduct = combined;
   var name = currentProductName || product.split(".")[0].slice(0, 60);
   currentProductName = name;
