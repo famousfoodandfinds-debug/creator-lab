@@ -2561,6 +2561,8 @@ function generate() {
   var giftOverride = currentPrice === "gift" ? " GIFT FRAME OVERRIDE -- CRITICAL: (1) Every angle must speak to the GIFT GIVER not the product user. (2) HOOK RULE: every hook must establish giver perspective in the first five words -- the cook in your life, if someone you love, you finally found the one, the person who has everything. Never open with a self-buyer line. (3) EVERGREEN RULE: never reference specific occasions like birthdays holidays Christmas. Use relationship signals instead: the cook in your life, someone who takes this seriously, the person who would never buy this for themselves. (4) NEVER generate angles about personal performance or personal identity -- those are self-buyer frames. Generate angles about finding the perfect thing, being the one who got it right, giving something that actually fits." : "";
   var focusPrompt = "Respond ONLY with valid JSON. No markdown. No explanation. No headers. JSON format: {\"focuses\":[{\"focus\":\"string\",\"desire\":\"string\",\"description\":\"string\"}]}" +
     " CRITICAL: The creator described their buyer as: " + getBuyerMotivation() + ". Generate angles that serve THIS specific buyer. Do not generate angles based on product features the buyer did not mention. Every angle must connect to what the creator told you." +
+    (currentRealReason ? " CREATOR REAL REASON -- what made them want this product: " + currentRealReason + ". Let this inform the emotional angles you generate." : "") +
+    (currentSurprise ? " SURPRISE DETAIL -- what would shock someone about this product: " + currentSurprise + ". If a strong surprise detail exists, generate at least one angle that uses it as the hook territory." : "") +
     " Task: Generate 5 buyer desire angles for this TikTok Shop product: " + product +
     " Rules: desire must be one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation." +
     " focus is 4-8 words specific to THIS product. description is one sentence about who the buyer is." +
@@ -3465,6 +3467,8 @@ function generateScriptBankSilent(onComplete) {
 
   var thinkPrompt = "Think through this product before writing anything. Product: " + currentProduct + ". Price: " + getPriceContext() + "." + useCtx +
     (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
+    (currentRealReason ? " Creator real reason -- what made them want this: " + currentRealReason + "." : "") +
+    (currentSurprise ? " Surprise detail -- what would shock someone about this product: " + currentSurprise + "." : "") +
     " Answer: 1. WHO actually buys this? 2. WHAT do they already have? 3. WHAT is the real differentiator? 4. EMOTIONAL FRAME for this price?" +
     " Return ONLY valid JSON: {who:string,already_have:string,differentiator:string,emotional_frame:string}";
 
@@ -3483,6 +3487,8 @@ function generateScriptBankSilent(onComplete) {
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
       hookTypeContext +
       (getBuyerMotivation() ? " CREATOR INSIGHT: " + getBuyerMotivation() : "") +
+      (currentRealReason ? " CREATOR REAL REASON -- what made them want this (use this for authentic hook territory): " + currentRealReason + "." : "") +
+      (currentSurprise ? " SURPRISE DETAIL -- build hooks around this unexpected truth: " + currentSurprise + "." : "") +
       " Product: " + currentProduct + ". " + getPriceContext() + "." + useCtx + uNote +
       " Return JSON: {productName:str,hooks:{\"Worse alternative\":[3],\"Desired transformation\":[3],\"Curiosity loop\":[3],\"Social proof\":[3],\"Scarcity and FOMO\":[3],\"Identity and aspiration\":[3],\"Skepticism disarm\":[3],\"Friction removal\":[3],\"Sensory observation\":[3]},body:{\"Feature to feeling\":[3],\"Quality proof\":[3],\"Simplicity and ease\":[3],\"Value reframe\":[3],\"Legacy and emotion\":[3],\"Multi-use reveal\":[3]},preClose:[4],seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
 
@@ -3546,6 +3552,8 @@ function generateScriptBank() {
   // ── CALL 1: Think through the product before writing anything ──
   var thinkPrompt = "CRITICAL -- READ THIS FIRST: The creator has told you exactly who buys this product and why in their buyer insight below. This is your brief. Everything you write must serve this insight. The product description gives you facts to use as proof. The creator's insight tells you who you are writing for and what they care about. If your hooks do not directly connect to what the creator said, they are wrong -- rewrite them until they do. The product's feature list does not override the creator's insight. The creator's insight always wins. Before finalizing any hook ask: does this speak to the exact person the creator described? If the answer is no, start over. Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
     " YOUR PRIMARY BRIEF -- READ THIS BEFORE ANYTHING ELSE: " + getBuyerMotivation() + ". This is who you are writing for. Every hook must speak to this person. If a hook does not connect to this brief, rewrite it." +
+    (currentRealReason ? " CREATOR REAL REASON -- what made them personally want this product: " + currentRealReason + ". This is raw material for authentic hooks." : "") +
+    (currentSurprise ? " SURPRISE DETAIL -- what would shock someone who has never seen this product: " + currentSurprise + ". If this detail is specific and unexpected, build at least one hook around it." : "") +
     " PRODUCT DETAILS (use only as proof for the feeling above): " + product.split(' PRODUCT DETAILS: ').pop() + ". Price: " + getPriceContext() + "." +
     useContext +
     (currentFocus ? " Buyer angle this script is targeting: " + currentFocus.focus + ". " + (currentFocus.description || "") + "." : "") +
@@ -3589,6 +3597,8 @@ function generateScriptBank() {
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point. FIELD 1 ANCHOR -- THIS IS MANDATORY: Before writing any hook, read the creator insight again: " + (getBuyerMotivation() || "") + ". Every hook must speak to the person described in that insight. If a hook could apply to a different buyer than the one described, rewrite it. The product features only matter as proof for the feeling the creator already identified. Feature-first hooks are wrong if the creator gave you a buyer insight." +
 
       (getBuyerMotivation() ? " CREATOR INSIGHT -- THIS IS YOUR BRIEF AND IT OVERRIDES EVERYTHING ELSE: " + getBuyerMotivation() + " Every hook must speak to the exact person described here. If a hook does not connect to this insight, rewrite it. The product features are only proof for the feeling this creator already identified. Let this shape every hook, body line, and pre-close. If the creator says this is an upgrade purchase, never position it as a solution to having nothing." : "") +
+      (currentRealReason ? " CREATOR REAL REASON -- what made them personally want this: " + currentRealReason + ". Use this for authentic first-person confession hooks." : "") +
+      (currentSurprise ? " SURPRISE DETAIL -- build hooks around this unexpected truth when possible: " + currentSurprise + "." : "") +
       " Product: " + product + "." + focusLine + priceLine + voiceNote +
       useContext +
       understandingNote +
@@ -4497,7 +4507,12 @@ function generateSkitScript(relationshipType) {
   var relDesc = { friend: "Two close friends. Person A found this product and is telling Person B about it. Person B reacts naturally -- not over the top, just real.", couple: "A couple. Person A already loves this product. Person B has been skeptical. This is the conversation where B finally gets it.", strangers: "Two strangers in a store or public place. Person B notices Person A has this product and asks about it. Short, natural, overheard-conversation energy.", expert: "Person A is the enthusiast who knows everything about this product. Person B just found out about it. A teaches B without being preachy." };
   var bannedTurns = Array.from(skitUsedTurns).join(", ");
   var prompt = "Write a two-person TikTok skit script for this product: " + currentProduct + ". Relationship: " + relDesc[relationshipType] +
+    (currentRealReason ? " CREATOR REAL REASON -- what made them personally want this: " + currentRealReason + ". Person A's opening line should feel like it could come from this real experience." : "") +
+    (currentSurprise ? " SURPRISE DETAIL -- something unexpected about this product: " + currentSurprise + ". If it fits naturally, work this into the conversation as the moment that changes B's mind." : "") +
+    " OPENING LINE RULE: Person A's first line must stop the scroll. It should make someone watching mid-scroll think 'wait, what are they talking about' and stay to find out. It should sound like the most interesting thing someone could say about this product in a casual conversation -- not a setup, not a pitch, just a line that creates instant curiosity." +
     " RULES: Sounds like a real conversation you might overhear. Neither person is an actor. No one is performing for a camera. Natural interruptions and overlaps are good. Under 60 words total. Max 5 exchanges." +
+    " BRAND RULE: The ONLY brand name allowed is the brand of the product being promoted. Never mention any competitor, other brand, drink, food chain, app, store, or named product. Never say Gatorade, Amazon, Walmart, Starbucks, or any other named entity. Describe the category instead -- say sugary sports drinks not Gatorade, your usual coffee not Starbucks." +
+    " TIKTOK MODERATION: Never use kill, killing, die, dying, dead, death in any line." +
     " BANNED REACTION LINES for Person B -- never use these exact phrases or close variations: " + bannedTurns + "." +
     " BANNED WORDS everywhere: game-changer, love this, obsessed, literally changed my life, you need this, must-have." +
     " Return ONLY valid JSON: {lines:[{speaker:'A' or 'B', text:string}]}";
@@ -4505,7 +4520,7 @@ function generateSkitScript(relationshipType) {
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 400, messages: [{ role: "user", content: prompt }] })
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 400, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
   .then(function(data) {
