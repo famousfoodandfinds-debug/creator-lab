@@ -13,7 +13,7 @@
   --border: rgba(255,255,255,0.07); --border-md: rgba(255,255,255,0.14); --border-strong: rgba(255,255,255,0.25);
   --silver: #C0C0C0; --silver-bright: #E8E8E8; --silver-dim: rgba(192,192,192,0.12);
   --white: #F0F0F0; --white-dim: rgba(240,240,240,0.55); --muted: #666666;
-  --green: #2DC98A;
+  --green: #2DC98A; --purple: #9090F0; --gold: #C8A84A;
   --radius: 14px; --radius-sm: 9px;
 }
 html, body { background: var(--black); color: var(--white); font-family: 'Instrument Sans', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
@@ -45,11 +45,17 @@ body { padding-bottom: 80px; }
 
 .input-cards { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .input-card { background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 14px 16px; }
-.input-card.primary { border-color: rgba(192,192,192,0.3); background: var(--silver-dim); }
-.input-card-flag { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--silver); margin-bottom: 5px; }
+.input-card.hook { border-color: rgba(144,144,240,0.4); background: linear-gradient(135deg,rgba(144,144,240,0.1),rgba(144,144,240,0.03)); }
+.input-card.details { border-color: var(--border-md); }
+.input-card-flag { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--purple); margin-bottom: 5px; }
+.input-card-flag.gold { color: var(--gold); }
 .input-card-name { font-size: 13px; font-weight: 600; color: var(--white); margin-bottom: 5px; }
 .input-card-desc { font-size: 12px; color: var(--white-dim); line-height: 1.6; font-weight: 300; }
 .input-card-desc strong { color: var(--white); font-weight: 600; }
+
+.hook-banner { background: linear-gradient(135deg,rgba(144,144,240,0.15),rgba(144,144,240,0.05)); border: 1px solid rgba(144,144,240,0.3); border-radius: var(--radius-sm); padding: 14px 16px; margin-top: 14px; }
+.hook-banner-title { font-size: 12px; font-weight: 700; color: var(--purple); margin-bottom: 4px; }
+.hook-banner-body { font-size: 12px; color: var(--white-dim); line-height: 1.6; font-weight: 300; }
 
 .mode-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .mode-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); }
@@ -90,35 +96,55 @@ body { padding-bottom: 80px; }
       <div class="step-circle">1</div>
       <div class="step-title">The <em>one idea</em> behind everything</div>
     </div>
-    <div class="step-body">Psych Lab doesn't write about your product. It writes about your <strong>buyer</strong> -- who they are, what they feel, and what would make them stop scrolling and tap the cart.</div>
+    <div class="step-body">Psych Lab does not write about your product. It writes about your <strong>buyer</strong> -- who they are, what they feel, and what would make them stop scrolling and tap the cart.</div>
     <div class="callout">Sell the person they become, not the product they buy.</div>
   </div>
 
   <div class="step">
     <div class="step-num-row">
       <div class="step-circle">2</div>
-      <div class="step-title">Fill in <em>both inputs</em></div>
+      <div class="step-title">Add a product with <em>four fields</em></div>
     </div>
-    <div class="step-body">Every script starts with two fields. The first one is the most important thing you do in this tool.</div>
+    <div class="step-body">Tap <strong>+ New</strong> to add a product. You will see four fields. <strong>This is the most important thing you do in Psych Lab.</strong> The AI cannot write a hook that stops a real person scrolling if it does not know who that person is and why this product matters to them. Generic input produces generic scripts. What you write here is the difference.</div>
+
+    <div class="hook-banner">
+      <div class="hook-banner-title">Your hooks live entirely in these three answers</div>
+      <div class="hook-banner-body">The tool does not guess. It writes from what you give it. A vague answer produces a vague hook. A specific, honest answer produces a hook that makes someone stop mid-scroll and think -- that is exactly me. Take two extra minutes here. It changes everything that comes out.</div>
+    </div>
+
     <div class="input-cards">
-      <div class="input-card primary">
-        <div class="input-card-flag">Start here</div>
-        <div class="input-card-name">When you chose this product...</div>
-        <div class="input-card-desc">Tell the tool about the buyer. Who are they, why did you choose this product, what does their life look like, what feeling are they chasing. <strong>The more specific you are, the better your scripts.</strong> This is not a product description -- it is your understanding of the person buying it.</div>
+      <div class="input-card hook">
+        <div class="input-card-flag">Hook field 1</div>
+        <div class="input-card-name">Who is buying this and why?</div>
+        <div class="input-card-desc">Describe the buyer -- who they are and what they are feeling before they find this product. Not demographics. The actual emotional situation. <strong>Wrong: women who like home decor. Right: someone who keeps losing plants and feels embarrassed when guests come over.</strong></div>
       </div>
-      <div class="input-card">
+      <div class="input-card hook">
+        <div class="input-card-flag">Hook field 2</div>
+        <div class="input-card-name">What made YOU want this product?</div>
+        <div class="input-card-desc">Say it like you are texting a friend. The moment you knew you needed it. <strong>This is where your most authentic hooks come from -- your real reason is almost always the buyer's real reason too.</strong></div>
+      </div>
+      <div class="input-card hook">
+        <div class="input-card-flag">Hook field 3</div>
+        <div class="input-card-name">What would surprise someone about this product?</div>
+        <div class="input-card-desc">Something unexpected about how it looks, works, or feels that only someone who has actually seen it would know. <strong>This is what makes your hook different from every other creator promoting the same product.</strong></div>
+      </div>
+      <div class="input-card details">
+        <div class="input-card-flag gold">Body lines</div>
         <div class="input-card-name">Product details</div>
-        <div class="input-card-desc">Brand name, key features, specs. This becomes the proof in your body lines.</div>
+        <div class="input-card-desc">Brand name, key features, specs. This becomes the proof in your body lines. Be specific -- real numbers and real details build trust.</div>
       </div>
     </div>
+    <div class="note" style="margin-top:14px;">When you are done tap <strong>Save Product</strong> and select a price range. You will land on your product hub where you choose how to generate.</div>
   </div>
 
   <div class="step">
     <div class="step-num-row">
       <div class="step-circle">3</div>
-      <div class="step-title">Pick a <em>price range</em></div>
+      <div class="step-title">Pick a <em>price range</em> on the hub</div>
     </div>
-    <div class="step-body">Price shapes the buyer psychology behind every line -- an impulse buy script feels completely different from a premium upgrade script. Select the tier that matches your product before you generate. It is required every time.</div>
+    <div class="step-body">After saving your product you land on the product hub. The first thing you will see is the price range selector. This is required before generating anything.</div>
+    <div class="callout" style="font-style:normal;">Price shapes the psychology behind every line. An impulse buy script feels completely different from a premium upgrade script. Select the tier that matches your product.</div>
+    <div class="note">Once you select a price the four generate buttons activate. You only need to pick price once per session -- if you come back to the same product it remembers.</div>
   </div>
 
   <div class="step">
@@ -126,23 +152,35 @@ body { padding-bottom: 80px; }
       <div class="step-circle">4</div>
       <div class="step-title">Choose your <em>mode</em></div>
     </div>
-    <div class="step-body">Four ways to generate depending on what you need.</div>
+    <div class="step-body">Four ways to generate depending on what you need today.</div>
     <div class="mode-list">
       <div class="mode-row">
         <div class="mode-emoji">🎯</div>
-        <div><div class="mode-name">Curated Script</div><div class="mode-desc">Build one script step by step. Pick your hook, body lines, pre-close, and CTA one at a time.</div></div>
+        <div>
+          <div class="mode-name">Curated Script</div>
+          <div class="mode-desc">Build one script step by step. Pick your hook, body lines, pre-close, and CTA one at a time. Best when you want full control over a specific angle.</div>
+        </div>
       </div>
       <div class="mode-row">
         <div class="mode-emoji">⚡</div>
-        <div><div class="mode-name">Batch Scripts</div><div class="mode-desc">Five complete scripts at once, each targeting a different buyer angle. Best when you need a full day of content fast.</div></div>
+        <div>
+          <div class="mode-name">Batch Scripts</div>
+          <div class="mode-desc">Reach different buyers with the same product. Five complete scripts, each speaking to a different buyer angle. Best when you need a full week of content fast.</div>
+        </div>
       </div>
       <div class="mode-row">
         <div class="mode-emoji">🎬</div>
-        <div><div class="mode-name">Filming Session</div><div class="mode-desc">One product, multiple formats -- unboxing, honest take, voice over, before and after, and more.</div></div>
+        <div>
+          <div class="mode-name">Filming Session</div>
+          <div class="mode-desc">Create different content styles for the same product. Unboxing, honest take, voice over, before and after, and more. Best when you are sitting down to film multiple videos.</div>
+        </div>
       </div>
       <div class="mode-row">
         <div class="mode-emoji">🎭</div>
-        <div><div class="mode-name">Skit Script</div><div class="mode-desc">Two-person dialogue. Pick a relationship type and get a full conversation script.</div></div>
+        <div>
+          <div class="mode-name">Skit Script</div>
+          <div class="mode-desc">Two-person dialogue script. Pick a relationship type -- friends, spouses, coworkers -- and get a full natural conversation. Best for creators who film with another person.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -150,16 +188,18 @@ body { padding-bottom: 80px; }
   <div class="step" style="border-bottom:none;">
     <div class="step-num-row">
       <div class="step-circle">5</div>
-      <div class="step-title">Rate your <em>lines</em></div>
+      <div class="step-title">Save, edit, and <em>rate your lines</em></div>
     </div>
-    <div class="step-body">Thumbs up lines that sound like you. Thumbs down ones that don't. The tool learns your voice over time and adjusts every future generation to match.</div>
-    <div class="note">Have more questions? The <a href="faq.html">FAQ</a> covers buyer psychology, script structure, modes, and more.</div>
+    <div class="step-body">Every script you generate is automatically saved to your product library. Tap any saved script to see the full script, text hook options, caption, and hashtags. You can edit any line directly and save your changes.</div>
+    <div class="note" style="margin-top:14px;">Tap <strong>thumbs up</strong> on lines that sound like you. Tap <strong>thumbs down</strong> on ones that do not. The tool learns your voice over time and adjusts every future generation to match.</div>
+    <div class="note" style="margin-top:8px;">When a script performs well, tap <strong>Top Performer</strong> to flag it. This helps you track what is converting. When you post a video, tap <strong>Mark as Posted</strong> to log it in your history.</div>
+    <div class="note" style="margin-top:8px;">Have more questions? The <a href="faq.html">FAQ</a> covers buyer psychology, script structure, modes, and more.</div>
   </div>
 
 </div>
 
 <div class="cta-wrap">
-  <a class="cta-btn" href="https://psychscriptlab.app/app.html">🧠 &nbsp;Open Psych Lab</a>
+  <a class="cta-btn" href="https://psychscriptlab.app">🧠 &nbsp;Open Psych Lab</a>
   <a class="faq-link" href="faq.html">Read the FAQ &rarr;</a>
 </div>
 
