@@ -10,7 +10,15 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Psych Lab">
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <script>
+  if (window.location.hash && (
+    window.location.hash.includes('access_token') ||
+    window.location.hash.includes('error_code=') ||
+    window.location.hash.includes('type=magiclink')
+  )) {
+    window.location.replace('/app.html' + window.location.hash);
+  }
+</script><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
   --black: #080808; --surface: #111111; --surface2: #181818; --surface3: #222222;
