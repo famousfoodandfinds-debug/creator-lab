@@ -188,34 +188,18 @@ async function loadStats() {
       if(u.email) emailMap[u.email.toLowerCase()] = u.email;
     });
 
-    // Scripts per user -- use user_id from scripts and match against products to get email
-    // Build product user_id -> email map via paid_users
-    const userIdEmailMap = {};
-    // Try to get user emails from products table joined with paid_users
-    // Use scripts user_id directly and try to find in paid_users by checking auth
+    // Get script counts with emails from the view
+    let scriptCounts = [];
+    try {
+      scriptCounts = await sbFetch("script_counts?select=*&order=script_count.desc&limit=10");
+    } catch(e) {}
+
     const scriptsByUserId = {};
     scripts.forEach(s => {
       scriptsByUserId[s.user_id] = (scriptsByUserId[s.user_id] || 0) + 1;
     });
 
-    // Get auth users list via admin endpoint for email mapping
-    let authEmailMap = {};
-    try {
-      const authRes = await fetch(SUPABASE_URL + "/auth/v1/admin/users", {
-        headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
-      });
-      if(authRes.ok) {
-        const authData = await authRes.json();
-        const userList = authData.users || authData;
-        if(Array.isArray(userList)) {
-          userList.forEach(u => { if(u.id && u.email) authEmailMap[u.id] = u.email; });
-        }
-      }
-    } catch(e) {}
-
-    const topUsers = Object.entries(scriptsByUserId)
-      .sort((a,b) => b[1]-a[1])
-      .slice(0, 10);
+    const topUsers = scriptCounts;
 
     const rangeLabelFrom = rangeFrom.toLocaleDateString();
     const rangeLabelTo = rangeTo.toLocaleDateString();
@@ -261,10 +245,10 @@ async function loadStats() {
       </div>
 
       <div class="section-title">Most Active Users (all time scripts)</div>
-      ${topUsers.map(([userId, count]) => `
+      ${topUsers.map(u => `
         <div class="script-row">
-          <div class="script-email">${authEmailMap[userId] || userId.slice(0,16) + "..."}</div>
-          <div class="script-count">${count}</div>
+          <div class="script-email">${u.email || "unknown"}</div>
+          <div class="script-count">${u.script_count}</div>
         </div>
       `).join("")}
       ${topUsers.length === 0 ? '<div class="loading">No scripts generated yet</div>' : ""}
