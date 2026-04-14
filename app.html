@@ -542,15 +542,23 @@ body.hub-mode #priceSelectorMount { display: none !important; }
     <img class="auth-logo" src="https://i.ibb.co/TDxsM31g/Psych-Lab-Cropped.png" alt="Psych Lab">
     <div class="auth-title">Psych <em>Lab</em></div>
     <div class="auth-sub">The Science Behind Scripts That Convert</div>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabSignin" onclick="setAuthTab('signin')">Sign In</button>
+      <button class="auth-tab" id="tabSignup" onclick="setAuthTab('signup')">Create Account</button>
+    </div>
     <div id="authForm">
       <div class="auth-field">
         <label class="auth-label">Email</label>
         <input class="auth-input" id="authEmail" type="email" placeholder="your@email.com" autocomplete="email">
       </div>
-      <button class="auth-btn" id="authBtn" onclick="handleMagicLink()">Send me a login link</button>
+      <div class="auth-field">
+        <label class="auth-label">Password</label>
+        <input class="auth-input" id="authPassword" type="password" placeholder="••••••••" autocomplete="current-password">
+      </div>
+      <button class="auth-btn" id="authBtn" onclick="handleAuth()">Sign In</button>
       <div class="auth-msg" id="authMsg"></div>
-      <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--muted);line-height:1.6;">
-        Enter the email you used to purchase.<br>We will send you a one-click login link.
+      <div id="forgotWrap" style="text-align:center;margin-top:12px;">
+        <button onclick="handleForgotPassword()" style="background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;">Forgot your password?</button>
       </div>
     </div>
   </div>
@@ -985,52 +993,15 @@ var desirePsychology = {
 // ============================================================
 // AUTH
 // ============================================================
-function handleMagicLink() {
-  var email = document.getElementById("authEmail").value.trim().toLowerCase();
-  var msg = document.getElementById("authMsg");
-  var btn = document.getElementById("authBtn");
-  if (!email) {
-    msg.textContent = "Enter your email address first";
-    msg.className = "auth-msg error";
-    return;
-  }
-  // Check paid_users first
-  sb.from("paid_users").select("email, active").eq("email", email).maybeSingle().then(function(result) {
-    if (!result.data) {
-      msg.textContent = "This email does not have an active subscription. Purchase at psychscriptlab.app first.";
-      msg.className = "auth-msg error";
-      return;
-    }
-    if (!result.data.active) {
-      msg.textContent = "Your subscription is no longer active. Please resubscribe to continue.";
-      msg.className = "auth-msg error";
-      return;
-    }
-    // Email is valid paid user -- send magic link
-    btn.disabled = true;
-    btn.textContent = "Sending...";
-    msg.textContent = "";
-    msg.className = "auth-msg";
-    sb.auth.signInWithOtp({
-      email: email,
-      options: { emailRedirectTo: "https://psychscriptlab.app" }
-    }).then(function(result) {
-      btn.disabled = false;
-      btn.textContent = "Send me a login link";
-      if (result.error) {
-        msg.textContent = "Error: " + result.error.message;
-        msg.className = "auth-msg error";
-      } else {
-        msg.textContent = "Check your inbox -- your login link is on its way.";
-        msg.className = "auth-msg success";
-        document.getElementById("authEmail").disabled = true;
-        btn.style.display = "none";
-      }
-    });
-  }).catch(function() {
-    msg.textContent = "Something went wrong. Please try again.";
-    msg.className = "auth-msg error";
-  });
+function setAuthTab(mode) {
+  authMode = mode;
+  document.getElementById("tabSignin").classList.toggle("active", mode === "signin");
+  document.getElementById("tabSignup").classList.toggle("active", mode === "signup");
+  document.getElementById("authBtn").textContent = mode === "signin" ? "Sign In" : "Create Account";
+  document.getElementById("authMsg").textContent = "";
+  document.querySelector('[autocomplete="current-password"]').autocomplete = mode === "signin" ? "current-password" : "new-password";
+  var fw = document.getElementById("forgotWrap");
+  if(fw) fw.style.display = mode === "signin" ? "block" : "none";
 }
 
 function handleForgotPassword() {
@@ -1041,16 +1012,17 @@ function handleForgotPassword() {
     msg.className = "auth-msg error";
     return;
   }
-  msg.textContent = "Sending reset link...";
+  msg.textContent = "Sending login link...";
   msg.className = "auth-msg";
-  sb.auth.resetPasswordForEmail(email, {
-    redirectTo: "https://psychscriptlab.netlify.app/app.html"
+  sb.auth.signInWithOtp({
+    email: email,
+    options: { emailRedirectTo: "https://psychscriptlab.app" }
   }).then(function(result) {
     if (result.error) {
       msg.textContent = result.error.message;
       msg.className = "auth-msg error";
     } else {
-      msg.textContent = "Reset link sent -- check your email";
+      msg.textContent = "Login link sent -- check your email. Tap the link to get in.";
       msg.className = "auth-msg success";
     }
   });
@@ -1348,6 +1320,57 @@ function showProfile() {
   });
   card.appendChild(goalGrid);
 
+  // Set Password section
+  var pwDivider = document.createElement("div");
+  pwDivider.style.cssText = "border-top:1px solid var(--border);margin:20px 0 16px;";
+  card.appendChild(pwDivider);
+
+  var pwHeading = document.createElement("div");
+  pwHeading.style.cssText = "font-size:13px;font-weight:700;color:var(--white);margin-bottom:4px;";
+  pwHeading.textContent = "Set a password";
+  var pwSub = document.createElement("div");
+  pwSub.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;";
+  pwSub.textContent = "Create a password so you can sign in directly without needing a login link.";
+  card.appendChild(pwHeading);
+  card.appendChild(pwSub);
+
+  var pwInput = document.createElement("input");
+  pwInput.type = "password";
+  pwInput.placeholder = "New password (min 6 characters)";
+  pwInput.style.cssText = "width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:10px 14px;outline:none;box-sizing:border-box;margin-bottom:8px;";
+  card.appendChild(pwInput);
+
+  var pwBtn = document.createElement("button");
+  pwBtn.style.cssText = "width:100%;background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;border:none;border-radius:var(--radius-sm);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:700;padding:11px;cursor:pointer;margin-bottom:8px;";
+  pwBtn.textContent = "Save password";
+  var pwMsg = document.createElement("div");
+  pwMsg.style.cssText = "font-size:12px;text-align:center;min-height:16px;margin-bottom:8px;";
+
+  pwBtn.addEventListener("click", function() {
+    var pw = pwInput.value.trim();
+    if (!pw || pw.length < 6) {
+      pwMsg.style.color = "var(--red)";
+      pwMsg.textContent = "Password must be at least 6 characters";
+      return;
+    }
+    pwBtn.disabled = true;
+    pwBtn.textContent = "Saving...";
+    sb.auth.updateUser({ password: pw }).then(function(result) {
+      pwBtn.disabled = false;
+      pwBtn.textContent = "Save password";
+      if (result.error) {
+        pwMsg.style.color = "var(--red)";
+        pwMsg.textContent = result.error.message;
+      } else {
+        pwMsg.style.color = "var(--green)";
+        pwMsg.textContent = "Password saved. You can now sign in with email and password.";
+        pwInput.value = "";
+      }
+    });
+  });
+  card.appendChild(pwBtn);
+  card.appendChild(pwMsg);
+
   var closeBtn = document.createElement("button");
   closeBtn.style.cssText = "width:100%;background:transparent;border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:12px;cursor:pointer;";
   closeBtn.textContent = "Done";
@@ -1467,7 +1490,7 @@ function handlePasswordUpdate() {
 // Enter key on auth form
 document.addEventListener("keydown", function(e) {
   if (e.key === "Enter" && document.getElementById("authOverlay").style.display !== "none") {
-    handleMagicLink();
+    handleAuth();
   }
 });
 
