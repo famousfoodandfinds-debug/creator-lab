@@ -211,22 +211,22 @@ async function loadStats() {
         <div class="stat-card">
           <div class="stat-label">Active Subscribers</div>
           <div class="stat-value green">${activeUsers.length}</div>
-          <div class="stat-sub">${inactiveUsers.length} cancelled</div>
+          <div class="stat-sub">${inactiveUsers.length} cancelled · ${paidUsers.length} total ever</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">New Signups</div>
+          <div class="stat-label">New Signups in Range</div>
           <div class="stat-value gold">${newUsersInRange.length}</div>
-          <div class="stat-sub">${newUsersToday.length} today</div>
+          <div class="stat-sub">${newUsersToday.length} today · ${paidUsers.length} all time</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Scripts Generated</div>
-          <div class="stat-value purple">${scripts.length}</div>
-          <div class="stat-sub">${scriptsToday.length} today</div>
+          <div class="stat-label">Scripts in Range</div>
+          <div class="stat-value purple">${scriptsInRange.length}</div>
+          <div class="stat-sub">${scripts.length} all time</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">In Date Range</div>
-          <div class="stat-value">${scriptsInRange.length}</div>
-          <div class="stat-sub">${productsInRange.length} new products</div>
+          <div class="stat-label">Scripts Today</div>
+          <div class="stat-value">${scriptsToday.length}</div>
+          <div class="stat-sub">${productsInRange.length} new products in range</div>
         </div>
       </div>
 
