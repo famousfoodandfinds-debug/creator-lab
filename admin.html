@@ -85,6 +85,23 @@ html, body { background: var(--black); color: var(--white); font-family: 'Instru
 
   <div class="error-msg" id="errorMsg"></div>
 
+  <div style="display:flex;gap:10px;align-items:center;margin-bottom:20px;flex-wrap:wrap;">
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <label style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">From</label>
+      <input type="date" id="fromDate" style="background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:8px 12px;outline:none;" onchange="loadStats()">
+    </div>
+    <div style="display:flex;flex-direction:column;gap:4px;">
+      <label style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);">To</label>
+      <input type="date" id="toDate" style="background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:8px 12px;outline:none;" onchange="loadStats()">
+    </div>
+    <div style="display:flex;gap:6px;align-items:flex-end;padding-bottom:2px;">
+      <button onclick="setRange(1)" style="background:transparent;border:1px solid var(--border-md);border-radius:999px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:11px;padding:6px 12px;cursor:pointer;">Today</button>
+      <button onclick="setRange(7)" style="background:transparent;border:1px solid var(--border-md);border-radius:999px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:11px;padding:6px 12px;cursor:pointer;">7 days</button>
+      <button onclick="setRange(30)" style="background:transparent;border:1px solid var(--border-md);border-radius:999px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:11px;padding:6px 12px;cursor:pointer;">30 days</button>
+      <button onclick="setRange(365)" style="background:transparent;border:1px solid var(--border-md);border-radius:999px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:11px;padding:6px 12px;cursor:pointer;">All time</button>
+    </div>
+  </div>
+
   <div id="statsContent"><div class="loading">Loading usage data...</div></div>
 </div>
 
@@ -98,7 +115,7 @@ function checkPassword() {
   if (pw === ADMIN_PASSWORD) {
     document.getElementById("loginWrap").style.display = "none";
     document.getElementById("adminWrap").style.display = "block";
-    loadStats();
+    setRange(7); // Default to last 7 days
   } else {
     document.getElementById("loginError").style.display = "block";
     document.getElementById("pwInput").value = "";
@@ -117,42 +134,91 @@ async function sbFetch(path) {
   return res.json();
 }
 
+function setRange(days) {
+  const now = new Date();
+  const from = new Date(now - (days-1)*24*60*60*1000);
+  const toStr = now.toISOString().split("T")[0];
+  const fromStr = from.toISOString().split("T")[0];
+  document.getElementById("fromDate").value = fromStr;
+  document.getElementById("toDate").value = toStr;
+  loadStats();
+}
+
 async function loadStats() {
   document.getElementById("statsContent").innerHTML = '<div class="loading">Loading usage data...</div>';
   document.getElementById("errorMsg").style.display = "none";
 
   try {
+    // Get date range from pickers
+    const fromVal = document.getElementById("fromDate").value;
+    const toVal = document.getElementById("toDate").value;
+    const now = new Date();
+    const rangeFrom = fromVal ? new Date(fromVal + "T00:00:00") : new Date(now - 7*24*60*60*1000);
+    const rangeTo = toVal ? new Date(toVal + "T23:59:59") : now;
+    const oneDayAgo = new Date(now - 24*60*60*1000);
+
     // Fetch all data in parallel
-    const [paidUsers, products, scripts] = await Promise.all([
+    const [paidUsers, products, scripts, authUsers] = await Promise.all([
       sbFetch("paid_users?select=*&order=created_at.desc"),
       sbFetch("products?select=id,user_id,name,created_at&order=created_at.desc"),
-      sbFetch("scripts?select=id,user_id,created_at&order=created_at.desc")
+      sbFetch("scripts?select=id,user_id,created_at&order=created_at.desc"),
+      sbFetch("paid_users?select=id,email,active")
     ]);
-
-    const now = new Date();
-    const oneDayAgo = new Date(now - 24*60*60*1000);
-    const sevenDaysAgo = new Date(now - 7*24*60*60*1000);
 
     const activeUsers = paidUsers.filter(u => u.active);
     const inactiveUsers = paidUsers.filter(u => !u.active);
     const newUsersToday = paidUsers.filter(u => new Date(u.created_at) > oneDayAgo);
-    const newUsersWeek = paidUsers.filter(u => new Date(u.created_at) > sevenDaysAgo);
-    const scriptsToday = scripts.filter(s => new Date(s.created_at) > oneDayAgo);
-    const scriptsWeek = scripts.filter(s => new Date(s.created_at) > sevenDaysAgo);
-    const productsWeek = products.filter(p => new Date(p.created_at) > sevenDaysAgo);
-
-    // Scripts per user
-    const scriptsByUser = {};
-    scripts.forEach(s => {
-      scriptsByUser[s.user_id] = (scriptsByUser[s.user_id] || 0) + 1;
+    const newUsersInRange = paidUsers.filter(u => {
+      const d = new Date(u.created_at);
+      return d >= rangeFrom && d <= rangeTo;
     });
-    const topUsers = Object.entries(scriptsByUser)
+    const scriptsInRange = scripts.filter(s => {
+      const d = new Date(s.created_at);
+      return d >= rangeFrom && d <= rangeTo;
+    });
+    const scriptsToday = scripts.filter(s => new Date(s.created_at) > oneDayAgo);
+    const productsInRange = products.filter(p => {
+      const d = new Date(p.created_at);
+      return d >= rangeFrom && d <= rangeTo;
+    });
+
+    // Build email map from paid_users email field
+    const emailMap = {};
+    paidUsers.forEach(u => {
+      if(u.email) emailMap[u.email.toLowerCase()] = u.email;
+    });
+
+    // Scripts per user -- use user_id from scripts and match against products to get email
+    // Build product user_id -> email map via paid_users
+    const userIdEmailMap = {};
+    // Try to get user emails from products table joined with paid_users
+    // Use scripts user_id directly and try to find in paid_users by checking auth
+    const scriptsByUserId = {};
+    scripts.forEach(s => {
+      scriptsByUserId[s.user_id] = (scriptsByUserId[s.user_id] || 0) + 1;
+    });
+
+    // Get auth users list via admin endpoint for email mapping
+    let authEmailMap = {};
+    try {
+      const authRes = await fetch(SUPABASE_URL + "/auth/v1/admin/users", {
+        headers: { "apikey": SUPABASE_KEY, "Authorization": "Bearer " + SUPABASE_KEY }
+      });
+      if(authRes.ok) {
+        const authData = await authRes.json();
+        const userList = authData.users || authData;
+        if(Array.isArray(userList)) {
+          userList.forEach(u => { if(u.id && u.email) authEmailMap[u.id] = u.email; });
+        }
+      }
+    } catch(e) {}
+
+    const topUsers = Object.entries(scriptsByUserId)
       .sort((a,b) => b[1]-a[1])
       .slice(0, 10);
 
-    // Map user_id to email from paid_users
-    const emailMap = {};
-    paidUsers.forEach(u => { if(u.id) emailMap[u.id] = u.email; });
+    const rangeLabelFrom = rangeFrom.toLocaleDateString();
+    const rangeLabelTo = rangeTo.toLocaleDateString();
 
     document.getElementById("lastUpdated").textContent = "Last updated " + now.toLocaleTimeString();
 
@@ -164,23 +230,23 @@ async function loadStats() {
           <div class="stat-sub">${inactiveUsers.length} cancelled</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">New This Week</div>
-          <div class="stat-value gold">${newUsersWeek.length}</div>
+          <div class="stat-label">New Signups</div>
+          <div class="stat-value gold">${newUsersInRange.length}</div>
           <div class="stat-sub">${newUsersToday.length} today</div>
         </div>
         <div class="stat-card">
           <div class="stat-label">Scripts Generated</div>
           <div class="stat-value purple">${scripts.length}</div>
-          <div class="stat-sub">${scriptsWeek.length} this week</div>
+          <div class="stat-sub">${scriptsToday.length} today</div>
         </div>
         <div class="stat-card">
-          <div class="stat-label">Scripts Today</div>
-          <div class="stat-value">${scriptsToday.length}</div>
-          <div class="stat-sub">${productsWeek.length} new products this week</div>
+          <div class="stat-label">In Date Range</div>
+          <div class="stat-value">${scriptsInRange.length}</div>
+          <div class="stat-sub">${productsInRange.length} new products</div>
         </div>
       </div>
 
-      <div class="section-title">All Subscribers</div>
+      <div class="section-title">All Subscribers (${paidUsers.length} total)</div>
       <div class="user-list">
         ${paidUsers.map(u => `
           <div class="user-row">
@@ -194,14 +260,14 @@ async function loadStats() {
         ${paidUsers.length === 0 ? '<div class="loading">No subscribers yet</div>' : ""}
       </div>
 
-      <div class="section-title">Most Active Users (by scripts generated)</div>
+      <div class="section-title">Most Active Users (all time scripts)</div>
       ${topUsers.map(([userId, count]) => `
         <div class="script-row">
-          <div class="script-email">${emailMap[userId] || userId.slice(0,12) + "..."}</div>
+          <div class="script-email">${authEmailMap[userId] || userId.slice(0,16) + "..."}</div>
           <div class="script-count">${count}</div>
         </div>
       `).join("")}
-      ${topUsers.length === 0 ? '<div class="loading">No scripts yet</div>' : ""}
+      ${topUsers.length === 0 ? '<div class="loading">No scripts generated yet</div>' : ""}
     `;
 
   } catch(err) {
