@@ -1106,10 +1106,9 @@ function onSignedIn() {
   document.body.classList.remove("hub-mode");
 
   // If signed in via magic link show set password popup
-  var hash = window.location.hash;
-  if (hash && (hash.includes('type=magiclink') || hash.includes('type=signup'))) {
-    // Clear the hash from URL
-    history.replaceState(null, '', window.location.pathname);
+  var magicFlag = sessionStorage.getItem('psych_magic_login');
+  if (magicFlag) {
+    sessionStorage.removeItem('psych_magic_login');
     setTimeout(function() { showSetPasswordPopup(); }, 800);
   }
 }
