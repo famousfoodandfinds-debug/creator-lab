@@ -1106,10 +1106,24 @@ function onSignedIn() {
   document.body.classList.remove("hub-mode");
 
   // If signed in via magic link show set password popup
+  // Detect by checking if user has no password (magic link users have no password)
   var magicFlag = sessionStorage.getItem('psych_magic_login');
   if (magicFlag) {
     sessionStorage.removeItem('psych_magic_login');
     setTimeout(function() { showSetPasswordPopup(); }, 800);
+  } else {
+    // Check if user signed in via OTP by checking identities
+    try {
+      var identities = currentUser.identities || [];
+      var hasPassword = identities.some(function(id) { return id.identity_data && id.identity_data.provider === 'email' && id.last_sign_in_at; });
+      var aal = currentUser.aal || "";
+      // If URL has access_token it was a link-based login
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        sessionStorage.setItem('psych_magic_login', '1');
+        history.replaceState(null, '', window.location.pathname);
+        setTimeout(function() { showSetPasswordPopup(); }, 800);
+      }
+    } catch(e) {}
   }
 }
 
