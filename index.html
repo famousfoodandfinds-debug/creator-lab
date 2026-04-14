@@ -10,14 +10,20 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Psych Lab">
-  <script>
+ <script>
   if (window.location.hash && (
     window.location.hash.includes('access_token') ||
     window.location.hash.includes('error_code=') ||
-    window.location.hash.includes('type=magiclink')
+    window.location.hash.includes('type=recovery') ||
+    window.location.hash.includes('type=magiclink') ||
+    window.location.hash.includes('type=signup')
   )) {
+    if (window.location.hash.includes('type=magiclink') || window.location.hash.includes('type=signup')) {
+      sessionStorage.setItem('psych_magic_login', '1');
+    }
     window.location.replace('/app.html' + window.location.hash);
   }
+</script>
 </script><link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 :root {
