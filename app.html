@@ -542,23 +542,15 @@ body.hub-mode #priceSelectorMount { display: none !important; }
     <img class="auth-logo" src="https://i.ibb.co/TDxsM31g/Psych-Lab-Cropped.png" alt="Psych Lab">
     <div class="auth-title">Psych <em>Lab</em></div>
     <div class="auth-sub">The Science Behind Scripts That Convert</div>
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="tabSignin" onclick="setAuthTab('signin')">Sign In</button>
-      <button class="auth-tab" id="tabSignup" onclick="setAuthTab('signup')">Create Account</button>
-    </div>
     <div id="authForm">
       <div class="auth-field">
         <label class="auth-label">Email</label>
         <input class="auth-input" id="authEmail" type="email" placeholder="your@email.com" autocomplete="email">
       </div>
-      <div class="auth-field">
-        <label class="auth-label">Password</label>
-        <input class="auth-input" id="authPassword" type="password" placeholder="••••••••" autocomplete="current-password">
-      </div>
-      <button class="auth-btn" id="authBtn" onclick="handleAuth()">Sign In</button>
+      <button class="auth-btn" id="authBtn" onclick="handleMagicLink()">Send me a login link</button>
       <div class="auth-msg" id="authMsg"></div>
-      <div id="forgotWrap" style="text-align:center;margin-top:12px;">
-        <button onclick="handleForgotPassword()" style="background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;cursor:pointer;text-decoration:underline;padding:0;">Forgot your password?</button>
+      <div style="text-align:center;margin-top:16px;font-size:12px;color:var(--muted);line-height:1.6;">
+        Enter the email you used to purchase.<br>We will send you a one-click login link.
       </div>
     </div>
   </div>
@@ -993,15 +985,52 @@ var desirePsychology = {
 // ============================================================
 // AUTH
 // ============================================================
-function setAuthTab(mode) {
-  authMode = mode;
-  document.getElementById("tabSignin").classList.toggle("active", mode === "signin");
-  document.getElementById("tabSignup").classList.toggle("active", mode === "signup");
-  document.getElementById("authBtn").textContent = mode === "signin" ? "Sign In" : "Create Account";
-  document.getElementById("authMsg").textContent = "";
-  document.querySelector('[autocomplete="current-password"]').autocomplete = mode === "signin" ? "current-password" : "new-password";
-  var fw = document.getElementById("forgotWrap");
-  if(fw) fw.style.display = mode === "signin" ? "block" : "none";
+function handleMagicLink() {
+  var email = document.getElementById("authEmail").value.trim().toLowerCase();
+  var msg = document.getElementById("authMsg");
+  var btn = document.getElementById("authBtn");
+  if (!email) {
+    msg.textContent = "Enter your email address first";
+    msg.className = "auth-msg error";
+    return;
+  }
+  // Check paid_users first
+  sb.from("paid_users").select("email, active").eq("email", email).maybeSingle().then(function(result) {
+    if (!result.data) {
+      msg.textContent = "This email does not have an active subscription. Purchase at psychscriptlab.app first.";
+      msg.className = "auth-msg error";
+      return;
+    }
+    if (!result.data.active) {
+      msg.textContent = "Your subscription is no longer active. Please resubscribe to continue.";
+      msg.className = "auth-msg error";
+      return;
+    }
+    // Email is valid paid user -- send magic link
+    btn.disabled = true;
+    btn.textContent = "Sending...";
+    msg.textContent = "";
+    msg.className = "auth-msg";
+    sb.auth.signInWithOtp({
+      email: email,
+      options: { emailRedirectTo: "https://psychscriptlab.app" }
+    }).then(function(result) {
+      btn.disabled = false;
+      btn.textContent = "Send me a login link";
+      if (result.error) {
+        msg.textContent = "Error: " + result.error.message;
+        msg.className = "auth-msg error";
+      } else {
+        msg.textContent = "Check your inbox -- your login link is on its way.";
+        msg.className = "auth-msg success";
+        document.getElementById("authEmail").disabled = true;
+        btn.style.display = "none";
+      }
+    });
+  }).catch(function() {
+    msg.textContent = "Something went wrong. Please try again.";
+    msg.className = "auth-msg error";
+  });
 }
 
 function handleForgotPassword() {
@@ -1438,7 +1467,7 @@ function handlePasswordUpdate() {
 // Enter key on auth form
 document.addEventListener("keydown", function(e) {
   if (e.key === "Enter" && document.getElementById("authOverlay").style.display !== "none") {
-    handleAuth();
+    handleMagicLink();
   }
 });
 
