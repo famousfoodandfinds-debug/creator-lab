@@ -646,11 +646,11 @@ body.hub-mode #priceSelectorMount { display: none !important; }
 
     <!-- Field 1: Who is buying and why -->
     <div class="field-block" id="field1Block">
-      <div class="field-label">Who is buying this and why?</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
-        <div class="field-hints-line" style="margin-bottom:0;">Who is this person? What are they feeling before they find this product?</div>
+        <div class="field-label" style="margin-bottom:0;">Who is buying this and why?</div>
         <div class="field-required-badge" id="field1Badge" style="flex-shrink:0;">Required</div>
       </div>
+      <div class="field-hints-line" style="margin-bottom:7px;">Who is this person? What are they feeling before they find this product?</div>
       <textarea id="buyerInsightInput" maxlength="600" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. Busy mom who keeps losing plants and feels embarrassed when guests come over. Wants her home to look put together without the maintenance."></textarea>
       <div class="panel-foot">
         <span class="char-ct"><span id="insightCount">0</span>/600</span>
@@ -1674,7 +1674,7 @@ function saveProduct(name, bank, callback) {
   setSyncing(true);
   var desc = document.getElementById("productInput") ? document.getElementById("productInput").value.trim() : "";
   var motivation = getBuyerMotivation();
-  var payload = { user_id: currentUser.id, name: name, bank: Object.assign({}, bank, { _promptVersion: APP_VERSION }), description: desc, motivation: motivation || null, updated_at: new Date().toISOString() };
+  var payload = { user_id: currentUser.id, name: name, bank: Object.assign({}, bank, { _promptVersion: APP_VERSION }), description: desc, motivation: motivation || null, real_reason: currentRealReason || null, surprise: currentSurprise || null, updated_at: new Date().toISOString() };
   var promise;
   if (currentProductId) {
     // Update existing product
@@ -2630,9 +2630,15 @@ function showNew() {
   document.getElementById("charCount").textContent = "0";
   currentMotivation = "";
   currentBuyerInsight = "";
+  currentRealReason = "";
+  currentSurprise = "";
   setBuyerMotivation("");
   var biField = document.getElementById("buyerInsightInput");
   if (biField) { biField.value = ""; biField.dispatchEvent(new Event("input")); }
+  var rrField = document.getElementById("realReasonInput");
+  if (rrField) { rrField.value = ""; rrField.dispatchEvent(new Event("input")); }
+  var spField = document.getElementById("surpriseInput");
+  if (spField) { spField.value = ""; spField.dispatchEvent(new Event("input")); }
   document.getElementById("mainContent").innerHTML = '<div class="state-box"><div class="state-icon">✨</div><div class="state-title">Your Script Bank</div><div class="state-desc">Describe your product and generate your custom script bank.</div></div>';
 }
 
