@@ -1016,7 +1016,7 @@ function handleForgotPassword() {
   msg.className = "auth-msg";
   sb.auth.signInWithOtp({
     email: email,
-    options: { emailRedirectTo: "https://psychscriptlab.app" }
+    options: { emailRedirectTo: "https://psychscriptlab.app/app.html" }
   }).then(function(result) {
     if (result.error) {
       msg.textContent = result.error.message;
@@ -1104,6 +1104,84 @@ function onSignedIn() {
   }
   // Show full UI for all users immediately
   document.body.classList.remove("hub-mode");
+
+  // If signed in via magic link show set password popup
+  var hash = window.location.hash;
+  if (hash && (hash.includes('type=magiclink') || hash.includes('type=signup'))) {
+    // Clear the hash from URL
+    history.replaceState(null, '', window.location.pathname);
+    setTimeout(function() { showSetPasswordPopup(); }, 800);
+  }
+}
+
+function showSetPasswordPopup() {
+  var existing = document.getElementById("setPasswordPopup");
+  if (existing) return;
+
+  var overlay = document.createElement("div");
+  overlay.id = "setPasswordPopup";
+  overlay.style.cssText = "position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.85);z-index:2000;display:flex;align-items:center;justify-content:center;padding:20px;";
+
+  var card = document.createElement("div");
+  card.style.cssText = "background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius);padding:28px 24px;width:100%;max-width:380px;";
+
+  var heading = document.createElement("div");
+  heading.style.cssText = "font-family:'Playfair Display',serif;font-size:20px;color:var(--white);margin-bottom:6px;";
+  heading.innerHTML = "You're in. <em>Set a password.</em>";
+
+  var sub = document.createElement("div");
+  sub.style.cssText = "font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.6;";
+  sub.textContent = "Create a password so you can sign in directly next time without needing a link.";
+
+  var input = document.createElement("input");
+  input.type = "password";
+  input.placeholder = "New password (min 6 characters)";
+  input.style.cssText = "width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:12px 14px;outline:none;box-sizing:border-box;margin-bottom:10px;";
+
+  var saveBtn = document.createElement("button");
+  saveBtn.style.cssText = "width:100%;background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;border:none;border-radius:var(--radius-sm);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:700;padding:13px;cursor:pointer;margin-bottom:8px;";
+  saveBtn.textContent = "Save password";
+
+  var msg = document.createElement("div");
+  msg.style.cssText = "font-size:12px;text-align:center;min-height:16px;margin-bottom:8px;";
+
+  var skipBtn = document.createElement("button");
+  skipBtn.style.cssText = "width:100%;background:transparent;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;cursor:pointer;padding:6px;text-decoration:underline;";
+  skipBtn.textContent = "Skip for now -- I will set it later in Profile";
+
+  saveBtn.addEventListener("click", function() {
+    var pw = input.value.trim();
+    if (!pw || pw.length < 6) {
+      msg.style.color = "var(--red)";
+      msg.textContent = "Password must be at least 6 characters";
+      return;
+    }
+    saveBtn.disabled = true;
+    saveBtn.textContent = "Saving...";
+    sb.auth.updateUser({ password: pw }).then(function(result) {
+      if (result.error) {
+        saveBtn.disabled = false;
+        saveBtn.textContent = "Save password";
+        msg.style.color = "var(--red)";
+        msg.textContent = result.error.message;
+      } else {
+        msg.style.color = "var(--green)";
+        msg.textContent = "Password saved!";
+        setTimeout(function() { overlay.remove(); }, 1200);
+      }
+    });
+  });
+
+  skipBtn.addEventListener("click", function() { overlay.remove(); });
+
+  card.appendChild(heading);
+  card.appendChild(sub);
+  card.appendChild(input);
+  card.appendChild(saveBtn);
+  card.appendChild(msg);
+  card.appendChild(skipBtn);
+  overlay.appendChild(card);
+  document.body.appendChild(overlay);
 }
 
 
