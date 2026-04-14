@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Psych Lab · Admin</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --black: #080808; --surface: #111111; --surface2: #181818; --surface3: #222222;
+  --border: rgba(255,255,255,0.07); --border-md: rgba(255,255,255,0.14);
+  --white: #F0F0F0; --white-dim: rgba(240,240,240,0.55); --muted: #666666;
+  --green: #2DC98A; --red: #E8284E; --gold: #C8A84A; --purple: #9090F0;
+  --silver: #C0C0C0; --silver-bright: #E8E8E8;
+  --radius: 14px; --radius-sm: 9px;
+}
+html, body { background: var(--black); color: var(--white); font-family: 'Instrument Sans', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; }
+
+/* Login */
+.login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+.login-box { background: var(--surface); border: 1px solid var(--border-md); border-radius: var(--radius); padding: 32px 24px; width: 100%; max-width: 360px; text-align: center; }
+.login-title { font-size: 20px; font-weight: 700; color: var(--white); margin-bottom: 6px; }
+.login-sub { font-size: 13px; color: var(--muted); margin-bottom: 24px; }
+.login-input { width: 100%; background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); color: var(--white); font-family: 'Instrument Sans', sans-serif; font-size: 15px; padding: 12px 16px; outline: none; margin-bottom: 12px; }
+.login-btn { width: 100%; background: linear-gradient(135deg, #C0C0C0, #E8E8E8); color: #080808; border: none; border-radius: var(--radius-sm); font-family: 'Instrument Sans', sans-serif; font-size: 14px; font-weight: 700; padding: 13px; cursor: pointer; }
+.login-error { font-size: 12px; color: var(--red); margin-top: 8px; display: none; }
+
+/* Admin */
+.admin-wrap { display: none; padding: 20px; max-width: 600px; margin: 0 auto; }
+.admin-header { display: flex; align-items: center; justify-content: space-between; padding: 16px 0 20px; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+.admin-title { font-size: 18px; font-weight: 700; color: var(--white); }
+.admin-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.refresh-btn { background: transparent; border: 1px solid var(--border-md); border-radius: var(--radius-sm); color: var(--white-dim); font-family: 'Instrument Sans', sans-serif; font-size: 12px; padding: 7px 14px; cursor: pointer; }
+
+.stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+.stat-card { background: var(--surface); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 16px; }
+.stat-label { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+.stat-value { font-size: 28px; font-weight: 700; color: var(--white); line-height: 1; }
+.stat-value.green { color: var(--green); }
+.stat-value.gold { color: var(--gold); }
+.stat-value.purple { color: var(--purple); }
+.stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+.section-title { font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; margin-top: 24px; }
+
+.user-list { display: flex; flex-direction: column; gap: 6px; }
+.user-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; }
+.user-email { font-size: 13px; color: var(--white); font-weight: 400; }
+.user-date { font-size: 11px; color: var(--muted); }
+.user-badge { font-size: 9px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 2px 8px; border-radius: 999px; }
+.user-badge.active { background: rgba(45,201,138,0.15); border: 1px solid rgba(45,201,138,0.4); color: var(--green); }
+.user-badge.inactive { background: rgba(232,40,78,0.1); border: 1px solid rgba(232,40,78,0.3); color: var(--red); }
+
+.script-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.script-email { font-size: 13px; color: var(--white); }
+.script-count { font-size: 18px; font-weight: 700; color: var(--purple); }
+
+.loading { text-align: center; padding: 40px 20px; color: var(--muted); font-size: 13px; }
+.error-msg { background: rgba(232,40,78,0.1); border: 1px solid rgba(232,40,78,0.3); border-radius: var(--radius-sm); padding: 12px 16px; font-size: 13px; color: var(--red); margin-bottom: 16px; display: none; }
+</style>
+</head>
+<body>
+
+<!-- Login -->
+<div class="login-wrap" id="loginWrap">
+  <div class="login-box">
+    <div class="login-title">Psych Lab Admin</div>
+    <div class="login-sub">Enter your password to continue</div>
+    <input class="login-input" type="password" id="pwInput" placeholder="Password" onkeydown="if(event.key==='Enter')checkPassword()">
+    <button class="login-btn" onclick="checkPassword()">Enter</button>
+    <div class="login-error" id="loginError">Incorrect password</div>
+  </div>
+</div>
+
+<!-- Admin Dashboard -->
+<div class="admin-wrap" id="adminWrap">
+  <div class="admin-header">
+    <div>
+      <div class="admin-title">Psych Lab Admin</div>
+      <div class="admin-sub" id="lastUpdated">Loading...</div>
+    </div>
+    <button class="refresh-btn" onclick="loadStats()">Refresh</button>
+  </div>
+
+  <div class="error-msg" id="errorMsg"></div>
+
+  <div id="statsContent"><div class="loading">Loading usage data...</div></div>
+</div>
+
+<script>
+const SUPABASE_URL = "https://ysacpditbxcrairmypsp.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYWNwZGl0YnhjcmFpcm15cHNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjU4MjYsImV4cCI6MjA4OTM0MTgyNn0.U8W_KpDkYCT-jVBbXneAP1q_W9ChfhTi69DD0SS6G3o";
+const ADMIN_PASSWORD = "PsychAdmin!";
+
+function checkPassword() {
+  var pw = document.getElementById("pwInput").value;
+  if (pw === ADMIN_PASSWORD) {
+    document.getElementById("loginWrap").style.display = "none";
+    document.getElementById("adminWrap").style.display = "block";
+    loadStats();
+  } else {
+    document.getElementById("loginError").style.display = "block";
+    document.getElementById("pwInput").value = "";
+  }
+}
+
+async function sbFetch(path) {
+  const res = await fetch(SUPABASE_URL + "/rest/v1/" + path, {
+    headers: {
+      "apikey": SUPABASE_KEY,
+      "Authorization": "Bearer " + SUPABASE_KEY,
+      "Content-Type": "application/json"
+    }
+  });
+  if (!res.ok) throw new Error("Supabase error: " + res.status);
+  return res.json();
+}
+
+async function loadStats() {
+  document.getElementById("statsContent").innerHTML = '<div class="loading">Loading usage data...</div>';
+  document.getElementById("errorMsg").style.display = "none";
+
+  try {
+    // Fetch all data in parallel
+    const [paidUsers, products, scripts] = await Promise.all([
+      sbFetch("paid_users?select=*&order=created_at.desc"),
+      sbFetch("products?select=id,user_id,name,created_at&order=created_at.desc"),
+      sbFetch("scripts?select=id,user_id,created_at&order=created_at.desc")
+    ]);
+
+    const now = new Date();
+    const oneDayAgo = new Date(now - 24*60*60*1000);
+    const sevenDaysAgo = new Date(now - 7*24*60*60*1000);
+
+    const activeUsers = paidUsers.filter(u => u.active);
+    const inactiveUsers = paidUsers.filter(u => !u.active);
+    const newUsersToday = paidUsers.filter(u => new Date(u.created_at) > oneDayAgo);
+    const newUsersWeek = paidUsers.filter(u => new Date(u.created_at) > sevenDaysAgo);
+    const scriptsToday = scripts.filter(s => new Date(s.created_at) > oneDayAgo);
+    const scriptsWeek = scripts.filter(s => new Date(s.created_at) > sevenDaysAgo);
+    const productsWeek = products.filter(p => new Date(p.created_at) > sevenDaysAgo);
+
+    // Scripts per user
+    const scriptsByUser = {};
+    scripts.forEach(s => {
+      scriptsByUser[s.user_id] = (scriptsByUser[s.user_id] || 0) + 1;
+    });
+    const topUsers = Object.entries(scriptsByUser)
+      .sort((a,b) => b[1]-a[1])
+      .slice(0, 10);
+
+    // Map user_id to email from paid_users
+    const emailMap = {};
+    paidUsers.forEach(u => { if(u.id) emailMap[u.id] = u.email; });
+
+    document.getElementById("lastUpdated").textContent = "Last updated " + now.toLocaleTimeString();
+
+    document.getElementById("statsContent").innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Active Subscribers</div>
+          <div class="stat-value green">${activeUsers.length}</div>
+          <div class="stat-sub">${inactiveUsers.length} cancelled</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">New This Week</div>
+          <div class="stat-value gold">${newUsersWeek.length}</div>
+          <div class="stat-sub">${newUsersToday.length} today</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Scripts Generated</div>
+          <div class="stat-value purple">${scripts.length}</div>
+          <div class="stat-sub">${scriptsWeek.length} this week</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Scripts Today</div>
+          <div class="stat-value">${scriptsToday.length}</div>
+          <div class="stat-sub">${productsWeek.length} new products this week</div>
+        </div>
+      </div>
+
+      <div class="section-title">All Subscribers</div>
+      <div class="user-list">
+        ${paidUsers.map(u => `
+          <div class="user-row">
+            <div>
+              <div class="user-email">${u.email || "unknown"}</div>
+              <div class="user-date">Joined ${new Date(u.created_at).toLocaleDateString()}</div>
+            </div>
+            <span class="user-badge ${u.active ? 'active' : 'inactive'}">${u.active ? 'Active' : 'Cancelled'}</span>
+          </div>
+        `).join("")}
+        ${paidUsers.length === 0 ? '<div class="loading">No subscribers yet</div>' : ""}
+      </div>
+
+      <div class="section-title">Most Active Users (by scripts generated)</div>
+      ${topUsers.map(([userId, count]) => `
+        <div class="script-row">
+          <div class="script-email">${emailMap[userId] || userId.slice(0,12) + "..."}</div>
+          <div class="script-count">${count}</div>
+        </div>
+      `).join("")}
+      ${topUsers.length === 0 ? '<div class="loading">No scripts yet</div>' : ""}
+    `;
+
+  } catch(err) {
+    document.getElementById("errorMsg").textContent = "Error loading data: " + err.message;
+    document.getElementById("errorMsg").style.display = "block";
+    document.getElementById("statsContent").innerHTML = "";
+  }
+}
+</script>
+</body>
+</html>
