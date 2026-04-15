@@ -1634,7 +1634,7 @@ function toggleManageMode() {
 function buildManageList() {
   var ml = document.getElementById("manageList");
   if(!ml || !currentUser) return;
-  ml.innerHTML = "<div style='padding:8px 0;font-size:12px;color:var(--muted);'>Tap products to select, then delete</div>";
+  ml.innerHTML = "<div style='padding:8px 0;font-size:12px;color:var(--muted);'>Tap a product to select for deletion. Tap Rename to edit its name.</div>";
   sb.from("products").select("id, name").eq("user_id", currentUser.id).then(function(result) {
     if(!result.data) return;
     var products = result.data;
@@ -1642,21 +1642,89 @@ function buildManageList() {
     products.forEach(function(p) {
       var row = document.createElement("div");
       row.id = "manage-row-" + p.id;
-      row.style.cssText = "display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;margin-bottom:4px;background:" + (selectedForDelete[p.id] ? "rgba(220,50,50,0.15)" : "var(--surface-2)") + ";border:1px solid " + (selectedForDelete[p.id] ? "rgba(220,50,50,0.4)" : "var(--border)") + ";";
+      row.style.cssText = "padding:10px 12px;border-radius:8px;margin-bottom:4px;background:" + (selectedForDelete[p.id] ? "rgba(220,50,50,0.15)" : "var(--surface-2)") + ";border:1px solid " + (selectedForDelete[p.id] ? "rgba(220,50,50,0.4)" : "var(--border)") + ";";
+
+      // Main row with checkbox and name
+      var mainRow = document.createElement("div");
+      mainRow.style.cssText = "display:flex;align-items:center;gap:10px;cursor:pointer;";
+
       var check = document.createElement("div");
       check.className = "manage-check-" + p.id;
-      check.style.cssText = "width:20px;height:20px;border-radius:50%;border:2px solid " + (selectedForDelete[p.id] ? "var(--red)" : "var(--border-md)") + ";display:flex;align-items:center;justify-content:center;flex-shrink:0;background:" + (selectedForDelete[p.id] ? "var(--red)" : "transparent") + ";color:white;font-size:11px;font-weight:700;flex-shrink:0;";
+      check.style.cssText = "width:20px;height:20px;border-radius:50%;border:2px solid " + (selectedForDelete[p.id] ? "var(--red)" : "var(--border-md)") + ";display:flex;align-items:center;justify-content:center;flex-shrink:0;background:" + (selectedForDelete[p.id] ? "var(--red)" : "transparent") + ";color:white;font-size:11px;font-weight:700;";
       check.textContent = selectedForDelete[p.id] ? "✓" : "";
-      var name = document.createElement("div");
-      name.style.cssText = "font-size:14px;color:var(--white);flex:1;";
-      name.textContent = p.name;
-      row.appendChild(check);
-      row.appendChild(name);
+
+      var nameEl = document.createElement("div");
+      nameEl.style.cssText = "font-size:14px;color:var(--white);flex:1;";
+      nameEl.textContent = p.name;
+
+      var renameBtn = document.createElement("button");
+      renameBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);border-radius:999px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:11px;padding:3px 10px;cursor:pointer;flex-shrink:0;";
+      renameBtn.textContent = "Rename";
+
+      mainRow.appendChild(check);
+      mainRow.appendChild(nameEl);
+      mainRow.appendChild(renameBtn);
+      row.appendChild(mainRow);
+
+      // Rename inline form -- hidden by default
+      var renameWrap = document.createElement("div");
+      renameWrap.style.cssText = "display:none;margin-top:8px;display:none;";
+      var renameInput = document.createElement("input");
+      renameInput.type = "text";
+      renameInput.value = p.name;
+      renameInput.maxLength = 60;
+      renameInput.style.cssText = "width:100%;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:8px 12px;outline:none;box-sizing:border-box;margin-bottom:6px;";
+      var renameBtnRow = document.createElement("div");
+      renameBtnRow.style.cssText = "display:flex;gap:6px;";
+      var saveRenameBtn = document.createElement("button");
+      saveRenameBtn.style.cssText = "flex:1;background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;border:none;border-radius:var(--radius-sm);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:700;padding:8px;cursor:pointer;";
+      saveRenameBtn.textContent = "Save name";
+      var cancelRenameBtn = document.createElement("button");
+      cancelRenameBtn.style.cssText = "flex:1;background:transparent;border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;padding:8px;cursor:pointer;";
+      cancelRenameBtn.textContent = "Cancel";
+      renameBtnRow.appendChild(saveRenameBtn);
+      renameBtnRow.appendChild(cancelRenameBtn);
+      renameWrap.appendChild(renameInput);
+      renameWrap.appendChild(renameBtnRow);
+      row.appendChild(renameWrap);
+
+      // Rename button toggle
+      (function(id, nameDiv, input, wrap, btn) {
+        btn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          var isOpen = wrap.style.display === "block";
+          wrap.style.display = isOpen ? "none" : "block";
+          btn.textContent = isOpen ? "Rename" : "Cancel";
+          if(!isOpen) setTimeout(function(){ input.focus(); input.select(); }, 100);
+        });
+        cancelRenameBtn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          wrap.style.display = "none";
+          btn.textContent = "Rename";
+        });
+        saveRenameBtn.addEventListener("click", function(e) {
+          e.stopPropagation();
+          var newName = input.value.trim();
+          if(!newName) { showToast("Name cannot be empty"); return; }
+          saveRenameBtn.textContent = "Saving...";
+          sb.from("products").update({ name: newName }).eq("id", id).then(function(r) {
+            if(r.error) { showToast("Could not save -- try again"); saveRenameBtn.textContent = "Save name"; return; }
+            nameDiv.textContent = newName;
+            wrap.style.display = "none";
+            btn.textContent = "Rename";
+            saveRenameBtn.textContent = "Save name";
+            buildSelect();
+            showToast("Renamed to " + newName);
+          });
+        });
+      })(p.id, nameEl, renameInput, renameWrap, renameBtn);
+
+      // Tap row to select for deletion
       (function(id) {
-        row.addEventListener("click", function(e) {
+        mainRow.addEventListener("click", function(e) {
+          if(e.target === renameBtn) return;
           e.preventDefault();
           selectedForDelete[id] = !selectedForDelete[id];
-          // Update just this row visually -- no full rebuild, no jumping
           var thisRow = document.getElementById("manage-row-" + id);
           var thisCheck = thisRow ? thisRow.querySelector(".manage-check-" + id) : null;
           if(thisRow) {
@@ -1677,6 +1745,7 @@ function buildManageList() {
           }
         });
       })(p.id);
+
       ml.appendChild(row);
     });
   });
