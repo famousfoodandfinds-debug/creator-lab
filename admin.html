@@ -232,69 +232,7 @@ async function loadStats() {
       </div>
 
       <div class="section-title">All Subscribers (${paidUsers.length} total)</div>
-      <div class="user-list" id="subscriberList">
-        ${paidUsers.map(u => {
-          const email = (u.email || "").toLowerCase();
-          
-          // Get all activity for this user from script_activity view
-          const userActivity = scriptActivity.filter(s => s.email && s.email.toLowerCase() === email);
-          const allTimeCount = userActivity.length;
-          
-          // Filter to date range
-          const userActivityInRange = userActivity.filter(s => {
-            const d = new Date(s.created_at);
-            return d >= rangeFrom && d <= rangeTo;
-          });
-          const rangeCount = userActivityInRange.length;
-
-          // Build desire breakdown for range
-          const desireCounts = {};
-          userActivityInRange.forEach(s => {
-            if(s.desire) desireCounts[s.desire] = (desireCounts[s.desire] || 0) + 1;
-          });
-          const topDesires = Object.entries(desireCounts).sort((a,b) => b[1]-a[1]).slice(0,5);
-
-          // Build day by day counts for range
-          const dayCounts = {};
-          userActivityInRange.forEach(s => {
-            const day = s.script_date || new Date(s.created_at).toLocaleDateString();
-            dayCounts[day] = (dayCounts[day] || 0) + 1;
-          });
-          const dayEntries = Object.entries(dayCounts).sort((a,b) => new Date(b[0]) - new Date(a[0]));
-
-          const userId = "user-detail-" + u.email.replace(/[^a-zA-Z0-9]/g, '-');
-
-          return \`
-          <div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);margin-bottom:6px;overflow:hidden;">
-            <div style="display:flex;align-items:center;padding:12px 14px;cursor:pointer;" onclick="var el=document.getElementById('\${userId}');el.style.display=el.style.display==='block'?'none':'block'">
-              <div style="flex:1;">
-                <div style="font-size:13px;color:var(--white);font-weight:500;">\${u.email || "unknown"}</div>
-                <div style="font-size:11px;color:var(--muted);margin-top:2px;">Joined \${new Date(u.created_at).toLocaleDateString()} · \${allTimeCount} all time · \${rangeCount} in range · tap to expand</div>
-              </div>
-              <span style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:\${u.active ? 'rgba(45,201,138,0.15)' : 'rgba(232,40,78,0.1)'};border:1px solid \${u.active ? 'rgba(45,201,138,0.4)' : 'rgba(232,40,78,0.3)'};color:\${u.active ? 'var(--green)' : 'var(--red)'};">\${u.active ? 'Active' : 'Cancelled'}</span>
-            </div>
-            <div id="\${userId}" style="display:none;border-top:1px solid var(--border);padding:14px;background:var(--surface2);">
-              \${rangeCount === 0 ? '<div style="font-size:12px;color:var(--muted);">No scripts generated in this date range.</div>' : \`
-                \${topDesires.length > 0 ? \`
-                  <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Buyer psychology used in range</div>
-                  <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;">
-                    \${topDesires.map(([desire, cnt]) => \`<div style="font-size:11px;color:var(--purple);background:rgba(144,144,240,0.1);border:1px solid rgba(144,144,240,0.2);border-radius:999px;padding:3px 10px;">\${desire} (\${cnt})</div>\`).join("")}
-                  </div>
-                \` : ""}
-                <div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Scripts by day</div>
-                \${dayEntries.map(([day, cnt]) => \`
-                  <div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
-                    <span style="font-size:12px;color:var(--white-dim);">\${day}</span>
-                    <span style="font-size:13px;font-weight:700;color:var(--white);">\${cnt}</span>
-                  </div>
-                \`).join("")}
-              \`}
-            </div>
-          </div>\`;
-        }).join("")}
-        \${paidUsers.length === 0 ? '<div class="loading">No subscribers yet</div>' : ""}
-      </div>
-
+      <div id="subscriberList"></div>
       <div class="section-title">Most Active Users (all time scripts)</div>
       ${topUsers.map(u => `
         <div class="script-row">
@@ -304,6 +242,83 @@ async function loadStats() {
       `).join("")}
       ${topUsers.length === 0 ? '<div class="loading">No scripts generated yet</div>' : ""}
     `;
+
+    // Build subscriber list separately to avoid template literal nesting issues
+    var subList = document.getElementById("subscriberList");
+    if (subList) {
+      paidUsers.forEach(function(u) {
+        var email = (u.email || "").toLowerCase();
+        var userActivity = scriptActivity.filter(function(s){ return s.email && s.email.toLowerCase() === email; });
+        var allTimeCount = userActivity.length;
+        var userActivityInRange = userActivity.filter(function(s){
+          var d = new Date(s.created_at);
+          return d >= rangeFrom && d <= rangeTo;
+        });
+        var rangeCount = userActivityInRange.length;
+
+        // Desire breakdown
+        var desireCounts = {};
+        userActivityInRange.forEach(function(s){ if(s.desire) desireCounts[s.desire] = (desireCounts[s.desire]||0)+1; });
+        var topDesires = Object.entries(desireCounts).sort(function(a,b){ return b[1]-a[1]; }).slice(0,5);
+
+        // Day by day
+        var dayCounts = {};
+        userActivityInRange.forEach(function(s){
+          var day = s.script_date || new Date(s.created_at).toLocaleDateString();
+          dayCounts[day] = (dayCounts[day]||0)+1;
+        });
+        var dayEntries = Object.entries(dayCounts).sort(function(a,b){ return new Date(b[0])-new Date(a[0]); });
+
+        var userId = "ud-" + email.replace(/[^a-zA-Z0-9]/g, '-');
+        var badgeBg = u.active ? "rgba(45,201,138,0.15)" : "rgba(232,40,78,0.1)";
+        var badgeBorder = u.active ? "rgba(45,201,138,0.4)" : "rgba(232,40,78,0.3)";
+        var badgeColor = u.active ? "var(--green)" : "var(--red)";
+        var badgeText = u.active ? "Active" : "Cancelled";
+
+        var wrap = document.createElement("div");
+        wrap.style.cssText = "background:var(--surface);border:1px solid var(--border);border-radius:9px;margin-bottom:6px;overflow:hidden;";
+
+        var header = document.createElement("div");
+        header.style.cssText = "display:flex;align-items:center;padding:12px 14px;cursor:pointer;";
+        header.innerHTML = '<div style="flex:1;">' +
+          '<div style="font-size:13px;color:var(--white);font-weight:500;">' + (u.email||"unknown") + '</div>' +
+          '<div style="font-size:11px;color:var(--muted);margin-top:2px;">Joined ' + new Date(u.created_at).toLocaleDateString() + ' &nbsp;·&nbsp; ' + allTimeCount + ' all time &nbsp;·&nbsp; ' + rangeCount + ' in range</div>' +
+          '</div>' +
+          '<span style="font-size:10px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:2px 8px;border-radius:999px;background:' + badgeBg + ';border:1px solid ' + badgeBorder + ';color:' + badgeColor + ';">' + badgeText + '</span>';
+        header.addEventListener("click", function(){
+          var detail = document.getElementById(userId);
+          if(detail) detail.style.display = detail.style.display === "block" ? "none" : "block";
+        });
+
+        var detail = document.createElement("div");
+        detail.id = userId;
+        detail.style.cssText = "display:none;border-top:1px solid var(--border);padding:14px;background:var(--surface2);";
+
+        if(rangeCount === 0) {
+          detail.innerHTML = '<div style="font-size:12px;color:var(--muted);">No scripts generated in this date range.</div>';
+        } else {
+          var html = "";
+          if(topDesires.length > 0) {
+            html += '<div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Buyer psychology used</div>';
+            html += '<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px;">';
+            topDesires.forEach(function(d){ html += '<div style="font-size:11px;color:var(--purple);background:rgba(144,144,240,0.1);border:1px solid rgba(144,144,240,0.2);border-radius:999px;padding:3px 10px;">' + d[0] + ' (' + d[1] + ')</div>'; });
+            html += '</div>';
+          }
+          html += '<div style="font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;">Scripts by day</div>';
+          dayEntries.forEach(function(d){
+            html += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);">' +
+              '<span style="font-size:12px;color:var(--white-dim);">' + d[0] + '</span>' +
+              '<span style="font-size:13px;font-weight:700;color:var(--white);">' + d[1] + '</span></div>';
+          });
+          detail.innerHTML = html;
+        }
+
+        wrap.appendChild(header);
+        wrap.appendChild(detail);
+        subList.appendChild(wrap);
+      });
+      if(paidUsers.length === 0) subList.innerHTML = '<div class="loading">No subscribers yet</div>';
+    }
 
   } catch(err) {
     document.getElementById("errorMsg").textContent = "Error loading data: " + err.message;
