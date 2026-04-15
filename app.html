@@ -2862,20 +2862,35 @@ function generateOnScreenText(productDesc, hooks) {
 }
 
 function saveNewProduct() {
-  var insight = (document.getElementById("buyerInsightInput") ? document.getElementById("buyerInsightInput").value.trim() : "") || currentBuyerInsight;
-  var realReason = document.getElementById("realReasonInput") ? document.getElementById("realReasonInput").value.trim() : "";
-  var surprise = document.getElementById("surpriseInput") ? document.getElementById("surpriseInput").value.trim() : "";
-  var product = document.getElementById("productInput").value.trim();
-  if (!insight) { showToast("Tell us who is buying this and why"); document.getElementById("buyerInsightInput").focus(); return; }
-  if (!realReason) { showToast("Tell us what made you want this product"); document.getElementById("realReasonInput").focus(); return; }
-  if (!surprise) { showToast("Tell us what would surprise someone about this product"); document.getElementById("surpriseInput").focus(); return; }
-  if (!product) {
-    showToast("Add product details first");
-    var pd = document.getElementById("productInput");
-    if(pd) { pd.focus(); pd.style.borderColor = "var(--red)"; setTimeout(function(){ pd.style.borderColor = ""; }, 2000); }
-    return;
+  var insightEl = document.getElementById("buyerInsightInput");
+  var realReasonEl = document.getElementById("realReasonInput");
+  var surpriseEl = document.getElementById("surpriseInput");
+  var productEl = document.getElementById("productInput");
+
+  var insight = (insightEl ? insightEl.value.trim() : "") || currentBuyerInsight;
+  var realReason = (realReasonEl ? realReasonEl.value.trim() : "") || currentRealReason;
+  var surprise = (surpriseEl ? surpriseEl.value.trim() : "") || currentSurprise;
+  var product = productEl ? productEl.value.trim() : "";
+
+  function highlightField(el, msg) {
+    showToast(msg);
+    if (!el) return;
+    // Make sure Type tab is active so field is visible
+    if(document.getElementById("optText")) document.getElementById("optText").click();
+    setTimeout(function() {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.style.borderColor = "var(--red)";
+      el.focus();
+      setTimeout(function(){ el.style.borderColor = "rgba(144,144,240,0.4)"; }, 3000);
+    }, 200);
   }
+
+  if (!insight) { highlightField(insightEl, "Fill in who is buying this and why before saving"); return; }
+  if (!realReason) { highlightField(realReasonEl, "Fill in what made you want this product before saving"); return; }
+  if (!surprise) { highlightField(surpriseEl, "Fill in what would surprise someone about this product before saving"); return; }
+  if (!product) { highlightField(productEl, "Fill in product details before saving"); return; }
   if (!currentPrice) { showPriceModal(saveNewProduct); return; }
+
   currentBuyerInsight = insight;
   currentMotivation = insight;
   currentRealReason = realReason;
@@ -2884,9 +2899,11 @@ function saveNewProduct() {
   currentProduct = combined;
   var name = currentProductName || product.split(".")[0].slice(0, 60);
   currentProductName = name;
+  var savedPrice = currentPrice;
   var btn = document.getElementById("genBtn");
   if(btn) { btn.disabled = true; btn.innerHTML = "Saving..."; }
   saveProduct(name, allData, function() {
+    currentPrice = savedPrice;
     if(btn) { btn.disabled = false; btn.innerHTML = "✓&nbsp; Save Product"; }
     document.body.classList.add("hub-mode");
     renderProductHub();
