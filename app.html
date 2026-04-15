@@ -8313,7 +8313,7 @@ function renderDailyMeter() {
 
 function showRateLimitError() {
   var mc = document.getElementById("mainContent");
-  if (mc) mc.innerHTML = "<div class='state-box'><div class='state-icon'>⏳</div><div class='state-title'>Daily limit reached</div><div class='state-desc'>You have used all 30 of your generations for today. Your limit resets at midnight. Come back tomorrow to keep creating.</div></div>";
+  if (mc) mc.innerHTML = "<div class='state-box'><div class='state-icon'>⏳</div><div class='state-title'>Daily limit reached</div><div class='state-desc'>You have used all 50 of your generations for today. Your limit resets at midnight. Come back tomorrow to keep creating.</div></div>";
   var btn = document.getElementById("genBtn");
   if (btn) { btn.disabled = false; btn.innerHTML = "🧠&nbsp; Generate Focus Angles"; }
 }
