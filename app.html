@@ -638,6 +638,19 @@ body.hub-mode #priceSelectorMount { display: none !important; }
   </div>
   <div id="textPanel">
 
+    <!-- Product name field -->
+    <div class="field-block" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+        <div class="field-label" style="margin-bottom:0;">Product name</div>
+        <div class="field-required-badge" id="productNameBadge" style="flex-shrink:0;">Required</div>
+      </div>
+      <div class="field-hints-line" style="margin-bottom:7px;">Short name for your library. e.g. Shark Navigator, Le Creuset Dutch Oven, Van Holten Pickle Popsicles.</div>
+      <input type="text" id="newProductNameInput" maxlength="60" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;width:100%;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:10px 14px;outline:none;box-sizing:border-box;" placeholder="e.g. Shark Navigator Lift Away">
+      <div class="panel-foot">
+        <span class="char-ct"><span id="productNameCount">0</span>/60</span>
+      </div>
+    </div>
+
     <!-- Hook fields header -->
     <div style="background:linear-gradient(135deg,rgba(144,144,240,0.15),rgba(144,144,240,0.05));border:1px solid rgba(144,144,240,0.3);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;">
       <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:4px;">Your hooks live in these answers</div>
@@ -2579,6 +2592,26 @@ document.getElementById("buyerMotivation") && document.getElementById("buyerMoti
   if(countEl) countEl.textContent = this.value.length;
 });
 
+// Product name field listener
+(function() {
+  var pn = document.getElementById("newProductNameInput");
+  if (!pn) return;
+  pn.addEventListener("input", function() {
+    var nc = document.getElementById("productNameCount");
+    if (nc) nc.textContent = this.value.length;
+    var badge = document.getElementById("productNameBadge");
+    if (badge) {
+      if (this.value.trim().length > 2) {
+        badge.classList.add("satisfied");
+        badge.textContent = "Ready";
+      } else {
+        badge.classList.remove("satisfied");
+        badge.textContent = "Required";
+      }
+    }
+  });
+})();
+
 // Buyer insight field listeners
 (function() {
   var bi = document.getElementById("buyerInsightInput");
@@ -2658,6 +2691,8 @@ document.getElementById("productInput").addEventListener("input", function() {
 });
 
 function clearText() {
+  var nn = document.getElementById("newProductNameInput");
+  if (nn) { nn.value = ""; nn.dispatchEvent(new Event("input")); }
   var bi = document.getElementById("buyerInsightInput");
   if (bi) { bi.value = ""; bi.dispatchEvent(new Event("input")); }
   var rr = document.getElementById("realReasonInput");
@@ -2666,6 +2701,7 @@ function clearText() {
   if (sp) { sp.value = ""; sp.dispatchEvent(new Event("input")); }
   document.getElementById("productInput").value = "";
   document.getElementById("charCount").textContent = "0";
+  currentProductName = "";
   currentRealReason = "";
   currentSurprise = "";
   // Reset price so the new product requires a fresh selection
@@ -2785,6 +2821,7 @@ function removeImg() {
 function showNew() {
   currentProduct = "";
   currentProductId = null;
+  currentProductName = "";
   allData = {};
   resetPicks();
   document.getElementById("productSelect").value = "";
@@ -2796,6 +2833,8 @@ function showNew() {
   currentRealReason = "";
   currentSurprise = "";
   setBuyerMotivation("");
+  var nnField = document.getElementById("newProductNameInput");
+  if (nnField) { nnField.value = ""; nnField.dispatchEvent(new Event("input")); }
   var biField = document.getElementById("buyerInsightInput");
   if (biField) { biField.value = ""; biField.dispatchEvent(new Event("input")); }
   var rrField = document.getElementById("realReasonInput");
@@ -2862,7 +2901,19 @@ function generateOnScreenText(productDesc, hooks) {
 }
 
 function saveNewProduct() {
-  var insightEl = document.getElementById("buyerInsightInput");
+  var nameEl = document.getElementById("newProductNameInput");
+  var enteredName = nameEl ? nameEl.value.trim() : "";
+
+  if (!enteredName) {
+    showToast("Add a product name for your library first");
+    if(nameEl) {
+      nameEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      nameEl.style.borderColor = "var(--red)";
+      nameEl.focus();
+      setTimeout(function(){ nameEl.style.borderColor = "var(--border-md)"; }, 3000);
+    }
+    return;
+  }
   var realReasonEl = document.getElementById("realReasonInput");
   var surpriseEl = document.getElementById("surpriseInput");
   var productEl = document.getElementById("productInput");
@@ -2897,7 +2948,7 @@ function saveNewProduct() {
   currentSurprise = surprise;
   var combined = insight + " REAL REASON: " + realReason + " SURPRISE DETAIL: " + surprise + " PRODUCT DETAILS: " + product;
   currentProduct = combined;
-  var name = currentProductName || product.split(".")[0].slice(0, 60);
+  var name = enteredName;
   currentProductName = name;
   var savedPrice = currentPrice;
   var btn = document.getElementById("genBtn");
