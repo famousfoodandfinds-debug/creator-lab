@@ -1827,8 +1827,9 @@ function buildSelect() {
 function toggleSort() {
   sortMode = sortMode === "alpha" ? "recent" : "alpha";
   var btn = document.getElementById("sortBtn");
-  if (btn) btn.textContent = sortMode === "alpha" ? "A-Z" : "New";
+  if (btn) btn.textContent = sortMode === "alpha" ? "A-Z" : "Recent";
   buildSelect();
+  showToast(sortMode === "alpha" ? "Library sorted A to Z -- tap the dropdown to browse" : "Library sorted by most recent -- tap the dropdown to browse");
 }
 
 function loadProductById(id) {
