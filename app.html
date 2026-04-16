@@ -2503,7 +2503,12 @@ function renderProductHub() {
             if(nn) updatePayload.name = nn;
             sb.from("products").update(updatePayload).eq("id", currentProductId).then(function(){
               buildSelect();
-            }).catch(function(){});
+              showToast("Saved");
+              document.body.classList.add("hub-mode");
+              renderProductHub();
+            }).catch(function(err){
+              showToast("Save error -- try again");
+            });
           }
           document.body.classList.add("hub-mode");
           renderProductHub();
