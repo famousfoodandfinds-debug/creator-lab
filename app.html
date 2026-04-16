@@ -3529,7 +3529,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
 
       " VOICE: Would a real person actually say this out loud to a friend right now? If a marketing person would say it, delete it. If you would text it, keep it." +
 
-      " YOUR PRIMARY BRIEF (hooks must serve this): " + getBuyerMotivation() + (currentRealReason ? " CREATOR REAL REASON: " + currentRealReason + "." : "") + (currentSurprise ? " SURPRISE DETAIL -- BUILD HOOKS AROUND THIS: " + currentSurprise + "." : "") + " PRODUCT DETAILS (proof only): " + currentProduct.split(' PRODUCT DETAILS: ').pop() + ". Price context: " + priceCtx + "." +
+      " YOUR PRIMARY BRIEF (hooks must serve this): " + getBuyerMotivation() + (currentRealReason ? " CREATOR REAL REASON: " + currentRealReason + "." : "") + (currentSurprise ? " SURPRISE DETAIL -- BUILD HOOKS AROUND THIS: " + currentSurprise + "." : "") + (currentAuthority ? " CREATOR AUTHORITY -- use this for at least one credential-based hook: " + currentAuthority + "." : "") + " PRODUCT DETAILS (proof only): " + currentProduct.split(' PRODUCT DETAILS: ').pop() + ". Price context: " + priceCtx + "." +
       batchUseContext +
       understandingNote +
       " " + profileNote +
