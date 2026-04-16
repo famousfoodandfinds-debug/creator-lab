@@ -3140,7 +3140,7 @@ function generate() {
     " CRITICAL: The creator described their buyer as: " + getBuyerMotivation() + ". Generate angles that serve THIS specific buyer. Do not generate angles based on product features the buyer did not mention. Every angle must connect to what the creator told you." +
     (currentRealReason ? " CREATOR REAL REASON -- what made them want this product: " + currentRealReason + ". Let this inform the emotional angles you generate." : "") +
     (currentSurprise ? " SURPRISE DETAIL -- what would shock someone about this product: " + currentSurprise + ". If a strong surprise detail exists, generate at least one angle that uses it as the hook territory." : "") +
-    (currentAuthority ? " CREATOR AUTHORITY -- their credential or experience with this product: " + currentAuthority + ". Use this to inform angles where credibility matters." : "") +
+
     " Task: Generate 5 buyer desire angles for this TikTok Shop product: " + product +
     " Rules: desire must be one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation." +
     " focus is 4-8 words specific to THIS product. description is one sentence about who the buyer is." +
@@ -4104,7 +4104,7 @@ function generateScriptBankSilent(onComplete) {
 }
 
 function generateScriptBank() {
-  var product = currentProduct;
+  var product = currentProduct.replace(/AUTHORITY:[^\n]*/gi, "").trim();
   if (!product) { showToast("No product description found"); return; }
 
   var btn = document.getElementById("genBtn");
@@ -5400,9 +5400,8 @@ function renderBatchPicker() {
   wrap.appendChild(loadingDiv);
   mc.appendChild(wrap);
 
-  var safeProduct = currentProduct.replace(/AUTHORITY:[^]*/i, "").trim();
-  var authorityNote = currentAuthority ? " The creator has this background with this product: " + currentAuthority : "";
-  var focusPrompt = 'Respond ONLY with valid JSON. No preamble. No explanation. No markdown. Start your response with { and end with }. JSON format: {"focuses":[{"focus":"string","desire":"string","description":"string"}]} CRITICAL: The creator described their buyer as: ' + getBuyerMotivation() + authorityNote + '. Generate angles that serve THIS buyer. Do not generate feature-based angles the buyer did not mention. Task: 5 buyer desire angles for this product: ' + safeProduct + ' Rules: desire must be one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER Social Media, Influencer, Viral. focus is 4-8 words specific to this product. Output JSON only. Begin with {';
+  var safeProduct = currentProduct.replace(/AUTHORITY:[^\n]*/gi, "").replace(/REAL REASON:[^\n]*/gi, "").trim();
+  var focusPrompt = 'Respond ONLY with valid JSON. No preamble. No explanation. No markdown. Start your response with { and end with }. JSON format: {"focuses":[{"focus":"string","desire":"string","description":"string"}]} CRITICAL: The creator described their buyer as: ' + getBuyerMotivation() + '. Generate angles that serve THIS buyer. Do not generate feature-based angles the buyer did not mention. Task: 5 buyer desire angles for this product: ' + safeProduct + ' Rules: desire must be one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER Social Media, Influencer, Viral. focus is 4-8 words specific to this product. Output JSON only. Begin with {';
 
   fetch("/api/claude", {
     method: "POST",
