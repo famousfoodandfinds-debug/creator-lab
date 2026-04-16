@@ -3662,6 +3662,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
       " PRE-CLOSE (one sentence): Private thought you almost didn't say. Matches real hesitation for this price." +
       " BODY 2 (under 25 words): What their life feels like now. Describe the moment, not the identity." +
       " BANNED: price cost worth deal game-changer you become the person who you are the person who. No invented scenarios." +
+      " For captions: write SEO-focused marketing copy with product benefits and searchable keywords for TikTok's algorithm. Never write personal stories for captions." +
       " Return ONLY valid JSON: {scripts:[{angle:string,hook:string,body1:string,preClose:string,body2:string,caption:string,hashtags:[string,string,string,string,string]}]}";
     fetch("/api/claude", {
       method: "POST",
