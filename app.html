@@ -3372,11 +3372,35 @@ function generateBatchScripts(angles) {
     });
     if (liked.length > 0) profileNote += " CREATOR VOICE PROFILE: This creator consistently rates these psychology styles as matching their voice: " + liked.join(", ") + ". Lean into these styles where they fit the angle.";
     if (disliked.length > 0) profileNote += " This creator has flagged these styles as not matching their voice: " + disliked.join(", ") + ". Avoid these framing styles.";
-    generateBatchScriptsWithProfile(angles, priceCtx, profileNote);
+
+    // If authority exists, generate the hook in a dedicated call first
+    if (currentAuthority) {
+      var authPrompt = "You write TikTok hooks. A creator has given you their authority credential. Your only job is to turn it into one hook under 10 words. Rules: first person only using I or My. Never change any name or relationship or title in the credential. Never change son-in-law to brother-in-law. Never change Police Officer to cop. Start with the credential then add a short verdict. Output only the hook text -- no quotes, no explanation, nothing else. Credential: " + currentAuthority;
+
+      fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 50, messages: [{ role: "user", content: authPrompt }] })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var authHook = "";
+        try {
+          data.content.forEach(function(b) { if (b.type === "text") authHook += b.text; });
+          authHook = authHook.trim().replace(/^["']|["']$/g, "");
+        } catch(e) { authHook = ""; }
+        generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook);
+      })
+      .catch(function() {
+        generateBatchScriptsWithProfile(angles, priceCtx, profileNote, "");
+      });
+    } else {
+      generateBatchScriptsWithProfile(angles, priceCtx, profileNote, "");
+    }
   });
 }
 
-function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
+function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook) {
   // Build angles text -- flag duplicates as variations
   // Assign hook types to each script slot
   var DESIRE_HOOK_MAP = {
@@ -3428,7 +3452,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
   }
 
   var thinkPrompt = "CRITICAL -- READ THIS FIRST: The creator has told you exactly who buys this product and why in their buyer insight below. This is your brief. Everything you write must serve this insight. The product description gives you facts to use as proof. The creator's insight tells you who you are writing for and what they care about. If your hooks do not directly connect to what the creator said, they are wrong -- rewrite them until they do. The product's feature list does not override the creator's insight. The creator's insight always wins. Before finalizing any hook ask: does this speak to the exact person the creator described? If the answer is no, start over. Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
-    " YOUR PRIMARY BRIEF -- READ THIS BEFORE ANYTHING ELSE: " + getBuyerMotivation() + (currentRealReason ? " CREATOR REAL REASON: " + currentRealReason + "." : "") + (currentSurprise ? " SURPRISE DETAIL -- BUILD HOOKS AROUND THIS: " + currentSurprise + "." : "") + (currentAuthority ? " SCRIPT 1 HOOK IS ALREADY WRITTEN -- do not generate a hook for Script 1. Use this exact hook word for word: \"" + currentAuthority + "\" -- [complete with a 3-5 word verdict about this product]. Do not change any word. Do not reorder. Do not substitute any relationship or title." : "") + " This is who you are writing for. Every hook must speak to this person. If a hook does not connect to this brief, rewrite it." +
+    " YOUR PRIMARY BRIEF -- READ THIS BEFORE ANYTHING ELSE: " + getBuyerMotivation() + (currentRealReason ? " CREATOR REAL REASON: " + currentRealReason + "." : "") + (currentSurprise ? " SURPRISE DETAIL -- BUILD HOOKS AROUND THIS: " + currentSurprise + "." : "") + (currentAuthority ? " The creator has authority on this product: " + currentAuthority + ". Let this inform the emotional angles and voice throughout all scripts." : "") + " This is who you are writing for. Every hook must speak to this person. If a hook does not connect to this brief, rewrite it." +
     " PRODUCT DETAILS (use only as proof for the feeling above): " + currentProduct.split(' PRODUCT DETAILS: ').pop() + ". Price: " + priceCtx + "." +
     batchUseContext +
     " Answer these four questions in 2-3 sentences each:" +
@@ -3542,7 +3566,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
 
       " VOICE: Would a real person actually say this out loud to a friend right now? If a marketing person would say it, delete it. If you would text it, keep it." +
 
-      " YOUR PRIMARY BRIEF (hooks must serve this): " + getBuyerMotivation() + (currentRealReason ? " CREATOR REAL REASON: " + currentRealReason + "." : "") + (currentSurprise ? " SURPRISE DETAIL -- BUILD HOOKS AROUND THIS: " + currentSurprise + "." : "") + (currentAuthority ? " SCRIPT 1 HOOK IS ALREADY WRITTEN -- do not generate a hook for Script 1. Use this exact hook word for word: \"" + currentAuthority + "\" -- [complete with a 3-5 word verdict about this product]. Do not change any word. Do not reorder. Do not substitute any relationship or title." : "") + " PRODUCT DETAILS (proof only): " + currentProduct.split(' PRODUCT DETAILS: ').pop() + ". Price context: " + priceCtx + "." +
+      " YOUR PRIMARY BRIEF (hooks must serve this): " + getBuyerMotivation() + (currentRealReason ? " CREATOR REAL REASON: " + currentRealReason + "." : "") + (currentSurprise ? " SURPRISE DETAIL -- BUILD HOOKS AROUND THIS: " + currentSurprise + "." : "") + (currentAuthority ? " The creator has authority on this product: " + currentAuthority + ". Let this inform the emotional angles and voice throughout all scripts." : "") + " PRODUCT DETAILS (proof only): " + currentProduct.split(' PRODUCT DETAILS: ').pop() + ". Price context: " + priceCtx + "." +
       batchUseContext +
       understandingNote +
       " " + profileNote +
@@ -3636,7 +3660,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
         if(ctas[i]) s.cta = ctas[i];
         if(screenTexts[i]) s.screenText = screenTexts[i];
       });
-      renderBatchResults(scripts, angles);
+      renderBatchResults(scripts, angles, authHook);
     };
 
     generateBatchCTAs(hooks, currentProduct, priceCtx, function(result) {
@@ -3689,7 +3713,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
       var tryRender = function() {
         if(!ctasDone || !screenDone) return;
         scripts.forEach(function(s, i) { if(ctas[i]) s.cta = ctas[i]; if(screenTexts[i]) s.screenText = screenTexts[i]; });
-        renderBatchResults(scripts, angles);
+        renderBatchResults(scripts, angles, authHook);
       };
       generateBatchCTAs(hooks, currentProduct, priceCtx, function(result) { ctas = result; ctasDone = true; tryRender(); });
       generateBatchScreenTexts(hooks, currentProduct, function(result) { screenTexts = result; screenDone = true; tryRender(); });
@@ -3702,7 +3726,11 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
   });
 }
 
-function renderBatchResults(scripts, angles) {
+function renderBatchResults(scripts, angles, authHook) {
+  // If a dedicated authority hook was generated, inject it into Script 1
+  if (authHook && scripts.length > 0) {
+    scripts[0].hook = authHook;
+  }
   var mc = document.getElementById("mainContent");
   mc.innerHTML = "";
   var wrap = document.createElement("div");
@@ -4146,7 +4174,7 @@ function generateScriptBank() {
 
   // ── CALL 1: Think through the product before writing anything ──
   var thinkPrompt = "CRITICAL -- READ THIS FIRST: The creator has told you exactly who buys this product and why in their buyer insight below. This is your brief. Everything you write must serve this insight. The product description gives you facts to use as proof. The creator's insight tells you who you are writing for and what they care about. If your hooks do not directly connect to what the creator said, they are wrong -- rewrite them until they do. The product's feature list does not override the creator's insight. The creator's insight always wins. Before finalizing any hook ask: does this speak to the exact person the creator described? If the answer is no, start over. Before writing any scripts, think through this product the way a real person would before opening their mouth about it." +
-    " YOUR PRIMARY BRIEF -- READ THIS BEFORE ANYTHING ELSE: " + getBuyerMotivation() + (currentRealReason ? " CREATOR REAL REASON: " + currentRealReason + "." : "") + (currentSurprise ? " SURPRISE DETAIL -- BUILD HOOKS AROUND THIS: " + currentSurprise + "." : "") + (currentAuthority ? " SCRIPT 1 HOOK IS ALREADY WRITTEN -- do not generate a hook for Script 1. Use this exact hook word for word: \"" + currentAuthority + "\" -- [complete with a 3-5 word verdict about this product]. Do not change any word. Do not reorder. Do not substitute any relationship or title." : "") + " This is who you are writing for. Every hook must speak to this person. If a hook does not connect to this brief, rewrite it." +
+    " YOUR PRIMARY BRIEF -- READ THIS BEFORE ANYTHING ELSE: " + getBuyerMotivation() + (currentRealReason ? " CREATOR REAL REASON: " + currentRealReason + "." : "") + (currentSurprise ? " SURPRISE DETAIL -- BUILD HOOKS AROUND THIS: " + currentSurprise + "." : "") + (currentAuthority ? " The creator has authority on this product: " + currentAuthority + ". Let this inform the emotional angles and voice throughout all scripts." : "") + " This is who you are writing for. Every hook must speak to this person. If a hook does not connect to this brief, rewrite it." +
     (currentRealReason ? " CREATOR REAL REASON -- what made them personally want this product: " + currentRealReason + ". This is raw material for authentic hooks." : "") +
     (currentSurprise ? " SURPRISE DETAIL -- what would shock someone who has never seen this product: " + currentSurprise + ". If this detail is specific and unexpected, build at least one hook around it." : "") +
     " PRODUCT DETAILS (use only as proof for the feeling above): " + product.split(' PRODUCT DETAILS: ').pop() + ". Price: " + getPriceContext() + "." +
