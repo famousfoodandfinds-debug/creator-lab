@@ -3381,7 +3381,7 @@ function generateBatchScripts(angles) {
       fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 150, messages: [{ role: "user", content: authPrompt }] })
+        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 150, messages: [{ role: "user", content: authPrompt }] })
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
