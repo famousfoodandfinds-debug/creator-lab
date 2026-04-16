@@ -2435,7 +2435,7 @@ function renderProductHub() {
     editDescBtnTop.style.cssText = "background:transparent;border:1px solid rgba(200,168,74,0.4);color:var(--gold);font-size:13px;";
     editDescBtnTop.textContent = "Edit product info";
     editDescBtnTop.addEventListener("click", function() {
-      var tryLoad = function(desc, insight) {
+      var tryLoad = function(desc, insight, realReason, surprise, authority) {
         mc.innerHTML = "";
         var editWrap = document.createElement("div"); editWrap.style.cssText = "padding:16px;";
         var backBtn = document.createElement("button"); backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 14px;"; backBtn.innerHTML = "← Back to product"; backBtn.addEventListener("click", function(){ renderProductHub(); }); editWrap.appendChild(backBtn);
@@ -2469,6 +2469,11 @@ function renderProductHub() {
         editWrap.appendChild(detailsDiv);
         var ta4 = document.createElement("textarea"); ta4.style.cssText = "width:100%;min-height:100px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:\'Instrument Sans\',sans-serif;font-size:14px;padding:12px 14px;outline:none;resize:vertical;line-height:1.6;box-sizing:border-box;-webkit-user-select:text;user-select:text;margin-bottom:20px;"; ta4.placeholder = "e.g. UV-resistant PE boxwood. Includes ground anchors. 12x12 inch planter. Weatherproof for indoor and outdoor use."; ta4.value = desc || ""; ta4.maxLength = 1000; editWrap.appendChild(ta4);
 
+        // Authority field (optional)
+        var authLbl = document.createElement("div"); authLbl.style.cssText = "font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--purple);margin-bottom:4px;"; authLbl.textContent = "Your authority on this product (optional)"; editWrap.appendChild(authLbl);
+        var authHint = document.createElement("div"); authHint.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:8px;line-height:1.5;"; authHint.textContent = "A credential, experience, or passion that makes your recommendation more credible."; editWrap.appendChild(authHint);
+        var ta5 = document.createElement("textarea"); ta5.style.cssText = "width:100%;min-height:70px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:\'Instrument Sans\',sans-serif;font-size:14px;padding:12px 14px;outline:none;resize:vertical;line-height:1.6;box-sizing:border-box;-webkit-user-select:text;user-select:text;margin-bottom:20px;"; ta5.placeholder = "e.g. I have cooked dinner for my family every night for 20 years. / My son is in the FBI and I know what home security gaps actually look like."; ta5.value = authority || ""; ta5.maxLength = 300; editWrap.appendChild(ta5);
+
         // Product name edit
         var nameLbl = document.createElement("div"); nameLbl.style.cssText = "font-size:10px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--muted);margin-bottom:4px;"; nameLbl.textContent = "Product name"; editWrap.appendChild(nameLbl);
         var nameHint = document.createElement("div"); nameHint.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:8px;"; nameHint.textContent = "How it appears in your library."; editWrap.appendChild(nameHint);
@@ -2476,7 +2481,7 @@ function renderProductHub() {
 
         var genBtn2 = document.createElement("button"); genBtn2.className = "next-btn"; genBtn2.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;"; genBtn2.innerHTML = "✓&nbsp; Save and Return to Hub";
         genBtn2.addEventListener("click", function(){
-          var ni = ta1.value.trim(); var nrr = ta2.value.trim(); var ns = ta3.value.trim(); var nd = ta4.value.trim(); var nn = nameInput.value.trim();
+          var ni = ta1.value.trim(); var nrr = ta2.value.trim(); var ns = ta3.value.trim(); var nd = ta4.value.trim(); var nauth = ta5.value.trim(); var nn = nameInput.value.trim();
           if(!ni){ showToast("Tell us who is buying this and why"); ta1.focus(); return; }
           if(!nrr){ showToast("Tell us what made you want this product"); ta2.focus(); return; }
           if(!ns){ showToast("Tell us what would surprise someone about this product"); ta3.focus(); return; }
@@ -2485,8 +2490,9 @@ function renderProductHub() {
           currentMotivation = ni;
           currentRealReason = nrr;
           currentSurprise = ns;
+          currentAuthority = nauth;
           if(nn) currentProductName = nn;
-          var combined = ni + " REAL REASON: " + nrr + " SURPRISE DETAIL: " + ns + " PRODUCT DETAILS: " + nd;
+          var combined = ni + " REAL REASON: " + nrr + " SURPRISE DETAIL: " + ns + (nauth ? " AUTHORITY: " + nauth : "") + " PRODUCT DETAILS: " + nd;
           var biField = document.getElementById("buyerInsightInput");
           if(biField) biField.value = ni;
           document.getElementById("productInput").value = nd;
@@ -2513,9 +2519,9 @@ function renderProductHub() {
           var rr = (r.data && r.data.real_reason) ? r.data.real_reason : currentRealReason;
           var surp = (r.data && r.data.surprise) ? r.data.surprise : currentSurprise;
           if(r.data && r.data.authority) currentAuthority = r.data.authority;
-          tryLoad(desc, insight, rr, surp);
-        }).catch(function(){ tryLoad(currentProduct, currentBuyerInsight, currentRealReason, currentSurprise); });
-      } catch(e){ tryLoad(currentProduct, currentBuyerInsight, currentRealReason, currentSurprise); }
+          tryLoad(desc, insight, rr, surp, r.data && r.data.authority ? r.data.authority : currentAuthority);
+        }).catch(function(){ tryLoad(currentProduct, currentBuyerInsight, currentRealReason, currentSurprise, currentAuthority); });
+      } catch(e){ tryLoad(currentProduct, currentBuyerInsight, currentRealReason, currentSurprise, currentAuthority); }
     });
     wrap.appendChild(editDescBtnTop);
 
