@@ -3373,34 +3373,40 @@ function generateBatchScripts(angles) {
     if (liked.length > 0) profileNote += " CREATOR VOICE PROFILE: This creator consistently rates these psychology styles as matching their voice: " + liked.join(", ") + ". Lean into these styles where they fit the angle.";
     if (disliked.length > 0) profileNote += " This creator has flagged these styles as not matching their voice: " + disliked.join(", ") + ". Avoid these framing styles.";
 
-    // If authority exists, generate the hook in a dedicated call first
+    // If authority exists, generate 3 hook variations in a dedicated call
     if (currentAuthority) {
-      var authPrompt = "You write TikTok hooks. A creator has given you their authority credential. Your only job is to turn it into one hook under 10 words. Rules: first person only using I or My. Never change any name or relationship or title in the credential. Never change son-in-law to brother-in-law. Never change Police Officer to cop. Start with the credential then add a short verdict. Output only the hook text -- no quotes, no explanation, nothing else. Credential: " + currentAuthority;
+      var productShort = currentProduct.split(' PRODUCT DETAILS: ').pop().split('.')[0].slice(0, 50);
+      var authPrompt = "You write TikTok Shop hooks. Generate exactly 3 different hooks using this creator authority. Rules: First person only using My or I. Never change any word, name, relationship, or title in the credential. Never change son-in-law to brother-in-law. Never change Police Officer to cop or officer. Each hook under 10 words total. Each hook: credential first then a different verdict about the product. Return only 3 lines, one hook per line, no numbers no bullets no extra text. Credential: " + currentAuthority + " Product: " + productShort;
 
       fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 50, messages: [{ role: "user", content: authPrompt }] })
+        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 150, messages: [{ role: "user", content: authPrompt }] })
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
-        var authHook = "";
+        var rawText = "";
         try {
-          data.content.forEach(function(b) { if (b.type === "text") authHook += b.text; });
-          authHook = authHook.trim().replace(/^["']|["']$/g, "");
-        } catch(e) { authHook = ""; }
-        generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook);
+          data.content.forEach(function(b) { if (b.type === "text") rawText += b.text; });
+          rawText = rawText.trim();
+        } catch(e) { rawText = ""; }
+        var authHooks = rawText.split("\n")
+          .map(function(l){ return l.replace(/^[\d\.\)\-\s]+/, "").replace(/^["']|["']$/g, "").trim(); })
+          .filter(function(l){ return l.length > 5; })
+          .slice(0, 3);
+        generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHooks);
       })
       .catch(function() {
-        generateBatchScriptsWithProfile(angles, priceCtx, profileNote, "");
+        generateBatchScriptsWithProfile(angles, priceCtx, profileNote, []);
       });
     } else {
-      generateBatchScriptsWithProfile(angles, priceCtx, profileNote, "");
+      generateBatchScriptsWithProfile(angles, priceCtx, profileNote, []);
     }
   });
 }
 
-function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook) {
+function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHooks) {
+  authHooks = authHooks || [];
   // Build angles text -- flag duplicates as variations
   // Assign hook types to each script slot
   var DESIRE_HOOK_MAP = {
@@ -3660,7 +3666,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
         if(ctas[i]) s.cta = ctas[i];
         if(screenTexts[i]) s.screenText = screenTexts[i];
       });
-      renderBatchResults(scripts, angles, authHook);
+      renderBatchResults(scripts, angles, authHooks);
     };
 
     generateBatchCTAs(hooks, currentProduct, priceCtx, function(result) {
@@ -3713,7 +3719,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
       var tryRender = function() {
         if(!ctasDone || !screenDone) return;
         scripts.forEach(function(s, i) { if(ctas[i]) s.cta = ctas[i]; if(screenTexts[i]) s.screenText = screenTexts[i]; });
-        renderBatchResults(scripts, angles, authHook);
+        renderBatchResults(scripts, angles, authHooks);
       };
       generateBatchCTAs(hooks, currentProduct, priceCtx, function(result) { ctas = result; ctasDone = true; tryRender(); });
       generateBatchScreenTexts(hooks, currentProduct, function(result) { screenTexts = result; screenDone = true; tryRender(); });
@@ -3726,10 +3732,12 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
   });
 }
 
-function renderBatchResults(scripts, angles, authHook) {
-  // If a dedicated authority hook was generated, inject it into Script 1
-  if (authHook && scripts.length > 0) {
-    scripts[0].hook = authHook;
+function renderBatchResults(scripts, angles, authHooks) {
+  // If dedicated authority hooks were generated, inject into scripts 1, 2, 3
+  if (authHooks && authHooks.length > 0) {
+    for (var i = 0; i < Math.min(authHooks.length, scripts.length, 3); i++) {
+      if (authHooks[i]) scripts[i].hook = authHooks[i];
+    }
   }
   var mc = document.getElementById("mainContent");
   mc.innerHTML = "";
