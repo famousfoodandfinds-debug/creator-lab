@@ -1878,13 +1878,16 @@ function loadProductById(id) {
     currentBuyerInsight = result.data.motivation || "";
     currentRealReason = result.data.real_reason || "";
     currentSurprise = result.data.surprise || "";
+    currentAuthority = result.data.authority || "";
     // Restore combined product string with all fields
     if(currentRealReason || currentSurprise) {
       var descStr = result.data.description || result.data.name || "";
-      currentProduct = currentBuyerInsight + (currentRealReason ? " REAL REASON: " + currentRealReason : "") + (currentSurprise ? " SURPRISE DETAIL: " + currentSurprise : "") + " PRODUCT DETAILS: " + descStr;
+      currentProduct = currentBuyerInsight + (currentRealReason ? " REAL REASON: " + currentRealReason : "") + (currentSurprise ? " SURPRISE DETAIL: " + currentSurprise : "") + (currentAuthority ? " AUTHORITY: " + currentAuthority : "") + " PRODUCT DETAILS: " + descStr;
     }
     var biField = document.getElementById("buyerInsightInput");
     if (biField) biField.value = currentBuyerInsight;
+    var authField = document.getElementById("authorityInput");
+    if (authField) authField.value = currentAuthority;
     currentProductName = result.data.name;
     resetPicks();
     document.body.classList.add("hub-mode");
@@ -1914,7 +1917,7 @@ function saveProduct(name, bank, callback) {
   setSyncing(true);
   var desc = document.getElementById("productInput") ? document.getElementById("productInput").value.trim() : "";
   var motivation = getBuyerMotivation();
-  var payload = { user_id: currentUser.id, name: name, bank: Object.assign({}, bank, { _promptVersion: APP_VERSION }), description: desc, motivation: motivation || null, real_reason: currentRealReason || null, surprise: currentSurprise || null, updated_at: new Date().toISOString() };
+  var payload = { user_id: currentUser.id, name: name, bank: Object.assign({}, bank, { _promptVersion: APP_VERSION }), description: desc, motivation: motivation || null, real_reason: currentRealReason || null, surprise: currentSurprise || null, authority: currentAuthority || null, updated_at: new Date().toISOString() };
   var promise;
   if (currentProductId) {
     // Update existing product
@@ -2490,7 +2493,7 @@ function renderProductHub() {
           document.getElementById("charCount").textContent = nd.length;
           currentProduct = combined;
           if(currentProductId) {
-            var updatePayload = { motivation: ni, real_reason: nrr, surprise: ns, description: nd };
+            var updatePayload = { motivation: ni, real_reason: nrr, surprise: ns, description: nd, authority: currentAuthority || null };
             if(nn) updatePayload.name = nn;
             sb.from("products").update(updatePayload).eq("id", currentProductId).then(function(){
               buildSelect();
@@ -2504,11 +2507,12 @@ function renderProductHub() {
         setTimeout(function(){ ta1.focus(); }, 150); window.scrollTo(0,0);
       };
       try {
-        sb.from("products").select("description, name, motivation, real_reason, surprise").eq("id", currentProductId).single().then(function(r){
+        sb.from("products").select("description, name, motivation, real_reason, surprise, authority").eq("id", currentProductId).single().then(function(r){
           var desc = (r.data && r.data.description && r.data.description.length > 10) ? r.data.description : (r.data && r.data.name ? r.data.name : currentProduct);
           var insight = (r.data && r.data.motivation) ? r.data.motivation : currentBuyerInsight;
           var rr = (r.data && r.data.real_reason) ? r.data.real_reason : currentRealReason;
           var surp = (r.data && r.data.surprise) ? r.data.surprise : currentSurprise;
+          if(r.data && r.data.authority) currentAuthority = r.data.authority;
           tryLoad(desc, insight, rr, surp);
         }).catch(function(){ tryLoad(currentProduct, currentBuyerInsight, currentRealReason, currentSurprise); });
       } catch(e){ tryLoad(currentProduct, currentBuyerInsight, currentRealReason, currentSurprise); }
@@ -3578,7 +3582,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote) {
       " CTA: The detergent that becomes your secret -- linked below." +
       " WHY IT WORKS: The hook creates instant intrigue and identity. The pre-close confirms the exclusivity feeling. Body 2 elevates a mundane moment into something she wants." +
 
-      " BANNED: price cost worth deal game-changer elevate transform engineered crafted link in bio you become the person who you are the person who thing as placeholder for party or event. No invented scenarios. No brand names except the product being promoted." +
+      " BANNED: price cost worth deal game-changer elevate transform engineered crafted link in bio you become the person who you are the person who thing as placeholder for party or event. No invented scenarios. STRICT BRAND BAN: The ONLY brand name allowed anywhere in captions or hashtags is the brand of the product being promoted. Never name any other brand, product, medication, treatment, or trademarked name including but not limited to: Botox, Dysport, Juvederm, Ozempic, Wegovy, Mounjaro, Amazon, Target, Walmart, Starbucks, Apple, Samsung, YouTube, Instagram, TikTok, Netflix, or any other named brand. Describe the category or the feeling instead -- never the brand name." +
 
       " For each script generate a caption (2-3 sentences a real person would post) and 5 hashtags (no # symbol)." +
       " Do NOT generate a CTA or screenText -- those are written separately." +
