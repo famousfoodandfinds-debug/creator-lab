@@ -654,43 +654,40 @@ body.hub-mode #priceSelectorMount { display: none !important; }
     <!-- Hook fields header -->
     <div style="background:linear-gradient(135deg,rgba(144,144,240,0.15),rgba(144,144,240,0.05));border:1px solid rgba(144,144,240,0.3);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;">
       <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:4px;">Your hooks live in these answers</div>
-      <div style="font-size:12px;color:var(--white-dim);line-height:1.5;">The more specific and honest you are, the more scroll-stopping your hooks will be.</div>
+      <div style="font-size:12px;color:var(--white-dim);line-height:1.5;">Finish each sentence honestly. The more specific you are the stronger your hooks will be.</div>
     </div>
 
-    <!-- Field 1: Who is buying and why -->
+    <!-- Field 1: Sentence starter -->
     <div class="field-block" id="field1Block">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
-        <div class="field-label" style="margin-bottom:0;">Who is buying this and why?</div>
-        <div class="field-required-badge" id="field1Badge" style="flex-shrink:0;">Required</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="field-required-badge" id="field1Badge">Required</div>
       </div>
-      <div class="field-hints-line" style="margin-bottom:7px;">Who is this person? What are they feeling before they find this product?</div>
-      <textarea id="buyerInsightInput" maxlength="600" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. Busy mom who keeps losing plants and feels embarrassed when guests come over. Wants her home to look put together without the maintenance."></textarea>
+      <div style="font-size:14px;font-weight:600;color:var(--purple);font-style:italic;margin-bottom:8px;line-height:1.5;">The person who needs this most is someone who...</div>
+      <textarea id="buyerInsightInput" maxlength="600" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. keeps burning rice on the stove and has just stopped making it at home because it never turns out right"></textarea>
       <div class="panel-foot">
         <span class="char-ct"><span id="insightCount">0</span>/600</span>
       </div>
     </div>
 
-    <!-- Field 2: Real reason -->
+    <!-- Field 2: Sentence starter -->
     <div class="field-block" id="field2Block">
-      <div class="field-label">What made YOU want this product?</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
-        <div class="field-hints-line" style="margin-bottom:0;">Say it like you are texting a friend. The moment you knew you needed it.</div>
-        <div class="field-required-badge" id="field2Badge" style="flex-shrink:0;">Required</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="field-required-badge" id="field2Badge">Required</div>
       </div>
-      <textarea id="realReasonInput" maxlength="600" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. I kept buying real plants and losing them within a month. When I saw these I literally could not tell they were fake."></textarea>
+      <div style="font-size:14px;font-weight:600;color:var(--purple);font-style:italic;margin-bottom:8px;line-height:1.5;">I decided to promote this when...</div>
+      <textarea id="realReasonInput" maxlength="600" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. I realized I could start it and walk away to make the rest of dinner without thinking about it once"></textarea>
       <div class="panel-foot">
         <span class="char-ct"><span id="realReasonCount">0</span>/600</span>
       </div>
     </div>
 
-    <!-- Field 3: The surprise -->
+    <!-- Field 3: Sentence starter -->
     <div class="field-block" id="field3Block">
-      <div class="field-label">What would surprise someone about this product?</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
-        <div class="field-hints-line" style="margin-bottom:0;">Something unexpected about how it looks, works, or feels that only someone who has seen it would know.</div>
-        <div class="field-required-badge" id="field3Badge" style="flex-shrink:0;">Required</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div class="field-required-badge" id="field3Badge">Required</div>
       </div>
-      <textarea id="surpriseInput" maxlength="400" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. You genuinely cannot tell they are fake from the street. My neighbor asked me who does my landscaping."></textarea>
+      <div style="font-size:14px;font-weight:600;color:var(--purple);font-style:italic;margin-bottom:8px;line-height:1.5;">Most people don't realize this product...</div>
+      <textarea id="surpriseInput" maxlength="400" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. comes with its own measuring cups for rice and water so you never have to guess the ratio"></textarea>
       <div class="panel-foot">
         <span class="char-ct"><span id="surpriseCount">0</span>/400</span>
       </div>
@@ -698,18 +695,17 @@ body.hub-mode #priceSelectorMount { display: none !important; }
 
     <!-- Field 3b: Authority (optional) -->
     <div class="field-block" id="field3bBlock">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
-        <div class="field-label" style="margin-bottom:0;">Do you have any special authority on this type of product?</div>
-        <div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:2px 8px;flex-shrink:0;">Optional</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+        <div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:2px 8px;">Optional</div>
       </div>
-      <div class="field-hints-line" style="margin-bottom:7px;">A credential, experience, passion, or identity that makes your recommendation more credible. Could be professional, personal, or just that you have tried everything in this category.</div>
-      <textarea id="authorityInput" maxlength="300" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="e.g. I have cooked dinner for my family every night for 20 years. / As a dog groomer I have used every brush on the market. / I am obsessed with a clean house and have tried every vacuum out there."></textarea>
+      <div style="font-size:14px;font-weight:600;color:rgba(144,144,240,0.5);font-style:italic;margin-bottom:8px;line-height:1.5;">My credibility on this product is...</div>
+      <textarea id="authorityInput" maxlength="300" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="e.g. I have cooked for my family every night for 20 years. / My son-in-law is a Police Officer and I know what good home security looks like."></textarea>
       <div class="panel-foot">
         <span class="char-ct"><span id="authorityCount">0</span>/300</span>
       </div>
     </div>
 
-    <!-- Field 4: Product details -->
+        <!-- Field 4: Product details -->
     <div class="field-block field-block-2" id="field4Block" style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px;">
       <div class="field-label">Product details</div>
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
