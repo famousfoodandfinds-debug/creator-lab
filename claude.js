@@ -1,4 +1,4 @@
-const DAILY_LIMIT = 50;
+const DAILY_LIMIT = 30;
 const SUPABASE_URL = "https://ysacpditbxcrairmypsp.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYWNwZGl0YnhjcmFpcm15cHNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjU4MjYsImV4cCI6MjA4OTM0MTgyNn0.U8W_KpDkYCT-jVBbXneAP1q_W9ChfhTi69DD0SS6G3o";
 
@@ -50,7 +50,7 @@ exports.handler = async function(event) {
           statusCode: 429,
           body: JSON.stringify({
             error: "daily_limit_reached",
-            message: "You have reached your 50 generations for today. Your limit resets at midnight.",
+            message: "You have reached your 30 generations for today. Your limit resets at midnight.",
             count: currentCount,
             limit: DAILY_LIMIT
           })
