@@ -3173,7 +3173,7 @@ function generate() {
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
   })
   .then(function(r) {
     if (r.status === 429) { showRateLimitError(); throw new Error("rate_limit"); }
@@ -5465,7 +5465,7 @@ function renderBatchPicker() {
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
   })
   .then(function(r) {
     if(r.status === 429) { showRateLimitError(); throw new Error("rate_limit"); }
@@ -5764,7 +5764,7 @@ function renderFocusPicker() {
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
   })
   .then(function(r) {
     if(r.status === 429) { showRateLimitError(); throw new Error("rate_limit"); }
