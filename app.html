@@ -644,79 +644,78 @@ body.hub-mode #priceSelectorMount { display: none !important; }
         <div class="field-label" style="margin-bottom:0;">Product name</div>
         <div class="field-required-badge" id="productNameBadge" style="flex-shrink:0;">Required</div>
       </div>
-      <div class="field-hints-line" style="margin-bottom:7px;">Short name for your library. e.g. Shark Navigator, Le Creuset Dutch Oven, Van Holten Pickle Popsicles.</div>
+      <div class="field-hints-line" style="margin-bottom:7px;">Short name for your library. e.g. Shark Navigator, Le Creuset Dutch Oven, Aroma Rice Cooker.</div>
       <input type="text" id="newProductNameInput" maxlength="60" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;width:100%;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:10px 14px;outline:none;box-sizing:border-box;" placeholder="e.g. Shark Navigator Lift Away">
       <div class="panel-foot">
         <span class="char-ct"><span id="productNameCount">0</span>/60</span>
       </div>
     </div>
 
-    <!-- Hook fields header -->
-    <div style="background:linear-gradient(135deg,rgba(144,144,240,0.15),rgba(144,144,240,0.05));border:1px solid rgba(144,144,240,0.3);border-radius:var(--radius);padding:14px 16px;margin-bottom:16px;">
-      <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:4px;">Your hooks live in these answers</div>
-      <div style="font-size:12px;color:var(--white-dim);line-height:1.5;">Finish each sentence honestly. The more specific you are the stronger your hooks will be.</div>
+    <!-- Step 1: Product description input -->
+    <div id="descSetupBlock" class="field-block" style="margin-bottom:16px;">
+      <div style="background:linear-gradient(135deg,rgba(144,144,240,0.15),rgba(144,144,240,0.05));border:1px solid rgba(144,144,240,0.3);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;">
+        <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:4px;">Tell us about this product</div>
+        <div style="font-size:12px;color:var(--white-dim);line-height:1.5;">Paste the product description or just tell us what it does. We will take it from there.</div>
+      </div>
+      <textarea id="productInput" maxlength="1000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste product description here -- brand name, key features, specs, what it does."></textarea>
+      <div class="panel-foot">
+        <span class="char-ct"><span id="productDescCount">0</span>/1000</span>
+      </div>
+      <button id="generateBuyersBtn" onclick="generateBuyerCards()" style="width:100%;margin-top:12px;background:var(--purple);border:none;border-radius:var(--radius-sm);color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:700;padding:13px;cursor:pointer;">Find my buyers ✦</button>
     </div>
 
-    <!-- Field 1: Sentence starter -->
-    <div class="field-block" id="field1Block">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div class="field-required-badge" id="field1Badge">Required</div>
-      </div>
-      <div style="font-size:14px;font-weight:600;color:var(--purple);font-style:italic;margin-bottom:8px;line-height:1.5;">The person who needs this most is someone who...</div>
-      <textarea id="buyerInsightInput" maxlength="600" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. keeps burning rice on the stove and has just stopped making it at home because it never turns out right"></textarea>
-      <div class="panel-foot">
-        <span class="char-ct"><span id="insightCount">0</span>/600</span>
-      </div>
-    </div>
+    <!-- Step 2: Buyer card selection (hidden until generated) -->
+    <div id="buyerSetupBlock" style="display:none;margin-bottom:16px;">
+      <div style="font-size:13px;font-weight:700;color:var(--white);margin-bottom:4px;">Who are you talking to?</div>
+      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5;">Select everyone that fits. Each buyer type gets their own angle in your scripts.</div>
+      <div id="buyerCardsList"></div>
 
-    <!-- Field 2: Sentence starter -->
-    <div class="field-block" id="field2Block">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div class="field-required-badge" id="field2Badge">Required</div>
+      <!-- Add your own -->
+      <div id="addOwnBuyerToggle" onclick="showAddOwnBuyer()" style="background:transparent;border:1px dashed rgba(144,144,240,0.25);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+        <div style="width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(144,144,240,0.3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(144,144,240,0.5);line-height:1;">+</div>
+        <div style="font-size:13px;color:rgba(144,144,240,0.6);">Add your own buyer type</div>
       </div>
-      <div style="font-size:14px;font-weight:600;color:var(--purple);font-style:italic;margin-bottom:8px;line-height:1.5;">I decided to promote this when...</div>
-      <textarea id="realReasonInput" maxlength="600" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. I realized I could start it and walk away to make the rest of dinner without thinking about it once"></textarea>
-      <div class="panel-foot">
-        <span class="char-ct"><span id="realReasonCount">0</span>/600</span>
-      </div>
-    </div>
 
-    <!-- Field 3: Sentence starter -->
-    <div class="field-block" id="field3Block">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div class="field-required-badge" id="field3Badge">Required</div>
+      <!-- Custom buyer input -->
+      <div id="addOwnBuyerField" style="display:none;background:rgba(144,144,240,0.08);border:1px solid rgba(144,144,240,0.4);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--purple);margin-bottom:8px;">The person who needs this most is someone who...</div>
+        <textarea id="customBuyerInput" rows="2" maxlength="200" placeholder="e.g. college student in a dorm who needs quick easy meals with minimal cleanup" style="-webkit-user-select:text;user-select:text;width:100%;background:transparent;border:none;border-bottom:1px solid rgba(144,144,240,0.3);color:var(--white);font-size:13px;padding:0 0 8px;outline:none;box-sizing:border-box;font-family:'Instrument Sans',sans-serif;resize:none;line-height:1.5;"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px;">
+          <button onclick="addCustomBuyer()" style="flex:1;background:var(--purple);border:none;border-radius:8px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:700;padding:8px;cursor:pointer;">Add this buyer</button>
+          <button onclick="hideAddOwnBuyer()" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;padding:8px 12px;cursor:pointer;">Cancel</button>
+        </div>
       </div>
-      <div style="font-size:14px;font-weight:600;color:var(--purple);font-style:italic;margin-bottom:8px;line-height:1.5;">Most people don't realize this product...</div>
-      <textarea id="surpriseInput" maxlength="400" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. comes with its own measuring cups for rice and water so you never have to guess the ratio"></textarea>
-      <div class="panel-foot">
-        <span class="char-ct"><span id="surpriseCount">0</span>/400</span>
-      </div>
-    </div>
 
-    <!-- Field 3b: Authority (optional) -->
-    <div class="field-block" id="field3bBlock">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-        <div style="font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);background:var(--surface2);border:1px solid var(--border);border-radius:999px;padding:2px 8px;">Optional</div>
-      </div>
-      <div style="font-size:14px;font-weight:600;color:rgba(144,144,240,0.5);font-style:italic;margin-bottom:8px;line-height:1.5;">My credibility on this product is...</div>
-      <textarea id="authorityInput" maxlength="300" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="e.g. I have cooked for my family every night for 20 years. / My son-in-law is a Police Officer and I know what good home security looks like."></textarea>
-      <div class="panel-foot">
-        <span class="char-ct"><span id="authorityCount">0</span>/300</span>
-      </div>
-    </div>
+      <!-- Optional detail fields (collapsed) -->
+      <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:6px;margin-bottom:14px;">
+        <div id="detailToggle" onclick="toggleDetailFields()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+          <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;">Add more detail <span style="font-size:10px;">(optional)</span></div>
+          <div id="detailArrow" style="font-size:12px;color:var(--muted);transition:transform 0.2s;">▼</div>
+        </div>
+        <div id="detailFields" style="display:none;margin-top:12px;">
+          <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;">These two fields make your pre-close and body lines stronger. Fill them in when you have time.</div>
 
-        <!-- Field 4: Product details -->
-    <div class="field-block field-block-2" id="field4Block" style="border-top:1px solid var(--border);padding-top:16px;margin-top:4px;">
-      <div class="field-label">Product details</div>
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
-        <div class="field-hints-line" style="margin-bottom:0;">Brand name, key features, specs. This becomes the proof in your body lines.</div>
-        <div class="field-required-badge" style="flex-shrink:0;">Required</div>
+          <div style="margin-bottom:14px;">
+            <div style="font-size:14px;font-weight:600;color:var(--purple);font-style:italic;margin-bottom:8px;">I decided to promote this when...</div>
+            <textarea id="realReasonInput" maxlength="600" rows="2" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. I realized I could start it and walk away to make the rest of dinner without thinking about it once"></textarea>
+            <div class="panel-foot"><span class="char-ct"><span id="realReasonCount">0</span>/600</span></div>
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <div style="font-size:14px;font-weight:600;color:var(--purple);font-style:italic;margin-bottom:8px;">Most people don't realize this product...</div>
+            <textarea id="surpriseInput" maxlength="400" rows="2" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. comes with its own measuring cups so you never have to guess the ratio"></textarea>
+            <div class="panel-foot"><span class="char-ct"><span id="surpriseCount">0</span>/400</span></div>
+          </div>
+
+          <div>
+            <div style="font-size:14px;font-weight:600;color:rgba(144,144,240,0.5);font-style:italic;margin-bottom:8px;">My credibility on this product is... <span style="font-size:11px;font-weight:400;font-style:normal;color:var(--muted);">optional</span></div>
+            <textarea id="authorityInput" maxlength="300" rows="2" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="e.g. I have cooked for my family every night for 20 years."></textarea>
+            <div class="panel-foot"><span class="char-ct"><span id="authorityCount">0</span>/300</span></div>
+          </div>
+        </div>
       </div>
-      <textarea id="productInput" maxlength="1000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Brand name, key features and specs."></textarea>
-      <div class="panel-foot">
-        <span class="char-ct"><span id="charCount">0</span>/1000</span>
-        <button class="clr-btn" onclick="clearText()">Clear</button>
-      </div>
+
+      <button class="gen-btn" id="genBtn" onclick="saveNewProduct()">✓&nbsp; Save Product</button>
     </div>
 
     <!-- Hidden legacy motivation field for backwards compat -->
@@ -791,6 +790,7 @@ var currentBuyerInsight = ""; // Field 1: who is buying and why
 var currentRealReason = ""; // Field 2: what made creator want this
 var currentSurprise = ""; // Field 3: what would surprise someone
 var currentAuthority = ""; // Field 3b: optional authority/credential
+var currentBuyers = []; // Selected buyer types from buyer card flow
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
 var APP_VERSION = "3.0.4";
@@ -1875,6 +1875,16 @@ function loadProductById(id) {
     currentRealReason = result.data.real_reason || "";
     currentSurprise = result.data.surprise || "";
     currentAuthority = result.data.authority || "";
+    // Load saved buyers
+    try {
+      currentBuyers = result.data.buyers ? JSON.parse(result.data.buyers) : [];
+    } catch(e) { currentBuyers = []; }
+    // If buyers exist use them as the insight, otherwise fall back to motivation
+    if (currentBuyers.length) {
+      currentBuyerInsight = currentBuyers.join(". Also: ");
+      currentMotivation = currentBuyerInsight;
+      setBuyerMotivation(currentMotivation);
+    }
     // Restore combined product string with all fields
     if(currentRealReason || currentSurprise) {
       var descStr = result.data.description || result.data.name || "";
@@ -1913,7 +1923,7 @@ function saveProduct(name, bank, callback) {
   setSyncing(true);
   var desc = document.getElementById("productInput") ? document.getElementById("productInput").value.trim() : "";
   var motivation = getBuyerMotivation();
-  var payload = { user_id: currentUser.id, name: name, bank: Object.assign({}, bank, { _promptVersion: APP_VERSION }), description: desc, motivation: motivation || null, real_reason: currentRealReason || null, surprise: currentSurprise || null, authority: currentAuthority || null, updated_at: new Date().toISOString() };
+  var payload = { user_id: currentUser.id, name: name, bank: Object.assign({}, bank, { _promptVersion: APP_VERSION }), description: desc, motivation: motivation || null, real_reason: currentRealReason || null, surprise: currentSurprise || null, authority: currentAuthority || null, buyers: currentBuyers.length ? JSON.stringify(currentBuyers) : null, updated_at: new Date().toISOString() };
   var promise;
   if (currentProductId) {
     // Update existing product
@@ -2351,7 +2361,31 @@ function renderProductHub() {
     heading.textContent = currentProductName || currentProduct.slice(0, 60);
     wrap.appendChild(heading);
 
-    // Authority indicator -- shows if authority is loaded for this product
+    // Buyer tags -- show selected buyers or prompt to set up
+    if (currentBuyers && currentBuyers.length > 0) {
+      var buyerWrap = document.createElement("div");
+      buyerWrap.style.cssText = "margin-bottom:10px;display:flex;flex-wrap:wrap;align-items:center;gap:4px;";
+      currentBuyers.forEach(function(b) {
+        var tag = document.createElement("span");
+        tag.className = "buyer-tag";
+        tag.textContent = b.length > 40 ? b.slice(0, 40) + "..." : b;
+        buyerWrap.appendChild(tag);
+      });
+      var editBuyersBtn = document.createElement("button");
+      editBuyersBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:11px;cursor:pointer;padding:0;text-decoration:underline;";
+      editBuyersBtn.textContent = "Edit buyers";
+      editBuyersBtn.addEventListener("click", function() { showEditBuyersModal(); });
+      buyerWrap.appendChild(editBuyersBtn);
+      wrap.appendChild(buyerWrap);
+    } else {
+      // Existing product with no buyers -- gentle prompt
+      var buyerPrompt = document.createElement("div");
+      buyerPrompt.style.cssText = "background:rgba(144,144,240,0.08);border:1px solid rgba(144,144,240,0.25);border-radius:8px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;";
+      buyerPrompt.innerHTML = "<div style='font-size:12px;color:var(--white-dim);line-height:1.4;'>Tell us who you are talking to for stronger scripts.</div><button onclick='showEditBuyersModal()' style='background:var(--purple);border:none;border-radius:6px;color:var(--surface);font-family:\"Instrument Sans\",sans-serif;font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer;white-space:nowrap;'>Set up buyers</button>";
+      wrap.appendChild(buyerPrompt);
+    }
+
+    // Authority indicator
     if (currentAuthority) {
       var authBadge = document.createElement("div");
       authBadge.style.cssText = "font-size:11px;color:var(--purple);background:rgba(144,144,240,0.1);border:1px solid rgba(144,144,240,0.2);border-radius:999px;padding:3px 10px;display:inline-block;margin-bottom:10px;";
@@ -3020,6 +3054,267 @@ function generateOnScreenText(productDesc, hooks) {
   .catch(function(){});
 }
 
+function toggleDetailFields() {
+  var fields = document.getElementById('detailFields');
+  var arrow = document.getElementById('detailArrow');
+  if (!fields) return;
+  var open = fields.style.display !== 'none';
+  fields.style.display = open ? 'none' : 'block';
+  if (arrow) arrow.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+function showAddOwnBuyer() {
+  var tog = document.getElementById('addOwnBuyerToggle');
+  var field = document.getElementById('addOwnBuyerField');
+  if (tog) tog.style.display = 'none';
+  if (field) field.style.display = 'block';
+  var inp = document.getElementById('customBuyerInput');
+  if (inp) inp.focus();
+}
+
+function hideAddOwnBuyer() {
+  var tog = document.getElementById('addOwnBuyerToggle');
+  var field = document.getElementById('addOwnBuyerField');
+  if (tog) tog.style.display = 'flex';
+  if (field) field.style.display = 'none';
+  var inp = document.getElementById('customBuyerInput');
+  if (inp) inp.value = '';
+}
+
+function addCustomBuyer() {
+  var inp = document.getElementById('customBuyerInput');
+  if (!inp) return;
+  var val = inp.value.trim();
+  if (!val) { showToast('Describe your buyer before adding'); return; }
+  var list = document.getElementById('buyerCardsList');
+  if (!list) return;
+  var card = document.createElement('div');
+  card.className = 'buyer-setup-card';
+  card.setAttribute('data-selected', 'true');
+  card.setAttribute('data-buyer', val);
+  card.addEventListener('click', function() { toggleBuyerCard(card); });
+  card.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><div class="buyer-check">✓</div><div><div style="font-size:13px;font-weight:600;color:var(--white);margin-bottom:2px;">Your buyer</div><div style="font-size:12px;color:var(--muted);line-height:1.4;">' + val + '</div></div></div>';
+  list.appendChild(card);
+  hideAddOwnBuyer();
+  updateSaveBtn();
+}
+
+function toggleBuyerCard(card) {
+  var sel = card.getAttribute('data-selected') === 'true';
+  card.setAttribute('data-selected', sel ? 'false' : 'true');
+  var check = card.querySelector('.buyer-check');
+  if (check) check.textContent = sel ? '' : '✓';
+  updateSaveBtn();
+}
+
+function updateSaveBtn() {
+  var cards = document.querySelectorAll('.buyer-setup-card[data-selected="true"]');
+  var btn = document.getElementById('genBtn');
+  if (!btn) return;
+  var count = cards.length;
+  btn.disabled = count === 0;
+  btn.style.opacity = count > 0 ? '1' : '0.5';
+  btn.innerHTML = count > 0 ? '✓&nbsp; Save Product (' + count + ' buyer type' + (count > 1 ? 's' : '') + ')' : '✓&nbsp; Save Product';
+}
+
+function generateBuyerCards() {
+  var productEl = document.getElementById('productInput');
+  var product = productEl ? productEl.value.trim() : '';
+  if (!product) {
+    showToast('Paste a product description first');
+    if (productEl) { productEl.style.borderColor = 'var(--red)'; productEl.focus(); setTimeout(function(){ productEl.style.borderColor = ''; }, 3000); }
+    return;
+  }
+  var btn = document.getElementById('generateBuyersBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Finding your buyers...'; }
+
+  var prompt = 'A TikTok Shop affiliate creator is promoting this product. Generate exactly 4 distinct buyer types -- real people with real frustrations who would buy this. Each buyer type must be different from the others. Format as JSON only, no preamble, no markdown: {"buyers":[{"title":"short label 4-6 words","description":"one sentence describing who they are and their specific frustration or situation before finding this product"}]} Product: ' + product.slice(0, 500);
+
+  fetch('/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-id': (currentUser ? currentUser.id : '') },
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    var raw = '';
+    try { data.content.forEach(function(b) { if (b.type === 'text') raw += b.text; }); } catch(e) {}
+    var parsed;
+    try {
+      var clean = raw.replace(/```json|```/g, '').trim();
+      parsed = JSON.parse(clean);
+    } catch(e) { parsed = null; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Find my buyers ✦'; }
+    if (!parsed || !parsed.buyers || !parsed.buyers.length) {
+      showToast('Could not generate buyer types. Try again.');
+      return;
+    }
+    showBuyerCards(parsed.buyers);
+  })
+  .catch(function() {
+    if (btn) { btn.disabled = false; btn.textContent = 'Find my buyers ✦'; }
+    showToast('Something went wrong. Try again.');
+  });
+}
+
+function showBuyerCards(buyers) {
+  var descBlock = document.getElementById('descSetupBlock');
+  var buyerBlock = document.getElementById('buyerSetupBlock');
+  var list = document.getElementById('buyerCardsList');
+  if (!list) return;
+  list.innerHTML = '';
+  buyers.forEach(function(buyer) {
+    var card = document.createElement('div');
+    card.className = 'buyer-setup-card';
+    card.setAttribute('data-selected', 'false');
+    card.setAttribute('data-buyer', buyer.description);
+    card.addEventListener('click', function() { toggleBuyerCard(card); });
+    card.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><div class="buyer-check"></div><div><div style="font-size:13px;font-weight:600;color:var(--white);margin-bottom:2px;">' + buyer.title + '</div><div style="font-size:12px;color:var(--muted);line-height:1.4;">' + buyer.description + '</div></div></div>';
+    list.appendChild(card);
+  });
+  if (descBlock) descBlock.style.display = 'none';
+  if (buyerBlock) buyerBlock.style.display = 'block';
+  var genBtn = document.getElementById('genBtn');
+  if (genBtn) { genBtn.disabled = true; genBtn.style.opacity = '0.5'; }
+}
+
+function getSelectedBuyers() {
+  var cards = document.querySelectorAll('.buyer-setup-card[data-selected="true"]');
+  var buyers = [];
+  cards.forEach(function(card) { buyers.push(card.getAttribute('data-buyer')); });
+  return buyers;
+}
+
+function showEditBuyersModal() {
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  
+  var modal = document.createElement('div');
+  modal.style.cssText = 'background:var(--bg);border-radius:16px 16px 0 0;padding:20px 16px 32px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;';
+  
+  var title = document.createElement('div');
+  title.style.cssText = 'font-size:15px;font-weight:700;color:var(--white);margin-bottom:4px;';
+  title.textContent = 'Who are you talking to?';
+  
+  var sub = document.createElement('div');
+  sub.style.cssText = 'font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;';
+  sub.textContent = 'Select the buyers that match your audience. Your scripts will cover each type.';
+  
+  modal.appendChild(title);
+  modal.appendChild(sub);
+  
+  // Generate buyer cards for editing
+  var desc = currentProduct.split(' PRODUCT DETAILS: ').pop() || '';
+  var listWrap = document.createElement('div');
+  listWrap.id = 'editBuyerCardsList';
+  modal.appendChild(listWrap);
+  
+  // Add your own
+  var addOwn = document.createElement('div');
+  addOwn.style.cssText = 'background:transparent;border:1px dashed rgba(144,144,240,0.25);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;margin-bottom:8px;';
+  addOwn.innerHTML = '<div style="width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(144,144,240,0.3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(144,144,240,0.5);line-height:1;">+</div><div style="font-size:13px;color:rgba(144,144,240,0.6);">Add your own buyer type</div>';
+  
+  var customWrap = document.createElement('div');
+  customWrap.style.cssText = 'display:none;background:rgba(144,144,240,0.08);border:1px solid rgba(144,144,240,0.4);border-radius:10px;padding:12px 14px;margin-bottom:8px;';
+  customWrap.innerHTML = '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--purple);margin-bottom:8px;">The person who needs this most is someone who...</div><textarea id="editCustomBuyerInput" rows="2" maxlength="200" placeholder="e.g. first time cook who needs simple reliable recipes" style="-webkit-user-select:text;user-select:text;width:100%;background:transparent;border:none;border-bottom:1px solid rgba(144,144,240,0.3);color:var(--white);font-size:13px;padding:0 0 8px;outline:none;box-sizing:border-box;font-family:\'Instrument Sans\',sans-serif;resize:none;line-height:1.5;"></textarea><div style="display:flex;gap:8px;margin-top:10px;"><button onclick="addEditCustomBuyer()" style="flex:1;background:var(--purple);border:none;border-radius:8px;color:var(--surface);font-family:\'Instrument Sans\',sans-serif;font-size:12px;font-weight:700;padding:8px;cursor:pointer;">Add this buyer</button><button onclick="this.closest(\'[id=editCustomWrap]\') || hideEditCustom()" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:\'Instrument Sans\',sans-serif;font-size:12px;padding:8px 12px;cursor:pointer;">Cancel</button></div>';
+  customWrap.id = 'editCustomWrap';
+  
+  addOwn.addEventListener('click', function() {
+    addOwn.style.display = 'none';
+    customWrap.style.display = 'block';
+  });
+  
+  modal.appendChild(addOwn);
+  modal.appendChild(customWrap);
+  
+  var saveBtn = document.createElement('button');
+  saveBtn.style.cssText = 'width:100%;background:var(--purple);border:none;border-radius:10px;color:var(--surface);font-family:\'Instrument Sans\',sans-serif;font-size:14px;font-weight:700;padding:13px;cursor:pointer;margin-top:8px;';
+  saveBtn.textContent = 'Save buyers';
+  saveBtn.addEventListener('click', function() {
+    var selected = modal.querySelectorAll('.buyer-setup-card[data-selected="true"]');
+    var buyers = [];
+    selected.forEach(function(c) { buyers.push(c.getAttribute('data-buyer')); });
+    if (!buyers.length) { showToast('Select at least one buyer type'); return; }
+    currentBuyers = buyers;
+    currentBuyerInsight = buyers.join(". Also: ");
+    currentMotivation = currentBuyerInsight;
+    setBuyerMotivation(currentMotivation);
+    // Save to Supabase
+    sb.from('products').update({ buyers: JSON.stringify(buyers), motivation: currentBuyerInsight }).eq('id', currentProductId).then(function() {
+      showToast('Buyers updated');
+      document.body.removeChild(overlay);
+      renderProductHub();
+    });
+  });
+  modal.appendChild(saveBtn);
+  
+  var cancelBtn = document.createElement('button');
+  cancelBtn.style.cssText = 'width:100%;background:none;border:none;color:var(--muted);font-family:\'Instrument Sans\',sans-serif;font-size:12px;padding:10px;cursor:pointer;';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', function() { document.body.removeChild(overlay); });
+  modal.appendChild(cancelBtn);
+  
+  overlay.appendChild(modal);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) document.body.removeChild(overlay); });
+  document.body.appendChild(overlay);
+  
+  // Generate buyer cards or show existing ones
+  if (currentBuyers && currentBuyers.length > 0) {
+    // Show existing buyers as editable cards
+    currentBuyers.forEach(function(buyer) {
+      var card = createEditBuyerCard(buyer, true, listWrap);
+      listWrap.appendChild(card);
+    });
+  }
+  // Also generate new ones from description
+  var prompt = 'A TikTok Shop affiliate creator is promoting this product. Generate exactly 4 distinct buyer types. Format as JSON only, no preamble: {"buyers":[{"title":"short label 4-6 words","description":"one sentence describing who they are and their specific frustration or situation"}]} Product: ' + desc.slice(0, 400);
+  fetch('/api/claude', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-user-id': (currentUser ? currentUser.id : '') },
+    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 400, messages: [{ role: 'user', content: prompt }] })
+  }).then(function(r) { return r.json(); }).then(function(data) {
+    var raw = '';
+    try { data.content.forEach(function(b) { if (b.type === 'text') raw += b.text; }); } catch(e) {}
+    var parsed;
+    try { parsed = JSON.parse(raw.replace(/```json|```/g, '').trim()); } catch(e) { parsed = null; }
+    if (!parsed || !parsed.buyers) return;
+    parsed.buyers.forEach(function(buyer) {
+      // Only add if not already in existing buyers
+      var alreadyExists = currentBuyers.some(function(b) { return b.toLowerCase().includes(buyer.title.toLowerCase()); });
+      if (!alreadyExists) {
+        var card = createEditBuyerCard(buyer.description, false, listWrap, buyer.title);
+        listWrap.appendChild(card);
+      }
+    });
+  }).catch(function() {});
+}
+
+function createEditBuyerCard(description, selected, list, title) {
+  var card = document.createElement('div');
+  card.className = 'buyer-setup-card';
+  card.setAttribute('data-selected', selected ? 'true' : 'false');
+  card.setAttribute('data-buyer', description);
+  card.style.marginBottom = '8px';
+  card.addEventListener('click', function() { toggleBuyerCard(card); });
+  var checkText = selected ? '✓' : '';
+  card.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><div class="buyer-check">' + checkText + '</div><div><div style="font-size:13px;font-weight:600;color:var(--white);margin-bottom:2px;">' + (title || 'Your buyer') + '</div><div style="font-size:12px;color:var(--muted);line-height:1.4;">' + description + '</div></div></div>';
+  return card;
+}
+
+function addEditCustomBuyer() {
+  var inp = document.getElementById('editCustomBuyerInput');
+  if (!inp) return;
+  var val = inp.value.trim();
+  if (!val) { showToast('Describe your buyer first'); return; }
+  var list = document.getElementById('editBuyerCardsList');
+  if (!list) return;
+  var card = createEditBuyerCard(val, true, list, 'Your buyer');
+  list.appendChild(card);
+  var wrap = document.getElementById('editCustomWrap');
+  if (wrap) wrap.style.display = 'none';
+  inp.value = '';
+}
+
 function saveNewProduct() {
   var nameEl = document.getElementById("newProductNameInput");
   var enteredName = nameEl ? nameEl.value.trim() : "";
@@ -3039,7 +3334,14 @@ function saveNewProduct() {
   var surpriseEl = document.getElementById("surpriseInput");
   var productEl = document.getElementById("productInput");
 
-  var insight = (insightEl ? insightEl.value.trim() : "") || currentBuyerInsight;
+  // Get selected buyers from buyer cards
+  var selectedBuyers = getSelectedBuyers();
+  if (!selectedBuyers.length) {
+    showToast("Select at least one buyer type before saving");
+    return;
+  }
+
+  var insight = selectedBuyers.join(". Also: ");
   var realReason = (realReasonEl ? realReasonEl.value.trim() : "") || currentRealReason;
   var surprise = (surpriseEl ? surpriseEl.value.trim() : "") || currentSurprise;
   var product = productEl ? productEl.value.trim() : "";
@@ -3057,14 +3359,12 @@ function saveNewProduct() {
     }, 200);
   }
 
-  if (!insight) { highlightField(insightEl, "Fill in who is buying this and why before saving"); return; }
-  if (!realReason) { highlightField(realReasonEl, "Fill in what made you want this product before saving"); return; }
-  if (!surprise) { highlightField(surpriseEl, "Fill in what would surprise someone about this product before saving"); return; }
-  if (!product) { highlightField(productEl, "Fill in product details before saving"); return; }
+  if (!product) { showToast("Fill in product details before saving"); return; }
   if (!currentPrice) { showPriceModal(saveNewProduct); return; }
 
   currentBuyerInsight = insight;
   currentMotivation = insight;
+  currentBuyers = selectedBuyers;
   currentRealReason = realReason;
   currentSurprise = surprise;
   var authority = document.getElementById("authorityInput") ? document.getElementById("authorityInput").value.trim() : "";
