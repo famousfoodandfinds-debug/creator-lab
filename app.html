@@ -3065,6 +3065,43 @@ function generateOnScreenText(productDesc, hooks) {
   .catch(function(){});
 }
 
+function showRequiredPopup(title, message) {
+  var existing = document.getElementById('requiredPopupOverlay');
+  if (existing) document.body.removeChild(existing);
+
+  var overlay = document.createElement('div');
+  overlay.id = 'requiredPopupOverlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+
+  var modal = document.createElement('div');
+  modal.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;width:100%;max-width:320px;text-align:center;';
+
+  var icon = document.createElement('div');
+  icon.style.cssText = 'width:40px;height:40px;border-radius:50%;background:rgba(235,87,87,0.15);border:1px solid rgba(235,87,87,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:18px;';
+  icon.textContent = '!';
+
+  var titleEl = document.createElement('div');
+  titleEl.style.cssText = 'font-size:14px;font-weight:700;color:var(--white);margin-bottom:8px;';
+  titleEl.textContent = title;
+
+  var msgEl = document.createElement('div');
+  msgEl.style.cssText = 'font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px;';
+  msgEl.textContent = message;
+
+  var btn = document.createElement('button');
+  btn.style.cssText = 'width:100%;background:var(--purple);border:none;border-radius:var(--radius-sm);color:var(--surface);font-family:\'Instrument Sans\',sans-serif;font-size:14px;font-weight:700;padding:12px;cursor:pointer;';
+  btn.textContent = 'Got it';
+  btn.addEventListener('click', function() { document.body.removeChild(overlay); });
+
+  modal.appendChild(icon);
+  modal.appendChild(titleEl);
+  modal.appendChild(msgEl);
+  modal.appendChild(btn);
+  overlay.appendChild(modal);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) document.body.removeChild(overlay); });
+  document.body.appendChild(overlay);
+}
+
 function toggleDetailFields() {
   var fields = document.getElementById('detailFields');
   var arrow = document.getElementById('detailArrow');
@@ -3168,13 +3205,35 @@ function updateSaveBtn() {
 }
 
 function generateBuyerCards() {
+  var nameEl = document.getElementById('newProductNameInput');
   var productEl = document.getElementById('productInput');
+  var name = nameEl ? nameEl.value.trim() : '';
   var product = productEl ? productEl.value.trim() : '';
-  if (!product) {
-    showToast('Paste a product description first');
-    if (productEl) { productEl.style.borderColor = 'var(--red)'; productEl.focus(); setTimeout(function(){ productEl.style.borderColor = ''; }, 3000); }
+
+  // Validate product name first
+  if (!name) {
+    if (nameEl) {
+      nameEl.style.borderColor = 'var(--red)';
+      nameEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      nameEl.focus();
+      setTimeout(function(){ nameEl.style.borderColor = 'var(--border-md)'; }, 3000);
+    }
+    showRequiredPopup('Add a product name', 'Give this product a short name so you can find it in your library later.');
     return;
   }
+
+  // Validate product description
+  if (!product) {
+    if (productEl) {
+      productEl.style.borderColor = 'var(--red)';
+      productEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      productEl.focus();
+      setTimeout(function(){ productEl.style.borderColor = ''; }, 3000);
+    }
+    showRequiredPopup('Add a product description', 'Paste the product description or tell us what it does. This is how we figure out who your buyers are.');
+    return;
+  }
+
   var btn = document.getElementById('generateBuyersBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Finding your buyers...'; }
 
