@@ -532,6 +532,12 @@ body.hub-mode #priceSelectorMount { display: none !important; }
 .sync-dot.syncing { background: var(--gold); animation: pulse-dot 1s ease-in-out infinite; }
 @keyframes pulse-dot { 0%,100%{opacity:0.4} 50%{opacity:1} }
 @keyframes hub-ready { 0%{box-shadow:0 0 0 0 rgba(192,192,192,0.4)} 70%{box-shadow:0 0 0 8px rgba(192,192,192,0)} 100%{box-shadow:0 0 0 0 rgba(192,192,192,0)} }
+
+.buyer-tag{display:inline-flex;align-items:center;gap:5px;background:rgba(144,144,240,0.12);border:1px solid rgba(144,144,240,0.3);border-radius:999px;padding:4px 10px;font-size:11px;color:var(--purple);margin:3px;}
+.buyer-setup-card{background:var(--surface2);border:1px solid rgba(144,144,240,0.2);border-radius:10px;padding:12px 14px;cursor:pointer;margin-bottom:8px;display:block;-webkit-tap-highlight-color:transparent;}
+.buyer-setup-card[data-selected="true"]{background:rgba(144,144,240,0.15);border-color:rgba(144,144,240,0.7);}
+.buyer-check{width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(144,144,240,0.35);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--surface);font-weight:700;}
+.buyer-setup-card[data-selected="true"] .buyer-check{background:var(--purple);border-color:var(--purple);}
 </style>
 </head>
 <body>
@@ -3093,12 +3099,51 @@ function addCustomBuyer() {
   if (!val) { showToast('Describe your buyer before adding'); return; }
   var list = document.getElementById('buyerCardsList');
   if (!list) return;
+
   var card = document.createElement('div');
-  card.className = 'buyer-setup-card';
   card.setAttribute('data-selected', 'true');
   card.setAttribute('data-buyer', val);
-  card.addEventListener('click', function() { toggleBuyerCard(card); });
-  card.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><div class="buyer-check">✓</div><div><div style="font-size:13px;font-weight:600;color:var(--white);margin-bottom:2px;">Your buyer</div><div style="font-size:12px;color:var(--muted);line-height:1.4;">' + val + '</div></div></div>';
+  card.style.cssText = 'background:rgba(144,144,240,0.15);border:1px solid rgba(144,144,240,0.7);border-radius:10px;padding:12px 14px;cursor:pointer;margin-bottom:8px;display:block;';
+
+  var inner = document.createElement('div');
+  inner.style.cssText = 'display:flex;align-items:center;gap:10px;pointer-events:none;';
+
+  var check = document.createElement('div');
+  check.style.cssText = 'width:18px;height:18px;border-radius:50%;background:var(--purple);border:1.5px solid var(--purple);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--surface);font-weight:700;';
+  check.textContent = '\u2713';
+
+  var textWrap = document.createElement('div');
+  var titleEl = document.createElement('div');
+  titleEl.style.cssText = 'font-size:13px;font-weight:600;color:var(--white);margin-bottom:2px;';
+  titleEl.textContent = 'Your buyer';
+  var descEl = document.createElement('div');
+  descEl.style.cssText = 'font-size:12px;color:var(--muted);line-height:1.4;';
+  descEl.textContent = val;
+  textWrap.appendChild(titleEl);
+  textWrap.appendChild(descEl);
+  inner.appendChild(check);
+  inner.appendChild(textWrap);
+  card.appendChild(inner);
+
+  card.addEventListener('click', function() {
+    var sel = card.getAttribute('data-selected') === 'true';
+    card.setAttribute('data-selected', sel ? 'false' : 'true');
+    if (sel) {
+      card.style.background = 'var(--surface2)';
+      card.style.borderColor = 'rgba(144,144,240,0.2)';
+      check.style.background = '';
+      check.style.borderColor = 'rgba(144,144,240,0.35)';
+      check.textContent = '';
+    } else {
+      card.style.background = 'rgba(144,144,240,0.15)';
+      card.style.borderColor = 'rgba(144,144,240,0.7)';
+      check.style.background = 'var(--purple)';
+      check.style.borderColor = 'var(--purple)';
+      check.textContent = '\u2713';
+    }
+    updateSaveBtn();
+  });
+
   list.appendChild(card);
   hideAddOwnBuyer();
   updateSaveBtn();
@@ -3170,11 +3215,47 @@ function showBuyerCards(buyers) {
   list.innerHTML = '';
   buyers.forEach(function(buyer) {
     var card = document.createElement('div');
-    card.className = 'buyer-setup-card';
     card.setAttribute('data-selected', 'false');
     card.setAttribute('data-buyer', buyer.description);
-    card.addEventListener('click', function() { toggleBuyerCard(card); });
-    card.innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><div class="buyer-check"></div><div><div style="font-size:13px;font-weight:600;color:var(--white);margin-bottom:2px;">' + buyer.title + '</div><div style="font-size:12px;color:var(--muted);line-height:1.4;">' + buyer.description + '</div></div></div>';
+    card.style.cssText = 'background:var(--surface2);border:1px solid rgba(144,144,240,0.2);border-radius:10px;padding:12px 14px;cursor:pointer;margin-bottom:8px;display:block;';
+    
+    var inner = document.createElement('div');
+    inner.style.cssText = 'display:flex;align-items:center;gap:10px;pointer-events:none;';
+    
+    var check = document.createElement('div');
+    check.style.cssText = 'width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(144,144,240,0.35);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--surface);font-weight:700;';
+    
+    var textWrap = document.createElement('div');
+    var titleEl = document.createElement('div');
+    titleEl.style.cssText = 'font-size:13px;font-weight:600;color:var(--white);margin-bottom:2px;';
+    titleEl.textContent = buyer.title;
+    var descEl = document.createElement('div');
+    descEl.style.cssText = 'font-size:12px;color:var(--muted);line-height:1.4;';
+    descEl.textContent = buyer.description;
+    textWrap.appendChild(titleEl);
+    textWrap.appendChild(descEl);
+    inner.appendChild(check);
+    inner.appendChild(textWrap);
+    card.appendChild(inner);
+    
+    card.addEventListener('click', function() {
+      var sel = card.getAttribute('data-selected') === 'true';
+      card.setAttribute('data-selected', sel ? 'false' : 'true');
+      if (sel) {
+        card.style.background = 'var(--surface2)';
+        card.style.borderColor = 'rgba(144,144,240,0.2)';
+        check.style.background = '';
+        check.style.borderColor = 'rgba(144,144,240,0.35)';
+        check.textContent = '';
+      } else {
+        card.style.background = 'rgba(144,144,240,0.15)';
+        card.style.borderColor = 'rgba(144,144,240,0.7)';
+        check.style.background = 'var(--purple)';
+        check.style.borderColor = 'var(--purple)';
+        check.textContent = '\u2713';
+      }
+      updateSaveBtn();
+    });
     list.appendChild(card);
   });
   if (descBlock) descBlock.style.display = 'none';
