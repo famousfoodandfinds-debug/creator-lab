@@ -2634,6 +2634,7 @@ function renderProductHub() {
     curatedBtn.style.cssText = "background:linear-gradient(135deg,#C0C0C0,#E8E8E8);color:#080808;font-weight:600;border:none;opacity:0.45;cursor:pointer;";
     curatedBtn.innerHTML = "🎯 &nbsp;Curated Script &nbsp;<span style='font-weight:400;font-size:12px;'>-- build one script step by step</span>";
     curatedBtn.onclick = function() {
+      if (!currentBuyers || !currentBuyers.length) { showBuyerSetupRequired(); return; }
       if (!currentPrice) { showPriceModal(function(){ resetPicks(); renderFocusPicker(); }); return; }
       if (!currentBuyerInsight) { showInsightPrompt(function(){ resetPicks(); renderFocusPicker(); }); return; }
       if (!currentRealReason || !currentSurprise) { showHookFieldsModal(function(){ resetPicks(); renderFocusPicker(); }); return; }
@@ -2645,6 +2646,7 @@ function renderProductHub() {
     batchBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(192,192,192,0.3);color:var(--silver-bright);font-weight:600;opacity:0.45;cursor:pointer;";
     batchBtn.innerHTML = "⚡ &nbsp;Batch Scripts &nbsp;<span style='font-weight:400;font-size:12px;'>-- reach different buyers with the same product</span>";
     batchBtn.onclick = function() {
+      if (!currentBuyers || !currentBuyers.length) { showBuyerSetupRequired(); return; }
       if (!currentPrice) { showPriceModal(function(){ resetPicks(); renderBatchPicker(); }); return; }
       if (!currentBuyerInsight) { showInsightPrompt(function(){ resetPicks(); renderBatchPicker(); }); return; }
       if (!currentRealReason || !currentSurprise) { showHookFieldsModal(function(){ resetPicks(); renderBatchPicker(); }); return; }
@@ -2656,6 +2658,7 @@ function renderProductHub() {
     skitBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(160,160,192,0.4);color:var(--purple);font-weight:600;opacity:0.45;cursor:pointer;";
     skitBtn.innerHTML = "🎭 &nbsp;Skit Script &nbsp;<span style='font-weight:400;font-size:12px;'>-- two-person dialogue script</span>";
     skitBtn.onclick = function() {
+      if (!currentBuyers || !currentBuyers.length) { showBuyerSetupRequired(); return; }
       if (!currentPrice) { showPriceModal(renderSkitMode); return; }
       if (!currentBuyerInsight) { showInsightPrompt(renderSkitMode); return; }
       if (!currentRealReason || !currentSurprise) { showHookFieldsModal(renderSkitMode); return; }
@@ -2667,6 +2670,7 @@ function renderProductHub() {
     filmingBtn.style.cssText = "margin-top:8px;background:transparent;border:1px solid rgba(255,165,0,0.4);color:rgba(255,165,0,0.9);font-weight:600;opacity:0.45;cursor:pointer;";
     filmingBtn.innerHTML = "🎬 &nbsp;Filming Session &nbsp;<span style='font-weight:400;font-size:12px;'>-- create different content styles for the same product</span>";
     filmingBtn.onclick = function() {
+      if (!currentBuyers || !currentBuyers.length) { showBuyerSetupRequired(); return; }
       if (!currentPrice) { showPriceModal(function(){ renderFormatPicker(); }); return; }
       if (!currentBuyerInsight) { showInsightPrompt(function(){ renderFormatPicker(); }); return; }
       if (!currentRealReason || !currentSurprise) { showHookFieldsModal(function(){ renderFormatPicker(); }); return; }
@@ -3063,6 +3067,52 @@ function generateOnScreenText(productDesc, hooks) {
     } catch(e) {}
   })
   .catch(function(){});
+}
+
+function showBuyerSetupRequired() {
+  var existing = document.getElementById('requiredPopupOverlay');
+  if (existing) document.body.removeChild(existing);
+
+  var overlay = document.createElement('div');
+  overlay.id = 'requiredPopupOverlay';
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.6);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
+
+  var modal = document.createElement('div');
+  modal.style.cssText = 'background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:20px;width:100%;max-width:320px;text-align:center;';
+
+  var icon = document.createElement('div');
+  icon.style.cssText = 'width:40px;height:40px;border-radius:50%;background:rgba(144,144,240,0.15);border:1px solid rgba(144,144,240,0.3);display:flex;align-items:center;justify-content:center;margin:0 auto 12px;font-size:18px;';
+  icon.textContent = '✦';
+
+  var titleEl = document.createElement('div');
+  titleEl.style.cssText = 'font-size:14px;font-weight:700;color:var(--white);margin-bottom:8px;';
+  titleEl.textContent = 'Set up your buyers first';
+
+  var msgEl = document.createElement('div');
+  msgEl.style.cssText = 'font-size:13px;color:var(--muted);line-height:1.5;margin-bottom:16px;';
+  msgEl.textContent = 'Your scripts are built around your buyers. It takes 30 seconds and makes every script stronger.';
+
+  var setupBtn = document.createElement('button');
+  setupBtn.style.cssText = 'width:100%;background:var(--purple);border:none;border-radius:var(--radius-sm);color:var(--surface);font-family:\'Instrument Sans\',sans-serif;font-size:14px;font-weight:700;padding:12px;cursor:pointer;margin-bottom:8px;';
+  setupBtn.textContent = 'Set up buyers now';
+  setupBtn.addEventListener('click', function() {
+    document.body.removeChild(overlay);
+    showEditBuyersModal();
+  });
+
+  var skipBtn = document.createElement('button');
+  skipBtn.style.cssText = 'width:100%;background:none;border:none;color:var(--muted);font-family:\'Instrument Sans\',sans-serif;font-size:12px;padding:8px;cursor:pointer;';
+  skipBtn.textContent = 'Cancel';
+  skipBtn.addEventListener('click', function() { document.body.removeChild(overlay); });
+
+  modal.appendChild(icon);
+  modal.appendChild(titleEl);
+  modal.appendChild(msgEl);
+  modal.appendChild(setupBtn);
+  modal.appendChild(skipBtn);
+  overlay.appendChild(modal);
+  overlay.addEventListener('click', function(e) { if (e.target === overlay) document.body.removeChild(overlay); });
+  document.body.appendChild(overlay);
 }
 
 function showRequiredPopup(title, message) {
