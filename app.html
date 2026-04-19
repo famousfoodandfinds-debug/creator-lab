@@ -638,87 +638,92 @@ body.hub-mode #priceSelectorMount { display: none !important; }
   </div>
   <div id="textPanel">
 
-    <!-- Product name field -->
-    <div class="field-block" style="margin-bottom:16px;">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
-        <div class="field-label" style="margin-bottom:0;">Product name</div>
-        <div class="field-required-badge" id="productNameBadge" style="flex-shrink:0;">Required</div>
-      </div>
-      <div class="field-hints-line" style="margin-bottom:7px;">Short name for your library. e.g. Shark Navigator, Le Creuset Dutch Oven, Aroma Rice Cooker.</div>
-      <input type="text" id="newProductNameInput" maxlength="60" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;width:100%;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:10px 14px;outline:none;box-sizing:border-box;" placeholder="e.g. Shark Navigator Lift Away">
-      <div class="panel-foot">
-        <span class="char-ct"><span id="productNameCount">0</span>/60</span>
-      </div>
-    </div>
+    <!-- New product setup container -->
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">
 
-    <!-- Step 1: Product description input -->
-    <div id="descSetupBlock" class="field-block" style="margin-bottom:16px;">
-      <div style="background:linear-gradient(135deg,rgba(144,144,240,0.15),rgba(144,144,240,0.05));border:1px solid rgba(144,144,240,0.3);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;">
-        <div style="font-size:13px;font-weight:700;color:var(--purple);margin-bottom:4px;">Tell us about this product</div>
-        <div style="font-size:12px;color:var(--white-dim);line-height:1.5;">Paste the product description or just tell us what it does. We will take it from there.</div>
-      </div>
-      <textarea id="productInput" maxlength="1000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste product description here -- brand name, key features, specs, what it does."></textarea>
-      <div class="panel-foot">
-        <span class="char-ct"><span id="productDescCount">0</span>/1000</span>
-      </div>
-      <button id="generateBuyersBtn" onclick="generateBuyerCards()" style="width:100%;margin-top:12px;background:var(--purple);border:none;border-radius:var(--radius-sm);color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:700;padding:13px;cursor:pointer;">Find my buyers ✦</button>
-    </div>
-
-    <!-- Step 2: Buyer card selection (hidden until generated) -->
-    <div id="buyerSetupBlock" style="display:none;margin-bottom:16px;">
-      <div style="font-size:13px;font-weight:700;color:var(--white);margin-bottom:4px;">Who are you talking to?</div>
-      <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5;">Select everyone that fits. Each buyer type gets their own angle in your scripts.</div>
-      <div id="buyerCardsList"></div>
-
-      <!-- Add your own -->
-      <div id="addOwnBuyerToggle" onclick="showAddOwnBuyer()" style="background:transparent;border:1px dashed rgba(144,144,240,0.25);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;margin-bottom:8px;">
-        <div style="width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(144,144,240,0.3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(144,144,240,0.5);line-height:1;">+</div>
-        <div style="font-size:13px;color:rgba(144,144,240,0.6);">Add your own buyer type</div>
-      </div>
-
-      <!-- Custom buyer input -->
-      <div id="addOwnBuyerField" style="display:none;background:rgba(144,144,240,0.08);border:1px solid rgba(144,144,240,0.4);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
-        <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--purple);margin-bottom:8px;">The person who needs this most is someone who...</div>
-        <textarea id="customBuyerInput" rows="2" maxlength="200" placeholder="e.g. college student in a dorm who needs quick easy meals with minimal cleanup" style="-webkit-user-select:text;user-select:text;width:100%;background:transparent;border:none;border-bottom:1px solid rgba(144,144,240,0.3);color:var(--white);font-size:13px;padding:0 0 8px;outline:none;box-sizing:border-box;font-family:'Instrument Sans',sans-serif;resize:none;line-height:1.5;"></textarea>
-        <div style="display:flex;gap:8px;margin-top:10px;">
-          <button onclick="addCustomBuyer()" style="flex:1;background:var(--purple);border:none;border-radius:8px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:700;padding:8px;cursor:pointer;">Add this buyer</button>
-          <button onclick="hideAddOwnBuyer()" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;padding:8px 12px;cursor:pointer;">Cancel</button>
+      <!-- Product name field -->
+      <div style="margin-bottom:16px;">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+          <div class="field-label" style="margin-bottom:0;">Product name</div>
+          <div class="field-required-badge" id="productNameBadge" style="flex-shrink:0;">Required</div>
+        </div>
+        <input type="text" id="newProductNameInput" maxlength="60" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;width:100%;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:10px 14px;outline:none;box-sizing:border-box;" placeholder="e.g. Aroma Rice Cooker">
+        <div class="panel-foot">
+          <span class="char-ct"><span id="productNameCount">0</span>/60</span>
         </div>
       </div>
 
-      <!-- Optional detail fields (collapsed) -->
-      <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:6px;margin-bottom:14px;">
-        <div id="detailToggle" onclick="toggleDetailFields()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
-          <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;">Add more detail <span style="font-size:10px;">(optional)</span></div>
-          <div id="detailArrow" style="font-size:12px;color:var(--muted);transition:transform 0.2s;">▼</div>
+      <div style="border-top:1px solid var(--border);margin-bottom:16px;"></div>
+
+      <!-- Step 1: Product description -->
+      <div id="descSetupBlock">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
+          <div class="field-label" style="margin-bottom:0;">Tell us about this product</div>
+          <div class="field-required-badge" style="flex-shrink:0;">Required</div>
         </div>
-        <div id="detailFields" style="display:none;margin-top:12px;">
-          <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;">These two fields make your pre-close and body lines stronger. Fill them in when you have time.</div>
-
-          <div style="margin-bottom:14px;">
-            <div style="font-size:14px;font-weight:600;color:var(--purple);font-style:italic;margin-bottom:8px;">I decided to promote this when...</div>
-            <textarea id="realReasonInput" maxlength="600" rows="2" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. I realized I could start it and walk away to make the rest of dinner without thinking about it once"></textarea>
-            <div class="panel-foot"><span class="char-ct"><span id="realReasonCount">0</span>/600</span></div>
-          </div>
-
-          <div style="margin-bottom:14px;">
-            <div style="font-size:14px;font-weight:600;color:var(--purple);font-style:italic;margin-bottom:8px;">Most people don't realize this product...</div>
-            <textarea id="surpriseInput" maxlength="400" rows="2" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. comes with its own measuring cups so you never have to guess the ratio"></textarea>
-            <div class="panel-foot"><span class="char-ct"><span id="surpriseCount">0</span>/400</span></div>
-          </div>
-
-          <div>
-            <div style="font-size:14px;font-weight:600;color:rgba(144,144,240,0.5);font-style:italic;margin-bottom:8px;">My credibility on this product is... <span style="font-size:11px;font-weight:400;font-style:normal;color:var(--muted);">optional</span></div>
-            <textarea id="authorityInput" maxlength="300" rows="2" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="e.g. I have cooked for my family every night for 20 years."></textarea>
-            <div class="panel-foot"><span class="char-ct"><span id="authorityCount">0</span>/300</span></div>
-          </div>
+        <div class="field-hints-line" style="margin-bottom:10px;">Paste the product description or just tell us what it does. We will figure out your buyers from this.</div>
+        <textarea id="productInput" maxlength="1000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste product description here -- brand name, key features, specs, what it does."></textarea>
+        <div class="panel-foot">
+          <span class="char-ct"><span id="productDescCount">0</span>/1000</span>
         </div>
+        <button id="generateBuyersBtn" onclick="generateBuyerCards()" style="width:100%;margin-top:12px;background:var(--purple);border:none;border-radius:var(--radius-sm);color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:700;padding:13px;cursor:pointer;">Find my buyers ✶</button>
       </div>
 
-      <button class="gen-btn" id="genBtn" onclick="saveNewProduct()">✓&nbsp; Save Product</button>
+      <!-- Step 2: Buyer card selection -->
+      <div id="buyerSetupBlock" style="display:none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px;">
+          <div class="field-label" style="margin-bottom:0;">Who are you talking to?</div>
+          <button onclick="document.getElementById('descSetupBlock').style.display='block';document.getElementById('buyerSetupBlock').style.display='none';" style="background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:11px;cursor:pointer;padding:0;text-decoration:underline;">Edit description</button>
+        </div>
+        <div style="font-size:12px;color:var(--muted);margin-bottom:14px;line-height:1.5;">Select everyone that fits. Each buyer gets their own angle in your scripts.</div>
+        <div id="buyerCardsList"></div>
+
+        <div id="addOwnBuyerToggle" onclick="showAddOwnBuyer()" style="background:transparent;border:1px dashed rgba(144,144,240,0.25);border-radius:10px;padding:12px 14px;cursor:pointer;display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+          <div style="width:18px;height:18px;border-radius:50%;border:1.5px solid rgba(144,144,240,0.3);flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:16px;color:rgba(144,144,240,0.5);line-height:1;">+</div>
+          <div style="font-size:13px;color:rgba(144,144,240,0.6);">Add your own buyer type</div>
+        </div>
+
+        <div id="addOwnBuyerField" style="display:none;background:rgba(144,144,240,0.08);border:1px solid rgba(144,144,240,0.4);border-radius:10px;padding:12px 14px;margin-bottom:8px;">
+          <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--purple);margin-bottom:8px;">The person who needs this most is someone who...</div>
+          <textarea id="customBuyerInput" rows="2" maxlength="200" placeholder="e.g. college student in a dorm who needs quick easy meals" style="-webkit-user-select:text;user-select:text;width:100%;background:transparent;border:none;border-bottom:1px solid rgba(144,144,240,0.3);color:var(--white);font-size:13px;padding:0 0 8px;outline:none;box-sizing:border-box;font-family:'Instrument Sans',sans-serif;resize:none;line-height:1.5;"></textarea>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button onclick="addCustomBuyer()" style="flex:1;background:var(--purple);border:none;border-radius:8px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:700;padding:8px;cursor:pointer;">Add this buyer</button>
+            <button onclick="hideAddOwnBuyer()" style="background:none;border:1px solid var(--border);border-radius:8px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;padding:8px 12px;cursor:pointer;">Cancel</button>
+          </div>
+        </div>
+
+        <div style="border-top:1px solid var(--border);padding-top:14px;margin-top:6px;margin-bottom:14px;">
+          <div id="detailToggle" onclick="toggleDetailFields()" style="display:flex;align-items:center;justify-content:space-between;cursor:pointer;">
+            <div style="font-size:12px;font-weight:700;color:var(--muted);letter-spacing:0.06em;text-transform:uppercase;">Add more detail <span style="font-size:10px;font-weight:400;">(optional)</span></div>
+            <div id="detailArrow" style="font-size:12px;color:var(--muted);transition:transform 0.2s;">▼</div>
+          </div>
+          <div id="detailFields" style="display:none;margin-top:12px;">
+            <div style="font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;">These make your pre-close and body lines stronger. Fill them in when you have time.</div>
+            <div style="margin-bottom:14px;">
+              <div style="font-size:14px;font-weight:600;color:var(--purple);font-style:italic;margin-bottom:8px;">I decided to promote this when...</div>
+              <textarea id="realReasonInput" maxlength="600" rows="2" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. I realized I could start it and walk away without thinking about it once"></textarea>
+              <div class="panel-foot"><span class="char-ct"><span id="realReasonCount">0</span>/600</span></div>
+            </div>
+            <div style="margin-bottom:14px;">
+              <div style="font-size:14px;font-weight:600;color:var(--purple);font-style:italic;margin-bottom:8px;">Most people don't realize this product...</div>
+              <textarea id="surpriseInput" maxlength="400" rows="2" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;border-color:rgba(144,144,240,0.4);" placeholder="e.g. comes with its own measuring cups so you never have to guess the ratio"></textarea>
+              <div class="panel-foot"><span class="char-ct"><span id="surpriseCount">0</span>/400</span></div>
+            </div>
+            <div>
+              <div style="font-size:14px;font-weight:600;color:rgba(144,144,240,0.5);font-style:italic;margin-bottom:8px;">My credibility on this product is... <span style="font-size:11px;font-weight:400;font-style:normal;color:var(--muted);">optional</span></div>
+              <textarea id="authorityInput" maxlength="300" rows="2" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="e.g. I have cooked for my family every night for 20 years."></textarea>
+              <div class="panel-foot"><span class="char-ct"><span id="authorityCount">0</span>/300</span></div>
+            </div>
+          </div>
+        </div>
+
+        <button class="gen-btn" id="genBtn" onclick="saveNewProduct()" disabled style="opacity:0.5;">Save Product</button>
+      </div>
+
     </div>
 
-    <!-- Hidden legacy motivation field for backwards compat -->
+    <!-- Hidden legacy fields for backwards compat -->
+    <textarea id="buyerInsightInput" style="display:none;" maxlength="600"></textarea>
     <textarea id="buyerMotivation" style="display:none;" maxlength="500"></textarea>
 
   </div>
