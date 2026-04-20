@@ -2577,7 +2577,7 @@ function renderProductHub() {
           var biField = document.getElementById("buyerInsightInput");
           if(biField) biField.value = ni;
           document.getElementById("productInput").value = nd;
-          document.getElementById("charCount").textContent = nd.length;
+          var _cc = document.getElementById("charCount"); if (_cc) _cc.textContent = nd.length; var _pdc = document.getElementById("productDescCount"); if (_pdc) _pdc.textContent = nd.length;
           currentProduct = combined;
           if(currentProductId) {
             var updatePayload = { motivation: ni, real_reason: nrr, surprise: ns, description: nd, authority: currentAuthority || null };
@@ -2870,7 +2870,7 @@ document.getElementById("buyerMotivation") && document.getElementById("buyerMoti
 })();
 
 document.getElementById("productInput").addEventListener("input", function() {
-  document.getElementById("charCount").textContent = this.value.length;
+  var cc2 = document.getElementById("charCount"); if (cc2) cc2.textContent = this.value.length; var pdc2 = document.getElementById("productDescCount"); if (pdc2) pdc2.textContent = this.value.length;
   var badge = document.getElementById("field2Badge");
   if (badge) {
     if (this.value.trim().length > 5) {
@@ -2894,7 +2894,7 @@ function clearText() {
   var sp = document.getElementById("surpriseInput");
   if (sp) { sp.value = ""; sp.dispatchEvent(new Event("input")); }
   document.getElementById("productInput").value = "";
-  document.getElementById("charCount").textContent = "0";
+  var cc = document.getElementById("charCount"); if (cc) cc.textContent = "0"; var pdc = document.getElementById("productDescCount"); if (pdc) pdc.textContent = "0";
   currentProductName = "";
   currentRealReason = "";
   currentSurprise = "";
@@ -2968,7 +2968,7 @@ function processAllImages() {
     data.content.forEach(function(b) { if (b.type === "text") text += b.text; });
     text = text.trim();
     document.getElementById("productInput").value = text;
-    document.getElementById("charCount").textContent = text.length;
+    var _cc = document.getElementById("charCount"); if (_cc) _cc.textContent = text.length; var _pdc = document.getElementById("productDescCount"); if (_pdc) _pdc.textContent = text.length;
     document.getElementById("imgStatus").textContent = "Done -- review and edit if needed, then tap Generate";
     document.getElementById("imgStatus").className = "img-status done";
     document.getElementById("textPanel").style.display = "block";
@@ -3024,7 +3024,7 @@ function showNew() {
   document.getElementById("productSelect").value = "";
   document.body.classList.remove("hub-mode");
   document.getElementById("productInput").value = "";
-  document.getElementById("charCount").textContent = "0";
+  var cc = document.getElementById("charCount"); if (cc) cc.textContent = "0"; var pdc = document.getElementById("productDescCount"); if (pdc) pdc.textContent = "0";
   currentMotivation = "";
   currentBuyerInsight = "";
   currentRealReason = "";
