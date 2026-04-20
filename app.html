@@ -3276,6 +3276,7 @@ function toggleBuyerCard(card) {
 function updateSaveBtn() {
   var cards = document.querySelectorAll('#buyerCardsList [data-selected="true"], #editBuyerCardsList [data-selected="true"]');
   var btn = document.getElementById('genBtn');
+  console.log('updateSaveBtn called -- selected:', cards.length, 'btn:', btn ? 'found' : 'null');
   if (!btn) return;
   var count = cards.length;
   btn.disabled = count === 0;
@@ -3411,21 +3412,19 @@ function showBuyerCards(buyers) {
     inner.appendChild(textWrap);
     card.appendChild(inner);
     
-    card.addEventListener('click', function() {
-      var sel = card.getAttribute('data-selected') === 'true';
-      card.setAttribute('data-selected', sel ? 'false' : 'true');
+    card.addEventListener('click', function(e) {
+      var c = e.currentTarget;
+      var sel = c.getAttribute('data-selected') === 'true';
+      c.setAttribute('data-selected', sel ? 'false' : 'true');
+      var chk = c.querySelector('div:first-child div:first-child');
       if (sel) {
-        card.style.background = 'var(--surface2)';
-        card.style.borderColor = 'rgba(144,144,240,0.2)';
-        check.style.background = '';
-        check.style.borderColor = 'rgba(144,144,240,0.35)';
-        check.textContent = '';
+        c.style.background = 'var(--surface2)';
+        c.style.borderColor = 'rgba(144,144,240,0.2)';
+        if (chk) { chk.style.background = ''; chk.style.borderColor = 'rgba(144,144,240,0.35)'; chk.textContent = ''; }
       } else {
-        card.style.background = 'rgba(144,144,240,0.15)';
-        card.style.borderColor = 'rgba(144,144,240,0.7)';
-        check.style.background = 'var(--purple)';
-        check.style.borderColor = 'var(--purple)';
-        check.textContent = '\u2713';
+        c.style.background = 'rgba(144,144,240,0.15)';
+        c.style.borderColor = 'rgba(144,144,240,0.7)';
+        if (chk) { chk.style.background = 'var(--purple)'; chk.style.borderColor = 'var(--purple)'; chk.textContent = '\u2713'; }
       }
       updateSaveBtn();
     });
