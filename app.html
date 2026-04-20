@@ -3274,7 +3274,7 @@ function toggleBuyerCard(card) {
 }
 
 function updateSaveBtn() {
-  var cards = document.querySelectorAll('.buyer-setup-card[data-selected="true"]');
+  var cards = document.querySelectorAll('#buyerCardsList [data-selected="true"], #editBuyerCardsList [data-selected="true"]');
   var btn = document.getElementById('genBtn');
   if (!btn) return;
   var count = cards.length;
@@ -3438,7 +3438,7 @@ function showBuyerCards(buyers) {
 }
 
 function getSelectedBuyers() {
-  var cards = document.querySelectorAll('.buyer-setup-card[data-selected="true"]');
+  var cards = document.querySelectorAll('#buyerCardsList [data-selected="true"]');
   var buyers = [];
   cards.forEach(function(card) { buyers.push(card.getAttribute('data-buyer')); });
   return buyers;
