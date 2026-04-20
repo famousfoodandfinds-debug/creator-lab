@@ -3317,6 +3317,18 @@ function generateBuyerCards() {
   var btn = document.getElementById('generateBuyersBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Finding your buyers...'; }
 
+  // Show loading message above the description block
+  var loadingMsg = document.getElementById('buyerLoadingMsg');
+  if (!loadingMsg) {
+    loadingMsg = document.createElement('div');
+    loadingMsg.id = 'buyerLoadingMsg';
+    loadingMsg.style.cssText = 'display:flex;align-items:center;gap:10px;padding:12px 14px;background:rgba(144,144,240,0.08);border:1px solid rgba(144,144,240,0.2);border-radius:8px;margin-bottom:12px;';
+    loadingMsg.innerHTML = '<div class="dots"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div><span style="font-size:13px;color:var(--purple);font-weight:500;">Generating buyer angle ideas...</span>';
+    var descBlock = document.getElementById('descSetupBlock');
+    if (descBlock) descBlock.insertBefore(loadingMsg, descBlock.firstChild);
+  }
+  loadingMsg.style.display = 'flex';
+
   var prompt = 'A TikTok Shop affiliate creator is promoting this product. Generate exactly 4 distinct buyer types -- real people with real frustrations who would buy this. Each buyer type must be different from the others. Format as JSON only, no preamble, no markdown: {"buyers":[{"title":"short label 4-6 words","description":"one sentence describing who they are and their specific frustration or situation before finding this product"}]} Product: ' + product.slice(0, 500);
 
   fetch('/api/claude', {
@@ -3327,13 +3339,31 @@ function generateBuyerCards() {
   .then(function(r) { return r.json(); })
   .then(function(data) {
     var raw = '';
-    try { data.content.forEach(function(b) { if (b.type === 'text') raw += b.text; }); } catch(e) {}
+    try {
+      if (data && data.content && Array.isArray(data.content)) {
+        data.content.forEach(function(b) { if (b.type === 'text') raw += b.text; });
+      } else if (data && data.error) {
+        raw = '';
+      }
+    } catch(e) { raw = ''; }
     var parsed;
     try {
       var clean = raw.replace(/```json|```/g, '').trim();
+      // Find the JSON object in the response even if there is preamble
+      var jsonStart = clean.indexOf('{');
+      var jsonEnd = clean.lastIndexOf('}');
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        clean = clean.slice(jsonStart, jsonEnd + 1);
+      }
       parsed = JSON.parse(clean);
+      // Handle case where model returns array directly
+      if (Array.isArray(parsed)) { parsed = { buyers: parsed }; }
+      // Handle case where buyers is nested differently
+      if (parsed && !parsed.buyers && parsed.buyer_types) { parsed.buyers = parsed.buyer_types; }
+      if (parsed && !parsed.buyers && parsed.types) { parsed.buyers = parsed.types; }
     } catch(e) { parsed = null; }
-    if (btn) { btn.disabled = false; btn.textContent = 'Find my buyers ✦'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'Find my buyers \u2736'; }
+    var lm = document.getElementById('buyerLoadingMsg'); if (lm) lm.style.display = 'none';
     if (!parsed || !parsed.buyers || !parsed.buyers.length) {
       showToast('Could not generate buyer types. Try again.');
       return;
@@ -3342,11 +3372,16 @@ function generateBuyerCards() {
   })
   .catch(function() {
     if (btn) { btn.disabled = false; btn.textContent = 'Find my buyers ✦'; }
+    var lm2 = document.getElementById('buyerLoadingMsg'); if (lm2) lm2.style.display = 'none';
     showToast('Something went wrong. Try again.');
   });
 }
 
 function showBuyerCards(buyers) {
+  if (!buyers || !Array.isArray(buyers) || !buyers.length) {
+    showToast('Could not generate buyer types. Try again.');
+    return;
+  }
   var descBlock = document.getElementById('descSetupBlock');
   var buyerBlock = document.getElementById('buyerSetupBlock');
   var list = document.getElementById('buyerCardsList');
