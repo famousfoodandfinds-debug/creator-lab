@@ -9108,6 +9108,7 @@ function showMainTab(tab) {
     if (favP) favP.style.display = "none";
     if (histP) histP.style.display = "none";
     if (plannerPanel) plannerPanel.style.display = "block";
+    if (window.Planner && Planner.load) Planner.load();
     return;
   }
   document.body.classList.remove("planner-mode");
@@ -9753,7 +9754,11 @@ function buildData(){
   products.forEach(p=>{const a=agg[p.id];a.angles.sort((x,y)=>y.gmv-x.gmv);p._angles=a.angles.slice();
     const seen=new Set();p.angles=a.angles.filter(x=>{const k=x.name.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;}).map(x=>x.name);
     p.engagement=a.maxViews;p.vidCount=a.vidCount;p.vidGmv=a.vidGmv;p.isNew=false;p.status='active';});
-  S.raw=products;S.rawMap={};products.forEach(p=>S.rawMap[p.id]=p);S.groups=[];
+  S.raw=products;S.rawMap={};products.forEach(p=>S.rawMap[p.id]=p);
+  // NOTE: S.groups is intentionally preserved here. Saved Combine groups are
+  // re-applied to the freshly uploaded products by TikTok product ID inside
+  // buildEffectiveCatalog(); members that are not present this week are skipped
+  // and any new flavor/size that is not in a saved group stays on its own.
   buildEffectiveCatalog();
 }
 function buildEffectiveCatalog(){
@@ -9811,7 +9816,7 @@ function build(){try{document.getElementById('err').classList.add('hidden');
   renderAll();window.scrollTo(0,0);
 }catch(e){const el=document.getElementById('err');el.textContent=e.message||String(e);el.classList.remove('hidden');}}
 
-function renderAll(){renderSummary();renderBoard();renderFilm();renderProducts();renderRecap();syncViews();}
+function renderAll(){renderSummary();renderBoard();renderFilm();renderProducts();renderRecap();syncViews();scheduleSave();}
 
 function renderSummary(){const earners=S.catalog.filter(p=>p.units>0).length,comm=S.catalog.reduce((s,p)=>s+p.commission,0),units=S.catalog.reduce((s,p)=>s+p.units,0);
   document.getElementById('summary').innerHTML=
@@ -9850,10 +9855,10 @@ function syncFromDOM(){
   S.board.bench=[...document.getElementById('benchList').children].map(c=>c.getAttribute('data-iid')).filter(Boolean);
   document.querySelectorAll('#board .daycol').forEach((col,di)=>{const n=S.board.days[di].items.length,over=n>S.goal;
     const c=col.querySelector('.c');c.textContent=`${n} of ${S.goal}${over?' · over':''}`;c.className='c'+(over?' over':'');});
-  renderFilm();renderSummary();
+  renderFilm();renderSummary();scheduleSave();
 }
 
-function togglePosted(iid){S.posted[iid]=!S.posted[iid];const card=document.querySelector(`[data-iid="${iid}"]`);if(card){card.classList.toggle('posted',S.posted[iid]);const b=card.querySelector('.cbx');b.classList.toggle('on',S.posted[iid]);b.textContent=S.posted[iid]?'✓':'';}}
+function togglePosted(iid){S.posted[iid]=!S.posted[iid];const card=document.querySelector(`[data-iid="${iid}"]`);if(card){card.classList.toggle('posted',S.posted[iid]);const b=card.querySelector('.cbx');b.classList.toggle('on',S.posted[iid]);b.textContent=S.posted[iid]?'✓':'';}scheduleSave();}
 function newInstance(p){let occ=0;Object.values(S.instances).forEach(i=>{if(i.productId===p.id)occ++;});const angle=(p.angles&&p.angles.length)?p.angles[occ%p.angles.length]:null;const iid=nid();S.instances[iid]={iid,productId:p.id,angle};return iid;}
 function weekCountMap(){const m={};S.board.days.forEach(d=>d.items.forEach(iid=>{const i=S.instances[iid];if(i)m[i.productId]=(m[i.productId]||0)+1;}));return m;}
 function replacementsForDay(di,count){const onDay=new Set(S.board.days[di].items.map(iid=>S.instances[iid]&&S.instances[iid].productId));
@@ -9867,7 +9872,7 @@ function removeInst(iid){
   const bi=S.board.bench.indexOf(iid);if(bi>=0)S.board.bench.splice(bi,1);
   delete S.instances[iid];delete S.posted[iid];delete S.filmed[iid];
   if(day>=0){const rep=replacementsForDay(day,1);if(rep.length){const niid=newInstance(rep[0]);S.board.days[day].items.splice(pos,0,niid);}}
-  renderBoard();renderFilm();renderSummary();
+  renderBoard();renderFilm();renderSummary();scheduleSave();
 }
 
 function renderFilm(){
@@ -9883,7 +9888,7 @@ function renderFilm(){
     html+='</div>';});
   document.getElementById('filmView').innerHTML=html;
 }
-function toggleFilmed(iid){S.filmed[iid]=!S.filmed[iid];renderFilm();}
+function toggleFilmed(iid){S.filmed[iid]=!S.filmed[iid];renderFilm();scheduleSave();}
 
 function clusterKey(n){return String(n).toLowerCase().replace(/[^a-z0-9 ]/g,'').split(/\s+/).slice(0,2).join(' ');}
 function baseName(n){return String(n).split(/[,|]/)[0].split(' ').slice(0,3).join(' ').trim();}
@@ -9960,12 +9965,12 @@ function renderProducts(){
   document.getElementById('productsView').innerHTML=html;
 }
 function declineProduct(id,type){const p=S.byId[id];if(!p)return;
-  if(p.status===type){p.status='active';renderProducts();return;}
+  if(p.status===type){p.status='active';renderProducts();scheduleSave();return;}
   p.status=type;
   S.board.days.forEach((d,di)=>{let need=0;d.items=d.items.filter(iid=>{if(S.instances[iid]&&S.instances[iid].productId===id){need++;delete S.instances[iid];delete S.posted[iid];delete S.filmed[iid];return false;}return true;});
     if(need){replacementsForDay(di,need).forEach(rp=>{d.items.push(newInstance(rp));});}});
   S.board.bench=S.board.bench.filter(iid=>{if(S.instances[iid]&&S.instances[iid].productId===id){delete S.instances[iid];return false;}return true;});
-  renderBoard();renderFilm();renderProducts();renderSummary();}
+  renderBoard();renderFilm();renderProducts();renderSummary();scheduleSave();}
 
 function renderRecap(){
   const rows=S.catalog.filter(p=>p.units>0||p.vidCount>0).map(p=>({name:p.name,videos:p.vidCount,units:p.units,commission:p.commission,gmv:p.gross}))
@@ -9993,12 +9998,12 @@ function filterAdd(){const q=(document.getElementById('addSrch').value||'').toLo
   document.getElementById('pickList').innerHTML=cat.map(p=>`<div class="pick" onclick="Planner.addExisting('${p.id}')"><span>${tierBadge(p.isNew?'NEW':p.tier)}${esc(p.name)}</span><span class="muted small">$${p.cpu.toFixed(2)}/unit</span></div>`).join('')||'<p class="muted small">No matches.</p>';
 }
 function addExisting(pid){const p=S.byId[pid];const occ={};Object.values(S.instances).forEach(i=>{if(i.productId===pid)occ[pid]=(occ[pid]||0)+1;});
-  const iid=makeInstance(p,occ);S.board.days[addDay].items.push(iid);closeAdd();renderBoard();renderFilm();renderSummary();}
+  const iid=makeInstance(p,occ);S.board.days[addDay].items.push(iid);closeAdd();renderBoard();renderFilm();renderSummary();scheduleSave();}
 function addNewSample(){const name=prompt("Name your new product or sample:");if(!name)return;
   const id='new_'+Date.now();const p={id,name:name.trim(),gross:0,commission:0,units:0,cpu:0,angles:[],_angles:[],engagement:0,vidCount:0,vidGmv:0,status:'active',isNew:true};
   S.raw.push(p);S.rawMap[id]=p;buildEffectiveCatalog();
   const iid=nid();S.instances[iid]={iid,productId:id,angle:null};S.board.days[addDay].items.push(iid);
-  closeAdd();renderBoard();renderFilm();renderProducts();renderSummary();}
+  closeAdd();renderBoard();renderFilm();renderProducts();renderSummary();scheduleSave();}
 function closeAdd(){document.getElementById('overlay').classList.add('hidden');document.getElementById('overlay').innerHTML='';}
 function openGuide(){
   const ov=document.getElementById('overlay');
@@ -10036,7 +10041,9 @@ function syncViews(){
 
 function reset(){
   bufP=null;bufV=null;
-  S.catalog=[];S.byId={};S.raw=[];S.rawMap={};S.groups=[];S.instances={};
+  // Keep S.groups and the goal/cap settings so a re-upload re-applies the
+  // user's saved Combine groups; only the current week/plan is cleared.
+  S.catalog=[];S.byId={};S.raw=[];S.rawMap={};S.instances={};
   S.board={days:[],bench:[]};S.posted={};S.filmed={};S.tab='plan';S.mode='post';
   S._sel={};S._combineMode=false;S._expanded={};S._prodQuery='';S._showRising=false;S._weekCount={};
   document.getElementById('results').classList.add('hidden');
@@ -10046,20 +10053,157 @@ function reset(){
     document.getElementById('drop'+L).classList.remove('set');
     document.getElementById('dn'+L).textContent=(L==='P'?'Product file':'Video file');
   });
-  closeAdd();checkReady();window.scrollTo(0,0);
+  closeAdd();checkReady();window.scrollTo(0,0);scheduleSave();
 }
 function checkReady(){document.getElementById('buildBtn').disabled=!(bufP&&bufV);}
 function hookFile(L){document.getElementById('file'+L).addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const buf=await f.arrayBuffer();if(L==='P')bufP=buf;else bufV=buf;document.getElementById('drop'+L).classList.add('set');document.getElementById('dn'+L).textContent=f.name;checkReady();});}
 
+/* =====================================================================
+   SUPABASE PERSISTENCE  (one JSONB row per user in table planner_state)
+   Uses the app's existing global Supabase client (sb) and currentUser.
+   Nothing here changes how files are read in the browser; it only mirrors
+   the planner's in-memory state to the database and restores it on open.
+   ===================================================================== */
+let saveTimer=null, restoring=false, loadedForUser=null;
+
+// Build a JSON-safe snapshot of everything worth restoring. The effective
+// catalog (and byId) is derived from raw + groups, so we only persist raw +
+// groups and rebuild on restore.
+function snapshot(){
+  return {
+    v:1,
+    goal:S.goal, cap:S.cap, days:S.days, tab:S.tab, mode:S.mode,
+    iid:IID, gid:GID,
+    groups:S.groups,
+    raw:S.raw,
+    instances:S.instances,
+    board:{
+      days:(S.board.days||[]).map(function(day){
+        return { date:(day.date instanceof Date?day.date.toISOString():day.date), items:day.items||[] };
+      }),
+      bench:S.board.bench||[]
+    },
+    posted:S.posted, filmed:S.filmed,
+    hasPlan:(S.board.days&&S.board.days.length>0)
+  };
+}
+
+function scheduleSave(){
+  if(restoring) return;                 // don't echo a restore back to the DB
+  if(!window.currentUser||!window.sb) return;
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(saveNow, 800);
+}
+function saveNow(){
+  var u=window.currentUser;
+  if(!u||!window.sb) return;
+  try{
+    window.sb.from('planner_state')
+      .upsert({ user_id:u.id, data:snapshot(), updated_at:new Date().toISOString() }, { onConflict:'user_id' })
+      .then(function(){}, function(){});  // best-effort background save
+  }catch(e){}
+}
+
+function maxIid(){var m=0;Object.keys(S.instances||{}).forEach(function(k){var n=parseInt(String(k).replace(/\D/g,''),10);if(n>m)m=n;});return m+1;}
+function maxGid(){var m=0;(S.groups||[]).forEach(function(g){var n=parseInt(String(g.id).replace(/\D/g,''),10);if(!isNaN(n)&&n>m)m=n;});return m;}
+
+function restoreFrom(d){
+  if(!d) return;
+  restoring=true;
+  try{
+    S.goal=d.goal||6; S.cap=d.cap||3; S.days=d.days||7;
+    S.tab=d.tab||'plan'; S.mode=d.mode||'post';
+    S.groups=Array.isArray(d.groups)?d.groups:[];
+    S.raw=Array.isArray(d.raw)?d.raw:[];
+    S.rawMap={}; S.raw.forEach(function(p){S.rawMap[p.id]=p;});
+    S.instances=d.instances||{};
+    S.posted=d.posted||{}; S.filmed=d.filmed||{};
+    var days=(d.board&&Array.isArray(d.board.days))?d.board.days.map(function(day){
+      return { date:new Date(day.date), items:Array.isArray(day.items)?day.items:[] };
+    }):[];
+    S.board={ days:days, bench:(d.board&&Array.isArray(d.board.bench))?d.board.bench:[] };
+    GID=d.gid||maxGid(); IID=d.iid||maxIid();
+    var gi=document.getElementById('goal'); if(gi)gi.value=S.goal;
+    var ci2=document.getElementById('capIn'); if(ci2)ci2.value=S.cap;
+    // Rebuild the effective catalog (tiers, byId, groups) from raw + groups.
+    if(S.raw.length) buildEffectiveCatalog();
+    var hasPlan = S.board.days.length>0 && S.catalog.length>0;
+    if(hasPlan){
+      document.getElementById('plUploadCard').classList.add('hidden');
+      document.getElementById('results').classList.remove('hidden');
+      renderAll();
+    }else{
+      document.getElementById('results').classList.add('hidden');
+      document.getElementById('plUploadCard').classList.remove('hidden');
+    }
+  }catch(e){
+    // On any restore error, fall back to the clean upload screen.
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('plUploadCard').classList.remove('hidden');
+  }finally{
+    restoring=false;
+  }
+}
+
+// Called when the Planner tab is opened. Loads once per signed-in user.
+function hardClear(){
+  // Full reset including groups/settings — used when a different user signs in
+  // during the same page session so no state leaks between accounts.
+  restoring=true;
+  try{
+    bufP=null;bufV=null;
+    S.catalog=[];S.byId={};S.raw=[];S.rawMap={};S.groups=[];S.instances={};
+    S.board={days:[],bench:[]};S.posted={};S.filmed={};S.tab='plan';S.mode='post';
+    S._sel={};S._combineMode=false;S._expanded={};S._prodQuery='';S._showRising=false;S._weekCount={};
+    S.goal=6;S.cap=3;IID=1;GID=0;
+    var gi=document.getElementById('goal'); if(gi)gi.value=6;
+    var ci2=document.getElementById('capIn'); if(ci2)ci2.value=3;
+    ['P','V'].forEach(function(L){
+      var inp=document.getElementById('file'+L);if(inp)inp.value='';
+      var dr=document.getElementById('drop'+L);if(dr)dr.classList.remove('set');
+      var dn=document.getElementById('dn'+L);if(dn)dn.textContent=(L==='P'?'Product file':'Video file');
+    });
+    checkReady();closeAdd();
+    document.getElementById('results').classList.add('hidden');
+    document.getElementById('plUploadCard').classList.remove('hidden');
+  }catch(e){}
+  restoring=false;
+}
+
+function load(){
+  var u=window.currentUser;
+  if(!u||!window.sb) return;
+  if(loadedForUser===u.id) return;   // already restored for this user this session
+  if(loadedForUser!==null) hardClear();  // a different user signed in — start clean
+  loadedForUser=u.id;
+  try{
+    window.sb.from('planner_state').select('data').eq('user_id',u.id).maybeSingle()
+      .then(function(res){
+        if(res&&!res.error&&res.data&&res.data.data){ restoreFrom(res.data.data); }
+      }, function(){});
+  }catch(e){}
+}
+
 // init listeners (planner DOM is present in the page from load)
 hookFile('P');hookFile('V');
 document.getElementById('buildBtn').addEventListener('click',build);
+// Persist settings changes (videos per day / max per product per week)
+['goal','capIn'].forEach(function(id){
+  var el=document.getElementById(id);
+  if(!el) return;
+  el.addEventListener('change',function(){
+    S.goal=Math.max(1,Math.min(30,parseInt(document.getElementById('goal').value)||6));
+    S.cap=Math.max(1,Math.min(14,parseInt(document.getElementById('capIn').value)||3));
+    scheduleSave();
+  });
+});
 
-// Expose only the handlers referenced by inline onclick/oninput attributes
+// Expose only the handlers referenced by inline onclick/oninput attributes,
+// plus load() which the app calls when the Planner tab is opened.
 window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst,
   declineProduct,toggleFilmed,toggleExp,ungroup,toggleSel,onProdSearch,toggleCombine,
   combineSelected,selectAllShown,clearSel,toggleRising,openAdd,filterAdd,addNewSample,
-  closeAdd,addExisting};
+  closeAdd,addExisting,load};
 })();
 </script>
 </body>
