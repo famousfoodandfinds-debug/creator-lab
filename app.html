@@ -682,6 +682,12 @@ body.planner-mode #dailyMeterSection { display: none !important; }
 #plannerPanel .gd .gstep{color:var(--text);}
 #plannerPanel .ghr{border:none;border-top:1px solid var(--border);margin:14px 0;}
 #plannerPanel .gd .gtip{background:var(--surface2);border-radius:10px;padding:11px 12px;margin-bottom:0;}
+#plannerPanel a{color:var(--accent);text-decoration:underline;}
+#plannerPanel .scriptbtn{font-size:9px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--accent);background:transparent;border:1px solid var(--border-md);border-radius:999px;padding:4px 9px;cursor:pointer;font-family:inherit;white-space:nowrap;line-height:1;}
+#plannerPanel .scriptbtn:hover{border-color:var(--accent);background:var(--surface3);}
+#plannerPanel .scriptbtn.linked{color:var(--green);border-color:var(--green);}
+#plannerPanel .pick .pmeta{font-size:11px;color:var(--muted);margin-top:2px;}
+#plannerPanel .pick.pcreate{color:var(--accent);}
 </style>
 </head>
 <body>
@@ -925,7 +931,7 @@ body.planner-mode #dailyMeterSection { display: none !important; }
     <p class="small muted" style="margin:4px 0 0;">Drop in your two weekly exports and Saxe ranks every product by commission per unit, then lays out what to film.</p>
     <div style="margin-top:14px;"><div class="lbl">Where to get them</div>
       <ol class="steps">
-        <li>Go to <b>shop.tiktok.com/streamer/home</b> and sign in.</li>
+        <li>Go to <a href="https://shop.tiktok.com/streamer/home" target="_blank" rel="noopener noreferrer"><b>shop.tiktok.com/streamer/home</b></a> and sign in.</li>
         <li><b>Product file:</b> Analytics, then Product Analytics, then Export.</li>
         <li><b>Video file:</b> Analytics, then Video Analytics, keep Last 7 days, then Export.</li>
       </ol>
@@ -943,6 +949,9 @@ body.planner-mode #dailyMeterSection { display: none !important; }
 
   <!-- RESULTS -->
   <div id="results" class="hidden">
+    <div style="display:flex;justify-content:flex-end;margin-top:14px;">
+      <button class="btn ghost" onclick="Planner.reset()">↑ Upload a new week</button>
+    </div>
     <div class="summary" id="summary"></div>
     <div class="topbar">
       <div class="tabs">
@@ -966,7 +975,7 @@ body.planner-mode #dailyMeterSection { display: none !important; }
     <div id="productsView" class="hidden"></div>
     <div id="recapView" class="hidden"></div>
 
-    <div style="margin-top:22px;text-align:center;"><button class="btn ghost" onclick="Planner.reset()">Start over with new files</button></div>
+    <div style="margin-top:22px;text-align:center;"><button class="btn ghost" onclick="Planner.reset()">Upload a new week</button></div>
   </div>
 
   <div id="overlay" class="overlay hidden"></div>
@@ -9717,7 +9726,7 @@ else { document.addEventListener("DOMContentLoaded", updateThemeToggleLabel); }
 <!-- ===== CONTENT PLANNER LOGIC (isolated namespace) ===== -->
 <script>
 (function(){
-const S={catalog:[],byId:{},raw:[],rawMap:{},groups:[],instances:{},board:{days:[],bench:[]},posted:{},filmed:{},goal:6,cap:3,days:7,tab:'plan',mode:'post'};
+const S={catalog:[],byId:{},raw:[],rawMap:{},groups:[],instances:{},board:{days:[],bench:[]},posted:{},filmed:{},goal:6,cap:3,days:7,tab:'plan',mode:'post',links:{}};
 let bufP=null,bufV=null,IID=1,GID=0,sorters=[];
 const nid=()=>'i'+(IID++);
 const money=v=>{if(v==null)return 0;const n=parseFloat(String(v).replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;};
@@ -9827,7 +9836,7 @@ function cardHTML(iid,mini){const inst=S.instances[iid];const p=S.byId[inst.prod
   const posted=!!S.posted[iid];
   return `<div class="cardv ${posted?'posted':''} ${mini?'mini':''}" data-iid="${iid}">
     <div class="handle" title="drag">⠿</div>
-    <div class="cbody"><div class="cname">${tierBadge(instTier(inst))}${esc(p.name)}</div>${inst.angle?`<div class="cangle">${esc(shortAngle(inst.angle))}</div>`:''}${!mini?`<div class="cweek">${(S._weekCount&&S._weekCount[p.id])||1} this week${((S._weekCount&&S._weekCount[p.id])||1)>(S.cap||3)?' · over cap':''}</div>`:''}</div>
+    <div class="cbody"><div class="cname">${tierBadge(instTier(inst))}${esc(p.name)}</div>${inst.angle?`<div class="cangle">${esc(shortAngle(inst.angle))}</div>`:''}${!mini?`<div class="cweek">${(S._weekCount&&S._weekCount[p.id])||1} this week${((S._weekCount&&S._weekCount[p.id])||1)>(S.cap||3)?' · over cap':''}</div>`:''}${!mini?`<div style="margin-top:6px;"><button class="scriptbtn ${(S.links&&S.links[p.id]&&S.links[p.id].scriptProductId)?'linked':''}" onclick="Planner.openScript('${p.id}')">${(S.links&&S.links[p.id]&&S.links[p.id].scriptProductId)?'Script ✓':'Script'}</button></div>`:''}</div>
     <div class="cact"><div class="cbx ${posted?'on':''}" title="posted" onclick="Planner.togglePosted('${iid}')">${posted?'✓':''}</div><div class="rmv" title="remove" onclick="Planner.removeInst('${iid}')">×</div></div>
   </div>`;}
 
@@ -9882,7 +9891,7 @@ function renderFilm(){
   let html='';
   if(!ids.length)html='<p class="muted small" style="margin-top:16px;">Nothing scheduled yet.</p>';
   ids.forEach(pid=>{const p=S.byId[pid];const list=groups[pid];const doneCount=list.filter(i=>S.filmed[i]).length;
-    html+=`<div class="film-prod"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;"><div class="fpn">${tierBadge(p.isNew?'NEW':p.tier)}${esc(p.name)}</div><button class="chip" onclick="Planner.declineProduct('${pid}','oos')">Sold out</button></div><div class="fpc">${list.length} ${list.length===1?'video':'videos'} to film this week · ${doneCount} done</div>`;
+    html+=`<div class="film-prod"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;"><div class="fpn">${tierBadge(p.isNew?'NEW':p.tier)}${esc(p.name)}</div><div style="display:flex;gap:6px;flex-shrink:0;"><button class="scriptbtn ${(S.links&&S.links[pid]&&S.links[pid].scriptProductId)?'linked':''}" onclick="Planner.openScript('${pid}')">${(S.links&&S.links[pid]&&S.links[pid].scriptProductId)?'Script ✓':'Script'}</button><button class="chip" onclick="Planner.declineProduct('${pid}','oos')">Sold out</button></div></div><div class="fpc">${list.length} ${list.length===1?'video':'videos'} to film this week · ${doneCount} done</div>`;
     list.forEach((iid,k)=>{const inst=S.instances[iid];const done=!!S.filmed[iid];
       html+=`<div class="fbox"><div class="cbx ${done?'on':''}" onclick="Planner.toggleFilmed('${iid}')">${done?'✓':''}</div><div class="fa">Take ${k+1}${inst.angle?` · <span class="ang">${esc(shortAngle(inst.angle))}</span>`:' · fresh angle'}</div></div>`;});
     html+='</div>';});
@@ -10059,6 +10068,121 @@ function checkReady(){document.getElementById('buildBtn').disabled=!(bufP&&bufV)
 function hookFile(L){document.getElementById('file'+L).addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const buf=await f.arrayBuffer();if(L==='P')bufP=buf;else bufV=buf;document.getElementById('drop'+L).classList.add('set');document.getElementById('dn'+L).textContent=f.name;checkReady();});}
 
 /* =====================================================================
+   LINK A PLANNER PRODUCT TO A SCRIPT-TOOL PRODUCT
+   Smart name matching (ignores case, punctuation, sizes, model numbers and
+   filler words) finds the user's existing buyer card / scripts. Confident
+   matches jump straight there; otherwise a small picker lets the user choose
+   once. The chosen link is stored by the planner product ID in S.links and
+   saved with the planner state so it never has to be matched again.
+   ===================================================================== */
+var STOP={the:1,a:1,an:1,and:1,with:1,for:1,plus:1,'new':1,set:1,kit:1,pack:1,count:1,ct:1,pc:1,pcs:1,piece:1,pieces:1,machine:1,maker:1,system:1,pro:1,max:1,mini:1,large:1,small:1,xl:1,xxl:1,size:1,servings:1,serving:1,oz:1,ml:1,qt:1,inch:1,inches:1,ft:1,cm:1,mm:1,lb:1,lbs:1,kg:1,'in':1,of:1,to:1,by:1,per:1,each:1,value:1,bundle:1,combo:1,edition:1,version:1,color:1,colors:1,black:1,white:1,blue:1,red:1,green:1,pink:1,gray:1,grey:1,gold:1,silver:1};
+function coreTokens(s){
+  return String(s||'').toLowerCase()
+    .replace(/[^a-z0-9 ]+/g,' ')
+    .split(/\s+/)
+    .filter(function(t){
+      if(!t) return false;
+      if(/\d/.test(t)) return false;   // drop numbers, sizes, model numbers (7, 7x, v2, 2l...)
+      if(STOP[t]) return false;        // drop filler / generic descriptor words
+      if(t.length<2) return false;
+      return true;
+    });
+}
+function lev(a,b){
+  var m=a.length,n=b.length,i,j,prev=[],cur=[];
+  for(j=0;j<=n;j++)prev[j]=j;
+  for(i=1;i<=m;i++){cur[0]=i;for(j=1;j<=n;j++){var cost=a.charAt(i-1)===b.charAt(j-1)?0:1;cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+cost);}for(j=0;j<=n;j++)prev[j]=cur[j];}
+  return prev[n];
+}
+function tokMatch(a,b){
+  if(a===b) return true;
+  var min=Math.min(a.length,b.length);
+  if(min>=4 && (a.indexOf(b)===0||b.indexOf(a)===0)) return true;  // prefix (slushi / slushie)
+  if(min>=5 && lev(a,b)<=1) return true;                            // tiny typo / plural
+  return false;
+}
+// Score every script-tool product against the planner product name.
+function rankMatches(name,list){
+  var A=coreTokens(name);
+  var out=(list||[]).map(function(p){
+    var B=coreTokens(p.name);
+    var matched=0;
+    B.forEach(function(b){ if(A.some(function(a){return tokMatch(a,b);})) matched++; });
+    var planMatched=0;
+    A.forEach(function(a){ if(B.some(function(b){return tokMatch(a,b);})) planMatched++; });
+    var ratioCand=B.length?matched/B.length:0;
+    var ratioPlan=A.length?planMatched/A.length:0;
+    return { id:p.id, name:p.name, score:matched, ratioCand:ratioCand, ratioPlan:ratioPlan };
+  });
+  out=out.filter(function(c){ return c.score>=1 && (c.ratioCand>=0.5||c.ratioPlan>=0.5); });
+  out.sort(function(a,b){ return (b.score-a.score)||(b.ratioCand-a.ratioCand)||(b.ratioPlan-a.ratioPlan); });
+  return out;
+}
+function confidentMatch(ranked){
+  if(!ranked.length) return null;
+  var top=ranked[0];
+  if(top.ratioCand<0.5 && top.ratioPlan<0.5) return null;
+  // confident only when there is a clear single leader (no close ties)
+  if(ranked.length===1 || top.score>ranked[1].score) return top;
+  return null;
+}
+function fetchProducts(cb){
+  var u=window.currentUser;
+  if(!u||!window.sb){ cb([]); return; }
+  try{
+    window.sb.from('products').select('id, name').eq('user_id',u.id)
+      .then(function(res){ cb((res&&!res.error&&res.data)?res.data:[]); }, function(){ cb([]); });
+  }catch(e){ cb([]); }
+}
+function productName(pid){var p=S.byId[pid];return p?p.name:'';}
+function setLink(pid,val){ S.links=S.links||{}; S.links[pid]=val; scheduleSave(); }
+
+function goToScripts(scriptProductId){
+  if(typeof showMainTab==='function') showMainTab('scripts');
+  if(typeof loadProductById==='function') loadProductById(scriptProductId);
+}
+function goToCreateNew(name){
+  if(typeof showMainTab==='function') showMainTab('scripts');
+  if(typeof showNew==='function') showNew();
+  var nn=document.getElementById('newProductNameInput');
+  if(nn){ nn.value=name; try{ nn.dispatchEvent(new Event('input')); }catch(e){} }
+  var pi=document.getElementById('productInput'); if(pi){ try{ pi.focus(); }catch(e){} }
+}
+
+// Entry point from the Script button on any planner card.
+function openScript(pid){
+  var name=productName(pid);
+  var link=(S.links&&S.links[pid])?S.links[pid]:null;
+  fetchProducts(function(list){
+    if(link&&link.scriptProductId){
+      if(list.some(function(p){return p.id===link.scriptProductId;})){ goToScripts(link.scriptProductId); return; }
+      // linked product was deleted — fall through and re-match
+    }
+    var ranked=rankMatches(name,list);
+    var conf=confidentMatch(ranked);
+    if(conf){ setLink(pid,{scriptProductId:conf.id}); goToScripts(conf.id); }
+    else{ showMatchPicker(pid,name,ranked); }
+  });
+}
+function showMatchPicker(pid,name,ranked){
+  var ov=document.getElementById('overlay');
+  var rows=(ranked||[]).slice(0,6).map(function(c){
+    return `<div class="pick" onclick="Planner.pickMatch('${pid}','${c.id}')"><div><div>${esc(c.name)}</div><div class="pmeta">tap to use this product's scripts</div></div><span class="muted small">match</span></div>`;
+  }).join('');
+  if(!rows) rows=`<div class="note" style="margin:4px 0 10px;">No close matches in your script library.</div>`;
+  ov.innerHTML=`<div class="sheet"><h3>Match "${esc(name)}"</h3>
+    <div class="note" style="margin:0 0 10px;">Pick this product's scripts so Saxe can take you straight there next time.</div>
+    ${rows}
+    <div class="pick pcreate" onclick="Planner.createScriptFor('${pid}')"><span>＋ Create a new one</span><span class="muted small">opens the builder</span></div>
+    <div class="pick" onclick="Planner.skipScript('${pid}')"><span class="muted">Not one of mine</span></div>
+    <div style="margin-top:14px;text-align:center;"><button class="btn ghost" onclick="Planner.closeAdd()">Cancel</button></div></div>`;
+  ov.classList.remove('hidden');
+}
+function pickMatch(pid,scriptProductId){ setLink(pid,{scriptProductId:scriptProductId}); closeAdd(); goToScripts(scriptProductId); }
+function createScriptFor(pid){ var name=productName(pid); closeAdd(); goToCreateNew(name); }
+function skipScript(pid){ setLink(pid,{skip:true}); closeAdd(); }
+
+/* =====================================================================
    SUPABASE PERSISTENCE  (one JSONB row per user in table planner_state)
    Uses the app's existing global Supabase client (sb) and currentUser.
    Nothing here changes how files are read in the browser; it only mirrors
@@ -10075,6 +10199,7 @@ function snapshot(){
     goal:S.goal, cap:S.cap, days:S.days, tab:S.tab, mode:S.mode,
     iid:IID, gid:GID,
     groups:S.groups,
+    links:S.links||{},
     raw:S.raw,
     instances:S.instances,
     board:{
@@ -10114,6 +10239,7 @@ function restoreFrom(d){
     S.goal=d.goal||6; S.cap=d.cap||3; S.days=d.days||7;
     S.tab=d.tab||'plan'; S.mode=d.mode||'post';
     S.groups=Array.isArray(d.groups)?d.groups:[];
+    S.links=(d.links&&typeof d.links==='object')?d.links:{};
     S.raw=Array.isArray(d.raw)?d.raw:[];
     S.rawMap={}; S.raw.forEach(function(p){S.rawMap[p.id]=p;});
     S.instances=d.instances||{};
@@ -10152,7 +10278,7 @@ function hardClear(){
   restoring=true;
   try{
     bufP=null;bufV=null;
-    S.catalog=[];S.byId={};S.raw=[];S.rawMap={};S.groups=[];S.instances={};
+    S.catalog=[];S.byId={};S.raw=[];S.rawMap={};S.groups=[];S.links={};S.instances={};
     S.board={days:[],bench:[]};S.posted={};S.filmed={};S.tab='plan';S.mode='post';
     S._sel={};S._combineMode=false;S._expanded={};S._prodQuery='';S._showRising=false;S._weekCount={};
     S.goal=6;S.cap=3;IID=1;GID=0;
@@ -10203,7 +10329,8 @@ document.getElementById('buildBtn').addEventListener('click',build);
 window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst,
   declineProduct,toggleFilmed,toggleExp,ungroup,toggleSel,onProdSearch,toggleCombine,
   combineSelected,selectAllShown,clearSel,toggleRising,openAdd,filterAdd,addNewSample,
-  closeAdd,addExisting,load};
+  closeAdd,addExisting,load,
+  openScript,pickMatch,createScriptFor,skipScript};
 })();
 </script>
 </body>
