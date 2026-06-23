@@ -2902,11 +2902,19 @@ function renderProductHub() {
     });
     wrap.appendChild(editDescBtnTop);
 
+    // Regenerate only THIS product's scripts (cheaper, scoped default)
+    var regenProductBtn = document.createElement("button");
+    regenProductBtn.className = "next-btn";
+    regenProductBtn.style.cssText = "background:linear-gradient(135deg,#CE9A80,#E6CDBC);color:#080808;font-weight:600;border:none;font-size:13px;margin-top:8px;";
+    regenProductBtn.textContent = "↻ Regenerate this product to the new standard";
+    regenProductBtn.addEventListener("click", function(){ regenerateProductScripts(currentProductId); });
+    wrap.appendChild(regenProductBtn);
+
     // PART 3 -- rewrite every saved script (across all products) to the new standard
     var regenAllBtn = document.createElement("button");
     regenAllBtn.className = "next-btn";
     regenAllBtn.style.cssText = "background:transparent;border:1px solid rgba(206,154,128,0.4);color:var(--gold);font-size:13px;margin-top:8px;";
-    regenAllBtn.textContent = "↻ Regenerate all to the new standard";
+    regenAllBtn.textContent = "↻ Regenerate ALL products (uses more) ";
     regenAllBtn.addEventListener("click", function(){ regenerateAllScripts(); });
     wrap.appendChild(regenAllBtn);
 
@@ -4357,6 +4365,48 @@ function regenerateAllScripts(){
       var i = 0, ok = 0, fail = 0;
       function next(){
         if (i >= scripts.length) { done("Done. Rewrote " + ok + " of " + scripts.length + " scripts" + (fail ? " (" + fail + " could not be rewritten)" : "") + "."); return; }
+        var sc = scripts[i];
+        status.textContent = "Rewriting " + (i + 1) + " of " + scripts.length + "...";
+        var prod = prodMap[sc.product_id] || {};
+        var desc = (prod.bank && prod.bank.facts) || prod.description || prod.name || "";
+        var desire = sc.desire || (prod.bank && prod.bank.desireAngle) || "the single strongest want for this product";
+        regenerateOneScript(sc, desc, desire, function(success){
+          if (success) ok++; else fail++;
+          i++;
+          next();
+        });
+      }
+      next();
+    }, function(){ done("Could not load scripts."); });
+  }, function(){ done("Could not load products."); });
+}
+
+function regenerateProductScripts(productId){
+  if (!currentUser) { showToast("Sign in first"); return; }
+  if (!productId) { showToast("No product selected"); return; }
+  if (!confirm("Rewrite the saved scripts for this product to the new standard? This only updates this product, not your others.")) return;
+  var ov = document.createElement("div");
+  ov.style.cssText = "position:fixed;inset:0;background:rgba(8,7,6,0.8);z-index:4000;display:flex;align-items:center;justify-content:center;padding:20px;";
+  var box = document.createElement("div");
+  box.style.cssText = "background:var(--surface);border:1px solid var(--border-md);border-radius:16px;padding:24px;max-width:420px;width:100%;text-align:center;";
+  var title = document.createElement("div");
+  title.style.cssText = "font-family:'Marcellus',serif;font-size:18px;color:var(--white);margin-bottom:10px;";
+  title.textContent = "Regenerating this product's scripts";
+  var status = document.createElement("div");
+  status.style.cssText = "font-size:13px;color:var(--muted);line-height:1.6;";
+  status.textContent = "Loading your scripts...";
+  box.appendChild(title); box.appendChild(status); ov.appendChild(box); document.body.appendChild(ov);
+  function done(msg){ status.textContent = msg; var b = document.createElement("button"); b.textContent = "Close"; b.style.cssText = "margin-top:16px;background:var(--red);color:var(--white);border:none;border-radius:10px;padding:10px 20px;font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;"; b.addEventListener("click", function(){ if (ov.parentNode) ov.parentNode.removeChild(ov); if (currentProductId) renderProductHub(); }); box.appendChild(b); }
+
+  sb.from("products").select("id, description, name, bank, motivation").eq("user_id", currentUser.id).eq("id", productId).then(function(pr){
+    var prodMap = {};
+    (pr.data || []).forEach(function(p){ prodMap[p.id] = p; });
+    sb.from("scripts").select("*").eq("user_id", currentUser.id).eq("product_id", productId).then(function(sr){
+      var scripts = sr.data || [];
+      if (!scripts.length) { done("No saved scripts to rewrite."); return; }
+      var i = 0, ok = 0, fail = 0;
+      function next(){
+        if (i >= scripts.length) { done("Done. Rewrote " + ok + " of " + scripts.length + " script" + (scripts.length === 1 ? "" : "s") + " for this product" + (fail ? " (" + fail + " could not be rewritten)" : "") + "."); return; }
         var sc = scripts[i];
         status.textContent = "Rewriting " + (i + 1) + " of " + scripts.length + "...";
         var prod = prodMap[sc.product_id] || {};
