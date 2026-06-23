@@ -2931,6 +2931,21 @@ function renderProductHub() {
     winInput.addEventListener("change", function(e){ handleWinningAnglesUpload(e, winResults); });
     wrap.appendChild(winBtn);
     wrap.appendChild(winInput);
+    // Paste-text option (feeds the same stored winners as the image upload)
+    var pasteLabel = document.createElement("div");
+    pasteLabel.style.cssText = "font-size:12px;color:var(--muted);margin:12px 0 6px;";
+    pasteLabel.textContent = "Or paste a winning script";
+    var pasteTa = document.createElement("textarea");
+    pasteTa.placeholder = "Paste a TikTok script here, with or without timestamps and labels.";
+    pasteTa.style.cssText = "width:100%;min-height:90px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px 12px;outline:none;resize:vertical;line-height:1.5;box-sizing:border-box;-webkit-user-select:text;user-select:text;";
+    var pasteBtn = document.createElement("button");
+    pasteBtn.className = "next-btn";
+    pasteBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white-dim);font-size:13px;margin-top:8px;";
+    pasteBtn.textContent = "Add pasted script";
+    pasteBtn.addEventListener("click", function(){ handleWinningAnglesPaste(pasteTa, winResults); });
+    wrap.appendChild(pasteLabel);
+    wrap.appendChild(pasteTa);
+    wrap.appendChild(pasteBtn);
     wrap.appendChild(winResults);
     if (allData && Array.isArray(allData.winnersRaw) && allData.winnersRaw.length) {
       renderWinnersReview(allData.winnersRaw.map(function(p){ return { handle: p.handle, views: p.views, transcript: p.transcript, topic: p.topic, role: p.role || "ignore" }; }), winResults);
@@ -3392,6 +3407,66 @@ function sendWinningAnglesToModel(b64, mediaType, container) {
   })
   .catch(function(err) {
     container.innerHTML = "<div style='font-size:12px;color:var(--red);padding:8px 0;'>Could not read the screenshot: " + (err && err.message ? err.message : "unknown") + "</div>";
+  });
+}
+
+// Paste-text path: parse pasted scripts and APPEND them to the existing winners.
+// Reuses detectWinnerRoles, renderWinnersReview, and saveWinnersRaw exactly.
+function handleWinningAnglesPaste(textarea, container) {
+  var txt = (textarea && textarea.value ? textarea.value : "").trim();
+  if (!txt) { if (textarea) textarea.focus(); return; }
+  sendWinningAnglesTextToModel(txt, container, function(added) { if (added && textarea) textarea.value = ""; });
+}
+
+function existingWinnersPanels() {
+  return (typeof allData === "object" && allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw.map(function(p) {
+    return { handle: p.handle || "", views: p.views || "", transcript: p.transcript || "", topic: p.topic || "", role: p.role || "ignore" };
+  }) : [];
+}
+
+function sendWinningAnglesTextToModel(pastedText, container, done) {
+  container.innerHTML = "<div style='font-size:12px;color:var(--muted);padding:8px 0;'>Reading your pasted script...</div>";
+  // Plain text, no image -- the fast model is fine here.
+  var prompt = "The following is one or more TikTok product scripts pasted as text, possibly with timestamps or labels. Split it into separate scripts if there is more than one. For each script return an object with: handle (the creator handle if present, else empty string), views (if present, else empty string), transcript (the spoken words in order, verbatim, with any timestamps or UI labels removed), and topic (a short label for what product or subject it is about). Return a JSON array and nothing else.\n\n" + pastedText;
+  fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000, messages: [{ role: "user", content: prompt }] })
+  })
+  .then(function(r) { return r.text(); })
+  .then(function(raw) {
+    var data = JSON.parse(raw);
+    if (data.error) throw new Error(data.error.message);
+    var text = "";
+    data.content.forEach(function(b) { if (b.type === "text") text += b.text; });
+    text = text.replace(/```json|```/g, "").trim();
+    var arr = JSON.parse(text);
+    if (!Array.isArray(arr)) arr = [];
+    var newPanels = arr.map(function(o) {
+      return {
+        handle: (o && o.handle != null) ? String(o.handle) : "",
+        views: (o && o.views != null) ? String(o.views) : "",
+        transcript: (o && o.transcript != null) ? String(o.transcript) : "",
+        topic: (o && o.topic != null) ? String(o.topic) : "",
+        role: "ignore"
+      };
+    });
+    detectWinnerRoles(newPanels);
+    // Append to whatever is already stored rather than overwriting it.
+    var combined = existingWinnersPanels().concat(newPanels);
+    renderWinnersReview(combined, container);
+    saveWinnersRaw(combined);
+    if (newPanels.length > 0) { if (done) done(true); }
+    else { showToast("No scripts found in the pasted text"); if (done) done(false); }
+  })
+  .catch(function(err) {
+    var existing = existingWinnersPanels();
+    if (existing.length) renderWinnersReview(existing, container);
+    var e = document.createElement("div");
+    e.style.cssText = "font-size:12px;color:var(--red);padding:8px 0;";
+    e.textContent = "Could not read the pasted script: " + (err && err.message ? err.message : "unknown");
+    container.appendChild(e);
+    if (done) done(false);
   });
 }
 
