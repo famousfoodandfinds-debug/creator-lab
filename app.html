@@ -817,10 +817,10 @@ body.planner-mode #dailyMeterSection { display: none !important; }
           <div class="field-label" style="margin-bottom:0;">Tell us about this product</div>
           <div class="field-required-badge" style="flex-shrink:0;">Required</div>
         </div>
-        <div class="field-hints-line" style="margin-bottom:10px;">Paste the product description or just tell us what it does. We will figure out your buyers from this.</div>
-        <textarea id="productInput" maxlength="1000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste product description here -- brand name, key features, specs, what it does."></textarea>
+        <div class="field-hints-line" style="margin-bottom:10px;">Paste the full product listing or upload a screenshot. We clean out the junk and pull the real facts to ground your script. Long listings are fine. Review what we captured and fix any typo before you generate.</div>
+        <textarea id="productInput" maxlength="8000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste the full product listing here -- brand, materials, sizes, certifications, every real feature. Or use Upload to read a screenshot."></textarea>
         <div class="panel-foot">
-          <span class="char-ct"><span id="productDescCount">0</span>/1000</span>
+          <span class="char-ct"><span id="productDescCount">0</span>/8000</span>
         </div>
         <button id="generateBuyersBtn" onclick="generateBuyerCards()" style="width:100%;margin-top:12px;background:var(--purple);border:none;border-radius:var(--radius-sm);color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:700;padding:13px;cursor:pointer;">Find my buyers ✶</button>
       </div>
@@ -2077,6 +2077,8 @@ function loadProductById(id) {
     allData = result.data.bank || {};
     // Remember the last core-desire angle chosen for this product (Part 2)
     currentDesire = allData.desireAngle || null;
+    // Restore the grounding facts for this product (fall back to its description).
+    currentFacts = allData.facts || result.data.description || "";
     // Reset price so each product requires a conscious price selection
     currentPrice = null;
     // Rebuild price selector to show unselected state
@@ -2193,12 +2195,12 @@ function sanitizeProductDescription(desc) {
 function cleanProductDescription(rawDesc, callback) {
   if (!rawDesc || rawDesc.trim().length < 20) { callback(rawDesc); return; }
 
-  var prompt = "You are a compliance editor for TikTok Shop affiliate creators. A creator has pasted a product description that may contain clinical claims, medical comparisons, and marketing language that affiliates cannot legally repeat on TikTok. Your job is to rewrite the description keeping ONLY factual specs that a creator can safely reference. KEEP: ingredients, active compounds and percentages, materials, format, size, how it is physically applied, what it contains, compatibility, certifications like PFOA-free or organic, what the product physically is. REMOVE completely: any claim that the product causes a physical change in the body, any comparison to a medical procedure or prescription treatment, any phrase like filler in a stick, volumizes, plumps, fills hollow, rebuilds density, reduces wrinkles, anti-aging, restores volume, reverses, eliminates, firms, tightens, deflates, clinically proven, dermatologist approved, or any outcome language. REMOVE: brand names of competing products, injectable fillers, prescription drugs, medical devices. The output must read like a factual ingredient list and product specification -- not marketing copy. If the entire description is claim language and there are no factual specs to extract, return only the product name and format. Return ONLY the cleaned description text with no preamble, no explanation, nothing else. Raw description to clean: " + rawDesc;
+  var prompt = "You are a fact extractor and compliance editor for TikTok Shop affiliate creators. A creator has given you a product listing (pasted text or read from a screenshot) that mixes real facts with junk and with claim language. Your job is to extract the REAL, USABLE PRODUCT FACTS into a clean factual spec the creator can safely ground a script in. CLEAN OUT JUNK: remove blank lines, repeated spaces, bullet and symbol characters, emojis, navigation and UI text, star ratings and review counts, prices and discounts, shipping, returns, warranty, and seller or marketing boilerplate. KEEP every real fact, do not summarize it away and do not impose a length limit: keep all materials, ingredients, active compounds and percentages, dimensions, sizes, weights, capacity, format, what it is made of, how it is physically used, compatibility, what is in the box, and certifications like PFOA-free, OEKO-TEX, or organic. PRESERVE FACTS EXACTLY AS STATED, keeping each quality attached to exactly what the listing attached it to. Do NOT combine two separate facts into a new claim, do NOT add anything that is not in the listing, and do NOT invent specs, numbers, or certifications. REMOVE only: claims that the product causes a physical change in the body, comparisons to a medical procedure or prescription treatment, outcome language like volumizes, plumps, fills hollow, rebuilds density, reduces wrinkles, anti-aging, restores volume, reverses, eliminates, firms, tightens, deflates, clinically proven, dermatologist approved, and the names of competing brands, injectable fillers, prescription drugs, or medical devices. Output a clean factual product spec only, as plain sentences or short factual lines, no preamble, no explanation, nothing else. Raw listing to clean and extract facts from: " + rawDesc;
 
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 500,
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1500,
       messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -2864,8 +2866,11 @@ function renderProductHub() {
             document.getElementById("productInput").value = nd;
             var _cc = document.getElementById("charCount"); if (_cc) _cc.textContent = nd.length; var _pdc = document.getElementById("productDescCount"); if (_pdc) _pdc.textContent = nd.length;
             currentProduct = combined;
+            // Refresh the grounding facts from the edited listing.
+            currentFacts = sanitizeProductDescription(cleanedNd);
+            if (typeof allData === "object" && allData) allData.facts = currentFacts;
             if(currentProductId) {
-              var updatePayload = { motivation: ni, real_reason: nrr, surprise: ns, description: cleanedNd, authority: currentAuthority || null };
+              var updatePayload = { motivation: ni, real_reason: nrr, surprise: ns, description: cleanedNd, authority: currentAuthority || null, bank: allData };
               if(nn) updatePayload.name = nn;
               sb.from("products").update(updatePayload).eq("id", currentProductId).then(function(){
                 buildSelect();
@@ -3246,7 +3251,7 @@ function processAllImages() {
   var msgContent = uploadedImages.map(function(im) {
     return { type: "image", source: { type: "base64", media_type: im.type || "image/jpeg", data: im.b64 } };
   });
-  msgContent.push({ type: "text", text: "These are product listing screenshots. Extract all product details and write a 3-5 sentence description covering what it is, what it does, key features, and buyer highlights. Start with the brand name. Return only the description text." });
+  msgContent.push({ type: "text", text: "These are product listing screenshots. Read ALL the text and extract every real product detail faithfully and completely. Do NOT summarize and do NOT shorten: include the full product name and brand, every material, ingredient, size, dimension, weight, capacity, certification, what is in the box, and every factual feature exactly as written, keeping each quality attached to exactly what the listing attached it to. Do not invent or combine details. Leave out only navigation, prices, star ratings, review counts, shipping, returns, and unrelated UI text. Start with the brand and product name. Return only the extracted product description text." });
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
@@ -3312,6 +3317,7 @@ function showNew() {
   currentProductId = null;
   currentProductName = "";
   currentDesire = null;
+  currentFacts = "";
   allData = {};
   resetPicks();
   document.getElementById("productSelect").value = "";
@@ -3355,6 +3361,10 @@ var SAXE_STANDARD = " SAXE SCRIPT STANDARD (HIGHEST PRIORITY. This section overr
   " 4. THE FINAL BEAT closes on the one core desire the hook opened." +
   " Every reloop must be anchored to something physically shown on camera, never a lecture line." +
   " NO MADE-UP FACTS (enforce hard): a surprising feature may ONLY come from the real product details provided. Never invent a spec, a certification, a material, a number, or a claim to fill the surprise slot. If there is no genuinely surprising true fact available, fall back to a real on-camera reveal or a real strong benefit. Never fabricate anything." +
+  " GROUND EVERY CLAIM IN PROVIDED FACTS: The script, the on-screen text, and the caption may state a product fact, feature, material, certification, number, or physical behavior ONLY if it is present in the provided product details. If a detail is not provided, do not state it. Never invent specs, certifications, numbers, or mechanisms." +
+  " FAITHFUL RECOMBINATION (critical): You may use the provided facts, but you may NOT recombine two true details into a new claim the source never made. Keep every quality attached to exactly what the source attached it to. Worked example: a listing says gets loftier and softer with every wash and versatile enough to layer across every season. You MAY say it gets loftier every time you wash it. You may NOT say the waffle weave lofts up in winter, because that welds loftier onto a season the source never linked it to. Blankets do not change by season. Describe the real thing exactly as stated. Never invent how or when it works." +
+  " EVERY FEELING MUST BE EARNED BY A REAL FACT: In each fact-to-feeling bridge, the fact half must be a real provided fact, then the feeling. Never write floating emotion with no provided fact under it. If there is no real fact to anchor a feeling, cut that line or replace it with one that has a real fact under it." +
+  " SELF-CHECK BEFORE OUTPUT: After writing, verify every factual claim in the spoken script, the on-screen text, and the caption against the provided product details, asking: is this stated in the provided details, in this exact combination? Anything invented, or any two facts welded into a claim the source did not make, must be cut or softened to only what is actually supported. Do this on every output before returning it." +
   " KEEP WORDING FRESH: follow the structure (open and tease, reveal and escalate, pay off, close on the desire) but VARY the exact words every single time. Never lean on stock filler lines. Do not reuse phrases like that is not even the best part or nobody tells you this. The structure stays the same, the wording changes every script." +
   " FACT TO FEELING, FROM WHAT IS VISIBLE: Pick two or three concrete facts drawn from what the creator can show on camera and what makes the product desirable (weight, color, finish, a specific real feature). Bridge each fact to a feeling or a specific future moment, usually with the word so. Only use real features provided in the product details. Never invent a spec." +
   " A SHOT FOR EACH FACT: For each fact, add a short filming cue telling the creator what to show (a wide shot, a close-up on that feature). At least two distinct angles total." +
@@ -3372,8 +3382,23 @@ var currentDesire = null;
 function desireDirective(){
   return currentDesire ? " TARGET CATEGORY AND CORE DESIRE FOR THIS VIDEO (given as input, build everything around this one want and aim it at this one target): " + currentDesire + ". Say this target out loud, naturally woven into the hook or the very first spoken line, within the first five seconds, so TikTok categorizes the video correctly. Keep it natural and varied, never a robotic This product opener. Surface this same keyword in the on-screen text too. Only aim the script at a use case the product can physically deliver. The hook, the chosen facts, and the close must all serve only this one want. Do not mix in any other want." : "";
 }
-// For generators that do NOT pass the system prompt: include the standard plus the desire
-function saxeAux(){ return SAXE_STANDARD + desireDirective(); }
+// The extracted, junk-free product facts that the generator must ground every claim in.
+var currentFacts = "";
+function getGroundingFacts(){
+  var facts = (typeof allData === "object" && allData && allData.facts) ? allData.facts : "";
+  if (!facts && typeof currentFacts === "string" && currentFacts) facts = currentFacts;
+  if (!facts && typeof currentProduct === "string" && currentProduct.indexOf(" PRODUCT DETAILS: ") > -1) facts = currentProduct.split(" PRODUCT DETAILS: ").pop();
+  return (facts || "").trim();
+}
+function factsBlock(facts){
+  facts = (facts || "").trim();
+  if (!facts) return "";
+  return " GROUND TRUTH PRODUCT FACTS (this is the ONLY source of truth for any product fact, feature, material, certification, number, or physical behavior. The script, the on-screen text, and the caption may ONLY state facts that appear here, and only in the SAME combination they appear here): " + facts +
+    " GROUNDING RULES: Do not state any spec, certification, number, or mechanism that is not in this list. Do not weld two separate facts into a new claim the list does not make (for example do not move loftier onto winter or a season). Keep every quality attached to exactly what the list attached it to. Every feeling must sit on top of a real fact from this list. Before returning, check each factual claim against this list, in this exact combination, and cut or soften anything not supported.";
+}
+function factsDirective(){ return factsBlock(getGroundingFacts()); }
+// For generators that do NOT pass the system prompt: include the standard plus the desire plus the grounding facts
+function saxeAux(){ return SAXE_STANDARD + desireDirective() + factsDirective(); }
 
 // HARD em-dash enforcement: strip any em/en dash or dash-style double hyphen from
 // generated output (script, on-screen text, caption) since it keeps slipping through.
@@ -4042,6 +4067,9 @@ function saveNewProduct() {
   currentAuthority = authority;
   var combined = insight + " REAL REASON: " + realReason + " SURPRISE DETAIL: " + surprise + (authority ? " AUTHORITY: " + authority : "") + " PRODUCT DETAILS: " + sanitizeProductDescription(cleanedProduct);
   currentProduct = combined;
+  // Store the extracted, junk-free facts as the grounding source of truth.
+  currentFacts = sanitizeProductDescription(cleanedProduct);
+  if (typeof allData === "object" && allData) allData.facts = currentFacts;
   var name = enteredName;
   currentProductName = name;
   var savedPrice = currentPrice;
@@ -4265,7 +4293,8 @@ function regenerateOneScript(sc, desc, desire, cb){
   var prompt = "Rewrite this ONE complete TikTok Shop show-and-highlight video script so it follows the SAXE SCRIPT STANDARD exactly." +
     " ONE CORE DESIRE AND TARGET CATEGORY for this video, build the hook, the facts, and the close around only this single want and target: " + (desire || "the single strongest want for this product") + "." +
     " Say that target out loud, naturally woven into the hook or the very first line, within the first five seconds, and surface it in the on-screen text too. Keep it natural and varied, never a robotic This product opener. Only aim it at a use case the product can physically deliver." +
-    " Product details (only use real features stated here, never invent a spec): " + String(desc || "").slice(0, 1200) + "." +
+    " Product details (only use real features stated here, never invent a spec): " + String(desc || "").slice(0, 4000) + "." +
+    factsBlock(desc) +
     (sc && sc.hook ? " The previous hook was: " + sc.hook + ". Write a fresh, stronger version to the standard, do not copy it." : "") +
     " Return ONLY valid JSON, no markdown: {\"hook\":str,\"body1\":str,\"preclose\":str,\"body2\":str,\"cta\":str,\"screenText\":[3 short on-screen text hook options],\"caption\":str,\"hashtags\":[5 strings, no hash symbol]}.";
   fetch("/api/claude", {
@@ -4323,7 +4352,7 @@ function regenerateAllScripts(){
         var sc = scripts[i];
         status.textContent = "Rewriting " + (i + 1) + " of " + scripts.length + "...";
         var prod = prodMap[sc.product_id] || {};
-        var desc = prod.description || prod.name || "";
+        var desc = (prod.bank && prod.bank.facts) || prod.description || prod.name || "";
         var desire = sc.desire || (prod.bank && prod.bank.desireAngle) || "the single strongest want for this product";
         regenerateOneScript(sc, desc, desire, function(success){
           if (success) ok++; else fail++;
@@ -5307,6 +5336,7 @@ function generateScriptBankSilent(onComplete) {
 
     var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend." +
       desireDirective() +
+      factsDirective() +
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
       hookTypeContext +
       (getBuyerMotivation() ? " CREATOR INSIGHT: " + getBuyerMotivation() : "") +
@@ -5435,6 +5465,7 @@ function generateScriptBank() {
     // ── CALL 2: Write the full script bank from that understanding ──
     var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend about something they found. Not an ad. Not a brand. A person." +
       desireDirective() +
+      factsDirective() +
 
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point. FIELD 1 ANCHOR -- THIS IS MANDATORY: Before writing any hook, read the creator insight again: " + (getBuyerMotivation() || "") + ". Every hook must speak to the person described in that insight. If a hook could apply to a different buyer than the one described, rewrite it. The product features only matter as proof for the feeling the creator already identified. Feature-first hooks are wrong if the creator gave you a buyer insight." +
 
@@ -5561,6 +5592,7 @@ function generateScriptBank() {
     // Call 1 failed -- fall through to write without product understanding
     var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend." +
       desireDirective() +
+      factsDirective() +
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
       hookTypeContext +
       (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
@@ -8278,6 +8310,7 @@ function generateBody2AndPreclose(body1Line, hookLine) {
 
   var focusContext = currentFocus ? " Buyer angle: " + currentFocus.focus + "." : "";
   var prompt = "You are writing the pre-close and body 2 for a TikTok Shop script. Read every detail carefully." +
+    factsDirective() +
     " PRODUCT: " + currentProduct +
     currentUseContext +
     " SCRIPT SO FAR -- HOOK: " + (hookLine || "") +
@@ -8507,6 +8540,7 @@ function generateCTA(hookLine, body1Line, preCloseLine, body2Line) {
   var focusContext = currentFocus ? " Buyer angle: " + currentFocus.focus + "." : "";
   var priceCtx = " " + getPriceContext();
   var prompt = "You have one job: write CTAs that close the exact tension opened by this specific hook." +
+    factsDirective() +
     " HOOK (this is your only input that matters): " + (hookLine || "") +
     " Full script context: BODY 1: " + (body1Line || "") +
     (preCloseLine ? " PRE-CLOSE: " + preCloseLine : "") +
