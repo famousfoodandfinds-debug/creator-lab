@@ -3361,12 +3361,12 @@ function sendWinningAnglesToModel(b64, mediaType, container) {
   container.innerHTML = "<div style='font-size:12px;color:var(--muted);padding:8px 0;'>Reading the videos in your screenshot...</div>";
   var msgContent = [
     { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: b64 } },
-    { type: "text", text: "This is a screenshot containing one or more TikTok videos, each with a creator handle, view count, and a timestamped spoken transcript. For each distinct video panel, return an object with: handle, views (the number shown, as text), transcript (all the spoken lines joined into one string in order, without the timestamps), and topic (a short label for what product or subject the video is about). Return a JSON array of these objects and nothing else." }
+    { type: "text", text: "This is a screenshot containing one or more TikTok videos, each with a creator handle, view count, and a timestamped spoken transcript. For each distinct video panel, return an object with: handle, views (the number shown, as text), transcript, and topic (a short label for what product or subject the video is about). Transcribe the spoken lines exactly as they appear in the screenshot, word for word, in order. Do not paraphrase, summarize, correct grammar, or guess at meaning. Preserve all brand names, product names, color names, and numbers exactly as written. If text is hard to read, give your closest literal reading of what is printed, never a cleaned-up version. Return the transcript as one string with the timestamps removed. Return a JSON array of these objects and nothing else." }
   ];
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000, messages: [{ role: "user", content: msgContent }] })
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 4000, messages: [{ role: "user", content: msgContent }] })
   })
   .then(function(r) { return r.text(); })
   .then(function(raw) {
@@ -3417,18 +3417,21 @@ function winnersTopicScore(topic) {
   return score;
 }
 
-// Assign roles relative to the current product: up to two best topic matches are
-// "winner", the single highest-view non-matching panel is "format", rest "ignore".
+// Assign roles relative to the current product. Works for any number of panels.
+// A topic that matches the product's name or category is a "winner"; one that does
+// not is a "format". There is no cap on winners or formats: an upload can have many
+// winners and zero, one, or many formats. An ambiguous match defaults to "winner".
+// The user can still change any panel's role with the per-panel control.
 function detectWinnerRoles(panels) {
-  panels.forEach(function(p) { p._score = winnersTopicScore(p.topic); p._views = winnersViewsToNumber(p.views); p.role = "ignore"; });
-  panels.filter(function(p) { return p._score > 0; })
-    .sort(function(a, b) { return (b._score - a._score) || (b._views - a._views); })
-    .slice(0, 2)
-    .forEach(function(p) { p.role = "winner"; });
-  var nonMatch = panels.filter(function(p) { return p.role !== "winner" && p._score === 0; })
-    .sort(function(a, b) { return b._views - a._views; });
-  if (nonMatch.length) nonMatch[0].role = "format";
-  panels.forEach(function(p) { delete p._score; delete p._views; });
+  var stop = { the: 1, and: 1, for: 1, with: 1, of: 1, to: 1, your: 1, you: 1 };
+  var prodWords = ((currentProductName || "") + " " + (currentProduct || "")).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(function(w) { return w.length > 2 && !stop[w]; });
+  panels.forEach(function(p) {
+    var hasTopic = !!String(p.topic || "").trim();
+    var matches = winnersTopicScore(p.topic) > 0;
+    // Ambiguous (no topic to judge, or no product words to compare against) -> winner.
+    var ambiguous = !hasTopic || prodWords.length === 0;
+    p.role = (matches || ambiguous) ? "winner" : "format";
+  });
   return panels;
 }
 
