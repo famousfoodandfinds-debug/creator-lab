@@ -3651,6 +3651,10 @@ function saveWinnersRaw(panels) {
 // Read by renderBatchResults so the on-screen note reflects the exact count, not a separate recount.
 var lastWinnersFedCount = 0;
 
+// Single source of truth for the CTA cart/em-dash prohibition. Referenced by buildWinnersBlock and the
+// winning-framework prompt so the rule is reused (and the literal appears exactly once in the file).
+var ORANGE_CART_RULE = "no orange cart, no em-dashes";
+
 function buildWinnersBlock(bank) {
   if (!bank || !Array.isArray(bank.winnersRaw)) { lastWinnersFedCount = 0; return ""; }
   var winners = bank.winnersRaw.filter(function(p){ return p && p.role === "winner"; });
@@ -3664,7 +3668,7 @@ function buildWinnersBlock(bank) {
   formats.forEach(function(p, i) {
     block += " VIRAL FORMAT " + (i + 1) + " to optionally borrow: " + String(p.transcript || "").trim();
   });
-  block += " HOW TO USE THESE WINNING SCRIPTS: These are real scripts that already converted for this product. Use them to guide STRUCTURE and PSYCHOLOGY only, never to copy wording. Learn the move, then write the line: study the hook style, the order of beats, the genuine-reaction and demonstration moments, and the scarcity move, then write FRESH lines in the creator's own voice that hit those same moves. Never reuse their phrases. REQUIRED scarcity, in the PRE-CLOSE only: the FINAL script's pre-close MUST include an honest-uncertainty scarcity line, and one earlier script's pre-close SHOULD too. Never put scarcity in the CTA (the CTA follows the desire-tie rule and names the hook's want). Frame scarcity as the creator ADMITTING genuine uncertainty rather than claiming a fact -- this is always truthful because you cannot be wrong about what you do not know. Lead with these framings: I'm not sure how many of these they have, I don't know how long this deal stays up, honestly no idea when these sell out, I can't promise this deal sticks around. VARY this wording every time -- never reuse the same scarcity sentence across scripts in a batch or across batches. The listed framings are styles to draw from, not fixed lines to repeat. Each scarcity line should sound spontaneous and specific to that script's voice, phrased fresh. Do not let it become a repeated tagline. You may also use causal honest framings tied to real demand: these tend to go fast once a deal spreads because everyone grabs them at once. NEVER use the word 'price' -- say 'deal' or 'offer' instead. BANNED: made-up specific numbers (no '500 sold', no 'only 3 left'), made-up countdowns or end times, exact prices or dollar amounts, specific discounts, and seasonal or holiday framing. This overrides winner-closeness for that one pre-close line: include it even if the winning scripts do not. Keep every other script's pre-close free of scarcity so it never becomes filler. KEEP what makes them convert: limited-stock scarcity framed as honest uncertainty (these tend to sell out, stock can go at any time, by the time you see this it could be gone), genuine-reaction sensory beats, and the consolidation or demonstration moment. CLEAN everything to our standard as you write: QVC and HSN may be named, along with the brand they carry, since they are multi-brand retailers. Product brands the creator sells stay (for example Vitamix, KitchenAid). Any other outside brand becomes its category. Brand names: always name the product being promoted, whatever its brand (Vitamix, Ninja, Shark, KitchenAid, etc.) -- that is the product the script is selling and naming it is correct. QVC and HSN may also be named since they are multi-brand retailers. The only brand restriction is the existing one: do not drag in unrelated or competitor brand names that the script is not promoting (for example, do not name a rival blender brand to compare against) unless a winning script already does so. Scarcity and urgency are encouraged when framed as honest uncertainty, because stock and deals on these products genuinely come and go and the creator does not know when they will end. ALLOWED and encouraged: general limited-stock and limited-time urgency such as these tend to sell out, stock can go at any time, I never know how long this deal lasts, deals like this do not stick around, by the time you see this it could be gone. QVC and HSN limited-availability framing is allowed since their deals are genuinely limited and time-bound. NOT ALLOWED, because these get creators flagged: made-up specific stock counts (no 'only 3 left' unless truly known), made-up specific end times (no 'sale ends at midnight'), exact prices or dollar amounts, specific discounts like 'half off', and fixed seasonal or event framing like Black Friday, holiday, or liquidation. Soften any flat factual claim like 'they never restock' into honest uncertainty like 'these do not always come back' or 'I am not sure they will restock.' Keep the urgency real and uncertain, not fabricated and specific. Treat a VIRAL FORMAT as an optional structure for SOME variations, not forced onto every one. These winning scripts already converted, and the goal is to AMPLIFY them, not reinvent them. Draw MAJOR inspiration from these winners and stay close to them on purpose: they are the proven blueprint for this batch. Aim for scripts that a viewer who saw the original would recognize as the same winning approach, just tighter, fresher, and in this creator's own voice. Build each script directly on one of these winning scripts. The winning scripts are the primary source for this batch, not a secondary influence. Do not invent a new feature angle when a winning angle already exists for this product; use the winning angles. Each script should clearly trace back to a specific winning script's hook and moves. The only thing you change from a winner is the exact wording, which you rewrite fresh in the creator's own voice so you never reproduce the original creator's sentences. Stay as close as possible to what made each winner work; make it tighter and better, not different. Base each script closely on these winning scripts: follow their hook approach, their beat order, and their proven moves, the scarcity move, the consolidation or replaces-multiple-tools pitch, and the genuine-reaction and demonstration beats. Your job is to sharpen and tighten what already works while keeping the same strategy and moves. Most scripts in the batch should clearly echo a winning script's structure and carry its proven moves. The ONLY thing you change from the winners is the exact wording: rewrite every line fresh in the creator's own voice so you never reproduce the original creators' sentences, because these came from other people's videos, keep their moves and structure close, make the words yours and better. Do not dilute the winners for the sake of variety; variety should come from drawing on different winning scripts across the batch, not from abandoning their proven approach for generic feature descriptions. All existing rules still apply on top of this: the supplement and diet compliance, the Saxe Standard, the desire-tie CTA, no orange cart, no em-dashes.";
+  block += " HOW TO USE THESE WINNING SCRIPTS: These are real scripts that already converted for this product. Use them to guide STRUCTURE and PSYCHOLOGY only, never to copy wording. Learn the move, then write the line: study the hook style, the order of beats, the genuine-reaction and demonstration moments, and the scarcity move, then write FRESH lines in the creator's own voice that hit those same moves. Never reuse their phrases. REQUIRED scarcity, in the PRE-CLOSE only: the FINAL script's pre-close MUST include an honest-uncertainty scarcity line, and one earlier script's pre-close SHOULD too. Never put scarcity in the CTA (the CTA follows the desire-tie rule and names the hook's want). Frame scarcity as the creator ADMITTING genuine uncertainty rather than claiming a fact -- this is always truthful because you cannot be wrong about what you do not know. Lead with these framings: I'm not sure how many of these they have, I don't know how long this deal stays up, honestly no idea when these sell out, I can't promise this deal sticks around. VARY this wording every time -- never reuse the same scarcity sentence across scripts in a batch or across batches. The listed framings are styles to draw from, not fixed lines to repeat. Each scarcity line should sound spontaneous and specific to that script's voice, phrased fresh. Do not let it become a repeated tagline. You may also use causal honest framings tied to real demand: these tend to go fast once a deal spreads because everyone grabs them at once. NEVER use the word 'price' -- say 'deal' or 'offer' instead. BANNED: made-up specific numbers (no '500 sold', no 'only 3 left'), made-up countdowns or end times, exact prices or dollar amounts, specific discounts, and seasonal or holiday framing. This overrides winner-closeness for that one pre-close line: include it even if the winning scripts do not. Keep every other script's pre-close free of scarcity so it never becomes filler. KEEP what makes them convert: limited-stock scarcity framed as honest uncertainty (these tend to sell out, stock can go at any time, by the time you see this it could be gone), genuine-reaction sensory beats, and the consolidation or demonstration moment. CLEAN everything to our standard as you write: QVC and HSN may be named, along with the brand they carry, since they are multi-brand retailers. Product brands the creator sells stay (for example Vitamix, KitchenAid). Any other outside brand becomes its category. Brand names: always name the product being promoted, whatever its brand (Vitamix, Ninja, Shark, KitchenAid, etc.) -- that is the product the script is selling and naming it is correct. QVC and HSN may also be named since they are multi-brand retailers. The only brand restriction is the existing one: do not drag in unrelated or competitor brand names that the script is not promoting (for example, do not name a rival blender brand to compare against) unless a winning script already does so. Scarcity and urgency are encouraged when framed as honest uncertainty, because stock and deals on these products genuinely come and go and the creator does not know when they will end. ALLOWED and encouraged: general limited-stock and limited-time urgency such as these tend to sell out, stock can go at any time, I never know how long this deal lasts, deals like this do not stick around, by the time you see this it could be gone. QVC and HSN limited-availability framing is allowed since their deals are genuinely limited and time-bound. NOT ALLOWED, because these get creators flagged: made-up specific stock counts (no 'only 3 left' unless truly known), made-up specific end times (no 'sale ends at midnight'), exact prices or dollar amounts, specific discounts like 'half off', and fixed seasonal or event framing like Black Friday, holiday, or liquidation. Soften any flat factual claim like 'they never restock' into honest uncertainty like 'these do not always come back' or 'I am not sure they will restock.' Keep the urgency real and uncertain, not fabricated and specific. Treat a VIRAL FORMAT as an optional structure for SOME variations, not forced onto every one. These winning scripts already converted, and the goal is to AMPLIFY them, not reinvent them. Draw MAJOR inspiration from these winners and stay close to them on purpose: they are the proven blueprint for this batch. Aim for scripts that a viewer who saw the original would recognize as the same winning approach, just tighter, fresher, and in this creator's own voice. Build each script directly on one of these winning scripts. The winning scripts are the primary source for this batch, not a secondary influence. Do not invent a new feature angle when a winning angle already exists for this product; use the winning angles. Each script should clearly trace back to a specific winning script's hook and moves. The only thing you change from a winner is the exact wording, which you rewrite fresh in the creator's own voice so you never reproduce the original creator's sentences. Stay as close as possible to what made each winner work; make it tighter and better, not different. Base each script closely on these winning scripts: follow their hook approach, their beat order, and their proven moves, the scarcity move, the consolidation or replaces-multiple-tools pitch, and the genuine-reaction and demonstration beats. Your job is to sharpen and tighten what already works while keeping the same strategy and moves. Most scripts in the batch should clearly echo a winning script's structure and carry its proven moves. The ONLY thing you change from the winners is the exact wording: rewrite every line fresh in the creator's own voice so you never reproduce the original creators' sentences, because these came from other people's videos, keep their moves and structure close, make the words yours and better. Do not dilute the winners for the sake of variety; variety should come from drawing on different winning scripts across the batch, not from abandoning their proven approach for generic feature descriptions. All existing rules still apply on top of this: the supplement and diet compliance, the Saxe Standard, the desire-tie CTA, " + ORANGE_CART_RULE + ".";
   return block;
 }
 
@@ -5011,7 +5015,92 @@ function generateBatchScreenTexts(hooks, product, callback) {
   .catch(function(err){ logError("batch_screen_text", err, { product: currentProduct }); callback([]); });
 }
 
+// Number of "winning framework" scripts to generate when the product has saved winners.
+// Easy to change. The rest of the batch is filled with normal scripts from the existing generator.
+var WINNER_SCRIPT_COUNT = 2;
+
+// Batch entry point. When the current product has winner panels (role "winner"), SPLIT the batch:
+// generate WINNER_SCRIPT_COUNT winning-framework scripts (built directly from the winners) plus the
+// remaining normal scripts. When there are no winners, behave exactly as before (no change at all).
 function generateBatchScripts(angles) {
+  var winnerPanels = (allData && Array.isArray(allData.winnersRaw))
+    ? allData.winnersRaw.filter(function(p){ return p && p.role === "winner"; })
+    : [];
+
+  // No winners -> normal path unchanged, no winner-framework scripts.
+  if (!winnerPanels.length) { generateNormalBatch(angles, [], []); return; }
+
+  // Split: reserve up to WINNER_SCRIPT_COUNT leading slots for winning-framework scripts.
+  var winnerCount = Math.min(WINNER_SCRIPT_COUNT, angles.length);
+  var priceCtx = getPriceContext();
+
+  // Brief loading state while the winner-framework scripts generate (the normal path shows its own after).
+  var mc0 = document.getElementById("mainContent");
+  if (mc0) mc0.innerHTML = "<div style='padding:16px;'><div class='step-heading'>Writing your <em>Batch Scripts...</em></div><div class='loading-wrap' style='padding:24px 0;'><div class='dots'><div class='dot'></div><div class='dot'></div><div class='dot'></div></div><div class='loading-sub' style='margin-top:10px;'>Building winning-framework scripts from your saved winners...</div></div></div>";
+
+  generateWinnerFrameworkScripts(winnerPanels, winnerCount, priceCtx, function(winnerScripts) {
+    winnerScripts = winnerScripts || [];
+    var used = winnerScripts.length;
+    // Normal scripts use the angles not consumed by winner scripts, so the total stays angles.length.
+    var normalAngles = angles.slice(used);
+    var winnerAngles = winnerScripts.map(function(){ return {}; });
+    // Diagnostic reflects how many winners were actually fed into this batch.
+    lastWinnersFedCount = used;
+    generateNormalBatch(normalAngles, winnerScripts, winnerAngles);
+  });
+}
+
+// Generate `count` winning-framework scripts, one per winner, cycling through the available winners.
+// Each uses a dedicated focused prompt (not the big batch prompt) built on that winner's transcript.
+function generateWinnerFrameworkScripts(winnerPanels, count, priceCtx, callback) {
+  if (!count || !winnerPanels.length) { callback([]); return; }
+  var results = new Array(count);
+  var finished = 0;
+  var productDetail = currentProduct.split(' PRODUCT DETAILS: ').pop();
+  for (var i = 0; i < count; i++) {
+    (function(idx) {
+      var winner = winnerPanels[idx % winnerPanels.length];
+      var winnerTranscript = String((winner && winner.transcript) || "").trim();
+      var wfPrompt = "Here is a proven winning TikTok Shop script. Write ONE fresh script that is clearly a variation of THIS specific winning script: same hook approach, same core angle, same proven moves and structure. Rewrite every line in the creator's own voice so you never reproduce the original sentences. Make it tighter and better, not different." +
+        " PROVEN WINNING SCRIPT: " + winnerTranscript +
+        " PRODUCT: " + productDetail + ". Price context: " + priceCtx + "." +
+        " Then apply these rules: QVC and HSN may be named, along with the brand they carry, since they are multi-brand retailers. Product brands the creator sells stay (for example Vitamix, KitchenAid). Any other outside brand becomes its category. Honest-uncertainty scarcity is allowed -- the creator admitting they cannot predict stock or how long a deal lasts -- but no exact prices, no dollar amounts, no specific discounts, and no seasonal or holiday framing (no Black Friday). The CTA names the want from the hook. " + ORANGE_CART_RULE + "." +
+        " Output the script in the same field structure (hook, body1, preClose, body2, cta) as normal scripts. Return ONLY valid JSON: {hook:string,body1:string,preClose:string,body2:string,cta:string}";
+
+      var settle = function(scriptObj) {
+        results[idx] = scriptObj;
+        finished++;
+        if (finished === count) {
+          // Preserve order; drop any that failed so the total still fills with normal scripts.
+          callback(results.filter(Boolean));
+        }
+      };
+
+      fetch("/api/claude", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1500,
+          system: system,
+          messages: [{ role: "user", content: wfPrompt }] })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.error) { settle(null); return; }
+        var text = "";
+        data.content.forEach(function(b) { if (b.type === "text") text += b.text; });
+        var clean = text.replace(/```json|```/g, "").replace(/\*\*/g, "").replace(/\*/g, "").trim();
+        var s = stripEmDashesDeep(JSON.parse(clean));
+        s.winnerFramework = true;
+        settle(s);
+      })
+      .catch(function() { settle(null); });
+    })(i);
+  }
+}
+
+function generateNormalBatch(angles, winnerScripts, winnerAngles) {
+  winnerScripts = winnerScripts || [];
+  winnerAngles = winnerAngles || [];
   var mc = document.getElementById("mainContent");
   mc.innerHTML = "";
   var wrap = document.createElement("div");
@@ -5068,19 +5157,25 @@ function generateBatchScripts(angles) {
           .filter(function(l){ return l.length > 5; })
           .slice(0, 3);
         authHooks = stripEmDashesDeep(authHooks);
-        generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHooks);
+        generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHooks, winnerScripts, winnerAngles);
       })
       .catch(function() {
-        generateBatchScriptsWithProfile(angles, priceCtx, profileNote, []);
+        generateBatchScriptsWithProfile(angles, priceCtx, profileNote, [], winnerScripts, winnerAngles);
       });
     } else {
-      generateBatchScriptsWithProfile(angles, priceCtx, profileNote, []);
+      generateBatchScriptsWithProfile(angles, priceCtx, profileNote, [], winnerScripts, winnerAngles);
     }
   });
 }
 
-function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHooks) {
+function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHooks, winnerScripts, winnerAngles) {
   authHooks = authHooks || [];
+  winnerScripts = winnerScripts || [];
+  winnerAngles = winnerAngles || [];
+  // When the batch is split, winners are handled by the dedicated winning-framework scripts, so the
+  // normal scripts get NO winner injection (clean normal output). Otherwise inject as before.
+  // (buildWinnersBlock also sets the lastWinnersFedCount diagnostic in the non-split case.)
+  var winnersBlock = winnerScripts.length ? "" : buildWinnersBlock(allData);
   // Map each desire angle to the gold standard hook pair that fits it best
   var DESIRE_HOOK_MAP = {
     "Pain/Problem Relief": "FRUSTRATION",
@@ -5259,7 +5354,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     var prompt = "You write TikTok Shop scripts that sound exactly like a real person talking to a friend about something they genuinely love." +
       desireDirective() +
       saxeAux() +
-      buildWinnersBlock(allData) +
+      winnersBlock +
 
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point. FIELD 1 ANCHOR -- THIS IS MANDATORY: Before writing any hook, read the creator insight again: " + (getBuyerMotivation() || "") + ". Every hook must speak to the person described in that insight. If a hook could apply to a different buyer than the one described, rewrite it. The product features only matter as proof for the feeling the creator already identified. Feature-first hooks are wrong if the creator gave you a buyer insight." +
       hookTypeContext +
@@ -5361,7 +5456,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
         if(screenTexts[i]) s.screenText = screenTexts[i];
         if(captions[i]) { s.caption = captions[i].text; s.hashtags = captions[i].hashtags; }
       });
-      renderBatchResults(scripts, angles, authHooks);
+      renderBatchResults(winnerScripts.concat(scripts), winnerAngles.concat(angles), authHooks);
     };
 
     generateBatchCTAs(hooks, currentProduct, priceCtx, function(result) {
@@ -5384,7 +5479,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     // Call 1.5 (gold hook) failed -- proceed with empty benchmark
     var goldHookNote = "";
     // ── CALL 2 fallback: Write scripts without gold standard hook ──
-    generateBatchScriptsWithProfile(angles, priceCtx, profileNote);
+    generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHooks, winnerScripts, winnerAngles);
   })
   })
   .catch(function() {
@@ -5392,7 +5487,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     var prompt = "You write TikTok Shop scripts that sound exactly like a real person talking to a friend about something they found." +
       desireDirective() +
       saxeAux() +
-      buildWinnersBlock(allData) +
+      winnersBlock +
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
       " Product: " + currentProduct + ". Price context: " + priceCtx + ". Write " + angles.length + " scripts for these angles: " + anglesText + "." +
       " " + profileNote +
@@ -5424,7 +5519,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
           if(screenTexts[i]) s.screenText = screenTexts[i];
           if(captions[i]) { s.caption = captions[i].text; s.hashtags = captions[i].hashtags; }
         });
-        renderBatchResults(scripts, angles, authHooks);
+        renderBatchResults(winnerScripts.concat(scripts), winnerAngles.concat(angles), authHooks);
       };
       generateBatchCTAs(hooks, currentProduct, priceCtx, function(result) { ctas = result; ctasDone = true; tryRender(); });
       generateBatchScreenTexts(hooks, currentProduct, function(result) { screenTexts = result; screenDone = true; tryRender(); });
@@ -5439,10 +5534,14 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
 }
 
 function renderBatchResults(scripts, angles, authHooks) {
-  // If dedicated authority hooks were generated, inject into scripts 1, 2, 3
+  // If dedicated authority hooks were generated, inject into the first 3 NORMAL scripts.
+  // Winning-framework scripts are skipped so their winner-based hooks are preserved.
   if (authHooks && authHooks.length > 0) {
-    for (var i = 0; i < Math.min(authHooks.length, scripts.length, 3); i++) {
-      if (authHooks[i]) scripts[i].hook = authHooks[i];
+    var ah = 0;
+    for (var i = 0; i < scripts.length && ah < authHooks.length && ah < 3; i++) {
+      if (scripts[i] && scripts[i].winnerFramework) continue;
+      if (authHooks[ah]) scripts[i].hook = authHooks[ah];
+      ah++;
     }
   }
   var mc = document.getElementById("mainContent");
@@ -5491,6 +5590,13 @@ function renderBatchResults(scripts, angles, authHooks) {
     angleBadge.textContent = script.angle || angle.focus || "";
     header.appendChild(num);
     header.appendChild(angleBadge);
+    // Label winning-framework scripts (generated directly from a saved winner).
+    if (script.winnerFramework) {
+      var wfLabel = document.createElement("div");
+      wfLabel.textContent = "Winning framework";
+      wfLabel.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--gold);background:rgba(0,0,0,0.3);border:1px solid var(--gold);border-radius:999px;padding:2px 8px;margin-left:6px;";
+      header.appendChild(wfLabel);
+    }
     card.appendChild(header);
 
     // Psych trigger label
