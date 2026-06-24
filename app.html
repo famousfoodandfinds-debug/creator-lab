@@ -2350,6 +2350,7 @@ function generatePrecloseLines(parsed, callback) {
     " Product: " + productDesc +
     " Sample hooks from this product: " + hookSamples.filter(Boolean).join(" / ") +
     " Generate exactly 6 pre-close lines. For each one also rate it as strong, solid, or test (confidence level)." +
+    " IMPORTANT: at least 2 of the 6 pre-close lines must be honest-uncertainty scarcity lines -- the creator admitting they cannot predict stock or how long a deal lasts. This is always truthful because it only states what is genuinely unknown. Vary the wording, never repeat the same sentence. Examples of the style (do not copy verbatim, write fresh each time): I'm not sure how many of these they have, I don't know how long this deal stays up, honestly no idea when these sell out, I can't promise this deal sticks around. NEVER use the word 'price' -- say 'deal' or 'offer'. Do NOT use made-up numbers, made-up end times, exact prices, specific discounts, or seasonal or holiday framing (no Black Friday). The other pre-close lines should remain normal reflective lines, not scarcity. Mark the scarcity lines' confidence normally." +
     " Return ONLY valid JSON: {lines: [string array of 6 lines], conf: [string array of 6 ratings using only the words strong solid or test]}";
 
   fetch("/api/claude", {
