@@ -2918,10 +2918,37 @@ function renderProductHub() {
     regenAllBtn.addEventListener("click", function(){ regenerateAllScripts(); });
     wrap.appendChild(regenAllBtn);
 
-    // Winning angles upload (phase 1: read a screenshot and review only -- no generation)
+    // ===== "Add a winning angle" -- one section with two entry points that both
+    // feed the SAME winnersRaw storage and the SAME review list (winResults). =====
+    var waWrap = document.createElement("div");
+    waWrap.style.cssText = "margin-top:14px;padding:14px;border:1px solid var(--border-md);border-radius:12px;";
+    var waHead = document.createElement("div");
+    waHead.style.cssText = "font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;";
+    waHead.textContent = "Add a winning angle";
+    waWrap.appendChild(waHead);
+
+    // Primary option: paste a TikTok link. Renders into the shared winResults below.
+    var lnkInput = document.createElement("input");
+    lnkInput.type = "text";
+    lnkInput.placeholder = "Paste a TikTok link";
+    lnkInput.style.cssText = "width:100%;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px 12px;outline:none;box-sizing:border-box;-webkit-user-select:text;user-select:text;";
+    var lnkBtn = document.createElement("button");
+    lnkBtn.className = "next-btn";
+    lnkBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white-dim);font-size:13px;margin-top:8px;";
+    lnkBtn.textContent = "Fetch winning angle";
+    var lnkStatus = document.createElement("div");
+    lnkStatus.style.cssText = "display:none;font-size:12px;color:var(--muted);padding:8px 0;";
+    waWrap.appendChild(lnkInput);
+    waWrap.appendChild(lnkBtn);
+    waWrap.appendChild(lnkStatus);
+
+    // Secondary option: upload a screenshot instead. Same storage and review list.
+    var winOrLabel = document.createElement("div");
+    winOrLabel.style.cssText = "font-size:11px;color:var(--muted);margin:14px 0 6px;";
+    winOrLabel.textContent = "or upload a screenshot instead";
     var winBtn = document.createElement("button");
     winBtn.className = "next-btn";
-    winBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white-dim);font-size:13px;margin-top:8px;";
+    winBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white-dim);font-size:13px;";
     winBtn.textContent = "Upload winning angles";
     var winInput = document.createElement("input");
     winInput.type = "file"; winInput.accept = "image/*"; winInput.style.display = "none";
@@ -2929,48 +2956,20 @@ function renderProductHub() {
     winResults.id = "winnersReview";
     winBtn.addEventListener("click", function(){ winInput.click(); });
     winInput.addEventListener("change", function(e){ handleWinningAnglesUpload(e, winResults); });
-    wrap.appendChild(winBtn);
-    wrap.appendChild(winInput);
-    wrap.appendChild(winResults);
+    waWrap.appendChild(winOrLabel);
+    waWrap.appendChild(winBtn);
+    waWrap.appendChild(winInput);
+
+    // Shared review list for both entry points.
+    waWrap.appendChild(winResults);
+    wrap.appendChild(waWrap);
+
+    // Wire the link button now that winResults exists.
+    lnkBtn.addEventListener("click", function(){ fetchWinningAngleByLink(lnkInput, lnkBtn, lnkStatus, winResults); });
+
     if (allData && Array.isArray(allData.winnersRaw) && allData.winnersRaw.length) {
       renderWinnersReview(allData.winnersRaw.map(function(p){ return { handle: p.handle, views: p.views, transcript: p.transcript, topic: p.topic, role: p.role || "ignore" }; }), winResults);
     }
-
-    // TEMPORARY diagnostic: test the TokScript MCP connection (throwaway, not generation)
-    var tkWrap = document.createElement("div");
-    tkWrap.style.cssText = "margin-top:14px;padding:12px;border:1px dashed var(--border-md);border-radius:10px;";
-    var tkLabel = document.createElement("div");
-    tkLabel.style.cssText = "font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;";
-    tkLabel.textContent = "TokScript connection test (temporary)";
-    var tkInput = document.createElement("input");
-    tkInput.type = "text";
-    tkInput.placeholder = "Paste a TikTok video URL";
-    tkInput.style.cssText = "width:100%;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px 12px;outline:none;box-sizing:border-box;-webkit-user-select:text;user-select:text;";
-    var tkOut = document.createElement("pre");
-    tkOut.style.cssText = "display:none;margin-top:10px;max-height:300px;overflow:auto;background:var(--surface);border:1px solid var(--border-md);border-radius:8px;padding:10px;font-size:11px;color:var(--white-dim);white-space:pre-wrap;word-break:break-word;font-family:monospace;";
-    // Three buttons, one per backend auth mode (bearer / query / path).
-    var tkBtnRow = document.createElement("div");
-    tkBtnRow.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;";
-    var tkModes = [
-      { label: "Test (Bearer)", mode: "bearer" },
-      { label: "Test (key in URL query)", mode: "query" },
-      { label: "Test (key in URL path)", mode: "path" }
-    ];
-    var tkBtns = [];
-    tkModes.forEach(function(m){
-      var b = document.createElement("button");
-      b.className = "next-btn";
-      b.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white-dim);font-size:13px;";
-      b.textContent = m.label;
-      b.addEventListener("click", function(){ testTokscriptConnection(tkInput.value, tkOut, tkBtns, m.mode); });
-      tkBtns.push(b);
-      tkBtnRow.appendChild(b);
-    });
-    tkWrap.appendChild(tkLabel);
-    tkWrap.appendChild(tkInput);
-    tkWrap.appendChild(tkBtnRow);
-    tkWrap.appendChild(tkOut);
-    wrap.appendChild(tkWrap);
 
     if (scripts.length > 0) {
       var sub = document.createElement("div");
@@ -3413,7 +3412,7 @@ function sendWinningAnglesToModel(b64, mediaType, container) {
     text = text.replace(/```json|```/g, "").trim();
     var arr = JSON.parse(text);
     if (!Array.isArray(arr)) arr = [];
-    var panels = arr.map(function(o) {
+    var newPanels = arr.map(function(o) {
       return {
         handle: (o && o.handle != null) ? String(o.handle) : "",
         views: (o && o.views != null) ? String(o.views) : "",
@@ -3422,49 +3421,104 @@ function sendWinningAnglesToModel(b64, mediaType, container) {
         role: "ignore"
       };
     });
-    detectWinnerRoles(panels);
-    renderWinnersReview(panels, container);
-    saveWinnersRaw(panels);
+    // Detect roles ONLY on the newly uploaded panels. APPEND them to the existing
+    // winners, preserving every previously saved panel's role exactly as the user
+    // left it (including manual winner/format/ignore choices).
+    detectWinnerRoles(newPanels);
+    var existing = (allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw.map(function(p) {
+      return { handle: p.handle || "", views: p.views || "", transcript: p.transcript || "", topic: p.topic || "", role: p.role || "ignore" };
+    }) : [];
+    var combined = existing.concat(newPanels);
+    renderWinnersReview(combined, container);
+    saveWinnersRaw(combined);
   })
   .catch(function(err) {
     container.innerHTML = "<div style='font-size:12px;color:var(--red);padding:8px 0;'>Could not read the screenshot: " + (err && err.message ? err.message : "unknown") + "</div>";
   });
 }
 
-// TEMPORARY diagnostic: probe the TokScript MCP connection. Calls /api/claude the
-// same way other calls do but with useTokscript:true so the backend attaches the
-// MCP server (the key lives only on the backend). Displays the raw response.
-function testTokscriptConnection(url, outputEl, btns, mode) {
-  url = (url || "").trim();
-  mode = mode || "bearer";
-  var btnList = Array.isArray(btns) ? btns : (btns ? [btns] : []);
-  function setDisabled(d){ btnList.forEach(function(b){ if (b) b.disabled = d; }); }
-  outputEl.style.display = "block";
-  outputEl.textContent = "Calling TokScript (mode: " + mode + ")...";
-  setDisabled(true);
-  var prompt = "You have access to a TokScript MCP server. First, list the names of all tools you can call on it. Then call the appropriate tool to get the transcript and engagement stats for this URL: " + url + ". Return the tool names you found and the raw data you got back, verbatim.";
+// Pull a single JSON object out of a model response. Strip any stray markdown
+// fences first; if that still is not valid JSON, fall back to the substring from
+// the first { to the last }.
+function parseWinnerJson(text) {
+  var t = String(text || "").replace(/```json|```/g, "").trim();
+  try {
+    var o = JSON.parse(t);
+    if (o && typeof o === "object" && !Array.isArray(o)) return o;
+  } catch (e) {}
+  var first = t.indexOf("{");
+  var last = t.lastIndexOf("}");
+  if (first > -1 && last > first) {
+    try {
+      var o2 = JSON.parse(t.slice(first, last + 1));
+      if (o2 && typeof o2 === "object" && !Array.isArray(o2)) return o2;
+    } catch (e2) {}
+  }
+  return null;
+}
+
+// Real feature: fetch a winning angle from a TikTok link via the TokScript MCP
+// path, then store it alongside uploaded winners. The TokScript key lives only on
+// the backend (useTokscript:true tells the backend to attach the MCP server).
+function fetchWinningAngleByLink(inputEl, btnEl, statusEl, container) {
+  var url = (inputEl && inputEl.value ? inputEl.value : "").trim();
+  function showStatus(color, msg) {
+    if (!statusEl) return;
+    statusEl.style.display = "block";
+    statusEl.style.color = color;
+    statusEl.textContent = msg;
+  }
+  if (!url) { showStatus("var(--red)", "Paste a TikTok link first."); return; }
+  showStatus("var(--muted)", "Fetching the video and its transcript... this can take a moment.");
+  if (btnEl) btnEl.disabled = true;
+
+  // Guard against a request that hangs: abort after 90s and show a friendly message.
+  var controller = new AbortController();
+  var timer = setTimeout(function(){ controller.abort(); }, 90000);
+
+  var prompt = "Use the tokscript MCP server to fetch the transcript and engagement stats for this video URL: " + url + ". Then respond with ONLY a JSON object and nothing else (no prose, no markdown fences) with these keys: handle (the creator handle), views (the view count as text), transcript (every spoken transcript segment joined into one string in order, no timestamps), topic (a short label of what product or subject the video is about). Output only that JSON object.";
+
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ useTokscript: true, tokscriptAuthMode: mode, model: "claude-sonnet-4-6", max_tokens: 4000, messages: [{ role: "user", content: prompt }] })
+    body: JSON.stringify({ useTokscript: true, model: "claude-sonnet-4-6", max_tokens: 4000, messages: [{ role: "user", content: prompt }] }),
+    signal: controller.signal
   })
   .then(function(r) { return r.text(); })
   .then(function(raw) {
-    // Surface the safe tokscriptDebug diagnostic (auth mode + key length) at the top,
-    // then show the full raw response below it.
-    var header = "";
-    try {
-      var parsed = JSON.parse(raw);
-      if (parsed && parsed.tokscriptDebug) {
-        header = "tokscriptDebug: " + JSON.stringify(parsed.tokscriptDebug, null, 2) + "\n\n--- full response ---\n";
-      }
-    } catch (e) { /* not JSON or no debug; just show raw */ }
-    outputEl.textContent = "Tested mode: " + mode + "\n\n" + header + raw;
-    setDisabled(false);
+    clearTimeout(timer);
+    var data = JSON.parse(raw);
+    if (data.error) throw new Error(data.error.message || "request failed");
+    var text = "";
+    if (Array.isArray(data.content)) data.content.forEach(function(b) { if (b && b.type === "text") text += b.text; });
+    var obj = parseWinnerJson(text);
+    if (!obj) throw new Error("could not parse response");
+    var panel = {
+      handle: obj.handle != null ? String(obj.handle) : "",
+      views: obj.views != null ? String(obj.views) : "",
+      transcript: obj.transcript != null ? String(obj.transcript) : "",
+      topic: obj.topic != null ? String(obj.topic) : "",
+      role: "winner"
+    };
+    // Detect the role ONLY for this newly added panel, then APPEND it to the existing
+    // winners (do not overwrite), preserving every previously saved panel's role
+    // exactly as the user left it. Reuse the shared review path so the per-panel role
+    // control behaves exactly like uploaded panels.
+    detectWinnerRoles([panel]);
+    var existing = (allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw.map(function(p) {
+      return { handle: p.handle || "", views: p.views || "", transcript: p.transcript || "", topic: p.topic || "", role: p.role || "ignore" };
+    }) : [];
+    var combined = existing.concat([panel]);
+    renderWinnersReview(combined, container);
+    saveWinnersRaw(combined);
+    if (statusEl) { statusEl.style.display = "none"; statusEl.textContent = ""; }
+    if (inputEl) inputEl.value = "";
+    if (btnEl) btnEl.disabled = false;
   })
   .catch(function(err) {
-    outputEl.textContent = "Error (mode: " + mode + "): " + (err && err.message ? err.message : "unknown");
-    setDisabled(false);
+    clearTimeout(timer);
+    showStatus("var(--red)", "That took too long or failed, please try again");
+    if (btnEl) btnEl.disabled = false;
   });
 }
 
