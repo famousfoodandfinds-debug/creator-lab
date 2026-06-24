@@ -2922,10 +2922,29 @@ function renderProductHub() {
     // feed the SAME winnersRaw storage and the SAME review list (winResults). =====
     var waWrap = document.createElement("div");
     waWrap.style.cssText = "margin-top:14px;padding:14px;border:1px solid var(--border-md);border-radius:12px;";
+    // Heading row: title + "(X of 3)" count on the left, "Clear all winners" on the right.
+    var waHeadRow = document.createElement("div");
+    waHeadRow.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;";
     var waHead = document.createElement("div");
-    waHead.style.cssText = "font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;";
-    waHead.textContent = "Add a winning angle";
-    waWrap.appendChild(waHead);
+    waHead.style.cssText = "font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);";
+    waHead.textContent = "Add a winning angle ";
+    var waCount = document.createElement("span");
+    waCount.id = "winnersCount";
+    waCount.style.cssText = "color:var(--gold);font-weight:600;";
+    var initialWinnersCount = (allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw.length : 0;
+    waCount.textContent = "(" + initialWinnersCount + " of 3)";
+    waHead.appendChild(waCount);
+    var waClear = document.createElement("button");
+    waClear.textContent = "Clear all winners";
+    waClear.style.cssText = "background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;text-decoration:underline;font-family:'Instrument Sans',sans-serif;padding:0;flex-shrink:0;";
+    waClear.addEventListener("click", function() {
+      if (!confirm("Remove ALL winning angles for this product?")) return;
+      renderWinnersReview([], winResults);
+      saveWinnersRaw([]);
+    });
+    waHeadRow.appendChild(waHead);
+    waHeadRow.appendChild(waClear);
+    waWrap.appendChild(waHeadRow);
 
     // Primary option: paste a TikTok link. Renders into the shared winResults below.
     var lnkInput = document.createElement("input");
@@ -3421,16 +3440,34 @@ function sendWinningAnglesToModel(b64, mediaType, container) {
         role: "ignore"
       };
     });
-    // Detect roles ONLY on the newly uploaded panels. APPEND them to the existing
-    // winners, preserving every previously saved panel's role exactly as the user
-    // left it (including manual winner/format/ignore choices).
-    detectWinnerRoles(newPanels);
+    // APPEND to the existing winners, preserving every previously saved panel's role
+    // exactly as the user left it. Limit: at most 3 winners per product -- only add
+    // panels up to that total and tell the user if some were skipped.
     var existing = (allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw.map(function(p) {
       return { handle: p.handle || "", views: p.views || "", transcript: p.transcript || "", topic: p.topic || "", role: p.role || "ignore" };
     }) : [];
-    var combined = existing.concat(newPanels);
+    var available = 3 - existing.length;
+    var toAdd = newPanels;
+    var notice = "";
+    if (available <= 0) {
+      toAdd = [];
+      notice = "You already have 3 winning angles for this product. Remove one to add another.";
+    } else if (newPanels.length > available) {
+      toAdd = newPanels.slice(0, available);
+      var skipped = newPanels.length - available;
+      notice = "Added " + toAdd.length + " winning angle" + (toAdd.length === 1 ? "" : "s") + ". " + skipped + " more " + (skipped === 1 ? "was" : "were") + " skipped because you can only have 3 per product.";
+    }
+    // Detect roles ONLY on the panels actually being added.
+    detectWinnerRoles(toAdd);
+    var combined = existing.concat(toAdd);
     renderWinnersReview(combined, container);
-    saveWinnersRaw(combined);
+    if (notice) {
+      var noticeEl = document.createElement("div");
+      noticeEl.style.cssText = "font-size:12px;color:var(--gold);padding:8px 0;";
+      noticeEl.textContent = notice;
+      container.insertBefore(noticeEl, container.firstChild);
+    }
+    if (toAdd.length) saveWinnersRaw(combined);
   })
   .catch(function(err) {
     container.innerHTML = "<div style='font-size:12px;color:var(--red);padding:8px 0;'>Could not read the screenshot: " + (err && err.message ? err.message : "unknown") + "</div>";
@@ -3469,6 +3506,13 @@ function fetchWinningAngleByLink(inputEl, btnEl, statusEl, container) {
     statusEl.textContent = msg;
   }
   if (!url) { showStatus("var(--red)", "Paste a TikTok link first."); return; }
+  // Limit: at most 3 winners per product. Check before the fetch so we never make
+  // a wasted call when there is no room.
+  var winnersCount = (allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw.length : 0;
+  if (winnersCount >= 3) {
+    showStatus("var(--red)", "You already have 3 winning angles for this product. Remove one to add another.");
+    return;
+  }
   showStatus("var(--muted)", "Fetching the video and its transcript... this can take a moment.");
   if (btnEl) btnEl.disabled = true;
 
@@ -3575,8 +3619,11 @@ function saveWinnersRaw(panels) {
 
 function renderWinnersReview(panels, container) {
   container.innerHTML = "";
+  // Keep the "(X of 3)" count in the section heading in sync with the list.
+  var cntEl = document.getElementById("winnersCount");
+  if (cntEl) cntEl.textContent = "(" + ((panels && panels.length) ? panels.length : 0) + " of 3)";
   if (!panels || !panels.length) {
-    container.innerHTML = "<div style='font-size:12px;color:var(--muted);padding:8px 0;'>No video panels were found in that screenshot.</div>";
+    container.innerHTML = "<div style='font-size:12px;color:var(--muted);padding:8px 0;'>No winning angles yet.</div>";
     return;
   }
   var head = document.createElement("div");
@@ -3610,6 +3657,8 @@ function renderWinnersReview(panels, container) {
       card.appendChild(topic);
     }
 
+    var footRow = document.createElement("div");
+    footRow.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;";
     var toggle = document.createElement("button");
     toggle.style.cssText = "background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;padding:0;text-decoration:underline;font-family:'Instrument Sans',sans-serif;";
     toggle.textContent = "Show transcript";
@@ -3621,7 +3670,20 @@ function renderWinnersReview(panels, container) {
       body.style.display = open ? "none" : "block";
       toggle.textContent = open ? "Show transcript" : "Hide transcript";
     });
-    card.appendChild(toggle);
+    // Per-winner remove: delete just this panel, re-render, and persist.
+    var removeBtn = document.createElement("button");
+    removeBtn.style.cssText = "background:none;border:none;color:var(--red);font-size:11px;cursor:pointer;padding:0;text-decoration:underline;font-family:'Instrument Sans',sans-serif;flex-shrink:0;";
+    removeBtn.textContent = "Remove";
+    removeBtn.addEventListener("click", function() {
+      if (!confirm("Remove this winning angle?")) return;
+      var idx = panels.indexOf(p);
+      if (idx > -1) panels.splice(idx, 1);
+      saveWinnersRaw(panels);
+      renderWinnersReview(panels, container);
+    });
+    footRow.appendChild(toggle);
+    footRow.appendChild(removeBtn);
+    card.appendChild(footRow);
     card.appendChild(body);
 
     container.appendChild(card);
