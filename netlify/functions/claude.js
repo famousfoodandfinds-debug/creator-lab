@@ -81,6 +81,10 @@ exports.handler = async function(event) {
       "anthropic-version": "2023-06-01"
     };
 
+    // Safe diagnostic about the TokScript auth shape, surfaced in the response so
+    // the test panel can display it. NEVER contains the key value, only its length.
+    let tokscriptDebug = null;
+
     // Optional: enable the TokScript MCP connector for this single request only.
     // The TokScript key is read ONLY here on the backend from the environment.
     if (body.useTokscript === true) {
@@ -125,9 +129,9 @@ exports.handler = async function(event) {
       // it may need adjustment.
       headers["anthropic-beta"] = "mcp-client-2025-04-04";
 
-      // Log the outbound auth config for diagnosis. NEVER log the key itself, nor any
-      // URL that contains it -- only the shape, the header name, and the key length.
-      console.log("TokScript MCP auth config: " + JSON.stringify({
+      // Safe diagnostic shared by the log line and the response. NEVER contains the
+      // key value, nor any URL that contains it -- only the shape and the key length.
+      tokscriptDebug = {
         authMode: authMode,
         headerName: headerName,          // "Authorization" in bearer mode, null otherwise
         bearerPresent: bearerPresent,    // true only when "Authorization: Bearer <token>" is sent
@@ -135,7 +139,11 @@ exports.handler = async function(event) {
         keyLength: tokscriptKey.length,  // length only, never the value
         baseUrl: BASE_URL,               // key-free base URL, safe to log
         queryParam: keyInUrl ? authParam : null // the param/segment name only, never the value
-      }));
+      };
+
+      // Log the outbound auth config for diagnosis. NEVER log the key itself, nor any
+      // URL that contains it -- only the shape, the header name, and the key length.
+      console.log("TokScript MCP auth config: " + JSON.stringify(tokscriptDebug));
     }
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
@@ -145,6 +153,11 @@ exports.handler = async function(event) {
     });
 
     const data = await response.json();
+    // Merge the safe TokScript diagnostic into the response so the test panel can
+    // display it (auth mode + key length, never the key value).
+    if (tokscriptDebug && data && typeof data === "object" && !Array.isArray(data)) {
+      data.tokscriptDebug = tokscriptDebug;
+    }
     return {
       statusCode: response.status,
       headers: { "Content-Type": "application/json" },
