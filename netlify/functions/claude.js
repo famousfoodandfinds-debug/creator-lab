@@ -75,13 +75,30 @@ exports.handler = async function(event) {
   try {
     const body = JSON.parse(event.body);
 
+    const headers = {
+      "Content-Type": "application/json",
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01"
+    };
+
+    // Optional: enable the TokScript MCP connector for this single request only.
+    // The TokScript key is read ONLY here on the backend from the environment.
+    if (body.useTokscript === true) {
+      delete body.useTokscript;
+      body.mcp_servers = [{
+        "type": "url",
+        "url": "https://api.tokscript.com/mcp",
+        "name": "tokscript",
+        "authorization_token": process.env.TOKSCRIPT_API_KEY
+      }];
+      // Anthropic MCP connector beta header. If this exact value is outdated,
+      // it may need adjustment.
+      headers["anthropic-beta"] = "mcp-client-2025-04-04";
+    }
+
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01"
-      },
+      headers: headers,
       body: JSON.stringify(body)
     });
 
