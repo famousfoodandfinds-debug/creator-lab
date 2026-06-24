@@ -2918,31 +2918,16 @@ function renderProductHub() {
     regenAllBtn.addEventListener("click", function(){ regenerateAllScripts(); });
     wrap.appendChild(regenAllBtn);
 
-    // Winning angles upload (phase 1: read a screenshot and review only -- no generation)
-    var winBtn = document.createElement("button");
-    winBtn.className = "next-btn";
-    winBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white-dim);font-size:13px;margin-top:8px;";
-    winBtn.textContent = "Upload winning angles";
-    var winInput = document.createElement("input");
-    winInput.type = "file"; winInput.accept = "image/*"; winInput.style.display = "none";
-    var winResults = document.createElement("div");
-    winResults.id = "winnersReview";
-    winBtn.addEventListener("click", function(){ winInput.click(); });
-    winInput.addEventListener("change", function(e){ handleWinningAnglesUpload(e, winResults); });
-    wrap.appendChild(winBtn);
-    wrap.appendChild(winInput);
-    wrap.appendChild(winResults);
-    if (allData && Array.isArray(allData.winnersRaw) && allData.winnersRaw.length) {
-      renderWinnersReview(allData.winnersRaw.map(function(p){ return { handle: p.handle, views: p.views, transcript: p.transcript, topic: p.topic, role: p.role || "ignore" }; }), winResults);
-    }
+    // ===== "Add a winning angle" -- one section with two entry points that both
+    // feed the SAME winnersRaw storage and the SAME review list (winResults). =====
+    var waWrap = document.createElement("div");
+    waWrap.style.cssText = "margin-top:14px;padding:14px;border:1px solid var(--border-md);border-radius:12px;";
+    var waHead = document.createElement("div");
+    waHead.style.cssText = "font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;";
+    waHead.textContent = "Add a winning angle";
+    waWrap.appendChild(waHead);
 
-    // Add a winning angle by pasting a TikTok link. Renders into the SAME winResults
-    // container as the screenshot upload, so both paths share storage and review.
-    var lnkWrap = document.createElement("div");
-    lnkWrap.style.cssText = "margin-top:14px;";
-    var lnkLabel = document.createElement("div");
-    lnkLabel.style.cssText = "font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;";
-    lnkLabel.textContent = "Add a winning angle by link";
+    // Primary option: paste a TikTok link. Renders into the shared winResults below.
     var lnkInput = document.createElement("input");
     lnkInput.type = "text";
     lnkInput.placeholder = "Paste a TikTok link";
@@ -2953,12 +2938,38 @@ function renderProductHub() {
     lnkBtn.textContent = "Fetch winning angle";
     var lnkStatus = document.createElement("div");
     lnkStatus.style.cssText = "display:none;font-size:12px;color:var(--muted);padding:8px 0;";
+    waWrap.appendChild(lnkInput);
+    waWrap.appendChild(lnkBtn);
+    waWrap.appendChild(lnkStatus);
+
+    // Secondary option: upload a screenshot instead. Same storage and review list.
+    var winOrLabel = document.createElement("div");
+    winOrLabel.style.cssText = "font-size:11px;color:var(--muted);margin:14px 0 6px;";
+    winOrLabel.textContent = "or upload a screenshot instead";
+    var winBtn = document.createElement("button");
+    winBtn.className = "next-btn";
+    winBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white-dim);font-size:13px;";
+    winBtn.textContent = "Upload winning angles";
+    var winInput = document.createElement("input");
+    winInput.type = "file"; winInput.accept = "image/*"; winInput.style.display = "none";
+    var winResults = document.createElement("div");
+    winResults.id = "winnersReview";
+    winBtn.addEventListener("click", function(){ winInput.click(); });
+    winInput.addEventListener("change", function(e){ handleWinningAnglesUpload(e, winResults); });
+    waWrap.appendChild(winOrLabel);
+    waWrap.appendChild(winBtn);
+    waWrap.appendChild(winInput);
+
+    // Shared review list for both entry points.
+    waWrap.appendChild(winResults);
+    wrap.appendChild(waWrap);
+
+    // Wire the link button now that winResults exists.
     lnkBtn.addEventListener("click", function(){ fetchWinningAngleByLink(lnkInput, lnkBtn, lnkStatus, winResults); });
-    lnkWrap.appendChild(lnkLabel);
-    lnkWrap.appendChild(lnkInput);
-    lnkWrap.appendChild(lnkBtn);
-    lnkWrap.appendChild(lnkStatus);
-    wrap.appendChild(lnkWrap);
+
+    if (allData && Array.isArray(allData.winnersRaw) && allData.winnersRaw.length) {
+      renderWinnersReview(allData.winnersRaw.map(function(p){ return { handle: p.handle, views: p.views, transcript: p.transcript, topic: p.topic, role: p.role || "ignore" }; }), winResults);
+    }
 
     if (scripts.length > 0) {
       var sub = document.createElement("div");
@@ -3401,7 +3412,7 @@ function sendWinningAnglesToModel(b64, mediaType, container) {
     text = text.replace(/```json|```/g, "").trim();
     var arr = JSON.parse(text);
     if (!Array.isArray(arr)) arr = [];
-    var panels = arr.map(function(o) {
+    var newPanels = arr.map(function(o) {
       return {
         handle: (o && o.handle != null) ? String(o.handle) : "",
         views: (o && o.views != null) ? String(o.views) : "",
@@ -3410,9 +3421,16 @@ function sendWinningAnglesToModel(b64, mediaType, container) {
         role: "ignore"
       };
     });
-    detectWinnerRoles(panels);
-    renderWinnersReview(panels, container);
-    saveWinnersRaw(panels);
+    // Detect roles ONLY on the newly uploaded panels. APPEND them to the existing
+    // winners, preserving every previously saved panel's role exactly as the user
+    // left it (including manual winner/format/ignore choices).
+    detectWinnerRoles(newPanels);
+    var existing = (allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw.map(function(p) {
+      return { handle: p.handle || "", views: p.views || "", transcript: p.transcript || "", topic: p.topic || "", role: p.role || "ignore" };
+    }) : [];
+    var combined = existing.concat(newPanels);
+    renderWinnersReview(combined, container);
+    saveWinnersRaw(combined);
   })
   .catch(function(err) {
     container.innerHTML = "<div style='font-size:12px;color:var(--red);padding:8px 0;'>Could not read the screenshot: " + (err && err.message ? err.message : "unknown") + "</div>";
@@ -3482,13 +3500,15 @@ function fetchWinningAngleByLink(inputEl, btnEl, statusEl, container) {
       topic: obj.topic != null ? String(obj.topic) : "",
       role: "winner"
     };
-    // APPEND to the existing winners (do not overwrite), then reuse the shared review
-    // path so the per-panel role control behaves exactly like uploaded panels.
+    // Detect the role ONLY for this newly added panel, then APPEND it to the existing
+    // winners (do not overwrite), preserving every previously saved panel's role
+    // exactly as the user left it. Reuse the shared review path so the per-panel role
+    // control behaves exactly like uploaded panels.
+    detectWinnerRoles([panel]);
     var existing = (allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw.map(function(p) {
       return { handle: p.handle || "", views: p.views || "", transcript: p.transcript || "", topic: p.topic || "", role: p.role || "ignore" };
     }) : [];
     var combined = existing.concat([panel]);
-    detectWinnerRoles(combined);
     renderWinnersReview(combined, container);
     saveWinnersRaw(combined);
     if (statusEl) { statusEl.style.display = "none"; statusEl.textContent = ""; }
