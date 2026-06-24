@@ -85,15 +85,57 @@ exports.handler = async function(event) {
     // The TokScript key is read ONLY here on the backend from the environment.
     if (body.useTokscript === true) {
       delete body.useTokscript;
-      body.mcp_servers = [{
-        "type": "url",
-        "url": "https://api.tokscript.com/mcp",
-        "name": "tokscript",
-        "authorization_token": process.env.TOKSCRIPT_API_KEY
-      }];
+
+      // Configurable auth shape so we can test what TokScript's MCP server expects.
+      // Anthropic's mcp_servers only supports authorization_token, which is ALWAYS
+      // sent to the MCP server as "Authorization: Bearer <token>" -- there is no
+      // custom-header option. To send the token a different way, embed it in the URL.
+      //   bearer (default): authorization_token -> "Authorization: Bearer <token>"
+      //   query:            token added as a URL query parameter, NO Authorization header
+      //   path:             token appended to the URL path, NO Authorization header
+      // Mode and param name can come from the request body or from env (body wins),
+      // so alternatives can be tried without changing this code.
+      const tokscriptKey = process.env.TOKSCRIPT_API_KEY || "";
+      const authMode = String(body.tokscriptAuthMode || process.env.TOKSCRIPT_AUTH_MODE || "bearer").toLowerCase();
+      const authParam = String(body.tokscriptAuthParam || process.env.TOKSCRIPT_AUTH_PARAM || "key");
+      delete body.tokscriptAuthMode;
+      delete body.tokscriptAuthParam;
+
+      const BASE_URL = "https://api.tokscript.com/mcp";
+      const server = { type: "url", url: BASE_URL, name: "tokscript" };
+      let bearerPresent = false;
+      let headerName = null;
+      let keyInUrl = false;
+
+      if (authMode === "query") {
+        server.url = BASE_URL + (BASE_URL.indexOf("?") > -1 ? "&" : "?") + encodeURIComponent(authParam) + "=" + encodeURIComponent(tokscriptKey);
+        keyInUrl = true;
+      } else if (authMode === "path") {
+        server.url = BASE_URL.replace(/\/+$/, "") + "/" + encodeURIComponent(tokscriptKey);
+        keyInUrl = true;
+      } else {
+        // bearer (default) -- unchanged from the original behavior
+        server.authorization_token = tokscriptKey;
+        bearerPresent = true;
+        headerName = "Authorization";
+      }
+
+      body.mcp_servers = [server];
       // Anthropic MCP connector beta header. If this exact value is outdated,
       // it may need adjustment.
       headers["anthropic-beta"] = "mcp-client-2025-04-04";
+
+      // Log the outbound auth config for diagnosis. NEVER log the key itself, nor any
+      // URL that contains it -- only the shape, the header name, and the key length.
+      console.log("TokScript MCP auth config: " + JSON.stringify({
+        authMode: authMode,
+        headerName: headerName,          // "Authorization" in bearer mode, null otherwise
+        bearerPresent: bearerPresent,    // true only when "Authorization: Bearer <token>" is sent
+        keyInUrl: keyInUrl,              // true in query/path mode (the key-bearing URL is never logged)
+        keyLength: tokscriptKey.length,  // length only, never the value
+        baseUrl: BASE_URL,               // key-free base URL, safe to log
+        queryParam: keyInUrl ? authParam : null // the param/segment name only, never the value
+      }));
     }
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
