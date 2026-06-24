@@ -2946,16 +2946,29 @@ function renderProductHub() {
     tkInput.type = "text";
     tkInput.placeholder = "Paste a TikTok video URL";
     tkInput.style.cssText = "width:100%;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px 12px;outline:none;box-sizing:border-box;-webkit-user-select:text;user-select:text;";
-    var tkBtn = document.createElement("button");
-    tkBtn.className = "next-btn";
-    tkBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white-dim);font-size:13px;margin-top:8px;";
-    tkBtn.textContent = "Test TokScript connection";
     var tkOut = document.createElement("pre");
     tkOut.style.cssText = "display:none;margin-top:10px;max-height:300px;overflow:auto;background:var(--surface);border:1px solid var(--border-md);border-radius:8px;padding:10px;font-size:11px;color:var(--white-dim);white-space:pre-wrap;word-break:break-word;font-family:monospace;";
-    tkBtn.addEventListener("click", function(){ testTokscriptConnection(tkInput.value, tkOut, tkBtn); });
+    // Three buttons, one per backend auth mode (bearer / query / path).
+    var tkBtnRow = document.createElement("div");
+    tkBtnRow.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;";
+    var tkModes = [
+      { label: "Test (Bearer)", mode: "bearer" },
+      { label: "Test (key in URL query)", mode: "query" },
+      { label: "Test (key in URL path)", mode: "path" }
+    ];
+    var tkBtns = [];
+    tkModes.forEach(function(m){
+      var b = document.createElement("button");
+      b.className = "next-btn";
+      b.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white-dim);font-size:13px;";
+      b.textContent = m.label;
+      b.addEventListener("click", function(){ testTokscriptConnection(tkInput.value, tkOut, tkBtns, m.mode); });
+      tkBtns.push(b);
+      tkBtnRow.appendChild(b);
+    });
     tkWrap.appendChild(tkLabel);
     tkWrap.appendChild(tkInput);
-    tkWrap.appendChild(tkBtn);
+    tkWrap.appendChild(tkBtnRow);
     tkWrap.appendChild(tkOut);
     wrap.appendChild(tkWrap);
 
@@ -3421,25 +3434,37 @@ function sendWinningAnglesToModel(b64, mediaType, container) {
 // TEMPORARY diagnostic: probe the TokScript MCP connection. Calls /api/claude the
 // same way other calls do but with useTokscript:true so the backend attaches the
 // MCP server (the key lives only on the backend). Displays the raw response.
-function testTokscriptConnection(url, outputEl, btnEl) {
+function testTokscriptConnection(url, outputEl, btns, mode) {
   url = (url || "").trim();
+  mode = mode || "bearer";
+  var btnList = Array.isArray(btns) ? btns : (btns ? [btns] : []);
+  function setDisabled(d){ btnList.forEach(function(b){ if (b) b.disabled = d; }); }
   outputEl.style.display = "block";
-  outputEl.textContent = "Calling TokScript...";
-  if (btnEl) btnEl.disabled = true;
+  outputEl.textContent = "Calling TokScript (mode: " + mode + ")...";
+  setDisabled(true);
   var prompt = "You have access to a TokScript MCP server. First, list the names of all tools you can call on it. Then call the appropriate tool to get the transcript and engagement stats for this URL: " + url + ". Return the tool names you found and the raw data you got back, verbatim.";
   fetch("/api/claude", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-    body: JSON.stringify({ useTokscript: true, model: "claude-sonnet-4-6", max_tokens: 4000, messages: [{ role: "user", content: prompt }] })
+    body: JSON.stringify({ useTokscript: true, tokscriptAuthMode: mode, model: "claude-sonnet-4-6", max_tokens: 4000, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r) { return r.text(); })
   .then(function(raw) {
-    outputEl.textContent = raw;
-    if (btnEl) btnEl.disabled = false;
+    // Surface the safe tokscriptDebug diagnostic (auth mode + key length) at the top,
+    // then show the full raw response below it.
+    var header = "";
+    try {
+      var parsed = JSON.parse(raw);
+      if (parsed && parsed.tokscriptDebug) {
+        header = "tokscriptDebug: " + JSON.stringify(parsed.tokscriptDebug, null, 2) + "\n\n--- full response ---\n";
+      }
+    } catch (e) { /* not JSON or no debug; just show raw */ }
+    outputEl.textContent = "Tested mode: " + mode + "\n\n" + header + raw;
+    setDisabled(false);
   })
   .catch(function(err) {
-    outputEl.textContent = "Error: " + (err && err.message ? err.message : "unknown");
-    if (btnEl) btnEl.disabled = false;
+    outputEl.textContent = "Error (mode: " + mode + "): " + (err && err.message ? err.message : "unknown");
+    setDisabled(false);
   });
 }
 
