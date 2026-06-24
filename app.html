@@ -2926,7 +2926,7 @@ function renderProductHub() {
     var waHeadRow = document.createElement("div");
     waHeadRow.style.cssText = "display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px;";
     var waHead = document.createElement("div");
-    waHead.style.cssText = "font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);";
+    waHead.style.cssText = "font-size:15px;font-weight:600;color:var(--white);";
     waHead.textContent = "Add a winning angle ";
     var waCount = document.createElement("span");
     waCount.id = "winnersCount";
@@ -2946,29 +2946,54 @@ function renderProductHub() {
     waHeadRow.appendChild(waClear);
     waWrap.appendChild(waHeadRow);
 
+    // Helper line explaining what the section does.
+    var waHelp = document.createElement("div");
+    waHelp.style.cssText = "font-size:13px;color:var(--white-dim);line-height:1.4;margin-bottom:14px;";
+    waHelp.textContent = "Add a proven script for this product. Paste a TikTok link, or upload a screenshot of one.";
+    waWrap.appendChild(waHelp);
+
     // Primary option: paste a TikTok link. Renders into the shared winResults below.
+    var lnkLabel = document.createElement("div");
+    lnkLabel.style.cssText = "font-size:12px;color:var(--white-dim);margin-bottom:6px;";
+    lnkLabel.textContent = "Paste a TikTok link";
     var lnkInput = document.createElement("input");
     lnkInput.type = "text";
     lnkInput.placeholder = "Paste a TikTok link";
     lnkInput.style.cssText = "width:100%;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px 12px;outline:none;box-sizing:border-box;-webkit-user-select:text;user-select:text;";
     var lnkBtn = document.createElement("button");
     lnkBtn.className = "next-btn";
-    lnkBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white-dim);font-size:13px;margin-top:8px;";
-    lnkBtn.textContent = "Fetch winning angle";
+    lnkBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white);font-size:13px;margin-top:8px;";
+    lnkBtn.textContent = "Fetch from link";
     var lnkStatus = document.createElement("div");
     lnkStatus.style.cssText = "display:none;font-size:12px;color:var(--muted);padding:8px 0;";
+    waWrap.appendChild(lnkLabel);
     waWrap.appendChild(lnkInput);
     waWrap.appendChild(lnkBtn);
     waWrap.appendChild(lnkStatus);
 
+    // Centered "or" divider between the two options.
+    var orWrap = document.createElement("div");
+    orWrap.style.cssText = "display:flex;align-items:center;gap:10px;margin:16px 0;";
+    var orLineL = document.createElement("div");
+    orLineL.style.cssText = "flex:1;height:1px;background:var(--border-md);";
+    var orText = document.createElement("div");
+    orText.style.cssText = "font-size:12px;color:var(--white-dim);";
+    orText.textContent = "or";
+    var orLineR = document.createElement("div");
+    orLineR.style.cssText = "flex:1;height:1px;background:var(--border-md);";
+    orWrap.appendChild(orLineL);
+    orWrap.appendChild(orText);
+    orWrap.appendChild(orLineR);
+    waWrap.appendChild(orWrap);
+
     // Secondary option: upload a screenshot instead. Same storage and review list.
     var winOrLabel = document.createElement("div");
-    winOrLabel.style.cssText = "font-size:11px;color:var(--muted);margin:14px 0 6px;";
-    winOrLabel.textContent = "or upload a screenshot instead";
+    winOrLabel.style.cssText = "font-size:12px;color:var(--white-dim);margin-bottom:6px;";
+    winOrLabel.textContent = "Or upload a screenshot";
     var winBtn = document.createElement("button");
     winBtn.className = "next-btn";
-    winBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white-dim);font-size:13px;";
-    winBtn.textContent = "Upload winning angles";
+    winBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white);font-size:13px;";
+    winBtn.textContent = "Upload a screenshot of a script";
     var winInput = document.createElement("input");
     winInput.type = "file"; winInput.accept = "image/*"; winInput.style.display = "none";
     var winResults = document.createElement("div");
