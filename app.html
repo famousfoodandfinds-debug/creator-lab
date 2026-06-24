@@ -3642,6 +3642,26 @@ function saveWinnersRaw(panels) {
   }
 }
 
+// Build the winners guidance block injected into script generation. Returns "" when
+// the product has no saved winners/formats, so generation is byte-for-byte unchanged
+// for products without winners. Panels with role "winner" are PROVEN WINNING SCRIPTS;
+// role "format" are VIRAL FORMATS to optionally borrow; role "ignore" is excluded.
+function buildWinnersBlock(bank) {
+  if (!bank || !Array.isArray(bank.winnersRaw)) return "";
+  var winners = bank.winnersRaw.filter(function(p){ return p && p.role === "winner"; });
+  var formats = bank.winnersRaw.filter(function(p){ return p && p.role === "format"; });
+  if (!winners.length && !formats.length) return "";
+  var block = " SAVED WINNING ANGLES FOR THIS PRODUCT:";
+  winners.forEach(function(p, i) {
+    block += " PROVEN WINNING SCRIPT " + (i + 1) + " for this product: " + String(p.transcript || "").trim();
+  });
+  formats.forEach(function(p, i) {
+    block += " VIRAL FORMAT " + (i + 1) + " to optionally borrow: " + String(p.transcript || "").trim();
+  });
+  block += " HOW TO USE THESE WINNING SCRIPTS: These are real scripts that already converted for this product. Use them to guide STRUCTURE and PSYCHOLOGY only, never to copy wording. Learn the move, then write the line: study the hook style, the order of beats, the genuine-reaction and demonstration moments, and the scarcity move, then write FRESH lines in the creator's own voice that hit those same moves. Never reuse their phrases. KEEP what makes them convert: limited-stock scarcity (they never restock, stock will not last, get it before it is gone), genuine-reaction sensory beats, and the consolidation or demonstration moment. CLEAN everything to our standard as you write: QVC and HSN may be named, along with the brand they carry, since they are multi-brand retailers. Product brands the creator sells stay (for example Vitamix, KitchenAid). Any other outside brand becomes its category. Keep pricing at SCARCITY level only: keep urgency and limited-stock framing, but remove exact prices and hard discounts (no dollar amounts, no half off). Remove all seasonal or event framing (no Black Friday, no liquidation, no holiday); keep only evergreen scarcity. Treat a VIRAL FORMAT as an optional structure for SOME variations, not forced onto every one. Maintain variety across the desire angles: these winners are strong influence, not a template, so do not collapse the variations into copies of one winner. All existing rules still apply on top of this: the supplement and diet compliance, the Saxe Standard, the desire-tie CTA, no orange cart, no em-dashes.";
+  return block;
+}
+
 function renderWinnersReview(panels, container) {
   container.innerHTML = "";
   // Keep the "(X of 3)" count in the section heading in sync with the list.
@@ -5233,6 +5253,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     var prompt = "You write TikTok Shop scripts that sound exactly like a real person talking to a friend about something they genuinely love." +
       desireDirective() +
       saxeAux() +
+      buildWinnersBlock(allData) +
 
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point. FIELD 1 ANCHOR -- THIS IS MANDATORY: Before writing any hook, read the creator insight again: " + (getBuyerMotivation() || "") + ". Every hook must speak to the person described in that insight. If a hook could apply to a different buyer than the one described, rewrite it. The product features only matter as proof for the feeling the creator already identified. Feature-first hooks are wrong if the creator gave you a buyer insight." +
       hookTypeContext +
@@ -5365,6 +5386,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     var prompt = "You write TikTok Shop scripts that sound exactly like a real person talking to a friend about something they found." +
       desireDirective() +
       saxeAux() +
+      buildWinnersBlock(allData) +
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
       " Product: " + currentProduct + ". Price context: " + priceCtx + ". Write " + angles.length + " scripts for these angles: " + anglesText + "." +
       " " + profileNote +
@@ -5796,6 +5818,7 @@ function generateScriptBankSilent(onComplete) {
     var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend." +
       desireDirective() +
       factsDirective() +
+      buildWinnersBlock(allData) +
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
       hookTypeContext +
       (getBuyerMotivation() ? " CREATOR INSIGHT: " + getBuyerMotivation() : "") +
@@ -5815,7 +5838,10 @@ function generateScriptBankSilent(onComplete) {
       var text = ""; data.content.forEach(function(b){ if(b.type==="text") text+=b.text; });
       var parsed = JSON.parse(text.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim());
       parsed = stripEmDashesDeep(parsed);
+      // Preserve saved winners across a full bank regeneration (no-op when none).
+      var _keepWinners = (typeof allData === "object" && allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw : null;
       allData = parsed || {};
+      if (_keepWinners) { allData.winnersRaw = _keepWinners; parsed.winnersRaw = _keepWinners; }
       allData.hooks = allData.hooks || {};
       allData.body = allData.body || {};
       allData.preClose = allData.preClose || [];
@@ -5926,6 +5952,7 @@ function generateScriptBank() {
     var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend about something they found. Not an ad. Not a brand. A person." +
       desireDirective() +
       factsDirective() +
+      buildWinnersBlock(allData) +
 
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point. FIELD 1 ANCHOR -- THIS IS MANDATORY: Before writing any hook, read the creator insight again: " + (getBuyerMotivation() || "") + ". Every hook must speak to the person described in that insight. If a hook could apply to a different buyer than the one described, rewrite it. The product features only matter as proof for the feeling the creator already identified. Feature-first hooks are wrong if the creator gave you a buyer insight." +
 
@@ -6024,7 +6051,10 @@ function generateScriptBank() {
       var clean = text.replace(/```json|```/g, "").trim();
       var parsed = JSON.parse(clean);
       parsed = stripEmDashesDeep(parsed);
+      // Preserve saved winners across a full bank regeneration (no-op when none).
+      var _keepWinners = (typeof allData === "object" && allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw : null;
       allData = parsed || {};
+      if (_keepWinners) { allData.winnersRaw = _keepWinners; parsed.winnersRaw = _keepWinners; }
       allData.hooks = allData.hooks || {};
       allData.body = allData.body || {};
       allData.preClose = allData.preClose || allData.preclose || [];
@@ -6053,6 +6083,7 @@ function generateScriptBank() {
     var prompt = "You write TikTok Shop script options that sound exactly like a real person talking to a friend." +
       desireDirective() +
       factsDirective() +
+      buildWinnersBlock(allData) +
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
       hookTypeContext +
       (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
@@ -6083,7 +6114,10 @@ function generateScriptBank() {
       var clean = text.replace(/```json|```/g, "").trim();
       var parsed = JSON.parse(clean);
       parsed = stripEmDashesDeep(parsed);
+      // Preserve saved winners across a full bank regeneration (no-op when none).
+      var _keepWinners = (typeof allData === "object" && allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw : null;
       allData = parsed || {};
+      if (_keepWinners) { allData.winnersRaw = _keepWinners; parsed.winnersRaw = _keepWinners; }
       allData.hooks = allData.hooks || {};
       allData.body = allData.body || {};
       allData.preClose = allData.preClose || allData.preclose || [];
@@ -6607,6 +6641,7 @@ function generateFormatScripts() {
     "- CTAs must echo the specific hook tension -- never standalone Grab yours below\n" +
     "- Pre-close is one honest human moment -- never a lesson, never a question, never an aphorism\n\n" +
     "HOOK TYPE FRAMEWORK -- every hook must be written as one of these specific types. The type is assigned to this script. Write the hook for that type only. 1. CULTURAL MOMENT: Names the one shared unspoken truth everyone in this product world has accepted. Examples: We are not waiting on the cart girl. Your pillow graveyard keeps growing. 2. IDENTITY FILTER: Immediately identifies exactly who this video is for. Examples: This hack is only for over packers. If you travel and have a lot of hair tools. 3. FRUSTRATION: Names the active pain. Stops at the tension, never explains the consequence. Examples: You clean the vacuum more than it cleans your floors. I am lazy and I do not like gardening. Have you ever faked it -- I fake it all the time. My porch has never looked better and I have not watered anything. This is like your skin only better. Remember when this was on sale and you missed it. Your procrastination has finally paid off. If this broke tomorrow I would have another one before the end of the week. You are not lazy, you are just tired of skincare that has seven steps. You did not get the wrong one, you just did not know about this one yet. After spending a small fortune on cheaper versions I learned the hard way. When you find out paying more does not actually mean it is better. Your kitchen looks completely different when everything finally matches. Did you get a nugget ice maker and you got the wrong one -- me too. I used to think this was just normal until I found this. A little reminder that you are allowed to buy nice things for yourself. A little reminder that you are allowed to dislike cleaning. A little reminder that you are allowed to hate cooking. Stop buying this until you know what most people get wrong. If I could go back and tell my younger self one thing. Everyone knows there is only one thing that belongs on a hot dog and I put mustard. If you have ever wanted this now is the time. For the people who have always believed their home should feel like them. If you know you know. For the people who do it right. Your drink dies on the back nine. 4. RELATABLE PROBLEM/QUESTION: Reveals a problem the viewer did not know they had. Examples: Why are we wasting money on epsom salt. Why are we breaking our hair tools. 5. SENSORY: Makes the viewer physically feel the product before they see it. Examples: The satisfying clink of the bottle opener hitting the cap catcher. 6. SOCIAL PROOF: Opens on someone elses reaction or verdict. Examples: It does not stop selling out. Everyone I sent this to ordered before I finished explaining. 7. SKEPTICISM: Opens with the creators own doubt. Examples: I almost talked myself out of this three times. 8. CURIOSITY/REACTION: Personal response that only makes sense after watching. Examples: I was not ready for this. Nobody warned me. 9. IDENTITY GAP: Names something that does not match the life the viewer has built. Examples: Your counters look amazing and then you open the fridge. 10. CONFESSION: Creator admits something embarrassing the viewer recognizes in themselves. Examples: I have a pillow graveyard in my bedroom. 11. REVEAL: Opens on an unexpected fact that reframes something the viewer thought they understood. Examples: Magnesium flakes have more magnesium than epsom salt. They look like fish eggs but they are actually mints. HOOK LENGTH RULE: 6-8 words is the sweet spot. 10 words is the absolute hard limit. Count every word before finalizing. If you are over 10, cut. Declarative beats explanatory every time. Stop at the tension -- never add the consequence. Cut everything after AND or BUT.\n\nFORMATS TO WRITE:\n\n" + formatsForPrompt + "\n\n" +
+    buildWinnersBlock(allData) + "\n\n" +
     "Return ONLY valid JSON:\n" +
     "{\"scripts\":[{\"format\":\"format name\",\"hook\":\"string\",\"body1\":\"string\",\"preClose\":\"string\",\"body2\":\"string\",\"cta\":\"string\",\"caption\":\"string\",\"hashtags\":[\"string\",\"string\",\"string\",\"string\",\"string\"]}]}\n" +
     "Generate exactly " + selectedFormats.length + " scripts in the scripts array, in the order listed above.";
@@ -6856,6 +6891,7 @@ function generateSkitScript(relationshipType) {
     " TIKTOK MODERATION: Never use kill, killing, die, dying, dead, death in any line." +
     " BANNED REACTION LINES for Person B -- never use these exact phrases or close variations: " + bannedTurns + "." +
     " BANNED WORDS everywhere: game-changer, love this, obsessed, literally changed my life, you need this, must-have." +
+    buildWinnersBlock(allData) +
     " Generate TWO completely different skit variations for this product. Each must have a different opening line with different energy -- one can be a confession, one can be a curiosity gap, one can be a reaction. Both must pass the confession test. Return ONLY valid JSON: {skits:[{lines:[{speaker:'A' or 'B', text:string}]},{lines:[{speaker:'A' or 'B', text:string}]}]}";
 
   fetch("/api/claude", {
@@ -7006,9 +7042,9 @@ function generateUrgencyScripts(type) {
   wrap.appendChild(loading);
   mc.appendChild(wrap);
 
-  var salePrompt = "You are writing Sale Urgency scripts for a known brand product. Product: " + currentProduct + ". The viewer already knows and wants this brand -- do NOT explain features, do NOT educate. Your ONLY job: signal that the price right now is lower than they expect, create urgency that it will not last, get them to tap. RULES: Never say an exact price or any number. Sale and deal and price-feeling language IS encouraged, for example you will not believe the price, I cannot believe I got it for this during the sale, no idea how long this deal lasts. Never name any platform. Each script 3 sentences max. Conversational, sounds like a friend tipping you off. Ends with: linked below, grab yours below. BANNED: exact prices or any number for the price, link in bio, platform name. Generate 4 scripts. Return ONLY a JSON array of 4 strings. No markdown." + saxeAux();
+  var salePrompt = "You are writing Sale Urgency scripts for a known brand product. Product: " + currentProduct + ". The viewer already knows and wants this brand -- do NOT explain features, do NOT educate. Your ONLY job: signal that the price right now is lower than they expect, create urgency that it will not last, get them to tap. RULES: Never say an exact price or any number. Sale and deal and price-feeling language IS encouraged, for example you will not believe the price, I cannot believe I got it for this during the sale, no idea how long this deal lasts. Never name any platform. Each script 3 sentences max. Conversational, sounds like a friend tipping you off. Ends with: linked below, grab yours below. BANNED: exact prices or any number for the price, link in bio, platform name. Generate 4 scripts. Return ONLY a JSON array of 4 strings. No markdown." + saxeAux() + buildWinnersBlock(allData);
 
-  var invPrompt = "You are writing Inventory Urgency scripts for a known brand product. Product: " + currentProduct + ". The viewer already knows and wants this brand -- do NOT explain features, do NOT educate. Your ONLY job: signal that inventory is running low, create urgency around missing it entirely, get them to tap. RULES: Never say how many are left or any specific number. Never name any platform. The pattern of it selling out is the signal, not a count. Each script 3 sentences max. Conversational, sounds like a friend tipping you off before it is gone. Ends with: linked below, grab yours below. BANNED: only X left, limited stock, any number, link in bio, platform name, exact prices. Generate 4 scripts. Return ONLY a JSON array of 4 strings. No markdown." + saxeAux();
+  var invPrompt = "You are writing Inventory Urgency scripts for a known brand product. Product: " + currentProduct + ". The viewer already knows and wants this brand -- do NOT explain features, do NOT educate. Your ONLY job: signal that inventory is running low, create urgency around missing it entirely, get them to tap. RULES: Never say how many are left or any specific number. Never name any platform. The pattern of it selling out is the signal, not a count. Each script 3 sentences max. Conversational, sounds like a friend tipping you off before it is gone. Ends with: linked below, grab yours below. BANNED: only X left, limited stock, any number, link in bio, platform name, exact prices. Generate 4 scripts. Return ONLY a JSON array of 4 strings. No markdown." + saxeAux() + buildWinnersBlock(allData);
 
   var prompt = type === "sale" ? salePrompt : invPrompt;
 
