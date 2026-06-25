@@ -5586,22 +5586,6 @@ function renderBatchResults(scripts, angles, authHooks) {
   wrap.appendChild(heading);
   wrap.appendChild(sub);
 
-  // TEMP DIAGNOSTIC: confirm winners are reaching generation. Shows the exact count buildWinnersBlock
-  // included for this product's batch (lastWinnersFedCount). Remove once winners-influence is verified.
-  var winnersDiag = document.createElement("div");
-  winnersDiag.style.cssText = "font-size:10px;color:var(--muted);opacity:0.7;font-style:italic;margin-bottom:14px;";
-  winnersDiag.textContent = "temp diagnostic — Winners fed into this batch: " + (typeof lastWinnersFedCount === "number" ? lastWinnersFedCount : 0);
-  wrap.appendChild(winnersDiag);
-
-  // TEMP DIAGNOSTIC: winner-framework success rate, so a silent generation failure is never invisible.
-  // Only shown when winner-framework scripts were attempted for this batch.
-  if (typeof lastWinnerFrameworkAttempted === "number" && lastWinnerFrameworkAttempted > 0) {
-    var wfDiag = document.createElement("div");
-    wfDiag.style.cssText = "font-size:10px;color:var(--muted);opacity:0.7;font-style:italic;margin-bottom:14px;";
-    wfDiag.textContent = "temp diagnostic — Winner-framework scripts: " + lastWinnerFrameworkGenerated + " of " + lastWinnerFrameworkAttempted + " generated";
-    wrap.appendChild(wfDiag);
-  }
-
   // Render script cards first
   scripts.forEach(function(script, idx) {
     var angle = angles[idx] || {};
