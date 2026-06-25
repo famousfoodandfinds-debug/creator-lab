@@ -3655,6 +3655,11 @@ var lastWinnersFedCount = 0;
 // winning-framework prompt so the rule is reused (and the literal appears exactly once in the file).
 var ORANGE_CART_RULE = "no orange cart, no em-dashes";
 
+// TEMP DIAGNOSTIC: winner-framework generation outcome for the current batch, shown in the batch output
+// so a silent failure is never invisible. Attempted = count tried, Generated = how many parsed.
+var lastWinnerFrameworkAttempted = 0;
+var lastWinnerFrameworkGenerated = 0;
+
 function buildWinnersBlock(bank) {
   if (!bank || !Array.isArray(bank.winnersRaw)) { lastWinnersFedCount = 0; return ""; }
   var winners = bank.winnersRaw.filter(function(p){ return p && p.role === "winner"; });
@@ -5023,6 +5028,9 @@ var WINNER_SCRIPT_COUNT = 2;
 // generate WINNER_SCRIPT_COUNT winning-framework scripts (built directly from the winners) plus the
 // remaining normal scripts. When there are no winners, behave exactly as before (no change at all).
 function generateBatchScripts(angles) {
+  // Reset the winner-framework diagnostic so a no-winners batch never shows a stale note.
+  lastWinnerFrameworkAttempted = 0;
+  lastWinnerFrameworkGenerated = 0;
   var winnerPanels = (allData && Array.isArray(allData.winnersRaw))
     ? allData.winnersRaw.filter(function(p){ return p && p.role === "winner"; })
     : [];
@@ -5053,7 +5061,10 @@ function generateBatchScripts(angles) {
 // Generate `count` winning-framework scripts, one per winner, cycling through the available winners.
 // Each uses a dedicated focused prompt (not the big batch prompt) built on that winner's transcript.
 function generateWinnerFrameworkScripts(winnerPanels, count, priceCtx, callback) {
-  if (!count || !winnerPanels.length) { callback([]); return; }
+  if (!count || !winnerPanels.length) { lastWinnerFrameworkAttempted = 0; lastWinnerFrameworkGenerated = 0; callback([]); return; }
+  // Diagnostic: record how many we attempt now; how many succeed is set when they settle.
+  lastWinnerFrameworkAttempted = count;
+  lastWinnerFrameworkGenerated = 0;
   var results = new Array(count);
   var finished = 0;
   var productDetail = currentProduct.split(' PRODUCT DETAILS: ').pop();
@@ -5072,14 +5083,16 @@ function generateWinnerFrameworkScripts(winnerPanels, count, priceCtx, callback)
         finished++;
         if (finished === count) {
           // Preserve order; drop any that failed so the total still fills with normal scripts.
-          callback(results.filter(Boolean));
+          var ok = results.filter(Boolean);
+          lastWinnerFrameworkGenerated = ok.length;
+          callback(ok);
         }
       };
 
       fetch("/api/claude", {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
-        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1500,
+        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 3000,
           system: system,
           messages: [{ role: "user", content: wfPrompt }] })
       })
@@ -5088,10 +5101,17 @@ function generateWinnerFrameworkScripts(winnerPanels, count, priceCtx, callback)
         if (data.error) { settle(null); return; }
         var text = "";
         data.content.forEach(function(b) { if (b.type === "text") text += b.text; });
+        // Defensive extraction: strip fences/asterisks, then parse only the first {...} block, so any
+        // stray text the model adds around the JSON does not break the parse (mirrors the paste path).
         var clean = text.replace(/```json|```/g, "").replace(/\*\*/g, "").replace(/\*/g, "").trim();
-        var s = stripEmDashesDeep(JSON.parse(clean));
-        s.winnerFramework = true;
-        settle(s);
+        var first = clean.indexOf("{");
+        var last = clean.lastIndexOf("}");
+        if (first === -1 || last === -1 || last < first) { settle(null); return; }
+        try {
+          var s = stripEmDashesDeep(JSON.parse(clean.slice(first, last + 1)));
+          s.winnerFramework = true;
+          settle(s);
+        } catch (e) { settle(null); }
       })
       .catch(function() { settle(null); });
     })(i);
@@ -5572,6 +5592,15 @@ function renderBatchResults(scripts, angles, authHooks) {
   winnersDiag.style.cssText = "font-size:10px;color:var(--muted);opacity:0.7;font-style:italic;margin-bottom:14px;";
   winnersDiag.textContent = "temp diagnostic — Winners fed into this batch: " + (typeof lastWinnersFedCount === "number" ? lastWinnersFedCount : 0);
   wrap.appendChild(winnersDiag);
+
+  // TEMP DIAGNOSTIC: winner-framework success rate, so a silent generation failure is never invisible.
+  // Only shown when winner-framework scripts were attempted for this batch.
+  if (typeof lastWinnerFrameworkAttempted === "number" && lastWinnerFrameworkAttempted > 0) {
+    var wfDiag = document.createElement("div");
+    wfDiag.style.cssText = "font-size:10px;color:var(--muted);opacity:0.7;font-style:italic;margin-bottom:14px;";
+    wfDiag.textContent = "temp diagnostic — Winner-framework scripts: " + lastWinnerFrameworkGenerated + " of " + lastWinnerFrameworkAttempted + " generated";
+    wrap.appendChild(wfDiag);
+  }
 
   // Render script cards first
   scripts.forEach(function(script, idx) {
