@@ -1581,13 +1581,13 @@ function showProfile() {
       btnWrap.style.cssText = "display:flex;gap:4px;flex-shrink:0;";
 
       var upBtn = document.createElement("button");
-      upBtn.style.cssText = "width:32px;height:32px;border-radius:8px;border:1px solid " + (savedState==="up" ? "var(--green)" : "var(--border-md)") + ";background:" + (savedState==="up" ? "rgba(45,201,138,0.15)" : "var(--surface)") + ";cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;";
-      upBtn.textContent = "👍";
+      upBtn.style.cssText = "width:32px;height:32px;border-radius:8px;border:1px solid " + (savedState==="up" ? "var(--white)" : "var(--border-md)") + ";background:" + (savedState==="up" ? "var(--surface3)" : "var(--surface)") + ";cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;";
+      upBtn.innerHTML = thumbIcon("up");
       upBtn.title = "This sounds like me";
 
       var downBtn = document.createElement("button");
-      downBtn.style.cssText = "width:32px;height:32px;border-radius:8px;border:1px solid " + (savedState==="down" ? "var(--red)" : "var(--border-md)") + ";background:" + (savedState==="down" ? "rgba(232,40,78,0.1)" : "var(--surface)") + ";cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;";
-      downBtn.textContent = "👎";
+      downBtn.style.cssText = "width:32px;height:32px;border-radius:8px;border:1px solid " + (savedState==="down" ? "var(--white)" : "var(--border-md)") + ";background:" + (savedState==="down" ? "var(--surface3)" : "var(--surface)") + ";cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;transition:all 0.15s;";
+      downBtn.innerHTML = thumbIcon("down");
       downBtn.title = "This is not how I talk";
 
       (function(qKey, sk, uBtn, dBtn) {
@@ -1600,7 +1600,7 @@ function showProfile() {
             uBtn.style.borderColor = "var(--border-md)"; uBtn.style.background = "var(--surface)";
           } else {
             voiceProfile[qKey][sk] = "up";
-            uBtn.style.borderColor = "var(--green)"; uBtn.style.background = "rgba(45,201,138,0.15)";
+            uBtn.style.borderColor = "var(--white)"; uBtn.style.background = "var(--surface3)";
             dBtn.style.borderColor = "var(--border-md)"; dBtn.style.background = "var(--surface)";
           }
           saveLocalData();
@@ -1613,7 +1613,7 @@ function showProfile() {
             dBtn.style.borderColor = "var(--border-md)"; dBtn.style.background = "var(--surface)";
           } else {
             voiceProfile[qKey][sk] = "down";
-            dBtn.style.borderColor = "var(--red)"; dBtn.style.background = "rgba(232,40,78,0.1)";
+            dBtn.style.borderColor = "var(--white)"; dBtn.style.background = "var(--surface3)";
             uBtn.style.borderColor = "var(--border-md)"; uBtn.style.background = "var(--surface)";
           }
           saveLocalData();
@@ -3660,6 +3660,15 @@ var ORANGE_CART_RULE = "no orange cart, no em-dashes";
 var lastWinnerFrameworkAttempted = 0;
 var lastWinnerFrameworkGenerated = 0;
 
+// Inline thumbs-up / thumbs-down SVG, colored with the brand rose-gold accent (var(--gold) = #CE9A80 in
+// dark, themed in light). Used for every rating control so all thumbs match and are not yellow emoji.
+// Sized in em so each call site's font-size controls the icon size.
+function thumbIcon(dir) {
+  var up = "M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z";
+  var down = "M15 3H6c-.83 0-1.54.5-1.84 1.22l-3.02 7.05c-.09.23-.14.47-.14.73v2c0 1.1.9 2 2 2h6.31l-.95 4.57-.03.32c0 .41.17.79.44 1.06L9.83 23l6.59-6.59c.36-.36.58-.86.58-1.41V5c0-1.1-.9-2-2-2zm4 0v12h4V3h-4z";
+  return "<svg width=\"1em\" height=\"1em\" viewBox=\"0 0 24 24\" style=\"fill:var(--gold);vertical-align:middle;\" aria-hidden=\"true\"><path d=\"" + (dir === "down" ? down : up) + "\"></path></svg>";
+}
+
 function buildWinnersBlock(bank) {
   if (!bank || !Array.isArray(bank.winnersRaw)) { lastWinnersFedCount = 0; return ""; }
   var winners = bank.winnersRaw.filter(function(p){ return p && p.role === "winner"; });
@@ -5682,12 +5691,12 @@ function renderBatchResults(scripts, angles, authHooks) {
 
       var thumbsUp = document.createElement("button");
       thumbsUp.style.cssText = "background:none;border:1px solid var(--border-md);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer;color:var(--muted);transition:all 0.15s;font-family:'Instrument Sans',sans-serif;";
-      thumbsUp.textContent = "👍";
+      thumbsUp.innerHTML = thumbIcon("up");
       thumbsUp.title = "This sounds like me";
 
       var thumbsDown = document.createElement("button");
       thumbsDown.style.cssText = "background:none;border:1px solid var(--border-md);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer;color:var(--muted);transition:all 0.15s;font-family:'Instrument Sans',sans-serif;";
-      thumbsDown.textContent = "👎";
+      thumbsDown.innerHTML = thumbIcon("down");
       thumbsDown.title = "I would never say this";
 
       var feedbackNote = document.createElement("span");
@@ -5697,9 +5706,9 @@ function renderBatchResults(scripts, angles, authHooks) {
       (function(lineVal, lineType, desireCat, upBtn, downBtn, note) {
         upBtn.addEventListener("click", function() {
           saveFeedback(lineVal, lineType, desireCat, 1);
-          upBtn.style.borderColor = "var(--green)";
-          upBtn.style.color = "var(--green)";
-          upBtn.style.background = "var(--green-dim)";
+          upBtn.style.borderColor = "var(--white)";
+          upBtn.style.color = "var(--white)";
+          upBtn.style.background = "var(--surface3)";
           downBtn.style.opacity = "0.3";
           note.textContent = "Got it. Noted.";
           upBtn.disabled = true;
@@ -5707,9 +5716,9 @@ function renderBatchResults(scripts, angles, authHooks) {
         });
         downBtn.addEventListener("click", function() {
           saveFeedback(lineVal, lineType, desireCat, -1);
-          downBtn.style.borderColor = "var(--red)";
-          downBtn.style.color = "var(--red)";
-          downBtn.style.background = "var(--red-dim)";
+          downBtn.style.borderColor = "var(--white)";
+          downBtn.style.color = "var(--white)";
+          downBtn.style.background = "var(--surface3)";
           upBtn.style.opacity = "0.3";
           note.textContent = "Got it. Won't push this style.";
           upBtn.disabled = true;
@@ -7085,8 +7094,8 @@ function renderSkitResult(skits, relationshipType) {
       var speaker = document.createElement("div"); speaker.style.cssText = "font-size:10px;font-weight:700;color:"+(line.speaker==="A"?"var(--red)":"var(--purple)")+";letter-spacing:0.08em;flex-shrink:0;padding-top:2px;min-width:16px;"; speaker.textContent = line.speaker+":";
       var textEl = document.createElement("div"); textEl.style.cssText = "flex:1;font-size:14px;color:var(--white);line-height:1.6;font-weight:300;"; textEl.textContent = line.text;
       var fbWrap = document.createElement("div"); fbWrap.style.cssText = "display:flex;gap:3px;flex-shrink:0;";
-      var upBtn = document.createElement("button"); upBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:11px;padding:0;opacity:0.3;"; upBtn.textContent = "👍";
-      var dnBtn = document.createElement("button"); dnBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:11px;padding:0;opacity:0.3;"; dnBtn.textContent = "👎";
+      var upBtn = document.createElement("button"); upBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:11px;padding:0;opacity:0.3;"; upBtn.innerHTML = thumbIcon("up");
+      var dnBtn = document.createElement("button"); dnBtn.style.cssText = "background:none;border:none;cursor:pointer;font-size:11px;padding:0;opacity:0.3;"; dnBtn.innerHTML = thumbIcon("down");
       (function(t, u, d){ u.addEventListener("click",function(){saveFeedback(t,"skit","skit",1);u.style.opacity="1";d.style.opacity="0.2";u.disabled=true;d.disabled=true;}); d.addEventListener("click",function(){saveFeedback(t,"skit","skit",-1);d.style.opacity="1";u.style.opacity="0.2";u.disabled=true;d.disabled=true;}); })(line.text, upBtn, dnBtn);
       fbWrap.appendChild(upBtn); fbWrap.appendChild(dnBtn);
       row.appendChild(speaker); row.appendChild(textEl); row.appendChild(fbWrap);
@@ -8862,11 +8871,11 @@ function buildTriggerCard(cat,lines,catTags,catScreens,sectionKey) {
     // FIX 4: Thumbs UP + Thumbs DOWN
     var thumbUpBtn=document.createElement("button");
     thumbUpBtn.style.cssText="background:none;border:none;cursor:pointer;font-size:12px;padding:0;opacity:0.3;transition:all 0.15s;line-height:1;flex-shrink:0;margin-top:2px;";
-    thumbUpBtn.textContent="👍"; thumbUpBtn.title="Sounds like me";
+    thumbUpBtn.innerHTML=thumbIcon("up"); thumbUpBtn.title="Sounds like me";
     var thumbBtn=document.createElement("button");
     thumbBtn.className="thumb-down-btn"+(isDismissed?" dismissed":"");
     thumbBtn.title=isDismissed?"Tap to restore this line":"Not my vibe";
-    thumbBtn.textContent=isDismissed?"👎":"👎";
+    thumbBtn.innerHTML=thumbIcon("down");
     (function(l,sk,uBtn){
       uBtn.addEventListener("click",function(e){
         e.stopPropagation();
@@ -9050,22 +9059,22 @@ function rebuildPrecloseStep() {
     fbRow.style.cssText = "display:flex;align-items:center;gap:6px;margin-top:8px;";
     var upBtn = document.createElement("button");
     upBtn.style.cssText = "background:none;border:1px solid var(--border-md);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer;color:var(--muted);font-family:'Instrument Sans',sans-serif;transition:all 0.15s;";
-    upBtn.textContent = "👍"; upBtn.title = "Sounds like me";
+    upBtn.innerHTML = thumbIcon("up"); upBtn.title = "Sounds like me";
     var dnBtn = document.createElement("button");
     dnBtn.style.cssText = "background:none;border:1px solid var(--border-md);border-radius:999px;padding:3px 10px;font-size:11px;cursor:pointer;color:var(--muted);font-family:'Instrument Sans',sans-serif;transition:all 0.15s;";
-    dnBtn.textContent = "👎"; dnBtn.title = "Not how I talk";
+    dnBtn.innerHTML = thumbIcon("down"); dnBtn.title = "Not how I talk";
     (function(l, u, d) {
       u.addEventListener("click", function(e) {
         e.stopPropagation();
         saveFeedback(l, "preclose", "preclose", 1);
-        u.style.borderColor="var(--green)"; u.style.color="var(--green)"; u.style.background="rgba(45,201,138,0.1)";
+        u.style.borderColor="var(--white)"; u.style.color="var(--white)"; u.style.background="var(--surface3)";
         d.style.opacity="0.3"; u.disabled=true; d.disabled=true;
         showToast("Got it");
       });
       d.addEventListener("click", function(e) {
         e.stopPropagation();
         saveFeedback(l, "preclose", "preclose", -1);
-        d.style.borderColor="var(--red)"; d.style.color="var(--red)"; d.style.background="rgba(232,40,78,0.08)";
+        d.style.borderColor="var(--white)"; d.style.color="var(--white)"; d.style.background="var(--surface3)";
         u.style.opacity="0.3"; u.disabled=true; d.disabled=true;
         showToast("Got it");
       });
