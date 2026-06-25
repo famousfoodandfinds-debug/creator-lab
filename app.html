@@ -914,7 +914,7 @@ body.planner-mode #dailyMeterSection { display: none !important; }
   <div class="state-box">
     <div class="state-icon">✨</div>
     <div class="state-title">Your Script Bank</div>
-    <div class="state-desc">Describe your product and generate a complete script bank. Built on buyer psychology -- every line designed to convert.</div>
+    <div class="state-desc">Describe your product and generate a complete script bank. Built on buyer intent -- every line designed to convert.</div>
   </div>
 </div>
 
@@ -5629,7 +5629,7 @@ function renderBatchResults(scripts, angles, authHooks) {
       psychRow.style.cssText = "display:flex;align-items:center;gap:6px;margin-bottom:10px;";
       var psychIcon = document.createElement("span");
       psychIcon.style.cssText = "font-size:10px;color:var(--muted);";
-      psychIcon.textContent = "Buyer psychology:";
+      psychIcon.textContent = "Buyer intent:";
       var psychBadge = document.createElement("span");
       psychBadge.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:"+dc+";background:rgba(0,0,0,0.3);border:1px solid "+dc+";border-radius:999px;padding:2px 8px;cursor:pointer;display:inline-flex;align-items:center;gap:4px;";
       psychBadge.innerHTML = angle.desire + " <span style='font-size:10px;opacity:0.7;'>ⓘ</span>";
@@ -8405,7 +8405,7 @@ function buildPriceSelector() {
   if (!currentPrice) {
     var hint = document.createElement("div");
     hint.style.cssText = "font-size:11px;color:var(--gold);margin-top:4px;opacity:0.8;";
-    hint.textContent = "Price shapes the buyer psychology frame for every line generated.";
+    hint.textContent = "Price shapes the buyer intent frame for every line generated.";
     wrap.appendChild(hint);
   }
 
@@ -10615,7 +10615,7 @@ function showPriceModal(onSelected) {
 
   var sub = document.createElement("div");
   sub.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:18px;line-height:1.5;";
-  sub.textContent = "Price shapes the buyer psychology behind every line generated. Select one to continue.";
+  sub.textContent = "Price shapes the buyer intent behind every line generated. Select one to continue.";
 
   box.appendChild(title);
   box.appendChild(sub);
