@@ -1263,7 +1263,7 @@ function handleForgotPassword() {
   msg.className = "auth-msg";
   sb.auth.signInWithOtp({
     email: email,
-    options: { emailRedirectTo: "https://psychscriptlab.app/app.html" }
+    options: { emailRedirectTo: "https://saxe.app/app.html" }
   }).then(function(result) {
     if (result.error) {
       msg.textContent = result.error.message;
