@@ -953,7 +953,7 @@ Return ONLY valid JSON, no markdown, exactly:
       for(let attempt=1; attempt<=3; attempt++){
         try{
           if(attempt>1) statusEl.textContent='Connection hiccup. Retrying ('+attempt+' of 3)...';
-          res=await fetch('/.netlify/functions/carousel-write',{method:'POST',headers:{'Content-Type':'application/json'},body:payload});
+          res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-user-id':(window.__SAXE_USER_ID__||'')},body:payload});
           break;
         }catch(e){ lastErr=e; await new Promise(r=>setTimeout(r, 900*attempt)); }
       }
@@ -968,7 +968,7 @@ Return ONLY valid JSON, no markdown, exactly:
       const parsed=JSON.parse(raw);
       applyCopy(parsed);
       statusEl.textContent='Done. Move, restyle, and rewrite anything, then export.';
-    }catch(err){statusEl.textContent='Could not reach the writer: '+(err&&err.message?err.message:'unknown')+'. Check the carousel-write function and your ANTHROPIC_API_KEY env var.';console.error(err);}
+    }catch(err){statusEl.textContent='Could not reach the writer: '+(err&&err.message?err.message:'unknown')+'. Please try again in a moment.';console.error(err);}
     genBtn.disabled=false; genBtn.textContent='Write the carousel';
   }
   genBtn.addEventListener('click',generate);
