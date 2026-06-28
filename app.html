@@ -11706,6 +11706,13 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   const BURST_PTS=(function(){let p=[];for(let i=0;i<24;i++){const r=i%2?28:50;const a=(Math.PI/12)*i-Math.PI/2;p.push((50+r*Math.cos(a)).toFixed(1)+','+(50+r*Math.sin(a)).toFixed(1));}return p.join(' ');})();
 
   const state={ active:0, selected:null, slides:[], ratio:'3:4' };
+  let usedColors=[];
+  function addUsedColor(hex){
+    hex=(hex||'').toLowerCase(); if(!/^#[0-9a-f]{6}$/.test(hex))return;
+    if(SWATCHES.some(s=>s[0].toLowerCase()===hex))return;
+    usedColors=usedColors.filter(c=>c!==hex); usedColors.unshift(hex);
+    if(usedColors.length>10)usedColors.length=10;
+  }
 
   function blankSlide(){return {photo:null,iw:0,ih:0,elements:[]};}
   function sampleSlides(){
@@ -11749,6 +11756,46 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     stage.style.height=Math.round(h)+'px';
   }
 
+  function coverBg(s){
+    if(!s.photo){bg.style.display='none';return;}
+    bg.src=s.photo; bg.style.display='block';
+    const W=stage.clientWidth,H=stage.clientHeight;
+    const apply=(iw,ih)=>{
+      if(!iw||!ih){bg.style.inset='0';bg.style.left='';bg.style.top='';bg.style.width='100%';bg.style.height='100%';bg.style.objectFit='cover';return;}
+      const sR=W/H,iR=iw/ih; let dw,dh;
+      if(iR>sR){dh=H;dw=H*iR;}else{dw=W;dh=W/iR;}
+      bg.style.objectFit='fill'; bg.style.inset='auto';
+      bg.style.width=Math.ceil(dw)+'px'; bg.style.height=Math.ceil(dh)+'px';
+      bg.style.left=Math.round((W-dw)/2)+'px'; bg.style.top=Math.round((H-dh)/2)+'px';
+    };
+    if(s.iw&&s.ih)apply(s.iw,s.ih);
+    else{const im=new Image();im.onload=()=>{s.iw=im.naturalWidth;s.ih=im.naturalHeight;apply(s.iw,s.ih);};im.src=s.photo;}
+  }
+
+  function matchPhotoColor(el){
+    const s=cur(); if(!s||!s.photo)return;
+    const img=new Image();
+    img.onload=()=>{
+      try{
+        const cw=24,ch=24,c=document.createElement('canvas'); c.width=cw; c.height=ch;
+        const ctx=c.getContext('2d');
+        const ex=Math.max(0,Math.min(el.x||0,0.95)), ey=Math.max(0,Math.min(el.y||0,0.92));
+        const sx=ex*img.naturalWidth, sy=ey*img.naturalHeight;
+        const sw=Math.max(1,Math.min(img.naturalWidth-sx,img.naturalWidth*0.6));
+        const sh=Math.max(1,Math.min(img.naturalHeight-sy,img.naturalHeight*0.18));
+        ctx.drawImage(img,sx,sy,sw,sh,0,0,cw,ch);
+        const d=ctx.getImageData(0,0,cw,ch).data; let r=0,g=0,b=0,n=0;
+        for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}
+        r/=n;g/=n;b/=n;
+        const lum=0.299*r+0.587*g+0.114*b;
+        el.color = lum<140 ? '#ffffff' : '#2B2A27';
+        if(el.type==='benefits'||el.type==='features'){el.iconColor=el.color; el.ringColor=el.color;}
+        render();
+      }catch(e){}
+    };
+    img.src=s.photo;
+  }
+
   function renderTabs(){
     slidetabs.innerHTML='';
     state.slides.forEach((s,i)=>{
@@ -11769,7 +11816,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   function renderCanvas(){
     const s=cur();
     sizeStage(s.iw,s.ih);
-    if(s.photo){bg.src=s.photo;bg.style.display='block';ph.style.display='none';}
+    if(s.photo){coverBg(s);ph.style.display='none';}
     else{bg.style.display='none';ph.style.display='flex';}
     [...stage.querySelectorAll('.el')].forEach(e=>e.remove());
     const W=stage.clientWidth, H=stage.clientHeight;
@@ -11969,11 +12016,14 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     const cur=(current||'').toLowerCase();
     SWATCHES.forEach(([hex])=>{const d=document.createElement('div');d.className='sw'+(cur===hex.toLowerCase()?' on':'');d.style.background=hex;
       d.addEventListener('click',()=>{set(hex);render();});wrap.appendChild(d);});
-    const isPreset=SWATCHES.some(s=>s[0].toLowerCase()===cur);
+    usedColors.forEach(hex=>{const d=document.createElement('div');d.className='sw'+(cur===hex?' on':'');d.style.background=hex;d.title='Saved color';
+      d.style.boxShadow='inset 0 0 0 1px rgba(0,0,0,.12)';
+      d.addEventListener('click',()=>{set(hex);render();});wrap.appendChild(d);});
+    const isPreset=SWATCHES.some(s=>s[0].toLowerCase()===cur)||usedColors.includes(cur);
     const pick=document.createElement('label'); pick.className='sw pick'+((!isPreset&&current)?' on':''); pick.title='Custom color';
     const inp=document.createElement('input'); inp.type='color'; inp.value=normHex(current)||'#000000';
     inp.addEventListener('input',()=>{set(inp.value);renderCanvas();});
-    inp.addEventListener('change',()=>{render();});
+    inp.addEventListener('change',()=>{addUsedColor(inp.value);render();});
     pick.appendChild(inp); wrap.appendChild(pick);
     return wrap;
   }
@@ -12019,6 +12069,13 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     // color
     const fillLabel=(GFX_TYPES.includes(el.type)||el.type==='badge')?'Fill':'Color';
     inspector.appendChild(field(fillLabel, colorRow(el.color,c=>{el.color=c;})));
+
+    if(cur()&&cur().photo&&(TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features')){
+      const mb=document.createElement('button'); mb.type='button'; mb.textContent='Match to photo';
+      mb.style.cssText='width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;color:var(--ink);font-family:inherit;font-size:12.5px;cursor:pointer';
+      mb.addEventListener('click',()=>matchPhotoColor(el));
+      inspector.appendChild(field('Auto color',mb));
+    }
 
     if(TEXT_FILL.includes(el.type)){
       inspector.appendChild(field('Text color', colorRow(el.textColor||'#ffffff',c=>{el.textColor=c;})));
