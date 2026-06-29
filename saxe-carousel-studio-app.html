@@ -222,6 +222,26 @@
     body.carousel-phone #phoneAdd #photonote{flex:0 0 auto;align-self:center;white-space:nowrap;order:-1}
     /* an element selected: its inspector controls, stacked, scroll inside the tray */
     body.carousel-phone .phone-tray-body #inspector{display:block}
+    /* sticker library collapsed behind one button + a dismissible bottom sheet */
+    body.carousel-phone .phone-stickers-btn{flex:0 0 auto;border:1px solid var(--line);background:#fff;
+      border-radius:10px;padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--ink);
+      font-family:inherit;cursor:pointer;white-space:nowrap}
+    body.carousel-phone .phone-stickers-btn:active{border-color:var(--rose)}
+    body.carousel-phone .phone-sheet{position:fixed;inset:0;z-index:70;display:none}
+    body.carousel-phone .phone-sheet.open{display:block}
+    body.carousel-phone .phone-sheet-backdrop{position:absolute;inset:0;background:rgba(43,42,39,.45)}
+    body.carousel-phone .phone-sheet-panel{position:absolute;left:0;right:0;bottom:0;display:flex;
+      flex-direction:column;max-height:72vh;background:var(--panel);border-radius:16px 16px 0 0;
+      box-shadow:0 -12px 30px -14px rgba(43,42,39,.5)}
+    body.carousel-phone .phone-sheet-head{display:flex;align-items:center;justify-content:space-between;
+      padding:12px 14px 10px;border-bottom:1px solid var(--line)}
+    body.carousel-phone .phone-sheet-title{font-size:12px;letter-spacing:.1em;text-transform:uppercase;
+      color:var(--muted);font-weight:600}
+    body.carousel-phone .phone-sheet-close{border:0;background:transparent;font-size:16px;line-height:1;
+      color:var(--muted);cursor:pointer;padding:4px 6px}
+    body.carousel-phone .phone-sheet-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 14px 18px}
+    body.carousel-phone .phone-sheet-body #gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
+      max-height:none;overflow:visible;margin:0;padding:0}
   }
 </style>
 </head>
@@ -776,6 +796,7 @@
         state.selected=el.id;
         [...stage.querySelectorAll('.el')].forEach(n=>n.classList.toggle('sel', n.dataset.id===el.id));
         renderInspector();
+        phoneSync();   // switch the phone tray to this element's controls on tap-select
         return;
       }
       const W=stage.clientWidth,H=stage.clientHeight;
@@ -1412,7 +1433,7 @@ Return ONLY valid JSON, no markdown, exactly:
   // is never touched (phApply only runs when the media query matches).
   var phoneMQ = window.matchMedia('(max-width:760px)');
   var phActive=false, phBuilt=false, phMoves=[];
-  var phDock, phTray, phTrayBody, phAdd, phTitle, phEditBtn;
+  var phDock, phTray, phTrayBody, phAdd, phTitle, phEditBtn, phStickersBtn, phSheet, phSheetBody;
   function phMove(node,parent){ if(!node) return; phMoves.push({n:node,p:node.parentNode,s:node.nextSibling}); parent.appendChild(node); }
   function phRestore(){ for(var i=phMoves.length-1;i>=0;i--){ var m=phMoves[i]; if(!m.p) continue; if(m.s&&m.s.parentNode===m.p) m.p.insertBefore(m.n,m.s); else m.p.appendChild(m.n); } phMoves=[]; }
   function phLabel(el){ var t=el&&el.type;
@@ -1442,6 +1463,25 @@ Return ONLY valid JSON, no markdown, exactly:
     phAdd=document.createElement('div'); phAdd.id='phoneAdd';
     phTray.appendChild(grip); phTray.appendChild(head); phTray.appendChild(phTrayBody);
     phSwipeClose(grip); phSwipeClose(head);
+    // Sticker library collapsed behind one button + a dismissible bottom sheet.
+    phStickersBtn=document.createElement('button'); phStickersBtn.type='button'; phStickersBtn.className='phone-stickers-btn'; phStickersBtn.textContent='Stickers';
+    phSheet=document.createElement('div'); phSheet.className='phone-sheet';
+    var sBack=document.createElement('div'); sBack.className='phone-sheet-backdrop';
+    var sPanel=document.createElement('div'); sPanel.className='phone-sheet-panel';
+    var sHead=document.createElement('div'); sHead.className='phone-sheet-head';
+    var sTitle=document.createElement('span'); sTitle.className='phone-sheet-title'; sTitle.textContent='Stickers';
+    var sClose=document.createElement('button'); sClose.type='button'; sClose.className='phone-sheet-close'; sClose.setAttribute('aria-label','Close'); sClose.innerHTML='&#10005;';
+    sHead.appendChild(sTitle); sHead.appendChild(sClose);
+    phSheetBody=document.createElement('div'); phSheetBody.className='phone-sheet-body';
+    sPanel.appendChild(sHead); sPanel.appendChild(phSheetBody);
+    phSheet.appendChild(sBack); phSheet.appendChild(sPanel);
+    phTray.appendChild(phSheet);
+    function phCloseSheet(){ phSheet.classList.remove('open'); }
+    phStickersBtn.addEventListener('click',function(){ phSheet.classList.add('open'); });
+    sClose.addEventListener('click',phCloseSheet);
+    sBack.addEventListener('click',phCloseSheet);
+    // a gallery tile adds the sticker (its own handler) then we dismiss the sheet
+    phSheetBody.addEventListener('click',function(e){ if(e.target&&e.target.closest&&e.target.closest('.gtile')) phCloseSheet(); });
   }
   function phApply(){
     phBuild(); phActive=true;
@@ -1453,7 +1493,8 @@ Return ONLY valid JSON, no markdown, exactly:
     phMove(photodrop, phAdd);   // photo upload first so it's always visible in the strip
     phMove(photonote, phAdd);
     phMove(addel, phAdd);
-    phMove(gallery, phAdd);
+    phAdd.appendChild(phStickersBtn);          // compact "Stickers" button in the strip
+    phMove(gallery, phSheetBody);              // the full gallery lives in the dismissible sheet
     phTrayBody.appendChild(phAdd);
     phMove(inspector, phTrayBody);
     render(); // recompute element px for the smaller stage and sync the tray
