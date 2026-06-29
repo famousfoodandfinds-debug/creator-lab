@@ -10119,7 +10119,19 @@ function buildCarousel() {
   // (so the carousel can prefill its brief via window.__SAXE_PRODUCT__).
   var prod = (typeof currentProduct === "string") ? currentProduct : "";
   frame.srcdoc = "<script>window.__SAXE_USER_ID__=" + JSON.stringify(uid) + ";window.__SAXE_PRODUCT__=" + JSON.stringify(prod) + ";<\/script>" + tpl.innerHTML;
+  // Push the product once the iframe has loaded (covers the first open).
+  frame.addEventListener("load", pushCarouselProduct, { once: true });
   carouselBuilt = true;
+}
+
+// Push the current product into the carousel iframe (it listens for {type:'saxe-product'}
+// and prefills its brief only when empty). Called on every Carousel-tab open so the product
+// stays current; the build-time __SAXE_PRODUCT__ injection covers the very first open.
+function pushCarouselProduct() {
+  var cf = document.getElementById("carouselFrame");
+  if (!cf || !cf.contentWindow) return;
+  var prod = (typeof currentProduct === "string") ? currentProduct : "";
+  try { cf.contentWindow.postMessage({ type: "saxe-product", value: prod }, "*"); } catch (e) {}
 }
 
 function showMainTab(tab) {
@@ -10154,6 +10166,7 @@ function showMainTab(tab) {
     if (histC) histC.style.display = "none";
     if (carouselPanel) carouselPanel.style.display = "block";
     buildCarousel();
+    pushCarouselProduct();
     return;
   }
   if (tab === "scripts") {
@@ -11373,7 +11386,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
      into an isolated, same-origin iframe (#carouselFrame) so it cannot collide with the app. -->
 <div id="carouselPanel" style="display:none;"><iframe id="carouselFrame" title="Saxe Carousel Studio"></iframe></div>
 <template id="carouselTpl">
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Archivo+Black&family=Fjalla+One&family=Alfa+Slab+One&family=Bungee&family=Teko:wght@400;600&family=Anton+SC&family=Playfair+Display:wght@400;700;900&family=Marcellus&family=DM+Serif+Display&family=Abril+Fatface&family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;500;600&family=Poppins:wght@400;600;700&family=Montserrat:wght@400;600;800&family=Outfit:wght@400;600&family=Work+Sans:wght@400;600&family=Sacramento&family=Pacifico&family=Dancing+Script:wght@400;700&family=Caveat:wght@400;700&family=Permanent+Marker&family=Satisfy&family=Great+Vibes&family=Lobster&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Archivo+Black&family=Fjalla+One&family=Alfa+Slab+One&family=Bungee&family=Teko:wght@400;600&family=Anton+SC&family=Playfair+Display:wght@400;700;900&family=Marcellus&family=DM+Serif+Display&family=Abril+Fatface&family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;500;600&family=Poppins:wght@400;600;700&family=Montserrat:wght@400;600;800&family=Outfit:wght@400;600&family=Work+Sans:wght@400;600&family=Pacifico&family=Dancing+Script:wght@400;700&family=Caveat:wght@400;700&family=Caveat+Brush&family=Kaushan+Script&family=Permanent+Marker&family=Satisfy&family=Courgette&family=Yellowtail&family=Patrick+Hand&family=Shadows+Into+Light+Two&family=Gloria+Hallelujah&family=Lobster&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
@@ -11471,7 +11484,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 
   .t-kicker{font-family:Oswald,sans-serif;text-transform:uppercase;letter-spacing:.22em;font-weight:600}
   .t-caps{font-family:Anton,Impact,sans-serif;text-transform:uppercase;line-height:.96;letter-spacing:.005em}
-  .t-script{font-family:Sacramento,cursive;line-height:.95}
+  .t-script{font-family:'Kaushan Script',cursive;line-height:1.05}
   .t-body{font-family:Inter,sans-serif;font-weight:500;line-height:1.28}
   .t-edit{outline:none;white-space:pre-wrap;word-break:break-word}
 
@@ -11549,6 +11562,16 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         <textarea id="brief" class="brief" placeholder="Paste the product description here."></textarea>
         <div class="shots" id="shots"></div>
         <div class="drop" id="shotdrop">+ Add screenshots of the description<br><span style="font-size:11px">paste with Ctrl/Cmd + V or tap to upload</span></div>
+        <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;cursor:pointer;user-select:none"><input type="checkbox" id="matchPhotos" checked style="accent-color:var(--rose)"> Read each photo and match the copy to the product shown</label>
+        <div style="margin-top:12px">
+          <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Angle to focus on (optional)</label>
+          <input id="angleInput" type="text" placeholder="The one promise, e.g. your whole home smells like a bouquet" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;color:var(--ink);box-sizing:border-box">
+          <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
+            <button class="btn ghost sm" id="suggestAngles" type="button">Suggest angles</button>
+            <span id="angleStatus" style="font-size:11px;color:var(--muted)"></span>
+          </div>
+          <div id="angleOpts" style="display:flex;flex-direction:column;gap:6px;margin-top:6px"></div>
+        </div>
         <button class="btn rose" id="gen" style="margin-top:12px">Write the carousel</button>
         <div class="angle" id="angle" style="display:none"></div>
         <div class="status" id="genstatus"></div>
@@ -11593,6 +11616,18 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         <img class="bg" id="bg" alt="">
       </div>
       <div class="meta" id="meta"></div>
+      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);width:100%;max-width:340px;flex-wrap:wrap">
+        <span style="flex:0 0 auto">Photo fade</span>
+        <select id="fadeDir" style="border:1px solid var(--line);border-radius:8px;padding:5px 7px;font-family:inherit;font-size:12px;color:var(--ink);background:#fff">
+          <option value="none">None</option>
+          <option value="left">From left</option>
+          <option value="right">From right</option>
+          <option value="top">From top</option>
+          <option value="bottom">From bottom</option>
+        </select>
+        <input type="range" id="fadeAmt" min="10" max="100" value="55" style="flex:1;min-width:70px;accent-color:var(--rose)">
+        <input type="color" id="fadeColor" value="#ffffff" title="Fade color" style="width:30px;height:26px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer">
+      </div>
       <div class="btnrow" style="width:100%;max-width:340px">
         <button class="btn rose" id="export">Export this slide</button>
         <button class="btn ghost" id="exportAll" style="flex:0 0 auto;padding-left:14px;padding-right:14px">Export all</button>
@@ -11658,10 +11693,16 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     loopArrow:'<svg viewBox="0 0 100 72"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" d="M8 52 C8 22 40 12 52 30 60 42 46 56 38 47 30 38 46 18 72 21 86 22 92 36 89 48"/><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M78 40 L90 51 L99 37"/></svg>',
     commentBubble:'<svg viewBox="0 0 100 80"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round" d="M16 10 H84 A9 9 0 0 1 93 19 V51 A9 9 0 0 1 84 60 H42 L24 74 L26 60 H16 A9 9 0 0 1 7 51 V19 A9 9 0 0 1 16 10 Z"/></svg>',
     thoughtBubble:'<svg viewBox="0 0 100 80"><path fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M30 22 C30 11 47 9 51 18 56 8 76 11 75 23 87 23 87 39 76 41 80 51 63 57 57 48 53 59 32 56 33 45 21 45 21 27 30 22 Z"/><circle cx="26" cy="60" r="5" fill="currentColor"/><circle cx="15" cy="71" r="3.5" fill="currentColor"/></svg>',
-    doodleFrame:'<svg viewBox="0 0 100 72" preserveAspectRatio="none"><path fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" d="M8 10 C32 6 70 6 93 9 95 26 95 49 92 63 67 67 31 67 9 63 6 45 6 27 8 10 Z"/></svg>'
+    doodleFrame:'<svg viewBox="0 0 100 72" preserveAspectRatio="none"><path fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" d="M8 10 C32 6 70 6 93 9 95 26 95 49 92 63 67 67 31 67 9 63 6 45 6 27 8 10 Z"/></svg>',
+    dottedArrow:'<svg viewBox="0 0 110 24"><line x1="4" y1="12" x2="80" y2="12" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="0.5 11"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M76 4 L93 12 L76 20"/></svg>',
+    arrowDown:'<svg viewBox="0 0 30 60"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M15 6 V50 M5 38 L15 53 L25 38"/></svg>',
+    arrowUp:'<svg viewBox="0 0 30 60"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M15 54 V10 M5 22 L15 7 L25 22"/></svg>',
+    splash:'<svg viewBox="0 0 80 80"><path fill="currentColor" d="M40 4 L47 25 67 13 57 34 79 33 60 45 75 64 51 54 52 76 40 58 28 76 29 54 5 64 20 45 1 33 23 34 13 13 33 25 Z"/></svg>',
+    starburst:'<svg viewBox="0 0 80 80"><path fill="currentColor" d="M40 3 L45 27 60 8 51 31 74 24 55 40 79 44 55 47 70 66 47 53 49 77 40 56 31 77 33 53 10 66 25 47 1 44 25 40 6 24 29 31 20 8 35 27 Z"/></svg>',
+    cornerFrame:'<svg viewBox="0 0 60 60"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" d="M8 32 V8 H32"/></svg>'
   };
   function shapeSvg(name){const s=SHAPES[name]||SHAPES.sparkle;return s.replace('<svg ','<svg style="display:block;width:100%;height:auto;overflow:visible" ');}
-  const WIDE_SHAPES=['rays','swirlArrow','scribbleCircle','scribbleOval','squiggle','zigzag','brushUnderline','brushBanner','curvedArrow','wavyArrow','loopArrow','commentBubble','thoughtBubble','doodleFrame'];
+  const WIDE_SHAPES=['rays','swirlArrow','scribbleCircle','scribbleOval','squiggle','zigzag','brushUnderline','brushBanner','curvedArrow','wavyArrow','loopArrow','commentBubble','thoughtBubble','doodleFrame','dottedArrow'];
   // gallery items shown as visual tiles
   const GALLERY=[
     {t:'icon',s:'heart',c:'#ED5A98'},{t:'icon',s:'heartline',c:'#ED5A98'},
@@ -11670,10 +11711,13 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     {t:'icon',s:'check',c:'#ED5A98'},{t:'icon',s:'rays',c:'#ED5A98'},
     {t:'icon',s:'swirlArrow',c:'#ED5A98'},{t:'icon',s:'curvedArrow',c:'#ED5A98'},
     {t:'icon',s:'wavyArrow',c:'#ED5A98'},{t:'icon',s:'loopArrow',c:'#ED5A98'},
+    {t:'icon',s:'dottedArrow',c:'#2B2A27'},{t:'icon',s:'arrowDown',c:'#ED5A98'},
+    {t:'icon',s:'arrowUp',c:'#ED5A98'},
     {t:'icon',s:'scribbleCircle',c:'#ED5A98'},{t:'icon',s:'scribbleOval',c:'#2B2A27'},
     {t:'icon',s:'squiggle',c:'#ED5A98'},{t:'icon',s:'zigzag',c:'#2B2A27'},
     {t:'icon',s:'commentBubble',c:'#2B2A27'},{t:'icon',s:'thoughtBubble',c:'#2B2A27'},
-    {t:'icon',s:'doodleFrame',c:'#ED5A98'},
+    {t:'icon',s:'doodleFrame',c:'#ED5A98'},{t:'icon',s:'cornerFrame',c:'#2B2A27'},
+    {t:'icon',s:'splash',c:'#F2C879'},{t:'icon',s:'starburst',c:'#ED5A98'},
     {t:'icon',s:'brushUnderline',c:'#ED5A98'},{t:'icon',s:'brushBanner',c:'#ED5A98'},
     {t:'arrow'},{t:'ring'},{t:'burst'},{t:'badge'},{t:'pill'},{t:'bubble'}
   ];
@@ -11688,7 +11732,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     return '';
   }
   function tileLabel(item){
-    const L={heart:'Heart',heartline:'Heart',sparkle:'Sparkle',sparkles:'Sparkles',star:'Star',starline:'Star',check:'Check',rays:'Rays',swirlArrow:'Swipe',curvedArrow:'Curved',wavyArrow:'Wavy',loopArrow:'Loop',scribbleCircle:'Circle',scribbleOval:'Oval',squiggle:'Squiggle',zigzag:'Zigzag',commentBubble:'Comment',thoughtBubble:'Thought',doodleFrame:'Frame',brushUnderline:'Underline',brushBanner:'Banner',arrow:'Arrow',ring:'Ring',burst:'Burst',badge:'Badge',pill:'Tag',bubble:'Bubble'};
+    const L={heart:'Heart',heartline:'Heart',sparkle:'Sparkle',sparkles:'Sparkles',star:'Star',starline:'Star',check:'Check',rays:'Rays',swirlArrow:'Swipe',curvedArrow:'Curved',wavyArrow:'Wavy',loopArrow:'Loop',dottedArrow:'Dotted',arrowDown:'Down',arrowUp:'Up',scribbleCircle:'Circle',scribbleOval:'Oval',squiggle:'Squiggle',zigzag:'Zigzag',commentBubble:'Comment',thoughtBubble:'Thought',doodleFrame:'Frame',cornerFrame:'Corner',splash:'Splash',starburst:'Burst',brushUnderline:'Underline',brushBanner:'Banner',arrow:'Arrow',ring:'Ring',burst:'Burst',badge:'Badge',pill:'Tag',bubble:'Bubble'};
     return L[item.s||item.t]||'';
   }
 
@@ -11698,7 +11742,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     ['Fjalla One','Fjalla One'],['Alfa Slab','Alfa Slab One'],['Bungee','Bungee'],['Teko','Teko'],
     ['Playfair','Playfair Display'],['Marcellus','Marcellus'],['DM Serif','DM Serif Display'],['Abril Fatface','Abril Fatface'],['Cormorant','Cormorant Garamond'],
     ['Inter','Inter'],['Poppins','Poppins'],['Montserrat','Montserrat'],['Outfit','Outfit'],['Work Sans','Work Sans'],
-    ['Sacramento (script)','Sacramento'],['Pacifico','Pacifico'],['Dancing Script','Dancing Script'],['Caveat','Caveat'],['Permanent Marker','Permanent Marker'],['Satisfy','Satisfy'],['Great Vibes','Great Vibes'],['Lobster','Lobster']
+    ['Kaushan (brush)','Kaushan Script'],['Caveat Brush','Caveat Brush'],['Caveat','Caveat'],['Pacifico','Pacifico'],['Satisfy','Satisfy'],['Courgette','Courgette'],['Yellowtail','Yellowtail'],['Dancing Script','Dancing Script'],['Patrick Hand','Patrick Hand'],['Shadows Into Light','Shadows Into Light Two'],['Gloria Hallelujah','Gloria Hallelujah'],['Permanent Marker','Permanent Marker'],['Lobster','Lobster']
   ];
 
   function id(){return 'e'+Math.random().toString(36).slice(2,8)}
@@ -11822,6 +11866,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     sizeStage(s.iw,s.ih);
     if(s.photo){coverBg(s);ph.style.display='none';}
     else{bg.style.display='none';ph.style.display='flex';}
+    renderFade(s);
     [...stage.querySelectorAll('.el')].forEach(e=>e.remove());
     const W=stage.clientWidth, H=stage.clientHeight;
     s.elements.forEach(el=>{
@@ -11847,7 +11892,8 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         const bRing=el.ringColor||el.iconColor||el.color, bRw=(el.ringW!=null?el.ringW:0.085), bFill=el.iconFill||'transparent';
         (el.items||[]).forEach((it,bi)=>{
           const row=document.createElement('div'); row.className='brow';
-          row.innerHTML='<span class="bic" style="color:'+(el.iconColor||el.color)+';border-color:'+bRing+';border-width:'+bRw+'em;background:'+bFill+'">'+svgIcon(it.icon)+'</span><span class="btxt"><b data-k="label" data-i="'+bi+'">'+esc(it.label)+'</b><i data-k="desc" data-i="'+bi+'">'+esc(it.desc)+'</i></span>';
+          const ffb=el.font?(";font-family:'"+el.font+"'"):'';
+          row.innerHTML='<span class="bic" style="color:'+(el.iconColor||el.color)+';border-color:'+bRing+';border-width:'+bRw+'em;background:'+bFill+'">'+svgIcon(it.icon)+'</span><span class="btxt"><b data-k="label" data-i="'+bi+'" style="'+ffb.slice(1)+'">'+esc(it.label)+'</b><i data-k="desc" data-i="'+bi+'" style="'+ffb.slice(1)+'">'+esc(it.desc)+'</i></span>';
           body.appendChild(row);
         });
       } else if(el.type==='features'){
@@ -11857,7 +11903,8 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         const fRing=el.ringColor||el.iconColor||el.color, fRw=(el.ringW!=null?el.ringW:0.085), fFill=el.iconFill||'transparent';
         (el.items||[]).forEach((it,fi)=>{
           const f=document.createElement('div'); f.className='fitem';
-          f.innerHTML='<span class="fic" style="color:'+(el.iconColor||el.color)+';border-color:'+fRing+';border-width:'+fRw+'em;background:'+fFill+'">'+svgIcon(it.icon)+'</span><span data-k="label" data-i="'+fi+'">'+esc(it.label)+'</span>';
+          const fff=el.font?("font-family:'"+el.font+"'"):'';
+          f.innerHTML='<span class="fic" style="color:'+(el.iconColor||el.color)+';border-color:'+fRing+';border-width:'+fRw+'em;background:'+fFill+'">'+svgIcon(it.icon)+'</span><span data-k="label" data-i="'+fi+'" style="'+fff+'">'+esc(it.label)+'</span>';
           body.appendChild(f);
         });
       } else if(el.type==='badge'){
@@ -11922,6 +11969,25 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     });
     meta.innerHTML='<b>Slide '+(state.active+1)+' of '+state.slides.length+'</b> · rules on: no prices, no competing brands, action CTA, no em dashes';
     renderSafeZones();
+    syncFade();
+  }
+  function hexA(hex,a){hex=(hex||'#ffffff').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return 'rgba('+r+','+g+','+b+','+a+')';}
+  function renderFade(s){
+    const old=stage.querySelector('.photofade'); if(old)old.remove();
+    const f=s.fade; if(!f||f.dir==='none'||!s.photo)return;
+    const amt=Math.max(0.1,Math.min(f.amt!=null?f.amt:0.55,1));
+    const col=f.color||'#ffffff';
+    const dirMap={left:'to right',right:'to left',top:'to bottom',bottom:'to top'};
+    const stop=Math.round(amt*100), solid=Math.round(stop*0.32);
+    const g=document.createElement('div'); g.className='photofade';
+    g.style.cssText='position:absolute;inset:0;pointer-events:none;background:linear-gradient('+dirMap[f.dir]+','+col+' 0%, '+col+' '+solid+'%, '+hexA(col,0)+' '+stop+'%)';
+    stage.appendChild(g);
+  }
+  function syncFade(){
+    const s=cur(); const f=s.fade||{dir:'none',color:'#ffffff',amt:0.55};
+    const dd=document.getElementById('fadeDir'); if(dd)dd.value=f.dir||'none';
+    const fa=document.getElementById('fadeAmt'); if(fa)fa.value=Math.round((f.amt!=null?f.amt:0.55)*100);
+    const fc=document.getElementById('fadeColor'); if(fc)fc.value=f.color||'#ffffff';
   }
   function renderSafeZones(){
     const old=stage.querySelector('.safezone'); if(old)old.remove();
@@ -12100,6 +12166,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     }
 
     if(el.type==='benefits'||el.type==='features'){
+      inspector.appendChild(field('Text font',fontPicker(el)));
       inspector.appendChild(field('Icon color', colorRow(el.iconColor||el.color,c=>{el.iconColor=c;})));
       inspector.appendChild(field('Badge ring color', colorRow(el.ringColor||el.iconColor||el.color,c=>{el.ringColor=c;})));
       const rw=document.createElement('input'); rw.type='range'; rw.min=0; rw.max=30; rw.step=1; rw.value=Math.round((el.ringW!=null?el.ringW:0.085)*100);
@@ -12196,9 +12263,23 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     front.addEventListener('click',()=>{const els=cur().elements;const i=els.findIndex(x=>x.id===el.id);if(i>=0&&i<els.length-1){els.splice(i,1);els.push(el);render();}});
     layer.appendChild(back); layer.appendChild(front); inspector.appendChild(layer);
 
+    const cprow=document.createElement('div'); cprow.className='btnrow';
+    const cp=document.createElement('button'); cp.className='btn ghost sm'; cp.textContent='Copy';
+    cp.addEventListener('click',()=>{clipboardEl=JSON.parse(JSON.stringify(el));meta.innerHTML='<b>Copied.</b> Go to any slide and paste.';});
+    const pst=document.createElement('button'); pst.className='btn ghost sm'; pst.textContent='Paste here';
+    pst.addEventListener('click',pasteClipboard);
+    cprow.appendChild(cp); cprow.appendChild(pst); inspector.appendChild(cprow);
+
     const del=document.createElement('button'); del.className='btn ghost sm danger'; del.textContent='Delete';
     del.addEventListener('click',()=>{cur().elements=cur().elements.filter(x=>x.id!==el.id);state.selected=null;render();});
     inspector.appendChild(del);
+  }
+  let clipboardEl=null;
+  function pasteClipboard(){
+    if(!clipboardEl)return;
+    const copy=JSON.parse(JSON.stringify(clipboardEl));
+    copy.id=id(); copy.x=Math.min(0.9,(copy.x||0.1)+0.04); copy.y=Math.min(0.9,(copy.y||0.1)+0.04);
+    cur().elements.push(copy); state.selected=copy.id; render();
   }
 
   function render(){ renderTabs(); renderCanvas(); renderInspector(); }
@@ -12237,9 +12318,15 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 
   // delete selected with keyboard
   document.addEventListener('keydown',e=>{
-    if(e.key!=='Delete'&&e.key!=='Backspace')return;
     const a=document.activeElement;
-    if(a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.isContentEditable))return;
+    const typing=a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.isContentEditable);
+    if((e.metaKey||e.ctrlKey)&&!typing){
+      const k=e.key.toLowerCase();
+      if(k==='c'&&state.selected){const el=cur().elements.find(x=>x.id===state.selected);if(el){clipboardEl=JSON.parse(JSON.stringify(el));e.preventDefault();}return;}
+      if(k==='v'&&clipboardEl){e.preventDefault();pasteClipboard();return;}
+    }
+    if(e.key!=='Delete'&&e.key!=='Backspace')return;
+    if(typing)return;
     if(state.selected){ e.preventDefault(); cur().elements=cur().elements.filter(x=>x.id!==state.selected); state.selected=null; render(); }
   });
 
@@ -12331,6 +12418,30 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 
   // ---------- generation ----------
   const briefEl=document.getElementById('brief'), genBtn=document.getElementById('gen');
+  const angleInput=document.getElementById('angleInput'), sgBtn=document.getElementById('suggestAngles');
+  const angleStatusEl=document.getElementById('angleStatus'), angleOpts=document.getElementById('angleOpts');
+  async function suggestAngles(){
+    const desc=briefEl.value.trim();
+    if(!desc && shots.length===0){angleStatusEl.textContent='Add a description or screenshot first.';return;}
+    sgBtn.disabled=true; angleStatusEl.textContent='Thinking of angles...';
+    try{
+      const content=[];
+      shots.forEach(s=>content.push({type:'image',source:{type:'base64',media_type:s.media_type,data:s.data}}));
+      content.push({type:'text',text:(desc?('Product:\n'+desc+'\n\n'):'The product is in the attached screenshots.\n\n')+'Give 4 distinct one-line selling angles for a TikTok Shop carousel of this product. Each is a single promise or desire, under 9 words, no price, no competing brand. Return ONLY JSON: {"angles":["...","...","...","..."]}'});
+      const payload=JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,system:'You return only valid JSON, no markdown.',messages:[{role:'user',content}]});
+      const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-user-id':(window.__SAXE_USER_ID__||'')},body:payload});
+      const data=await res.json();
+      if(data&&data.error){angleStatusEl.textContent='Could not get suggestions right now.';sgBtn.disabled=false;return;}
+      const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+      let raw=txt.replace(/```json|```/g,'').trim(); const a=raw.indexOf('{'),b=raw.lastIndexOf('}'); if(a>=0&&b>a)raw=raw.slice(a,b+1);
+      const angles=(JSON.parse(raw).angles||[]).slice(0,5);
+      angleOpts.innerHTML='';
+      angles.forEach(an=>{ const c=document.createElement('button'); c.type='button'; c.className='btn ghost sm'; c.textContent=an; c.style.textAlign='left'; c.addEventListener('click',()=>{angleInput.value=an;angleStatusEl.textContent='Angle set. Edit it or add another if you like.';}); angleOpts.appendChild(c); });
+      angleStatusEl.textContent='Tap one to use it, or edit the field.';
+    }catch(e){ angleStatusEl.textContent='Could not get suggestions right now.'; }
+    sgBtn.disabled=false;
+  }
+  sgBtn.addEventListener('click',suggestAngles);
   const statusEl=document.getElementById('genstatus'), angleEl=document.getElementById('angle');
   const shotsEl=document.getElementById('shots'), shotDrop=document.getElementById('shotdrop');
   let shots=[];
@@ -12357,14 +12468,21 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   document.addEventListener('paste',e=>{if(document.activeElement===briefEl)return;handlePaste(e);});
   // Prefill from a product description supplied by the host app (set on window before this runs).
   try{ if(briefEl && !briefEl.value){ const pd=window.__SAXE_PRODUCT__||window.parent&&window.parent.__SAXE_PRODUCT__; if(pd) briefEl.value=String(pd); } }catch(e){}
+  // The host app can also push the current product in any time (e.g. each time the Carousel tab opens).
+  window.addEventListener('message',ev=>{
+    try{
+      const d=ev.data; if(!d||d.type!=='saxe-product')return;
+      if(briefEl && !briefEl.value.trim() && d.value){ briefEl.value=String(d.value); }
+    }catch(e){}
+  });
 
   function photoCount(){return state.slides.filter(s=>s.photo).length;}
 
-  function sys(targetN){
+  function sys(targetN, matchOn, angle){
     return `You write text overlays for TikTok Shop shoppable photo carousels. The creator films solo and her audience is women 35 and older, top segment 45 to 54. Design a swipeable carousel that sells.
 
 `+(targetN?('Make EXACTLY '+targetN+' slides, one for every photo. Do not return fewer.'):'Make between 3 and 5 slides.')+` Never fewer than 2, never more than 15. Every slide must be fully written, none left thin or empty.
-
+`+(angle?('\nThe whole carousel commits to ONE angle: "'+angle+'". Every slide must ladder up to this single promise. Do not drift into other angles or an unrelated feature list. Set the "desire" field to this angle.\n'):'')+(matchOn?`\nIMPORTANT: Slide photos are attached in order. For each slide, read the product and any label text in its photo and write that slide's copy about the exact product shown in it (for example a multi-purpose cleaner vs a room and linen spray vs a mop soap are different products and must not be mixed up). Still make the whole set flow as one selling sequence with a hook first and a CTA last.\n`:'')+`
 Build a progressive selling sequence, each slide moving the viewer one step closer to buying:
 1. Open with a scroll-stopping hook on the first slide.
 2. Build desire and prove value in the middle: the core benefit, what it does, why it is worth it, a standout feature, a reason to trust it.
@@ -12454,13 +12572,25 @@ Return ONLY valid JSON, no markdown, exactly:
     const desc=briefEl.value.trim();
     if(!desc && shots.length===0){statusEl.textContent='Paste a description or add a screenshot first.';return;}
     const targetN=photoCount()>=2?photoCount():0;
+    const matchOn=document.getElementById('matchPhotos').checked && photoCount()>0;
+    const angle=angleInput.value.trim();
     genBtn.disabled=true; genBtn.textContent='Writing...';
     statusEl.textContent=targetN?('Writing '+targetN+' slides for your photos.'):'Reading the product and writing your carousel.';
     try{
       const content=[];
       shots.forEach(s=>content.push({type:'image',source:{type:'base64',media_type:s.media_type,data:s.data}}));
+      if(matchOn){
+        content.push({type:'text',text:'Here are the slide photos in order. Read any product label or text in each one. Write the slide for each photo so its copy matches the exact product shown in that photo, while the whole set still builds a selling sequence.'});
+        state.slides.forEach((s,i)=>{
+          if(!s.photo)return;
+          const m=(s.photo.match(/^data:(.*?);/)||[])[1]||'image/jpeg';
+          const data=s.photo.split(',')[1];
+          if(data){ content.push({type:'image',source:{type:'base64',media_type:m,data:data}}); content.push({type:'text',text:'(photo for slide '+(i+1)+')'}); }
+        });
+      }
+      if(angle){ content.push({type:'text',text:'Build the entire carousel around this ONE angle: "'+angle+'". Every slide must ladder up to this single promise. Do not introduce other angles.'}); }
       content.push({type:'text',text:(desc?('Product description:\n\n'+desc+'\n\n'):'The product description is in the attached screenshots.\n\n')+'Write the carousel now. Return only the JSON.'});
-      const payload=JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,system:sys(targetN),messages:[{role:'user',content}]});
+      const payload=JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,system:sys(targetN,matchOn,angle),messages:[{role:'user',content}]});
       let res, lastErr;
       for(let attempt=1; attempt<=3; attempt++){
         try{
@@ -12501,6 +12631,10 @@ Return ONLY valid JSON, no markdown, exactly:
 
   document.getElementById('ratioSel').addEventListener('change',e=>{state.ratio=e.target.value;state.selected=null;renderCanvas();});
   document.getElementById('safeToggle').addEventListener('change',e=>{state.safe=e.target.checked;renderCanvas();});
+  function ensureFade(){const s=cur();if(!s.fade)s.fade={dir:'none',color:'#ffffff',amt:0.55};return s.fade;}
+  document.getElementById('fadeDir').addEventListener('change',e=>{ensureFade().dir=e.target.value;renderCanvas();});
+  document.getElementById('fadeAmt').addEventListener('input',e=>{ensureFade().amt=parseInt(e.target.value,10)/100;renderCanvas();});
+  document.getElementById('fadeColor').addEventListener('input',e=>{const f=ensureFade();f.color=e.target.value;if(f.dir==='none')f.dir='left';renderCanvas();});
 
   render();
 })();
