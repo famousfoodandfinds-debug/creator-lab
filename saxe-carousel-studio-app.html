@@ -242,6 +242,28 @@
     body.carousel-phone .phone-sheet-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 14px 18px}
     body.carousel-phone .phone-sheet-body #gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
       max-height:none;overflow:visible;margin:0;padding:0}
+    /* tray Delete button (reliable backup for the on-canvas X) */
+    body.carousel-phone .phone-del{display:none;border:1px solid #e6b3a8;background:#fff;
+      border-radius:8px;padding:6px 11px;font-size:12px;font-weight:600;cursor:pointer;
+      font-family:inherit;color:#C13D27}
+    body.carousel-phone .phone-tray.has-sel .phone-del{display:inline-block}
+    /* bigger, un-clipped touch targets for the on-canvas resize/delete on phone */
+    body.carousel-phone .el{touch-action:none}
+    body.carousel-phone .el .delbtn{width:28px;height:28px;left:-6px;top:-6px;
+      font-size:18px;line-height:26px}
+    body.carousel-phone .el .handle{width:24px;height:24px;right:-10px;bottom:-10px}
+    /* brief + upload collapse once a carousel exists; compact bar takes their place */
+    body.carousel-phone .phone-brief-bar{display:none}
+    body.carousel-phone.brief-collapsed .phone-brief-bar{display:flex;align-items:center;gap:8px;
+      padding:0 0 10px;flex-wrap:wrap}
+    body.carousel-phone .phone-brief-add,
+    body.carousel-phone .phone-brief-toggle{border:1px solid var(--line);background:#fff;border-radius:10px;
+      padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--ink);font-family:inherit;cursor:pointer}
+    body.carousel-phone .phone-brief-add{border-color:var(--rose);color:var(--rose)}
+    body.carousel-phone .phone-brief-add:active,
+    body.carousel-phone .phone-brief-toggle:active{border-color:var(--rose)}
+    body.carousel-phone.brief-collapsed .phone-brief-card{display:none}
+    body.carousel-phone.brief-collapsed.brief-open .phone-brief-card{display:block}
   }
 </style>
 </head>
@@ -513,6 +535,7 @@
   const BURST_PTS=(function(){let p=[];for(let i=0;i<24;i++){const r=i%2?28:50;const a=(Math.PI/12)*i-Math.PI/2;p.push((50+r*Math.cos(a)).toFixed(1)+','+(50+r*Math.sin(a)).toFixed(1));}return p.join(' ');})();
 
   const state={ active:0, selected:null, slides:[], ratio:'3:4', safe:true };
+  var carouselStarted=false;   // true once photos are uploaded or a carousel is generated (drives the phone brief/upload collapse)
   let usedColors=[];
   function addUsedColor(hex){
     hex=(hex||'').toLowerCase(); if(!/^#[0-9a-f]{6}$/.test(hex))return;
@@ -739,7 +762,10 @@
       node.appendChild(body);
       const handle=document.createElement('div'); handle.className='handle'; node.appendChild(handle);
       const delbtn=document.createElement('div'); delbtn.className='delbtn'; delbtn.textContent='\u00d7'; delbtn.title='Delete';
-      delbtn.addEventListener('click',e=>{e.stopPropagation();cur().elements=cur().elements.filter(x=>x.id!==el.id);state.selected=null;render();});
+      const doDelete=()=>{ cur().elements=cur().elements.filter(x=>x.id!==el.id); state.selected=null; render(); };
+      delbtn.addEventListener('pointerdown',e=>{ e.stopPropagation(); });                                          // keep node drag/select from swallowing the tap
+      delbtn.addEventListener('pointerup',e=>{ if(e.pointerType==='touch'){ e.stopPropagation(); e.preventDefault(); doDelete(); } }); // reliable delete on touch
+      delbtn.addEventListener('click',e=>{ e.stopPropagation(); doDelete(); });                                    // mouse/desktop (unchanged)
       node.appendChild(delbtn);
       stage.appendChild(node);
       wire(node,el,body,handle);
@@ -798,12 +824,12 @@
         [...stage.querySelectorAll('.el')].forEach(n=>n.classList.toggle('sel', n.dataset.id===el.id));
         renderInspector();
         phoneSync();   // switch the phone tray to this element's controls on tap-select
-        return;
+        if(!phActive) return;   // desktop: first click only selects (unchanged). phone: fall through so the SAME touch drags any element type.
       }
       const W=stage.clientWidth,H=stage.clientHeight;
       const live=stage.querySelector('.el[data-id="'+el.id+'"]');
       drag={sx:e.clientX,sy:e.clientY,ox:el.x*W,oy:el.y*H,W,H,el:live};
-      live.setPointerCapture(e.pointerId); live.style.cursor='grabbing';
+      try{live.setPointerCapture(e.pointerId);}catch(_){} live.style.cursor='grabbing';
     });
     node.addEventListener('pointermove',e=>{
       if(!drag||pinching)return;
@@ -889,9 +915,13 @@
   stage.addEventListener('touchstart',function(e){
     if(!phActive||e.touches.length!==2) return;
     var el=selEl();
-    if(!el){ // nothing selected: select the element under the pinch, then scale it
-      var t=e.touches[0], nd=document.elementFromPoint(t.clientX,t.clientY), en=nd&&nd.closest?nd.closest('.el'):null;
-      if(en&&en.dataset.id){ state.selected=en.dataset.id; renderCanvas(); renderInspector(); phoneSync(); el=selEl(); }
+    if(!el){ // nothing selected: select the element under either finger (or the midpoint), then scale it
+      var pts=[e.touches[0], e.touches[1],
+               {clientX:(e.touches[0].clientX+e.touches[1].clientX)/2, clientY:(e.touches[0].clientY+e.touches[1].clientY)/2}];
+      for(var pi=0; pi<pts.length && !el; pi++){
+        var nd=document.elementFromPoint(pts[pi].clientX,pts[pi].clientY), en=nd&&nd.closest?nd.closest('.el'):null;
+        if(en&&en.dataset.id){ state.selected=en.dataset.id; renderCanvas(); renderInspector(); phoneSync(); el=selEl(); }
+      }
     }
     if(!el) return;
     e.preventDefault(); pinching=true;
@@ -1230,11 +1260,11 @@
     const note=document.getElementById('photonote');
     if(note)note.textContent='Loading photos...';
     let failed=0;
-    if(list.length===1){ const ok=await setPhoto(cur(),list[0]); if(!ok)failed++; render(); }
+    if(list.length===1){ const ok=await setPhoto(cur(),list[0]); if(!ok)failed++; if(ok)carouselStarted=true; render(); }
     else{
       for(let i=0;i<list.length && i<15;i++){
         if(!state.slides[i])state.slides.push(blankSlide());
-        const ok=await setPhoto(state.slides[i],list[i]); if(!ok)failed++;
+        const ok=await setPhoto(state.slides[i],list[i]); if(!ok)failed++; else carouselStarted=true;
       }
       state.active=0; state.selected=null; render();
     }
@@ -1390,7 +1420,7 @@ Return ONLY valid JSON, no markdown, exactly:
       return {photo:ph.photo,iw:ph.iw,ih:ph.ih,elements:buildSlideElements(sl)};
     });
     if(state.slides.length<2)state.slides.push(blankSlide());
-    state.active=0; state.selected=null;
+    state.active=0; state.selected=null; carouselStarted=true;
     if(p.desire){angleEl.style.display='block';angleEl.innerHTML='<b>Angle:</b> '+clean(p.desire);}
     render();
   }
@@ -1472,7 +1502,8 @@ Return ONLY valid JSON, no markdown, exactly:
   // is never touched (phApply only runs when the media query matches).
   var phoneMQ = window.matchMedia('(max-width:760px)');
   var phActive=false, phBuilt=false, phMoves=[];
-  var phDock, phTray, phTrayBody, phAdd, phTitle, phEditBtn, phStickersBtn, phSheet, phSheetBody;
+  var phDock, phTray, phTrayBody, phAdd, phTitle, phEditBtn, phDeleteBtn, phStickersBtn, phSheet, phSheetBody;
+  var phBriefBar, phBriefToggle, phBriefCard;
   function phMove(node,parent){ if(!node) return; phMoves.push({n:node,p:node.parentNode,s:node.nextSibling}); parent.appendChild(node); }
   function phRestore(){ for(var i=phMoves.length-1;i>=0;i--){ var m=phMoves[i]; if(!m.p) continue; if(m.s&&m.s.parentNode===m.p) m.p.insertBefore(m.n,m.s); else m.p.appendChild(m.n); } phMoves=[]; }
   function phLabel(el){ var t=el&&el.type;
@@ -1498,9 +1529,11 @@ Return ONLY valid JSON, no markdown, exactly:
       if(editingNode){ if(document.activeElement&&document.activeElement.blur) document.activeElement.blur(); return; } // Done editing -> commit
       var n=stage.querySelector('.el.sel'); if(n&&n._startEdit) n._startEdit();   // enter inline edit within this user tap (keyboard opens reliably)
     });
+    phDeleteBtn=document.createElement('button'); phDeleteBtn.type='button'; phDeleteBtn.className='phone-del'; phDeleteBtn.textContent='Delete';
+    phDeleteBtn.addEventListener('click',function(){ var el=selEl(); if(el){ cur().elements=cur().elements.filter(function(x){return x.id!==el.id;}); state.selected=null; render(); } });
     var close=document.createElement('button'); close.type='button'; close.className='phone-tray-close'; close.setAttribute('aria-label','Close'); close.innerHTML='&#10005;';
     close.addEventListener('click',function(){ state.selected=null; render(); });
-    actions.appendChild(phEditBtn); actions.appendChild(close);
+    actions.appendChild(phEditBtn); actions.appendChild(phDeleteBtn); actions.appendChild(close);
     head.appendChild(phTitle); head.appendChild(actions);
     phTrayBody=document.createElement('div'); phTrayBody.className='phone-tray-body';
     phAdd=document.createElement('div'); phAdd.id='phoneAdd';
@@ -1525,6 +1558,13 @@ Return ONLY valid JSON, no markdown, exactly:
     sBack.addEventListener('click',phCloseSheet);
     // a gallery tile adds the sticker (its own handler) then we dismiss the sheet
     phSheetBody.addEventListener('click',function(e){ if(e.target&&e.target.closest&&e.target.closest('.gtile')) phCloseSheet(); });
+    // compact bar that replaces the brief + big upload once a carousel exists
+    phBriefBar=document.createElement('div'); phBriefBar.className='phone-brief-bar';
+    var addPhotoBtn=document.createElement('button'); addPhotoBtn.type='button'; addPhotoBtn.className='phone-brief-add'; addPhotoBtn.textContent='+ Add photo';
+    addPhotoBtn.addEventListener('click',function(){ photoInput.click(); });
+    phBriefToggle=document.createElement('button'); phBriefToggle.type='button'; phBriefToggle.className='phone-brief-toggle'; phBriefToggle.textContent='Edit brief';
+    phBriefToggle.addEventListener('click',function(){ document.body.classList.toggle('brief-open'); phBriefSync(); });
+    phBriefBar.appendChild(addPhotoBtn); phBriefBar.appendChild(phBriefToggle);
   }
   function phApply(){
     phBuild(); phActive=true;
@@ -1540,11 +1580,16 @@ Return ONLY valid JSON, no markdown, exactly:
     phMove(gallery, phSheetBody);              // the full gallery lives in the dismissible sheet
     phTrayBody.appendChild(phAdd);
     phMove(inspector, phTrayBody);
+    // collapse the brief card behind the compact bar once a carousel exists
+    phBriefCard=briefEl.closest('.card');
+    if(phBriefCard){ phBriefCard.classList.add('phone-brief-card'); phBriefCard.parentNode.insertBefore(phBriefBar, phBriefCard); }
     render(); // recompute element px for the smaller stage and sync the tray
   }
   function phUnapply(){
     if(!phBuilt) return; phActive=false;
-    document.body.classList.remove('carousel-phone');
+    document.body.classList.remove('carousel-phone','brief-collapsed','brief-open');
+    if(phBriefBar&&phBriefBar.parentNode) phBriefBar.parentNode.removeChild(phBriefBar);
+    if(phBriefCard) phBriefCard.classList.remove('phone-brief-card');
     phRestore();
     if(phDock.parentNode) phDock.parentNode.removeChild(phDock);
     if(phTray.parentNode) phTray.parentNode.removeChild(phTray);
@@ -1562,6 +1607,15 @@ Return ONLY valid JSON, no markdown, exactly:
       phTitle.textContent='Add to slide'; phTray.classList.remove('has-sel');
       phEditBtn.classList.remove('show');
     }
+    phBriefSync();
+  }
+  // Collapse the brief + big upload once a carousel exists; the compact bar stands in.
+  // Before any carousel (just the starting sample), the brief/upload stay fully visible.
+  function phBriefSync(){
+    if(!phActive) return;
+    document.body.classList.toggle('brief-collapsed', carouselStarted);
+    if(!carouselStarted) document.body.classList.remove('brief-open');
+    if(phBriefToggle) phBriefToggle.textContent=document.body.classList.contains('brief-open')?'Hide brief':'Edit brief';
   }
   function phOnChange(e){ if(e.matches) phApply(); else phUnapply(); }
   if(phoneMQ.addEventListener) phoneMQ.addEventListener('change',phOnChange);
