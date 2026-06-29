@@ -325,29 +325,58 @@
     arrowUp:'<svg viewBox="0 0 30 60"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M15 54 V10 M5 22 L15 7 L25 22"/></svg>',
     splash:'<svg viewBox="0 0 80 80"><path fill="currentColor" d="M40 4 L47 25 67 13 57 34 79 33 60 45 75 64 51 54 52 76 40 58 28 76 29 54 5 64 20 45 1 33 23 34 13 13 33 25 Z"/></svg>',
     starburst:'<svg viewBox="0 0 80 80"><path fill="currentColor" d="M40 3 L45 27 60 8 51 31 74 24 55 40 79 44 55 47 70 66 47 53 49 77 40 56 31 77 33 53 10 66 25 47 1 44 25 40 6 24 29 31 20 8 35 27 Z"/></svg>',
-    cornerFrame:'<svg viewBox="0 0 60 60"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" d="M8 32 V8 H32"/></svg>'
+    cornerFrame:'<svg viewBox="0 0 60 60"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" d="M8 32 V8 H32"/></svg>',
+    arrowRight:'<svg viewBox="0 0 70 28"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M6 14 H58 M44 4 L60 14 L44 24"/></svg>',
+    arrowLeft:'<svg viewBox="0 0 70 28"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M64 14 H12 M26 4 L10 14 L26 24"/></svg>',
+    arrowDownRight:'<svg viewBox="0 0 60 60"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M10 10 L48 48 M30 50 L50 50 L50 30"/></svg>',
+    doubleArrow:'<svg viewBox="0 0 80 28"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M8 14 H72 M58 5 L74 14 L58 23 M52 5 L68 14 L52 23"/></svg>',
+    sparkle4:'<svg viewBox="0 0 60 60"><path fill="currentColor" d="M30 4 C32 20 40 28 56 30 C40 32 32 40 30 56 C28 40 20 32 4 30 C20 28 28 20 30 4 Z"/></svg>',
+    sunburst:'<svg viewBox="0 0 80 60"><g stroke="currentColor" stroke-width="4" stroke-linecap="round"><line x1="40" y1="6" x2="40" y2="22"/><line x1="20" y1="12" x2="27" y2="26"/><line x1="60" y1="12" x2="53" y2="26"/><line x1="8" y1="26" x2="22" y2="33"/><line x1="72" y1="26" x2="58" y2="33"/><line x1="30" y1="8" x2="34" y2="24"/><line x1="50" y1="8" x2="46" y2="24"/></g></svg>',
+    dashedCircle:'<svg viewBox="0 0 60 60"><circle cx="30" cy="30" r="24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-dasharray="1 10"/></svg>',
+    swirl:'<svg viewBox="0 0 60 60"><path fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" d="M30 30 C30 24 38 24 38 31 C38 41 24 41 23 30 C22 16 40 14 47 24"/></svg>',
+    checkbox:'<svg viewBox="0 0 50 50"><rect x="6" y="6" width="38" height="38" rx="8" fill="none" stroke="currentColor" stroke-width="4"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M15 26 L23 34 L37 16"/></svg>',
+    circleCheck:'<svg viewBox="0 0 50 50"><circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="4"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M15 26 L22 33 L36 17"/></svg>',
+    inkSplat:'<svg viewBox="0 0 70 70"><path fill="currentColor" d="M35 8 C42 10 44 20 40 26 C50 22 60 28 58 38 C66 42 64 54 54 54 C52 64 40 66 35 58 C30 66 18 64 17 54 C7 54 5 42 13 38 C5 30 14 21 24 25 C22 14 28 8 35 8 Z"/><circle cx="60" cy="18" r="3.5" fill="currentColor"/><circle cx="12" cy="60" r="3" fill="currentColor"/></svg>',
+    photoFrame:'<svg viewBox="0 0 70 70"><rect x="6" y="6" width="58" height="58" rx="4" fill="none" stroke="currentColor" stroke-width="4"/></svg>',
+    bracketLeft:'<svg viewBox="0 0 24 60"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" d="M18 8 H8 V52 H18"/></svg>',
+    bracketRight:'<svg viewBox="0 0 24 60"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" d="M6 8 H16 V52 H6"/></svg>',
+    swoosh:'<svg viewBox="0 0 100 22" preserveAspectRatio="none"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" d="M4 16 C30 6 70 6 96 12"/></svg>',
+    doubleUnderline:'<svg viewBox="0 0 100 20" preserveAspectRatio="none"><path fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" d="M4 7 C34 3 70 3 96 6 M8 15 C36 12 68 12 92 15"/></svg>'
   };
   function shapeSvg(name){const s=SHAPES[name]||SHAPES.sparkle;return s.replace('<svg ','<svg style="display:block;width:100%;height:auto;overflow:visible" ');}
-  const WIDE_SHAPES=['rays','swirlArrow','scribbleCircle','scribbleOval','squiggle','zigzag','brushUnderline','brushBanner','curvedArrow','wavyArrow','loopArrow','commentBubble','thoughtBubble','doodleFrame','dottedArrow','tape','ribbon'];
+  const WIDE_SHAPES=['rays','swirlArrow','scribbleCircle','scribbleOval','squiggle','zigzag','brushUnderline','brushBanner','curvedArrow','wavyArrow','loopArrow','commentBubble','thoughtBubble','doodleFrame','dottedArrow','tape','ribbon','arrowRight','arrowLeft','doubleArrow','sunburst','swoosh','doubleUnderline'];
   // gallery items shown as visual tiles
   const GALLERY=[
     {t:'icon',s:'heart',c:'#ED5A98'},{t:'icon',s:'heartline',c:'#ED5A98'},
     {t:'icon',s:'sparkle',c:'#F2C879'},{t:'icon',s:'sparkles',c:'#F2C879'},
+    {t:'icon',s:'sparkle4',c:'#F2C879'},{t:'icon',s:'sunburst',c:'#F2C879'},
     {t:'icon',s:'star',c:'#F2C879'},{t:'icon',s:'starline',c:'#2B2A27'},
-    {t:'icon',s:'check',c:'#ED5A98'},{t:'icon',s:'rays',c:'#ED5A98'},
+    {t:'icon',s:'check',c:'#ED5A98'},{t:'icon',s:'checkbox',c:'#1E8E7E'},{t:'icon',s:'circleCheck',c:'#1E8E7E'},
+    {t:'icon',s:'rays',c:'#ED5A98'},
     {t:'icon',s:'swirlArrow',c:'#ED5A98'},{t:'icon',s:'curvedArrow',c:'#ED5A98'},
     {t:'icon',s:'wavyArrow',c:'#ED5A98'},{t:'icon',s:'loopArrow',c:'#ED5A98'},
     {t:'icon',s:'dottedArrow',c:'#2B2A27'},{t:'icon',s:'arrowDown',c:'#ED5A98'},
     {t:'icon',s:'arrowUp',c:'#ED5A98'},{t:'icon',s:'arrowCurveDown',c:'#ED5A98'},
+    {t:'icon',s:'arrowRight',c:'#ED5A98'},{t:'icon',s:'arrowLeft',c:'#ED5A98'},
+    {t:'icon',s:'arrowDownRight',c:'#ED5A98'},{t:'icon',s:'doubleArrow',c:'#2B2A27'},
     {t:'icon',s:'scribbleCircle',c:'#ED5A98'},{t:'icon',s:'scribbleOval',c:'#2B2A27'},
+    {t:'icon',s:'dashedCircle',c:'#ED5A98'},{t:'icon',s:'swirl',c:'#2B2A27'},
     {t:'icon',s:'squiggle',c:'#ED5A98'},{t:'icon',s:'zigzag',c:'#2B2A27'},
     {t:'icon',s:'commentBubble',c:'#2B2A27'},{t:'icon',s:'thoughtBubble',c:'#2B2A27'},
-    {t:'icon',s:'doodleFrame',c:'#ED5A98'},{t:'icon',s:'cornerFrame',c:'#2B2A27'},
-    {t:'icon',s:'splash',c:'#F2C879'},{t:'icon',s:'starburst',c:'#ED5A98'},
-    {t:'icon',s:'quoteMark',c:'#ED5A98'},{t:'icon',s:'tape',c:'#E7D6C3'},
-    {t:'icon',s:'ribbon',c:'#16294F'},
-    {t:'icon',s:'brushUnderline',c:'#ED5A98'},{t:'icon',s:'brushBanner',c:'#ED5A98'},
-    {t:'arrow'},{t:'ring'},{t:'burst'},{t:'badge'},{t:'pill'},{t:'bubble'}
+    {t:'icon',s:'quoteMark',c:'#ED5A98'},
+    {t:'icon',s:'doodleFrame',c:'#ED5A98'},{t:'icon',s:'photoFrame',c:'#2B2A27'},
+    {t:'icon',s:'cornerFrame',c:'#2B2A27'},{t:'icon',s:'bracketLeft',c:'#2B2A27'},{t:'icon',s:'bracketRight',c:'#2B2A27'},
+    {t:'icon',s:'splash',c:'#F2C879'},{t:'icon',s:'starburst',c:'#ED5A98'},{t:'icon',s:'inkSplat',c:'#2B2A27'},
+    {t:'icon',s:'tape',c:'#E7D6C3'},{t:'icon',s:'ribbon',c:'#16294F'},
+    {t:'icon',s:'brushUnderline',c:'#ED5A98'},{t:'icon',s:'doubleUnderline',c:'#ED5A98'},
+    {t:'icon',s:'swoosh',c:'#ED5A98'},{t:'icon',s:'brushBanner',c:'#ED5A98'},
+    {t:'arrow'},{t:'ring'},{t:'burst'},{t:'badge'},{t:'pill'},{t:'bubble'},
+    {t:'pill',label:'NEW',text:'NEW',color:'#ED5A98'},
+    {t:'pill',label:'Best seller',text:'BEST SELLER',color:'#2B2A27'},
+    {t:'pill',label:'Must have',text:'MUST HAVE',color:'#16294F'},
+    {t:'badge',label:'#1',text:'#1',color:'#2B2A27'},
+    {t:'badge',label:'Top 3',text:'TOP 3',color:'#ED5A98'},
+    {t:'burst',label:'Sale',text:'SALE',color:'#D7472F'}
   ];
   function tilePreview(item){
     if(item.t==='icon'){ return '<span style="color:'+item.c+';display:block;width:30px">'+shapeSvg(item.s)+'</span>'; }
@@ -360,7 +389,8 @@
     return '';
   }
   function tileLabel(item){
-    const L={heart:'Heart',heartline:'Heart',sparkle:'Sparkle',sparkles:'Sparkles',star:'Star',starline:'Star',check:'Check',rays:'Rays',swirlArrow:'Swipe',curvedArrow:'Curved',wavyArrow:'Wavy',loopArrow:'Loop',dottedArrow:'Dotted',arrowDown:'Down',arrowUp:'Up',arrowCurveDown:'Curve down',scribbleCircle:'Circle',scribbleOval:'Oval',squiggle:'Squiggle',zigzag:'Zigzag',commentBubble:'Comment',thoughtBubble:'Cloud',doodleFrame:'Frame',cornerFrame:'Corner',splash:'Splash',starburst:'Burst',quoteMark:'Quote',tape:'Tape',ribbon:'Ribbon',brushUnderline:'Underline',brushBanner:'Banner',arrow:'Arrow',ring:'Ring',burst:'Burst',badge:'Badge',pill:'Tag',bubble:'Bubble'};
+    if(item.label)return item.label;
+    const L={heart:'Heart',heartline:'Heart',sparkle:'Sparkle',sparkles:'Sparkles',sparkle4:'Sparkle',sunburst:'Sunburst',star:'Star',starline:'Star',check:'Check',checkbox:'Checkbox',circleCheck:'Check',rays:'Rays',swirlArrow:'Swipe',curvedArrow:'Curved',wavyArrow:'Wavy',loopArrow:'Loop',dottedArrow:'Dotted',arrowDown:'Down',arrowUp:'Up',arrowCurveDown:'Curve',arrowRight:'Right',arrowLeft:'Left',arrowDownRight:'Diagonal',doubleArrow:'Double',scribbleCircle:'Circle',scribbleOval:'Oval',dashedCircle:'Dashed',swirl:'Swirl',squiggle:'Squiggle',zigzag:'Zigzag',commentBubble:'Comment',thoughtBubble:'Cloud',doodleFrame:'Frame',photoFrame:'Photo box',cornerFrame:'Corner',bracketLeft:'Bracket',bracketRight:'Bracket',splash:'Splash',starburst:'Burst',inkSplat:'Splat',quoteMark:'Quote',tape:'Tape',ribbon:'Ribbon',brushUnderline:'Underline',doubleUnderline:'Underline',swoosh:'Swoosh',brushBanner:'Banner',arrow:'Arrow',ring:'Ring',burst:'Burst',badge:'Badge',pill:'Tag',bubble:'Bubble'};
     return L[item.s||item.t]||'';
   }
 
@@ -659,7 +689,12 @@
       if(e.target===handle)return;
       if(e.target.classList&&e.target.classList.contains('delbtn'))return;
       e.preventDefault();
-      if(state.selected!==el.id){state.selected=el.id;render();return;}
+      if(state.selected!==el.id){
+        state.selected=el.id;
+        [...stage.querySelectorAll('.el')].forEach(n=>n.classList.toggle('sel', n.dataset.id===el.id));
+        renderInspector();
+        return;
+      }
       const W=stage.clientWidth,H=stage.clientHeight;
       const live=stage.querySelector('.el[data-id="'+el.id+'"]');
       drag={sx:e.clientX,sy:e.clientY,ox:el.x*W,oy:el.y*H,W,H,el:live};
@@ -727,7 +762,7 @@
       nf=Math.max(min,Math.min(nf,max));
       el.size=nf; const px=nf*rz.W;
       if(el.type==='badge'||el.type==='burst'){body.style.width=px+'px';body.style.height=px+'px';body.style.fontSize=(px*(el.type==='burst'?0.17:0.15))+'px';}
-      else if(el.type==='arrow'||el.type==='ring'){body.style.width=px+'px';}
+      else if(el.type==='arrow'||el.type==='ring'||el.type==='icon'){body.style.width=px+'px';}
       else body.style.fontSize=px+'px';
       const sl=document.getElementById('sizeSlider'); if(sl)sl.value=(nf*1000).toFixed(0);
     });
@@ -940,12 +975,12 @@
     else if(type==='body')el={...base,type,text:'New line',size:.036};
     else if(type==='benefits')el={...base,type,size:.036,w:.62,iconColor:'#ffffff',items:[{icon:'check',label:'First benefit',desc:'Short detail here.'},{icon:'star',label:'Second benefit',desc:'Short detail here.'}]};
     else if(type==='features')el={...base,type,size:.026,w:.8,iconColor:'#ffffff',items:[{icon:'leaf',label:'Plant based'},{icon:'paw',label:'Pet friendly'},{icon:'check',label:'Easy to use'}]};
-    else if(type==='badge')el={...base,type,text:'Customer favorite',size:.085,color:'#ED5A98',textColor:'#ffffff'};
+    else if(type==='badge')el={...base,type,text:opt.text||'Customer favorite',size:.085,color:opt.color||'#ED5A98',textColor:opt.textColor||'#ffffff'};
     else if(type==='arrow')el={...base,type,size:.22,color:'#ED5A98',outlineW:0};
     else if(type==='ring')el={...base,type,size:.30,color:'#ED5A98',outlineW:0};
-    else if(type==='burst')el={...base,type,text:'SALE',size:.13,color:'#ED5A98',textColor:'#ffffff'};
-    else if(type==='pill')el={...base,type,text:'LIMITED',size:.034,color:'#16294F',textColor:'#ffffff'};
-    else if(type==='bubble')el={...base,type,text:'You need this',size:.034,color:'#ffffff',textColor:'#16294F'};
+    else if(type==='burst')el={...base,type,text:opt.text||'SALE',size:.13,color:opt.color||'#ED5A98',textColor:opt.textColor||'#ffffff'};
+    else if(type==='pill')el={...base,type,text:opt.text||'LIMITED',size:.034,color:opt.color||'#16294F',textColor:opt.textColor||'#ffffff'};
+    else if(type==='bubble')el={...base,type,text:opt.text||'You need this',size:.034,color:opt.color||'#ffffff',textColor:opt.textColor||'#16294F'};
     else if(type==='icon'){const wide=WIDE_SHAPES.includes(opt.shape); el={...base,type,shape:opt.shape||'sparkle',size:wide?.30:.13,color:opt.color||'#ED5A98',outlineW:0};}
     cur().elements.push(el); state.selected=el.id; render();
   }
@@ -957,7 +992,7 @@
     GALLERY.forEach(item=>{
       const t=document.createElement('div'); t.className='gtile';
       t.innerHTML='<div class="pv">'+tilePreview(item)+'</div><small>'+tileLabel(item)+'</small>';
-      t.addEventListener('click',()=>{ item.t==='icon' ? addElement('icon',{shape:item.s,color:item.c}) : addElement(item.t); });
+      t.addEventListener('click',()=>{ item.t==='icon' ? addElement('icon',{shape:item.s,color:item.c}) : addElement(item.t,{text:item.text,color:item.color,textColor:item.textColor}); });
       g.appendChild(t);
     });
   })();
@@ -1076,7 +1111,7 @@
       shots.forEach(s=>content.push({type:'image',source:{type:'base64',media_type:s.media_type,data:s.data}}));
       content.push({type:'text',text:(desc?('Product:\n'+desc+'\n\n'):'The product is in the attached screenshots.\n\n')+'Give 4 distinct one-line selling angles for a TikTok Shop carousel of this product. Each is a single promise or desire, under 9 words, no price, no competing brand. Return ONLY JSON: {"angles":["...","...","...","..."]}'});
       const payload=JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,system:'You return only valid JSON, no markdown.',messages:[{role:'user',content}]});
-      const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-user-id':(window.__SAXE_USER_ID__||'')},body:payload});
+      const res=await fetch('/.netlify/functions/carousel-write',{method:'POST',headers:{'Content-Type':'application/json'},body:payload});
       const data=await res.json();
       if(data&&data.error){angleStatusEl.textContent='Could not get suggestions right now.';sgBtn.disabled=false;return;}
       const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
@@ -1145,6 +1180,8 @@ Each slide has a layout from this vocabulary:
 - "cta": line (bold caps drive line), script (cursive accent), cart (must include an action word like tap, grab or snag and point to the orange cart).
 
 The first slide is a hook or statement. The last slide is a cta. Put benefits, feature and statement slides in the middle. Vary the layouts so it is not repetitive.
+
+REQUIRED when there are 3 or more slides: at least one middle slide MUST use the "benefits" layout with 3 to 5 rows (each row a real icon, label and short detail tied to THIS product, never generic filler like "easy to use"), and include at least one "feature" slide too. Do not build a carousel out of only hook and statement text slides. The benefit and feature rows must name concrete, product-specific points.
 
 icon must be one of: `+ICON_NAMES.join(', ')+`.
 
@@ -1242,7 +1279,7 @@ Return ONLY valid JSON, no markdown, exactly:
       for(let attempt=1; attempt<=3; attempt++){
         try{
           if(attempt>1) statusEl.textContent='Connection hiccup. Retrying ('+attempt+' of 3)...';
-          res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-user-id':(window.__SAXE_USER_ID__||'')},body:payload});
+          res=await fetch('/.netlify/functions/carousel-write',{method:'POST',headers:{'Content-Type':'application/json'},body:payload});
           break;
         }catch(e){ lastErr=e; await new Promise(r=>setTimeout(r, 900*attempt)); }
       }
@@ -1257,7 +1294,7 @@ Return ONLY valid JSON, no markdown, exactly:
       const parsed=JSON.parse(raw);
       applyCopy(parsed);
       statusEl.textContent='Done. Move, restyle, and rewrite anything, then export.';
-    }catch(err){statusEl.textContent='Could not reach the writer: '+(err&&err.message?err.message:'unknown')+'. Please try again in a moment.';console.error(err);}
+    }catch(err){statusEl.textContent='Could not reach the writer: '+(err&&err.message?err.message:'unknown')+'. Check the carousel-write function and your ANTHROPIC_API_KEY env var.';console.error(err);}
     genBtn.disabled=false; genBtn.textContent='Write the carousel';
   }
   genBtn.addEventListener('click',generate);
