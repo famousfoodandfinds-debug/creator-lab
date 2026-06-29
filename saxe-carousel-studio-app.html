@@ -216,9 +216,10 @@
     body.carousel-phone #phoneAdd #gallery{display:flex;flex-wrap:nowrap;gap:6px;
       grid-template-columns:none;max-height:none;overflow:visible;margin:0;padding:0}
     body.carousel-phone #phoneAdd #gallery .gtile{width:56px;flex:0 0 auto}
-    body.carousel-phone #phoneAdd #photodrop{flex:0 0 auto;min-width:130px;margin:0;white-space:normal;
-      display:flex;flex-direction:column;justify-content:center}
-    body.carousel-phone #phoneAdd #photonote{flex:0 0 auto;align-self:center;white-space:nowrap}
+    body.carousel-phone #phoneAdd #photodrop{flex:0 0 auto;min-width:150px;margin:0;white-space:normal;
+      display:flex;flex-direction:column;justify-content:center;border-color:var(--rose);color:var(--ink);
+      background:#fff;font-weight:600;order:-1}
+    body.carousel-phone #phoneAdd #photonote{flex:0 0 auto;align-self:center;white-space:nowrap;order:-1}
     /* an element selected: its inspector controls, stacked, scroll inside the tray */
     body.carousel-phone .phone-tray-body #inspector{display:block}
   }
@@ -1449,10 +1450,10 @@ Return ONLY valid JSON, no markdown, exactly:
     document.body.appendChild(phTray);
     phMove(slidetabs, phDock);
     phMove(stage, phDock);
+    phMove(photodrop, phAdd);   // photo upload first so it's always visible in the strip
+    phMove(photonote, phAdd);
     phMove(addel, phAdd);
     phMove(gallery, phAdd);
-    phMove(photodrop, phAdd);
-    phMove(photonote, phAdd);
     phTrayBody.appendChild(phAdd);
     phMove(inspector, phTrayBody);
     render(); // recompute element px for the smaller stage and sync the tray
