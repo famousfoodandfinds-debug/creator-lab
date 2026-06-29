@@ -785,6 +785,7 @@
   }
   function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
+  var pinching=false;   // true while a two-finger pinch-resize is in progress (suppresses 1-finger drag)
   function wire(node,el,body,handle){
     let drag=null;
     node.addEventListener('pointerdown',e=>{
@@ -805,7 +806,7 @@
       live.setPointerCapture(e.pointerId); live.style.cursor='grabbing';
     });
     node.addEventListener('pointermove',e=>{
-      if(!drag)return;
+      if(!drag||pinching)return;
       let nx=Math.max(-0.45*drag.W,Math.min(drag.ox+(e.clientX-drag.sx),0.98*drag.W));
       let ny=Math.max(-0.45*drag.H,Math.min(drag.oy+(e.clientY-drag.sy),0.98*drag.H));
       el.x=nx/drag.W; el.y=ny/drag.H;
@@ -814,11 +815,13 @@
     node.addEventListener('pointerup',()=>{ if(drag){drag.el.style.cursor='grab';drag=null;} });
 
     if(EDIT_INLINE.includes(el.type)){
-      node.addEventListener('dblclick',()=>{
+      const startEdit=()=>{
         node.classList.add('editing'); body.setAttribute('contenteditable','true'); body.focus();
         const r=document.createRange(); r.selectNodeContents(body);
         const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
-      });
+      };
+      node._startEdit=startEdit;                 // reused by the phone tray "Edit text" button
+      node.addEventListener('dblclick',startEdit);
       body.addEventListener('blur',()=>{
         node.classList.remove('editing'); body.removeAttribute('contenteditable');
         el.text=body.innerText.replace(/[\u2014\u2013]/g,'-').replace(/\n{3,}/g,'\n\n').replace(/\s+$/,''); body.textContent=el.text;
@@ -826,9 +829,8 @@
     }
 
     if(el.type==='benefits'||el.type==='features'){
-      body.addEventListener('dblclick',ev=>{
-        const f=ev.target.closest('[data-k]'); if(!f)return;
-        ev.stopPropagation();
+      const startRowEdit=f=>{
+        if(!f)return;
         node.classList.add('editing'); f.setAttribute('contenteditable','true'); f.focus();
         const r=document.createRange(); r.selectNodeContents(f);
         const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
@@ -840,7 +842,9 @@
           renderCanvas();
         };
         f.addEventListener('blur',done);
-      });
+      };
+      body.addEventListener('dblclick',ev=>{ const f=ev.target.closest('[data-k]'); if(!f)return; ev.stopPropagation(); startRowEdit(f); });
+      node._startEdit=()=>startRowEdit(body.querySelector('[data-k]'));   // tray Edit edits the first row
     }
 
     let rz=null;
@@ -874,6 +878,41 @@
   }
 
   stage.addEventListener('pointerdown',e=>{ if(e.target===stage||e.target===bg||e.target===ph){state.selected=null;render();} });
+
+  // ----- two-finger pinch-to-resize the selected element (touch, phone only) -----
+  // Scales el.size (the same property the corner handle / size slider use), with the same
+  // per-type min/max, live and export-correct. One-finger drag and the corner handle are
+  // untouched. Gated by phActive so desktop is never affected.
+  var pinchState=null;
+  function pinchDist(t){ var dx=t[0].clientX-t[1].clientX, dy=t[0].clientY-t[1].clientY; return Math.hypot(dx,dy)||1; }
+  function pinchBounds(el){ var bb=(el.type==='badge'||el.type==='burst'); return { min:bb?0.05:0.012, max:bb?0.30:(GFX_TYPES.includes(el.type)?0.45:0.20) }; }
+  stage.addEventListener('touchstart',function(e){
+    if(!phActive||e.touches.length!==2) return;
+    var el=selEl();
+    if(!el){ // nothing selected: select the element under the pinch, then scale it
+      var t=e.touches[0], nd=document.elementFromPoint(t.clientX,t.clientY), en=nd&&nd.closest?nd.closest('.el'):null;
+      if(en&&en.dataset.id){ state.selected=en.dataset.id; renderCanvas(); renderInspector(); phoneSync(); el=selEl(); }
+    }
+    if(!el) return;
+    e.preventDefault(); pinching=true;
+    pinchState={ id:el.id, d0:pinchDist(e.touches), s0:el.size };
+  },{passive:false});
+  stage.addEventListener('touchmove',function(e){
+    if(!pinchState||e.touches.length!==2) return;
+    var el=selEl(); if(!el||el.id!==pinchState.id) return;
+    e.preventDefault();
+    var scale=pinchDist(e.touches)/pinchState.d0; if(!isFinite(scale)||scale<=0) return;
+    var b=pinchBounds(el);
+    el.size=Math.max(b.min,Math.min(pinchState.s0*scale,b.max));
+    renderCanvas();
+    var sl=document.getElementById('sizeSlider'); if(sl) sl.value=(el.size*1000).toFixed(0);
+  },{passive:false});
+  function pinchEnd(e){
+    if(!e.touches||e.touches.length<2) pinchState=null;
+    if(!e.touches||e.touches.length===0){ pinching=false; renderInspector(); phoneSync(); }
+  }
+  stage.addEventListener('touchend',pinchEnd);
+  stage.addEventListener('touchcancel',pinchEnd);
 
   // ---------- inspector ----------
   function field(label,inner){const f=document.createElement('div');f.className='field';f.innerHTML='<label>'+label+'</label>';f.appendChild(inner);return f;}
@@ -1454,7 +1493,11 @@ Return ONLY valid JSON, no markdown, exactly:
     phTitle=document.createElement('span'); phTitle.className='phone-tray-title'; phTitle.textContent='Add to slide';
     var actions=document.createElement('div'); actions.className='phone-tray-actions';
     phEditBtn=document.createElement('button'); phEditBtn.type='button'; phEditBtn.className='phone-edit'; phEditBtn.textContent='Edit text';
-    phEditBtn.addEventListener('click',function(){ var n=stage.querySelector('.el.sel'); if(n) n.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,cancelable:true})); });
+    phEditBtn.addEventListener('click',function(){
+      var editingNode=stage.querySelector('.el.editing');
+      if(editingNode){ if(document.activeElement&&document.activeElement.blur) document.activeElement.blur(); return; } // Done editing -> commit
+      var n=stage.querySelector('.el.sel'); if(n&&n._startEdit) n._startEdit();   // enter inline edit within this user tap (keyboard opens reliably)
+    });
     var close=document.createElement('button'); close.type='button'; close.className='phone-tray-close'; close.setAttribute('aria-label','Close'); close.innerHTML='&#10005;';
     close.addEventListener('click',function(){ state.selected=null; render(); });
     actions.appendChild(phEditBtn); actions.appendChild(close);
@@ -1513,7 +1556,7 @@ Return ONLY valid JSON, no markdown, exactly:
     if(el){
       phAdd.style.display='none'; inspector.style.display='';
       phTitle.textContent=phLabel(el); phTray.classList.add('has-sel');
-      phEditBtn.classList.toggle('show', TEXT_TYPES.indexOf(el.type)>-1);
+      var __en=stage.querySelector('.el.sel'); phEditBtn.classList.toggle('show', !!(__en&&__en._startEdit));
     } else {
       inspector.style.display='none'; phAdd.style.display='';
       phTitle.textContent='Add to slide'; phTray.classList.remove('has-sel');
