@@ -11386,7 +11386,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
      into an isolated, same-origin iframe (#carouselFrame) so it cannot collide with the app. -->
 <div id="carouselPanel" style="display:none;"><iframe id="carouselFrame" title="Saxe Carousel Studio"></iframe></div>
 <template id="carouselTpl">
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Archivo+Black&family=Fjalla+One&family=Alfa+Slab+One&family=Bungee&family=Teko:wght@400;600&family=Anton+SC&family=Playfair+Display:wght@400;700;900&family=Marcellus&family=DM+Serif+Display&family=Abril+Fatface&family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;500;600&family=Poppins:wght@400;600;700&family=Montserrat:wght@400;600;800&family=Outfit:wght@400;600&family=Work+Sans:wght@400;600&family=Pacifico&family=Dancing+Script:wght@400;700&family=Caveat:wght@400;700&family=Caveat+Brush&family=Kaushan+Script&family=Permanent+Marker&family=Satisfy&family=Courgette&family=Yellowtail&family=Patrick+Hand&family=Shadows+Into+Light+Two&family=Gloria+Hallelujah&family=Lobster&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Archivo+Black&family=Fjalla+One&family=Alfa+Slab+One&family=Bungee&family=Teko:wght@400;600&family=Anton+SC&family=Playfair+Display:wght@400;700;900&family=Marcellus&family=DM+Serif+Display&family=Abril+Fatface&family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;500;600&family=Poppins:wght@400;600;700&family=Montserrat:wght@400;600;800&family=Outfit:wght@400;600&family=Work+Sans:wght@400;600&family=Pacifico&family=Dancing+Script:wght@400;700&family=Caveat:wght@400;700&family=Caveat+Brush&family=Kaushan+Script&family=Permanent+Marker&family=Satisfy&family=Courgette&family=Yellowtail&family=Patrick+Hand&family=Shadows+Into+Light+Two&family=Gloria+Hallelujah&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
@@ -11692,7 +11692,11 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     wavyArrow:'<svg viewBox="0 0 112 30"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" d="M4 16 Q16 4 28 16 T52 16 T76 16"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M74 6 L92 16 L74 26"/></svg>',
     loopArrow:'<svg viewBox="0 0 100 72"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" d="M8 52 C8 22 40 12 52 30 60 42 46 56 38 47 30 38 46 18 72 21 86 22 92 36 89 48"/><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M78 40 L90 51 L99 37"/></svg>',
     commentBubble:'<svg viewBox="0 0 100 80"><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round" d="M16 10 H84 A9 9 0 0 1 93 19 V51 A9 9 0 0 1 84 60 H42 L24 74 L26 60 H16 A9 9 0 0 1 7 51 V19 A9 9 0 0 1 16 10 Z"/></svg>',
-    thoughtBubble:'<svg viewBox="0 0 100 80"><path fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" d="M30 22 C30 11 47 9 51 18 56 8 76 11 75 23 87 23 87 39 76 41 80 51 63 57 57 48 53 59 32 56 33 45 21 45 21 27 30 22 Z"/><circle cx="26" cy="60" r="5" fill="currentColor"/><circle cx="15" cy="71" r="3.5" fill="currentColor"/></svg>',
+    thoughtBubble:'<svg viewBox="0 0 104 78"><path fill="none" stroke="currentColor" stroke-width="3.6" stroke-linejoin="round" d="M34 20 C36 9 54 8 58 17 C64 8 82 12 80 24 C94 22 96 40 82 42 C84 54 64 58 58 49 C52 60 30 57 31 45 C16 46 16 26 28 24 C28 21 30 20 34 20 Z"/><ellipse cx="24" cy="58" rx="6" ry="5" fill="none" stroke="currentColor" stroke-width="3.2"/><circle cx="13" cy="70" r="3.4" fill="none" stroke="currentColor" stroke-width="2.8"/></svg>',
+    tape:'<svg viewBox="0 0 100 40" preserveAspectRatio="none"><path fill="currentColor" opacity="0.55" d="M4 6 L96 2 L98 32 L2 36 Z"/></svg>',
+    quoteMark:'<svg viewBox="0 0 80 60"><path fill="currentColor" d="M8 54 C8 32 18 12 38 6 L42 16 C30 21 24 30 24 38 L36 38 L36 54 Z M44 54 C44 32 54 12 74 6 L78 16 C66 21 60 30 60 38 L72 38 L72 54 Z"/></svg>',
+    ribbon:'<svg viewBox="0 0 120 40" preserveAspectRatio="none"><path fill="currentColor" d="M0 6 L106 6 L120 20 L106 34 L0 34 L12 20 Z"/></svg>',
+    arrowCurveDown:'<svg viewBox="0 0 70 80"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" d="M12 10 C58 14 60 40 40 64"/><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M26 56 L40 68 L52 54"/></svg>',
     doodleFrame:'<svg viewBox="0 0 100 72" preserveAspectRatio="none"><path fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" d="M8 10 C32 6 70 6 93 9 95 26 95 49 92 63 67 67 31 67 9 63 6 45 6 27 8 10 Z"/></svg>',
     dottedArrow:'<svg viewBox="0 0 110 24"><line x1="4" y1="12" x2="80" y2="12" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="0.5 11"/><path fill="none" stroke="currentColor" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round" d="M76 4 L93 12 L76 20"/></svg>',
     arrowDown:'<svg viewBox="0 0 30 60"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" d="M15 6 V50 M5 38 L15 53 L25 38"/></svg>',
@@ -11702,7 +11706,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     cornerFrame:'<svg viewBox="0 0 60 60"><path fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" d="M8 32 V8 H32"/></svg>'
   };
   function shapeSvg(name){const s=SHAPES[name]||SHAPES.sparkle;return s.replace('<svg ','<svg style="display:block;width:100%;height:auto;overflow:visible" ');}
-  const WIDE_SHAPES=['rays','swirlArrow','scribbleCircle','scribbleOval','squiggle','zigzag','brushUnderline','brushBanner','curvedArrow','wavyArrow','loopArrow','commentBubble','thoughtBubble','doodleFrame','dottedArrow'];
+  const WIDE_SHAPES=['rays','swirlArrow','scribbleCircle','scribbleOval','squiggle','zigzag','brushUnderline','brushBanner','curvedArrow','wavyArrow','loopArrow','commentBubble','thoughtBubble','doodleFrame','dottedArrow','tape','ribbon'];
   // gallery items shown as visual tiles
   const GALLERY=[
     {t:'icon',s:'heart',c:'#ED5A98'},{t:'icon',s:'heartline',c:'#ED5A98'},
@@ -11712,12 +11716,14 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     {t:'icon',s:'swirlArrow',c:'#ED5A98'},{t:'icon',s:'curvedArrow',c:'#ED5A98'},
     {t:'icon',s:'wavyArrow',c:'#ED5A98'},{t:'icon',s:'loopArrow',c:'#ED5A98'},
     {t:'icon',s:'dottedArrow',c:'#2B2A27'},{t:'icon',s:'arrowDown',c:'#ED5A98'},
-    {t:'icon',s:'arrowUp',c:'#ED5A98'},
+    {t:'icon',s:'arrowUp',c:'#ED5A98'},{t:'icon',s:'arrowCurveDown',c:'#ED5A98'},
     {t:'icon',s:'scribbleCircle',c:'#ED5A98'},{t:'icon',s:'scribbleOval',c:'#2B2A27'},
     {t:'icon',s:'squiggle',c:'#ED5A98'},{t:'icon',s:'zigzag',c:'#2B2A27'},
     {t:'icon',s:'commentBubble',c:'#2B2A27'},{t:'icon',s:'thoughtBubble',c:'#2B2A27'},
     {t:'icon',s:'doodleFrame',c:'#ED5A98'},{t:'icon',s:'cornerFrame',c:'#2B2A27'},
     {t:'icon',s:'splash',c:'#F2C879'},{t:'icon',s:'starburst',c:'#ED5A98'},
+    {t:'icon',s:'quoteMark',c:'#ED5A98'},{t:'icon',s:'tape',c:'#E7D6C3'},
+    {t:'icon',s:'ribbon',c:'#16294F'},
     {t:'icon',s:'brushUnderline',c:'#ED5A98'},{t:'icon',s:'brushBanner',c:'#ED5A98'},
     {t:'arrow'},{t:'ring'},{t:'burst'},{t:'badge'},{t:'pill'},{t:'bubble'}
   ];
@@ -11732,7 +11738,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     return '';
   }
   function tileLabel(item){
-    const L={heart:'Heart',heartline:'Heart',sparkle:'Sparkle',sparkles:'Sparkles',star:'Star',starline:'Star',check:'Check',rays:'Rays',swirlArrow:'Swipe',curvedArrow:'Curved',wavyArrow:'Wavy',loopArrow:'Loop',dottedArrow:'Dotted',arrowDown:'Down',arrowUp:'Up',scribbleCircle:'Circle',scribbleOval:'Oval',squiggle:'Squiggle',zigzag:'Zigzag',commentBubble:'Comment',thoughtBubble:'Thought',doodleFrame:'Frame',cornerFrame:'Corner',splash:'Splash',starburst:'Burst',brushUnderline:'Underline',brushBanner:'Banner',arrow:'Arrow',ring:'Ring',burst:'Burst',badge:'Badge',pill:'Tag',bubble:'Bubble'};
+    const L={heart:'Heart',heartline:'Heart',sparkle:'Sparkle',sparkles:'Sparkles',star:'Star',starline:'Star',check:'Check',rays:'Rays',swirlArrow:'Swipe',curvedArrow:'Curved',wavyArrow:'Wavy',loopArrow:'Loop',dottedArrow:'Dotted',arrowDown:'Down',arrowUp:'Up',arrowCurveDown:'Curve down',scribbleCircle:'Circle',scribbleOval:'Oval',squiggle:'Squiggle',zigzag:'Zigzag',commentBubble:'Comment',thoughtBubble:'Cloud',doodleFrame:'Frame',cornerFrame:'Corner',splash:'Splash',starburst:'Burst',quoteMark:'Quote',tape:'Tape',ribbon:'Ribbon',brushUnderline:'Underline',brushBanner:'Banner',arrow:'Arrow',ring:'Ring',burst:'Burst',badge:'Badge',pill:'Tag',bubble:'Bubble'};
     return L[item.s||item.t]||'';
   }
 
@@ -11742,7 +11748,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     ['Fjalla One','Fjalla One'],['Alfa Slab','Alfa Slab One'],['Bungee','Bungee'],['Teko','Teko'],
     ['Playfair','Playfair Display'],['Marcellus','Marcellus'],['DM Serif','DM Serif Display'],['Abril Fatface','Abril Fatface'],['Cormorant','Cormorant Garamond'],
     ['Inter','Inter'],['Poppins','Poppins'],['Montserrat','Montserrat'],['Outfit','Outfit'],['Work Sans','Work Sans'],
-    ['Kaushan (brush)','Kaushan Script'],['Caveat Brush','Caveat Brush'],['Caveat','Caveat'],['Pacifico','Pacifico'],['Satisfy','Satisfy'],['Courgette','Courgette'],['Yellowtail','Yellowtail'],['Dancing Script','Dancing Script'],['Patrick Hand','Patrick Hand'],['Shadows Into Light','Shadows Into Light Two'],['Gloria Hallelujah','Gloria Hallelujah'],['Permanent Marker','Permanent Marker'],['Lobster','Lobster']
+    ['Kaushan (brush)','Kaushan Script'],['Caveat Brush','Caveat Brush'],['Caveat','Caveat'],['Pacifico','Pacifico'],['Satisfy','Satisfy'],['Courgette','Courgette'],['Yellowtail','Yellowtail'],['Dancing Script','Dancing Script'],['Patrick Hand','Patrick Hand'],['Shadows Into Light','Shadows Into Light Two'],['Gloria Hallelujah','Gloria Hallelujah'],['Permanent Marker','Permanent Marker']
   ];
 
   function id(){return 'e'+Math.random().toString(36).slice(2,8)}
@@ -11820,23 +11826,39 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     else{const im=new Image();im.onload=()=>{s.iw=im.naturalWidth;s.ih=im.naturalHeight;apply(s.iw,s.ih);};im.src=s.photo;}
   }
 
+  function rgbToHsl(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h=0,s=0,l=(mx+mn)/2;if(mx!==mn){const d=mx-mn;s=l>0.5?d/(2-mx-mn):d/(mx+mn);if(mx===r)h=(g-b)/d+(g<b?6:0);else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h/=6;}return [h,s,l];}
+  function hslToRgb(h,s,l){let r,g,b;if(s===0){r=g=b=l;}else{const hue=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};const q=l<0.5?l*(1+s):l+s-l*s,p=2*l-q;r=hue(p,q,h+1/3);g=hue(p,q,h);b=hue(p,q,h-1/3);}return '#'+[r,g,b].map(x=>('0'+Math.round(x*255).toString(16)).slice(-2)).join('');}
   function matchPhotoColor(el){
     const s=cur(); if(!s||!s.photo)return;
     const img=new Image();
     img.onload=()=>{
       try{
-        const cw=24,ch=24,c=document.createElement('canvas'); c.width=cw; c.height=ch;
+        const cw=40,ch=40,c=document.createElement('canvas'); c.width=cw; c.height=ch;
         const ctx=c.getContext('2d');
-        const ex=Math.max(0,Math.min(el.x||0,0.95)), ey=Math.max(0,Math.min(el.y||0,0.92));
-        const sx=ex*img.naturalWidth, sy=ey*img.naturalHeight;
-        const sw=Math.max(1,Math.min(img.naturalWidth-sx,img.naturalWidth*0.6));
-        const sh=Math.max(1,Math.min(img.naturalHeight-sy,img.naturalHeight*0.18));
-        ctx.drawImage(img,sx,sy,sw,sh,0,0,cw,ch);
-        const d=ctx.getImageData(0,0,cw,ch).data; let r=0,g=0,b=0,n=0;
-        for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];n++;}
-        r/=n;g/=n;b/=n;
-        const lum=0.299*r+0.587*g+0.114*b;
-        el.color = lum<140 ? '#ffffff' : '#2B2A27';
+        ctx.drawImage(img,0,0,img.naturalWidth,img.naturalHeight,0,0,cw,ch);
+        const d=ctx.getImageData(0,0,cw,ch).data;
+        const buckets={}; let lumSum=0,lumN=0;
+        for(let i=0;i<d.length;i+=4){
+          const r=d[i],g=d[i+1],b=d[i+2];
+          lumSum+=0.299*r+0.587*g+0.114*b; lumN++;
+          const [h,sat,l]=rgbToHsl(r,g,b);
+          if(sat<0.22||l<0.16||l>0.86)continue; // skip dull, near-black, near-white
+          const key=Math.round(h*18); // 18 hue buckets
+          const wt=sat*(1-Math.abs(l-0.5)); // favor vivid mid-tones
+          if(!buckets[key])buckets[key]={r:0,g:0,b:0,w:0};
+          buckets[key].r+=r*wt; buckets[key].g+=g*wt; buckets[key].b+=b*wt; buckets[key].w+=wt;
+        }
+        let best=null;
+        Object.values(buckets).forEach(v=>{ if(!best||v.w>best.w)best=v; });
+        if(best && best.w>0.8){
+          const r=best.r/best.w, g=best.g/best.w, b=best.b/best.w;
+          let [h,sat,l]=rgbToHsl(r,g,b);
+          sat=Math.min(1,Math.max(sat,0.55));     // make it pop
+          l=Math.min(0.6,Math.max(l,0.4));         // keep it readable, not washed out or muddy
+          el.color=hslToRgb(h,sat,l);
+        }else{
+          el.color=(lumSum/Math.max(1,lumN))<140 ? '#ffffff' : '#2B2A27'; // grayscale photo: fall back to contrast
+        }
         if(el.type==='benefits'||el.type==='features'){el.iconColor=el.color; el.ringColor=el.color;}
         render();
       }catch(e){}
@@ -12266,9 +12288,11 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     const cprow=document.createElement('div'); cprow.className='btnrow';
     const cp=document.createElement('button'); cp.className='btn ghost sm'; cp.textContent='Copy';
     cp.addEventListener('click',()=>{clipboardEl=JSON.parse(JSON.stringify(el));meta.innerHTML='<b>Copied.</b> Go to any slide and paste.';});
+    const ct=document.createElement('button'); ct.className='btn ghost sm'; ct.textContent='Cut';
+    ct.addEventListener('click',()=>{clipboardEl=JSON.parse(JSON.stringify(el));cur().elements=cur().elements.filter(x=>x.id!==el.id);state.selected=null;meta.innerHTML='<b>Cut.</b> Go to any slide and paste.';render();});
     const pst=document.createElement('button'); pst.className='btn ghost sm'; pst.textContent='Paste here';
     pst.addEventListener('click',pasteClipboard);
-    cprow.appendChild(cp); cprow.appendChild(pst); inspector.appendChild(cprow);
+    cprow.appendChild(cp); cprow.appendChild(ct); cprow.appendChild(pst); inspector.appendChild(cprow);
 
     const del=document.createElement('button'); del.className='btn ghost sm danger'; del.textContent='Delete';
     del.addEventListener('click',()=>{cur().elements=cur().elements.filter(x=>x.id!==el.id);state.selected=null;render();});
@@ -12323,6 +12347,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     if((e.metaKey||e.ctrlKey)&&!typing){
       const k=e.key.toLowerCase();
       if(k==='c'&&state.selected){const el=cur().elements.find(x=>x.id===state.selected);if(el){clipboardEl=JSON.parse(JSON.stringify(el));e.preventDefault();}return;}
+      if(k==='x'&&state.selected){const el=cur().elements.find(x=>x.id===state.selected);if(el){clipboardEl=JSON.parse(JSON.stringify(el));cur().elements=cur().elements.filter(x=>x.id!==state.selected);state.selected=null;e.preventDefault();render();}return;}
       if(k==='v'&&clipboardEl){e.preventDefault();pasteClipboard();return;}
     }
     if(e.key!=='Delete'&&e.key!=='Backspace')return;
