@@ -11546,6 +11546,62 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   .danger{color:#b4453d;border-color:#e7c7c4}
   .meta{font-size:12px;color:var(--muted);text-align:center;line-height:1.5}
   .meta b{color:var(--ink)}
+
+  /* ===== PHONE LAYOUT (<=760px) =====================================================
+     Gated by BOTH the media query and body.carousel-phone (added by JS only on phone),
+     so desktop is completely unaffected. */
+  @media (max-width:760px){
+    body.carousel-phone{padding:0;margin:0;padding-bottom:42vh}
+    body.carousel-phone .wrap{max-width:none;padding:0}
+    body.carousel-phone header.top,
+    body.carousel-phone .hint{display:none}
+    body.carousel-phone .app{display:block;gap:0}
+    body.carousel-phone .rail{display:block;padding:12px 12px 4px}
+    body.carousel-phone .stagewrap{border:0;background:transparent;padding:12px;gap:10px}
+    body.carousel-phone .inspector{display:none}
+    body.carousel-phone #cardAdd,
+    body.carousel-phone #cardPhotos{display:none}
+
+    /* pinned slide dock at the top */
+    body.carousel-phone .phone-dock{position:sticky;top:0;z-index:40;background:var(--paper);
+      display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 8px 10px;
+      box-shadow:0 10px 16px -14px rgba(43,42,39,.55)}
+    body.carousel-phone .phone-dock .slidetabs{margin:0}
+    body.carousel-phone .phone-dock #stage{box-shadow:0 10px 26px -16px rgba(43,42,39,.55)}
+
+    /* fixed bottom tray */
+    body.carousel-phone .phone-tray{position:fixed;left:0;right:0;bottom:0;z-index:60;
+      background:var(--panel);border-top:1px solid var(--line);border-radius:16px 16px 0 0;
+      box-shadow:0 -12px 30px -16px rgba(43,42,39,.5);display:flex;flex-direction:column;max-height:40vh}
+    body.carousel-phone .phone-grip{flex:0 0 auto;width:42px;height:4px;border-radius:999px;
+      background:var(--line);margin:8px auto 2px}
+    body.carousel-phone .phone-tray-head{flex:0 0 auto;display:flex;align-items:center;
+      justify-content:space-between;gap:10px;padding:4px 14px 8px}
+    body.carousel-phone .phone-tray-title{font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+      color:var(--muted);font-weight:600}
+    body.carousel-phone .phone-tray-actions{display:flex;align-items:center;gap:8px}
+    body.carousel-phone .phone-edit{display:none;border:1px solid var(--line);background:#fff;
+      border-radius:8px;padding:6px 11px;font-size:12px;font-weight:600;cursor:pointer;
+      font-family:inherit;color:var(--ink)}
+    body.carousel-phone .phone-tray.has-sel .phone-edit.show{display:inline-block}
+    body.carousel-phone .phone-tray-close{border:0;background:transparent;font-size:15px;line-height:1;
+      color:var(--muted);cursor:pointer;padding:4px 6px}
+    body.carousel-phone .phone-tray-body{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
+      padding:0 14px 16px}
+    /* nothing-selected: horizontally scrollable add strip */
+    body.carousel-phone #phoneAdd{display:flex;flex-wrap:nowrap;align-items:stretch;gap:8px;
+      overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px}
+    body.carousel-phone #phoneAdd #addel{display:flex;flex-wrap:nowrap;gap:6px}
+    body.carousel-phone #phoneAdd #addel .chip{white-space:nowrap}
+    body.carousel-phone #phoneAdd #gallery{display:flex;flex-wrap:nowrap;gap:6px;
+      grid-template-columns:none;max-height:none;overflow:visible;margin:0;padding:0}
+    body.carousel-phone #phoneAdd #gallery .gtile{width:56px;flex:0 0 auto}
+    body.carousel-phone #phoneAdd #photodrop{flex:0 0 auto;min-width:130px;margin:0;white-space:normal;
+      display:flex;flex-direction:column;justify-content:center}
+    body.carousel-phone #phoneAdd #photonote{flex:0 0 auto;align-self:center;white-space:nowrap}
+    /* an element selected: its inspector controls, stacked, scroll inside the tray */
+    body.carousel-phone .phone-tray-body #inspector{display:block}
+  }
 </style>
 <div class="wrap">
   <header class="top">
@@ -11577,14 +11633,14 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         <div class="status" id="genstatus"></div>
       </div>
 
-      <div class="card">
+      <div class="card" id="cardPhotos">
         <h2>Photos</h2>
         <div class="drop" id="photodrop" style="margin-top:0">Upload photos (select several)<br><span style="font-size:11px">one per slide, your originals never change</span></div>
         <div id="photonote" class="status" style="margin-top:8px"></div>
         <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:4px">HEIC photos from iPhone need saving as JPG first. On a Mac: select them in Finder, right-click, Quick Actions, Convert Image, JPEG. Going forward: Settings, Camera, Formats, Most Compatible.</div>
       </div>
 
-      <div class="card">
+      <div class="card" id="cardAdd">
         <h2>Add to this slide</h2>
         <div class="addel" id="addel">
           <div class="chip" data-add="kicker">+ Kicker</div>
@@ -11852,7 +11908,9 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   function selEl(){const s=cur();return s?s.elements.find(e=>e.id===state.selected):null}
 
   function sizeStage(iw,ih){
-    const maxW=360,maxH=600;
+    const phone=window.matchMedia('(max-width:760px)').matches;
+    const maxW=phone?Math.min(360,(window.innerWidth||360)-18):360;
+    const maxH=phone?Math.max(220,Math.round((window.innerHeight||600)*0.44)):600;
     let rr;
     if(state.ratio==='3:4')rr=3/4;
     else if(state.ratio==='9:16')rr=9/16;
@@ -12365,7 +12423,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     cur().elements.push(copy); state.selected=copy.id; render();
   }
 
-  function render(){ renderTabs(); renderCanvas(); renderInspector(); }
+  function render(){ renderTabs(); renderCanvas(); renderInspector(); phoneSync(); }
 
   // add elements
   function addElement(type, opt){
@@ -12723,6 +12781,85 @@ Return ONLY valid JSON, no markdown, exactly:
   document.getElementById('fadeColor').addEventListener('input',e=>{const f=ensureFade();f.color=e.target.value;if(f.dir==='none')f.dir='left';renderCanvas();});
 
   render();
+
+  // ===== PHONE LAYOUT (<=760px) =====================================================
+  // Relocates the EXISTING slide + control nodes into a pinned-top dock and a fixed
+  // bottom tray so the slide stays visible while editing. Nodes are MOVED (not cloned),
+  // so all existing wiring/render logic keeps working. Reversible above 760px. Desktop
+  // is never touched (phApply only runs when the media query matches).
+  var phoneMQ = window.matchMedia('(max-width:760px)');
+  var phActive=false, phBuilt=false, phMoves=[];
+  var phDock, phTray, phTrayBody, phAdd, phTitle, phEditBtn;
+  function phMove(node,parent){ if(!node) return; phMoves.push({n:node,p:node.parentNode,s:node.nextSibling}); parent.appendChild(node); }
+  function phRestore(){ for(var i=phMoves.length-1;i>=0;i--){ var m=phMoves[i]; if(!m.p) continue; if(m.s&&m.s.parentNode===m.p) m.p.insertBefore(m.n,m.s); else m.p.appendChild(m.n); } phMoves=[]; }
+  function phLabel(el){ var t=el&&el.type;
+    if(t==='kicker')return 'Kicker'; if(t==='caps')return 'Headline'; if(t==='script')return 'Script accent';
+    if(t==='body')return 'Body line'; if(t==='benefits')return 'Benefit list'; if(t==='features')return 'Feature bar';
+    if(t==='icon')return 'Sticker'; if(t==='badge'||t==='burst'||t==='pill'||t==='bubble')return 'Badge';
+    if(t==='arrow'||t==='ring')return 'Shape'; return 'Element'; }
+  function phSwipeClose(elm){ var sy=null;
+    elm.addEventListener('touchstart',function(e){ sy=e.touches?e.touches[0].clientY:null; },{passive:true});
+    elm.addEventListener('touchmove',function(e){ if(sy==null)return; var y=e.touches?e.touches[0].clientY:0; if(y-sy>45){ sy=null; if(selEl()){ state.selected=null; render(); } } },{passive:true});
+    elm.addEventListener('touchend',function(){ sy=null; },{passive:true});
+  }
+  function phBuild(){ if(phBuilt) return; phBuilt=true;
+    phDock=document.createElement('div'); phDock.className='phone-dock';
+    phTray=document.createElement('div'); phTray.className='phone-tray';
+    var grip=document.createElement('div'); grip.className='phone-grip';
+    var head=document.createElement('div'); head.className='phone-tray-head';
+    phTitle=document.createElement('span'); phTitle.className='phone-tray-title'; phTitle.textContent='Add to slide';
+    var actions=document.createElement('div'); actions.className='phone-tray-actions';
+    phEditBtn=document.createElement('button'); phEditBtn.type='button'; phEditBtn.className='phone-edit'; phEditBtn.textContent='Edit text';
+    phEditBtn.addEventListener('click',function(){ var n=stage.querySelector('.el.sel'); if(n) n.dispatchEvent(new MouseEvent('dblclick',{bubbles:true,cancelable:true})); });
+    var close=document.createElement('button'); close.type='button'; close.className='phone-tray-close'; close.setAttribute('aria-label','Close'); close.innerHTML='&#10005;';
+    close.addEventListener('click',function(){ state.selected=null; render(); });
+    actions.appendChild(phEditBtn); actions.appendChild(close);
+    head.appendChild(phTitle); head.appendChild(actions);
+    phTrayBody=document.createElement('div'); phTrayBody.className='phone-tray-body';
+    phAdd=document.createElement('div'); phAdd.id='phoneAdd';
+    phTray.appendChild(grip); phTray.appendChild(head); phTray.appendChild(phTrayBody);
+    phSwipeClose(grip); phSwipeClose(head);
+  }
+  function phApply(){
+    phBuild(); phActive=true;
+    document.body.classList.add('carousel-phone');
+    document.body.insertBefore(phDock, document.body.firstChild);
+    document.body.appendChild(phTray);
+    phMove(slidetabs, phDock);
+    phMove(stage, phDock);
+    phMove(addel, phAdd);
+    phMove(gallery, phAdd);
+    phMove(photodrop, phAdd);
+    phMove(photonote, phAdd);
+    phTrayBody.appendChild(phAdd);
+    phMove(inspector, phTrayBody);
+    render(); // recompute element px for the smaller stage and sync the tray
+  }
+  function phUnapply(){
+    if(!phBuilt) return; phActive=false;
+    document.body.classList.remove('carousel-phone');
+    phRestore();
+    if(phDock.parentNode) phDock.parentNode.removeChild(phDock);
+    if(phTray.parentNode) phTray.parentNode.removeChild(phTray);
+    render();
+  }
+  function phoneSync(){
+    if(!phActive) return;
+    var el=selEl();
+    if(el){
+      phAdd.style.display='none'; inspector.style.display='';
+      phTitle.textContent=phLabel(el); phTray.classList.add('has-sel');
+      phEditBtn.classList.toggle('show', TEXT_TYPES.indexOf(el.type)>-1);
+    } else {
+      inspector.style.display='none'; phAdd.style.display='';
+      phTitle.textContent='Add to slide'; phTray.classList.remove('has-sel');
+      phEditBtn.classList.remove('show');
+    }
+  }
+  function phOnChange(e){ if(e.matches) phApply(); else phUnapply(); }
+  if(phoneMQ.addEventListener) phoneMQ.addEventListener('change',phOnChange);
+  else if(phoneMQ.addListener) phoneMQ.addListener(phOnChange);
+  if(phoneMQ.matches) phApply();
 })();
 </script>
 </template>
