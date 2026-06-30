@@ -11480,6 +11480,8 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   .el{position:absolute;cursor:grab;outline:1.5px solid transparent;border-radius:6px;max-width:90%}
   .el.sel{outline:1.5px solid var(--rose)}
   .el.editing{cursor:text;outline:1.5px solid var(--rose)}
+  /* FIX 4: a clearly visible blinking caret while editing (renders on top of any text stroke/outline) */
+  .el.editing [contenteditable], .el [contenteditable="true"]{caret-color:#ED5A98}
   .el .scrim{position:absolute;inset:-6px -10px;background:rgba(0,0,0,.36);border-radius:8px;z-index:-1;display:none}
   .el.hasScrim .scrim{display:block}
   .el .shade{position:absolute;inset:-14px -20px;z-index:-1;border-radius:18px;display:none;pointer-events:none}
@@ -11589,7 +11591,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       box-shadow:0 10px 16px -14px rgba(43,42,39,.55)}
     body.carousel-phone .phone-dock .slidetabs{margin:0}
     body.carousel-phone .phone-dock #stage{box-shadow:0 10px 26px -16px rgba(43,42,39,.55);
-      transition:width .18s ease, height .18s ease}
+      transform-origin:top center; transition:transform .18s ease}
 
     /* fixed bottom tray */
     body.carousel-phone .phone-tray{position:fixed;left:0;right:0;bottom:0;z-index:60;
@@ -11700,9 +11702,6 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
           </div>
           <div id="angleOpts" style="display:flex;flex-direction:column;gap:6px;margin-top:6px"></div>
         </div>
-        <button class="btn rose" id="gen" style="margin-top:12px">Write the carousel</button>
-        <div class="angle" id="angle" style="display:none"></div>
-        <div class="status" id="genstatus"></div>
       </div>
 
       <div class="card" id="cardPhotos">
@@ -11710,6 +11709,13 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         <div class="drop" id="photodrop" style="margin-top:0">Upload photos (select several)<br><span style="font-size:11px">one per slide, your originals never change</span></div>
         <div id="photonote" class="status" style="margin-top:8px"></div>
         <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:4px">HEIC photos from iPhone need saving as JPG first. On a Mac: select them in Finder, right-click, Quick Actions, Convert Image, JPEG. Going forward: Settings, Camera, Formats, Most Compatible.</div>
+      </div>
+
+      <!-- FIX 2: Write the carousel sits AFTER brief + photo upload, so it's in flow once you're ready -->
+      <div class="card" id="cardGenerate">
+        <button class="btn rose" id="gen" style="width:100%">Write the carousel</button>
+        <div class="angle" id="angle" style="display:none"></div>
+        <div class="status" id="genstatus"></div>
       </div>
 
       <div class="card" id="cardAdd">
@@ -11959,7 +11965,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   const state={ active:0, selected:null, slides:[], ratio:'3:4', safe:true };
   var carouselStarted=false;   // true once photos are uploaded or a carousel is generated (drives the phone brief/upload collapse)
   var exporting=false;         // true only during an export capture (suppresses the UI-zone warning so it never bakes into the PNG)
-  var phZoomedActual=false;    // tracks whether the phone slide is currently shown at its selection-zoom size
+  var phZoom=1;                // current phone precision-zoom (CSS transform scale on the slide; 1 = no zoom). Drag/pinch math divides screen deltas by it.
   var hookStyle=null;          // a saved reusable "hook style" (Feature 4)
   try{ var __hs=localStorage.getItem('saxe-hook-style'); if(__hs) hookStyle=JSON.parse(__hs); }catch(e){}
   let usedColors=[];
@@ -12001,15 +12007,10 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 
   function sizeStage(iw,ih){
     const phone=window.matchMedia('(max-width:760px)').matches;
-    // Feature 1: on phone, expand the slide to fill the space above the tray while an element is selected
-    // (precision editing). It stays fully above the fixed bottom tray (~60vh). Export deselects, so it never zooms.
-    const selZoom=phone&&!!state.selected;
-    phZoomedActual=selZoom;
+    // The slide's INTRINSIC size never changes on selection — the phone precision-zoom is a pure CSS
+    // transform: scale() applied separately (see applyZoom), so no element ever reflows or repositions.
     const maxW=phone?Math.min(360,(window.innerWidth||360)-18):360;
-    const maxH=phone
-      ? (selZoom ? Math.max(300, Math.round((window.innerHeight||600)*0.6)-60)
-                 : Math.max(220, Math.round((window.innerHeight||600)*0.44)))
-      : 600;
+    const maxH=phone?Math.max(220,Math.round((window.innerHeight||600)*0.44)):600;
     let rr;
     if(state.ratio==='3:4')rr=3/4;
     else if(state.ratio==='9:16')rr=9/16;
@@ -12327,18 +12328,27 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     });
     node.addEventListener('pointermove',e=>{
       if(!drag||pinching)return;
-      let nx=Math.max(-0.45*drag.W,Math.min(drag.ox+(e.clientX-drag.sx),0.98*drag.W));
-      let ny=Math.max(-0.45*drag.H,Math.min(drag.oy+(e.clientY-drag.sy),0.98*drag.H));
+      // divide screen-space movement by the zoom so a finger move maps 1:1 to the scaled slide
+      let nx=Math.max(-0.45*drag.W,Math.min(drag.ox+(e.clientX-drag.sx)/phZoom,0.98*drag.W));
+      let ny=Math.max(-0.45*drag.H,Math.min(drag.oy+(e.clientY-drag.sy)/phZoom,0.98*drag.H));
       el.x=nx/drag.W; el.y=ny/drag.H;
       drag.el.style.left=nx+'px'; drag.el.style.top=ny+'px';
     });
-    node.addEventListener('pointerup',()=>{ if(drag){drag.el.style.cursor='grab';drag=null;} maybeZoom(); });
+    node.addEventListener('pointerup',()=>{ if(drag){drag.el.style.cursor='grab';drag=null;} });
 
     if(EDIT_INLINE.includes(el.type)){
-      const startEdit=()=>{
+      const startEdit=(ev)=>{
         node.classList.add('editing'); body.setAttribute('contenteditable','true'); body.focus();
-        const r=document.createRange(); r.selectNodeContents(body);
-        const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+        const sel=window.getSelection(); sel.removeAllRanges();
+        // place a visible blinking caret: where the user tapped if we have coords, else at the end
+        let r=null, cx=ev&&ev.clientX, cy=ev&&ev.clientY;
+        if(cx!=null){
+          if(document.caretRangeFromPoint) r=document.caretRangeFromPoint(cx,cy);
+          else if(document.caretPositionFromPoint){ const p=document.caretPositionFromPoint(cx,cy); if(p){ r=document.createRange(); r.setStart(p.offsetNode,p.offset); } }
+        }
+        if(!r || !body.contains(r.startContainer)){ r=document.createRange(); r.selectNodeContents(body); r.collapse(false); }
+        else r.collapse(true);
+        sel.addRange(r);
       };
       node._startEdit=startEdit;                 // reused by the phone tray "Edit text" button
       node.addEventListener('dblclick',startEdit);
@@ -12352,7 +12362,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       const startRowEdit=f=>{
         if(!f)return;
         node.classList.add('editing'); f.setAttribute('contenteditable','true'); f.focus();
-        const r=document.createRange(); r.selectNodeContents(f);
+        const r=document.createRange(); r.selectNodeContents(f); r.collapse(false); // caret at end -> visible blinking cursor
         const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
         const done=()=>{
           f.removeAttribute('contenteditable'); node.classList.remove('editing');
@@ -12376,16 +12386,16 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     handle.addEventListener('pointermove',e=>{
       if(!rz)return;
       if(el.type==='benefits'||el.type==='features'){
-        let nw=rz.ow+((e.clientX-rz.sx)/rz.W);
+        let nw=rz.ow+(((e.clientX-rz.sx)/phZoom)/rz.W);
         nw=Math.max(0.2,Math.min(nw,0.95));
-        let nf=rz.of+((e.clientY-rz.sy)/rz.W);
+        let nf=rz.of+(((e.clientY-rz.sy)/phZoom)/rz.W);
         nf=Math.max(.012,Math.min(nf,.20));
         el.w=nw; el.size=nf;
         body.style.width=(nw*rz.W)+'px'; body.style.fontSize=(nf*rz.W)+'px';
         const sl=document.getElementById('sizeSlider'); if(sl)sl.value=(nf*1000).toFixed(0);
         return;
       }
-      let nf=rz.of+((e.clientY-rz.sy)/rz.W);
+      let nf=rz.of+(((e.clientY-rz.sy)/phZoom)/rz.W);
       const min=(el.type==='badge'||el.type==='burst')?.05:.012, max=(el.type==='badge'||el.type==='burst')?.30:(GFX_TYPES.includes(el.type)?.45:.20);
       nf=Math.max(min,Math.min(nf,max));
       el.size=nf; const px=nf*rz.W;
@@ -12399,9 +12409,19 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 
   stage.addEventListener('pointerdown',e=>{ if(e.target===stage||e.target===bg||e.target===ph){state.selected=null;render();} });
 
-  // Feature 1: apply/release the phone precision-zoom once a gesture settles (between gestures, never mid-pinch),
-  // so the slide grows when an element is selected and eases back when deselected. Driven by selection, not touch.
-  function maybeZoom(){ if(!phActive) return; if(!!state.selected !== phZoomedActual){ renderCanvas(); } }
+  // Feature 1 (WYSIWYG precision zoom): scale the WHOLE slide as one unit via CSS transform, so every
+  // element keeps its exact relative position — nothing reflows. Intrinsic size is unchanged, so export
+  // (which deselects) is pixel-identical to what's shown, just unscaled. Driven by selection, not touch.
+  function applyZoom(){
+    if(!phActive || !state.selected){ phZoom=1; stage.style.transform=''; return; }
+    const w=stage.clientWidth||1, h=stage.clientHeight||1;
+    const vw=window.innerWidth||360, vh=window.innerHeight||640;
+    const wantH=Math.max(300, Math.round(vh*0.6)-60);   // editing height target, kept above the fixed tray (~60vh)
+    let z=wantH/h;                                       // grow toward that height...
+    z=Math.min(z,(vw-12)/w);                             // ...but never wider than the screen (no horizontal clipping)
+    z=Math.max(1,Math.min(z,1.7));                       // never shrink; sane cap
+    phZoom=z; stage.style.transform='scale('+z.toFixed(4)+')';
+  }
 
   // ----- two-finger pinch-to-resize the selected element (touch, phone only) -----
   // Scales el.size (the same property the corner handle / size slider use), with the same
@@ -12437,7 +12457,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   },{passive:false});
   function pinchEnd(e){
     if(!e.touches||e.touches.length<2) pinchState=null;
-    if(!e.touches||e.touches.length===0){ pinching=false; renderInspector(); phoneSync(); maybeZoom(); }
+    if(!e.touches||e.touches.length===0){ pinching=false; renderInspector(); phoneSync(); }
   }
   stage.addEventListener('touchend',pinchEnd);
   stage.addEventListener('touchcancel',pinchEnd);
@@ -12992,9 +13012,12 @@ Return ONLY valid JSON, no markdown, exactly:
   async function exportSlide(i){
     const pa=state.active,ps=state.selected;
     state.active=i; state.selected=null; exporting=true; render();
+    // capture at the intrinsic (unscaled) size — snap any zoom transform off instantly, no transition
+    const prevTrans=stage.style.transition; stage.style.transition='none'; phZoom=1; stage.style.transform='';
     await new Promise(r=>setTimeout(r,70));
     const canvas=await html2canvas(stage,{scale:3,backgroundColor:null,useCORS:true,logging:false,ignoreElements:el=>el.classList&&el.classList.contains('noexport')});
     const a=document.createElement('a'); a.download='saxe-slide-'+(i+1)+'.png'; a.href=canvas.toDataURL('image/png'); a.click();
+    stage.style.transition=prevTrans;
     exporting=false;
     state.active=pa; state.selected=ps; render();
   }
@@ -13110,6 +13133,7 @@ Return ONLY valid JSON, no markdown, exactly:
   }
   function phUnapply(){
     if(!phBuilt) return; phActive=false;
+    phZoom=1; stage.style.transform='';   // never leave the desktop slide scaled
     document.body.classList.remove('carousel-phone','brief-collapsed','brief-open');
     if(phBriefBar&&phBriefBar.parentNode) phBriefBar.parentNode.removeChild(phBriefBar);
     if(phBriefCard) phBriefCard.classList.remove('phone-brief-card');
@@ -13130,6 +13154,7 @@ Return ONLY valid JSON, no markdown, exactly:
       phTitle.textContent='Add to slide'; phTray.classList.remove('has-sel');
       phEditBtn.classList.remove('show');
     }
+    applyZoom();   // scale the slide in/out to match the selection (pure transform, nothing reflows)
     phBriefSync();
   }
   // Collapse the brief + big upload once a carousel exists; the compact bar stands in.
