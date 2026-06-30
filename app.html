@@ -608,6 +608,8 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
   body.carousel-mode .footer { display: none !important; }
   body.carousel-mode #carouselExitBar { display: flex; }
   body.carousel-mode #carouselFrame { height: calc(100vh - 42px); min-height: 0; }
+  /* Lock the host page so tray/slide gestures in the iframe never scroll or rubber-band the page behind it. */
+  body.carousel-mode { overflow: hidden; height: 100vh; overscroll-behavior: none; }
 }
 
 /* Planner colour tokens mapped onto the app's theme variables so it follows
@@ -11570,7 +11572,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
      Gated by BOTH the media query and body.carousel-phone (added by JS only on phone),
      so desktop is completely unaffected. */
   @media (max-width:760px){
-    body.carousel-phone{padding:0;margin:0;padding-bottom:42vh}
+    body.carousel-phone{padding:0;margin:0;padding-bottom:42vh;overscroll-behavior:none}
     body.carousel-phone .wrap{max-width:none;padding:0}
     body.carousel-phone header.top,
     body.carousel-phone .hint{display:none}
@@ -11592,7 +11594,8 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     /* fixed bottom tray */
     body.carousel-phone .phone-tray{position:fixed;left:0;right:0;bottom:0;z-index:60;
       background:var(--panel);border-top:1px solid var(--line);border-radius:16px 16px 0 0;
-      box-shadow:0 -12px 30px -16px rgba(43,42,39,.5);display:flex;flex-direction:column;max-height:40vh}
+      box-shadow:0 -12px 30px -16px rgba(43,42,39,.5);display:flex;flex-direction:column;max-height:40vh;
+      touch-action:none;overscroll-behavior:contain}
     body.carousel-phone .phone-grip{flex:0 0 auto;width:42px;height:4px;border-radius:999px;
       background:var(--line);margin:8px auto 2px}
     body.carousel-phone .phone-tray-head{flex:0 0 auto;display:flex;align-items:center;
@@ -11607,10 +11610,13 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     body.carousel-phone .phone-tray-close{border:0;background:transparent;font-size:15px;line-height:1;
       color:var(--muted);cursor:pointer;padding:4px 6px}
     body.carousel-phone .phone-tray-body{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;
-      padding:0 14px 16px}
+      padding:0 14px 16px;touch-action:pan-y;overscroll-behavior:contain}
+    /* sliders/inputs inside the tray own their own touch so a drag isn't read as a page scroll */
+    body.carousel-phone .phone-tray-body input[type=range]{touch-action:none}
     /* nothing-selected: horizontally scrollable add strip */
     body.carousel-phone #phoneAdd{display:flex;flex-wrap:nowrap;align-items:stretch;gap:8px;
-      overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px}
+      overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:6px;
+      touch-action:pan-x;overscroll-behavior:contain}
     body.carousel-phone #phoneAdd #addel{display:flex;flex-wrap:nowrap;gap:6px}
     body.carousel-phone #phoneAdd #addel .chip{white-space:nowrap}
     body.carousel-phone #phoneAdd #gallery{display:flex;flex-wrap:nowrap;gap:6px;
@@ -11627,19 +11633,20 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       border-radius:10px;padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--ink);
       font-family:inherit;cursor:pointer;white-space:nowrap}
     body.carousel-phone .phone-stickers-btn:active{border-color:var(--rose)}
-    body.carousel-phone .phone-sheet{position:fixed;inset:0;z-index:70;display:none}
+    body.carousel-phone .phone-sheet{position:fixed;inset:0;z-index:70;display:none;touch-action:none}
     body.carousel-phone .phone-sheet.open{display:block}
     body.carousel-phone .phone-sheet-backdrop{position:absolute;inset:0;background:rgba(43,42,39,.45)}
     body.carousel-phone .phone-sheet-panel{position:absolute;left:0;right:0;bottom:0;display:flex;
       flex-direction:column;max-height:72vh;background:var(--panel);border-radius:16px 16px 0 0;
-      box-shadow:0 -12px 30px -14px rgba(43,42,39,.5)}
+      box-shadow:0 -12px 30px -14px rgba(43,42,39,.5);overscroll-behavior:contain}
     body.carousel-phone .phone-sheet-head{display:flex;align-items:center;justify-content:space-between;
       padding:12px 14px 10px;border-bottom:1px solid var(--line)}
     body.carousel-phone .phone-sheet-title{font-size:12px;letter-spacing:.1em;text-transform:uppercase;
       color:var(--muted);font-weight:600}
     body.carousel-phone .phone-sheet-close{border:0;background:transparent;font-size:16px;line-height:1;
       color:var(--muted);cursor:pointer;padding:4px 6px}
-    body.carousel-phone .phone-sheet-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 14px 18px}
+    body.carousel-phone .phone-sheet-body{overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 14px 18px;
+      touch-action:pan-y;overscroll-behavior:contain}
     body.carousel-phone .phone-sheet-body #gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;
       max-height:none;overflow:visible;margin:0;padding:0}
     /* tray Delete button (reliable backup for the on-canvas X) */
@@ -11931,6 +11938,21 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   const GFX_TYPES=['arrow','ring','burst','pill','bubble','icon'];
   const EDIT_INLINE=['kicker','caps','script','body','badge','pill','bubble'];
   const TEXT_FILL=['badge','burst','pill','bubble']; // have a separate text color
+
+  // ===== TikTok UI safe zones =======================================================
+  // Where TikTok's own UI sits on top of the slide, as fractions of the slide (same for
+  // 3:4 and 9:16). x0,y0 = top-left corner; x1,y1 = bottom-right corner (0..1).
+  // Drives BOTH the visual overlay and the Feature-3 "text may be hidden" warning.
+  // >>> Fine-tune these numbers to taste. <<<
+  const SAFE_ZONES=[
+    // Top search bar: full width, very top, ~7.5% tall.
+    { key:'top',    label:'search bar',       x0:0.00, y0:0.00, x1:1.00, y1:0.075 },
+    // Right rail (profile / like / comment / bookmark): right 20% of width, and only the
+    // LOWER part of the screen — starts 45% down and runs to near the bottom. NOT full height.
+    { key:'rail',   label:'buttons',          x0:0.80, y0:0.45, x1:1.00, y1:0.95  },
+    // Bottom band (shop tag, handle, caption): full width, bottom ~23% of height.
+    { key:'bottom', label:'caption & handle', x0:0.00, y0:0.77, x1:1.00, y1:1.00  },
+  ];
   // 12-point starburst polygon
   const BURST_PTS=(function(){let p=[];for(let i=0;i<24;i++){const r=i%2?28:50;const a=(Math.PI/12)*i-Math.PI/2;p.push((50+r*Math.cos(a)).toFixed(1)+','+(50+r*Math.sin(a)).toFixed(1));}return p.join(' ');})();
 
@@ -12230,8 +12252,8 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       // Feature 3: warn (non-blocking) when text overlaps the TikTok UI safe zones. Never exported.
       if(!exporting && state.safe && (TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features')){
         const nx=node.offsetLeft/W, ny=node.offsetTop/H, nr=(node.offsetLeft+node.offsetWidth)/W, nb=(node.offsetTop+node.offsetHeight)/H;
-        const hit=(zx,zy,zr,zb)=> nx<zr && nr>zx && ny<zb && nb>zy;
-        if(hit(0.83,0.30,1.0,0.97) || hit(0.03,0.81,0.65,0.97)){   // right-rail buttons  /  bottom caption & handle
+        const overlaps=SAFE_ZONES.some(z=> nx<z.x1 && nr>z.x0 && ny<z.y1 && nb>z.y0);
+        if(overlaps){
           node.classList.add('ui-warn');
           const chip=document.createElement('div'); chip.className='uiwarn-chip noexport';
           chip.textContent='⚠ may be hidden';
@@ -12267,11 +12289,13 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     if(!state.safe)return;
     const o=document.createElement('div'); o.className='safezone noexport';
     o.style.cssText='position:absolute;inset:0;pointer-events:none;z-index:40';
-    o.innerHTML=
-      '<div style="position:absolute;right:0;top:30%;width:17%;height:67%;border:1.5px dashed rgba(237,90,152,.75);border-radius:10px;background:rgba(237,90,152,.05)"></div>'+
-      '<div style="position:absolute;right:1.5%;top:30%;transform:translateY(-13px);font:600 9px/1 Inter,sans-serif;color:rgba(237,90,152,.95)">buttons</div>'+
-      '<div style="position:absolute;left:3%;bottom:3%;width:62%;height:16%;border:1.5px dashed rgba(237,90,152,.75);border-radius:10px;background:rgba(237,90,152,.05)"></div>'+
-      '<div style="position:absolute;left:4%;bottom:19.5%;font:600 9px/1 Inter,sans-serif;color:rgba(237,90,152,.95)">caption &amp; handle</div>';
+    o.innerHTML=SAFE_ZONES.map(z=>{
+      const l=(z.x0*100), t=(z.y0*100), w=((z.x1-z.x0)*100), h=((z.y1-z.y0)*100);
+      return '<div style="position:absolute;left:'+l+'%;top:'+t+'%;width:'+w+'%;height:'+h+'%;'+
+               'border:1.5px dashed rgba(237,90,152,.75);border-radius:10px;background:rgba(237,90,152,.05)"></div>'+
+             '<div style="position:absolute;left:'+(l+1.5)+'%;top:'+t+'%;transform:translateY(3px);'+
+               'font:600 9px/1 Inter,sans-serif;color:rgba(237,90,152,.95)">'+esc(z.label)+'</div>';
+    }).join('');
     stage.appendChild(o);
   }
   function outlineShadow(c,w){
@@ -13012,6 +13036,12 @@ Return ONLY valid JSON, no markdown, exactly:
   function phBuild(){ if(phBuilt) return; phBuilt=true;
     phDock=document.createElement('div'); phDock.className='phone-dock';
     phTray=document.createElement('div'); phTray.className='phone-tray';
+    // Keep tray gestures inside the tray: don't let them bubble out to the page/host. The CSS
+    // (touch-action + overscroll-behavior) does the real work; this is belt-and-suspenders and
+    // is passive so it never blocks buttons, sliders, the grip, or the sheets.
+    ['touchstart','touchmove','touchend','touchcancel'].forEach(function(ev){
+      phTray.addEventListener(ev,function(e){ e.stopPropagation(); },{passive:true});
+    });
     var grip=document.createElement('div'); grip.className='phone-grip';
     var head=document.createElement('div'); head.className='phone-tray-head';
     phTitle=document.createElement('span'); phTitle.className='phone-tray-title'; phTitle.textContent='Add to slide';
