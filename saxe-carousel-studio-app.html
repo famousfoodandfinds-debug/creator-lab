@@ -87,6 +87,12 @@
   .el.editing{cursor:text;outline:1.5px solid var(--rose)}
   .el .scrim{position:absolute;inset:-6px -10px;background:rgba(0,0,0,.36);border-radius:8px;z-index:-1;display:none}
   .el.hasScrim .scrim{display:block}
+  .el .shade{position:absolute;inset:-14px -20px;z-index:-1;border-radius:18px;display:none;pointer-events:none}
+  .el.hasShade .shade{display:block}
+  .el.ui-warn{outline:1.5px solid #E0962F}
+  .el.sel.ui-warn{outline:1.5px solid #E0962F}
+  .uiwarn-chip{position:absolute;right:-6px;top:-11px;background:#E0962F;color:#fff;font:700 9px/1 Inter,sans-serif;
+    padding:3px 5px;border-radius:6px;white-space:nowrap;z-index:7;pointer-events:none;box-shadow:0 1px 3px rgba(0,0,0,.25)}
   .el .handle{position:absolute;right:-7px;bottom:-7px;width:15px;height:15px;border-radius:50%;
     background:var(--rose);border:2px solid #fff;display:none;cursor:nwse-resize;z-index:5}
   .el.sel .handle{display:block}
@@ -187,7 +193,8 @@
       display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 8px 10px;
       box-shadow:0 10px 16px -14px rgba(43,42,39,.55)}
     body.carousel-phone .phone-dock .slidetabs{margin:0}
-    body.carousel-phone .phone-dock #stage{box-shadow:0 10px 26px -16px rgba(43,42,39,.55)}
+    body.carousel-phone .phone-dock #stage{box-shadow:0 10px 26px -16px rgba(43,42,39,.55);
+      transition:width .18s ease, height .18s ease}
 
     /* fixed bottom tray */
     body.carousel-phone .phone-tray{position:fixed;left:0;right:0;bottom:0;z-index:60;
@@ -536,6 +543,10 @@
 
   const state={ active:0, selected:null, slides:[], ratio:'3:4', safe:true };
   var carouselStarted=false;   // true once photos are uploaded or a carousel is generated (drives the phone brief/upload collapse)
+  var exporting=false;         // true only during an export capture (suppresses the UI-zone warning so it never bakes into the PNG)
+  var phZoomedActual=false;    // tracks whether the phone slide is currently shown at its selection-zoom size
+  var hookStyle=null;          // a saved reusable "hook style" (Feature 4)
+  try{ var __hs=localStorage.getItem('saxe-hook-style'); if(__hs) hookStyle=JSON.parse(__hs); }catch(e){}
   let usedColors=[];
   function addUsedColor(hex){
     hex=(hex||'').toLowerCase(); if(!/^#[0-9a-f]{6}$/.test(hex))return;
@@ -575,8 +586,15 @@
 
   function sizeStage(iw,ih){
     const phone=window.matchMedia('(max-width:760px)').matches;
+    // Feature 1: on phone, expand the slide to fill the space above the tray while an element is selected
+    // (precision editing). It stays fully above the fixed bottom tray (~60vh). Export deselects, so it never zooms.
+    const selZoom=phone&&!!state.selected;
+    phZoomedActual=selZoom;
     const maxW=phone?Math.min(360,(window.innerWidth||360)-18):360;
-    const maxH=phone?Math.max(220,Math.round((window.innerHeight||600)*0.44)):600;
+    const maxH=phone
+      ? (selZoom ? Math.max(300, Math.round((window.innerHeight||600)*0.6)-60)
+                 : Math.max(220, Math.round((window.innerHeight||600)*0.44)))
+      : 600;
     let rr;
     if(state.ratio==='3:4')rr=3/4;
     else if(state.ratio==='9:16')rr=9/16;
@@ -606,6 +624,29 @@
 
   function rgbToHsl(r,g,b){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b);let h=0,s=0,l=(mx+mn)/2;if(mx!==mn){const d=mx-mn;s=l>0.5?d/(2-mx-mn):d/(mx+mn);if(mx===r)h=(g-b)/d+(g<b?6:0);else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;h/=6;}return [h,s,l];}
   function hslToRgb(h,s,l){let r,g,b;if(s===0){r=g=b=l;}else{const hue=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};const q=l<0.5?l*(1+s):l+s-l*s,p=2*l-q;r=hue(p,q,h+1/3);g=hue(p,q,h);b=hue(p,q,h-1/3);}return '#'+[r,g,b].map(x=>('0'+Math.round(x*255).toString(16)).slice(-2)).join('');}
+  // relative luminance of a hex color (0=black..1=white) — drives the auto-scrim's dark/light choice
+  function lumaOf(hex){ hex=(hex||'#ffffff').replace('#',''); if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');
+    const r=parseInt(hex.slice(0,2),16)||0,g=parseInt(hex.slice(2,4),16)||0,b=parseInt(hex.slice(4,6),16)||0;
+    return (0.2126*r+0.7152*g+0.0722*b)/255; }
+  // Feature 6: non-linear stroke slider (0..100) — faint widths take most of the travel (gamma 2.2),
+  // heavy widths compress at the top. Same actual min (0) and max as before, so existing designs are unchanged.
+  function strokeToPos(w,max){ return Math.round(100*Math.pow(Math.min(1,Math.max(0,(w||0)/max)),1/2.2)); }
+  function posToStroke(pos,max){ return max*Math.pow(Math.max(0,Math.min(100,parseFloat(pos)||0))/100,2.2); }
+  // Feature 4: save / apply a reusable "hook style" (font, size, color, align, outline, stroke, scrim, shade).
+  function saveHookStyle(el){
+    hookStyle={ font:el.font||null, size:el.size, color:el.color, align:el.align||'left',
+      outlineW:el.outlineW||0, outlineColor:el.outlineColor||'#111111',
+      textStrokeW:el.textStrokeW||0, textStrokeColor:el.textStrokeColor||'#111111',
+      scrim:!!el.scrim, shade:!!el.shade };
+    try{ localStorage.setItem('saxe-hook-style', JSON.stringify(hookStyle)); }catch(e){}
+  }
+  function applyHookStyle(el){
+    if(!hookStyle)return; const h=hookStyle;
+    el.font=h.font||undefined; el.size=h.size; el.color=h.color; el.align=h.align;
+    el.outlineW=h.outlineW; el.outlineColor=h.outlineColor;
+    el.textStrokeW=h.textStrokeW; el.textStrokeColor=h.textStrokeColor;
+    el.scrim=h.scrim; el.shade=h.shade;
+  }
   function matchPhotoColor(el){
     const s=cur(); if(!s||!s.photo)return;
     const img=new Image();
@@ -671,11 +712,20 @@
     const W=stage.clientWidth, H=stage.clientHeight;
     s.elements.forEach(el=>{
       const node=document.createElement('div');
-      node.className='el'+(el.scrim?' hasScrim':'')+(state.selected===el.id?' sel':'');
+      node.className='el'+(el.scrim?' hasScrim':'')+(el.shade?' hasShade':'')+(state.selected===el.id?' sel':'');
       node.style.left=(el.x*W)+'px'; node.style.top=(el.y*H)+'px';
       node.dataset.id=el.id;
       const scrim=document.createElement('div'); scrim.className='scrim';
       node.appendChild(scrim);
+      // Feature 2: soft readability shade behind just this element's text (dark scrim for light text, light for dark).
+      if(el.shade && (TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features')){
+        const shade=document.createElement('div'); shade.className='shade';
+        const dark=lumaOf(el.color)>0.5; // light text -> dark shade, and vice-versa
+        shade.style.background=dark
+          ? 'radial-gradient(ellipse at center, rgba(0,0,0,.46) 0%, rgba(0,0,0,.30) 46%, rgba(0,0,0,0) 78%)'
+          : 'radial-gradient(ellipse at center, rgba(255,255,255,.52) 0%, rgba(255,255,255,.34) 46%, rgba(255,255,255,0) 78%)';
+        node.appendChild(shade);
+      }
       const body=document.createElement('div');
       if(TEXT_TYPES.includes(el.type)){
         body.className='t-'+el.type+' t-edit';
@@ -769,6 +819,33 @@
       node.appendChild(delbtn);
       stage.appendChild(node);
       wire(node,el,body,handle);
+
+      // Feature 5: auto-fit benefit/feature blocks so they stay clean instead of overflowing the canvas.
+      if(el.type==='benefits'||el.type==='features'){
+        const availH=Math.max(40, H-node.offsetTop-4), availW=Math.max(40, W-node.offsetLeft-4);
+        let fit=1;
+        if(node.offsetHeight>availH) fit=Math.min(fit, availH/node.offsetHeight);
+        if(node.offsetWidth >availW) fit=Math.min(fit, availW/node.offsetWidth);
+        if(fit<1){
+          fit=Math.max(fit, 0.6);                       // sensible minimum: never below 60% of the chosen size
+          const fitSize=Math.max(0.012, el.size*fit);
+          body.style.fontSize=(fitSize*W)+'px';
+          if(el.textStrokeW>0) body.style.textShadow=outlineShadow(el.textStrokeColor||'#111111', Math.max(0.6,(fitSize*W)*el.textStrokeW));
+        }
+      }
+
+      // Feature 3: warn (non-blocking) when text overlaps the TikTok UI safe zones. Never exported.
+      if(!exporting && state.safe && (TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features')){
+        const nx=node.offsetLeft/W, ny=node.offsetTop/H, nr=(node.offsetLeft+node.offsetWidth)/W, nb=(node.offsetTop+node.offsetHeight)/H;
+        const hit=(zx,zy,zr,zb)=> nx<zr && nr>zx && ny<zb && nb>zy;
+        if(hit(0.83,0.30,1.0,0.97) || hit(0.03,0.81,0.65,0.97)){   // right-rail buttons  /  bottom caption & handle
+          node.classList.add('ui-warn');
+          const chip=document.createElement('div'); chip.className='uiwarn-chip noexport';
+          chip.textContent='⚠ may be hidden';
+          chip.title='This overlaps where TikTok puts its buttons / caption, so it may be covered.';
+          node.appendChild(chip);
+        }
+      }
     });
     meta.innerHTML='<b>Slide '+(state.active+1)+' of '+state.slides.length+'</b> · rules on: no prices, no competing brands, action CTA, no em dashes';
     renderSafeZones();
@@ -838,7 +915,7 @@
       el.x=nx/drag.W; el.y=ny/drag.H;
       drag.el.style.left=nx+'px'; drag.el.style.top=ny+'px';
     });
-    node.addEventListener('pointerup',()=>{ if(drag){drag.el.style.cursor='grab';drag=null;} });
+    node.addEventListener('pointerup',()=>{ if(drag){drag.el.style.cursor='grab';drag=null;} maybeZoom(); });
 
     if(EDIT_INLINE.includes(el.type)){
       const startEdit=()=>{
@@ -905,6 +982,10 @@
 
   stage.addEventListener('pointerdown',e=>{ if(e.target===stage||e.target===bg||e.target===ph){state.selected=null;render();} });
 
+  // Feature 1: apply/release the phone precision-zoom once a gesture settles (between gestures, never mid-pinch),
+  // so the slide grows when an element is selected and eases back when deselected. Driven by selection, not touch.
+  function maybeZoom(){ if(!phActive) return; if(!!state.selected !== phZoomedActual){ renderCanvas(); } }
+
   // ----- two-finger pinch-to-resize the selected element (touch, phone only) -----
   // Scales el.size (the same property the corner handle / size slider use), with the same
   // per-type min/max, live and export-correct. One-finger drag and the corner handle are
@@ -939,7 +1020,7 @@
   },{passive:false});
   function pinchEnd(e){
     if(!e.touches||e.touches.length<2) pinchState=null;
-    if(!e.touches||e.touches.length===0){ pinching=false; renderInspector(); phoneSync(); }
+    if(!e.touches||e.touches.length===0){ pinching=false; renderInspector(); phoneSync(); maybeZoom(); }
   }
   stage.addEventListener('touchend',pinchEnd);
   stage.addEventListener('touchcancel',pinchEnd);
@@ -1025,8 +1106,9 @@
       rw.addEventListener('input',()=>{el.ringW=parseInt(rw.value,10)/100;renderCanvas();});
       inspector.appendChild(field('Badge ring width',rw));
       inspector.appendChild(field('Badge fill', colorRow(el.iconFill&&el.iconFill!=='transparent'?el.iconFill:'',c=>{el.iconFill=c;})));
-      const tsw=document.createElement('input'); tsw.type='range'; tsw.min=0; tsw.max=14; tsw.step=1; tsw.value=Math.round((el.textStrokeW||0)*100);
-      tsw.addEventListener('input',()=>{el.textStrokeW=parseInt(tsw.value,10)/100;renderCanvas();});
+      const TMAX=0.14;
+      const tsw=document.createElement('input'); tsw.type='range'; tsw.min=0; tsw.max=100; tsw.step=1; tsw.value=strokeToPos(el.textStrokeW,TMAX);
+      tsw.addEventListener('input',()=>{el.textStrokeW=posToStroke(tsw.value,TMAX);renderCanvas();});
       inspector.appendChild(field('Text stroke width',tsw));
       inspector.appendChild(field('Text stroke color', colorRow(el.textStrokeColor||'#111111',c=>{el.textStrokeColor=c;if(!el.textStrokeW)el.textStrokeW=0.05;})));
     }
@@ -1093,9 +1175,10 @@
 
     // outline / stroke - not for arrow & ring
     if(el.type!=='arrow'&&el.type!=='ring'){
-      const osl=document.createElement('input'); osl.type='range'; osl.min=0; osl.max=12; osl.step=1;
-      osl.value=Math.round((el.outlineW||0)*100);
-      osl.addEventListener('input',()=>{el.outlineW=parseFloat(osl.value)/100;renderCanvas();});
+      const OMAX=0.12;
+      const osl=document.createElement('input'); osl.type='range'; osl.min=0; osl.max=100; osl.step=1;
+      osl.value=strokeToPos(el.outlineW,OMAX);
+      osl.addEventListener('input',()=>{el.outlineW=posToStroke(osl.value,OMAX);renderCanvas();});
       inspector.appendChild(field('Stroke thickness',osl));
       inspector.appendChild(field('Stroke color', colorRow(el.outlineColor||'#111111',c=>{el.outlineColor=c;if(!el.outlineW)el.outlineW=0.06;})));
     }
@@ -1106,6 +1189,22 @@
       const sw3=document.createElement('div'); sw3.className='switch'+(el.scrim?' on':'');
       sw3.innerHTML='<i></i>'; sw3.addEventListener('click',()=>{el.scrim=!el.scrim;render();});
       scr.appendChild(sw3); inspector.appendChild(scr);
+
+      // Feature 2: soft, auto-colored readability shade behind just this element's text.
+      const shd=document.createElement('div'); shd.className='toggle';
+      shd.innerHTML='<span>Readability shade</span>';
+      const sw4=document.createElement('div'); sw4.className='switch'+(el.shade?' on':'');
+      sw4.innerHTML='<i></i>'; sw4.addEventListener('click',()=>{el.shade=!el.shade;render();});
+      shd.appendChild(sw4); inspector.appendChild(shd);
+
+      // Feature 4: save this element's style as a reusable hook style, or apply the saved one.
+      const hookRow=document.createElement('div'); hookRow.className='btnrow'; hookRow.style.marginTop='8px';
+      const saveB=document.createElement('button'); saveB.className='btn ghost sm'; saveB.textContent='Save style';
+      saveB.addEventListener('click',()=>{ saveHookStyle(el); meta.innerHTML='<b>Hook style saved.</b> Select another text element and tap Apply saved style.'; renderInspector(); });
+      const applyB=document.createElement('button'); applyB.className='btn ghost sm'; applyB.textContent='Apply saved style';
+      if(!hookStyle){ applyB.disabled=true; applyB.style.opacity='.5'; }
+      applyB.addEventListener('click',()=>{ applyHookStyle(el); render(); });
+      hookRow.appendChild(saveB); hookRow.appendChild(applyB); inspector.appendChild(hookRow);
     }
 
     const layer=document.createElement('div'); layer.className='btnrow'; layer.style.marginBottom='8px';
@@ -1475,10 +1574,11 @@ Return ONLY valid JSON, no markdown, exactly:
   // ---------- export ----------
   async function exportSlide(i){
     const pa=state.active,ps=state.selected;
-    state.active=i; state.selected=null; render();
+    state.active=i; state.selected=null; exporting=true; render();
     await new Promise(r=>setTimeout(r,70));
     const canvas=await html2canvas(stage,{scale:3,backgroundColor:null,useCORS:true,logging:false,ignoreElements:el=>el.classList&&el.classList.contains('noexport')});
     const a=document.createElement('a'); a.download='saxe-slide-'+(i+1)+'.png'; a.href=canvas.toDataURL('image/png'); a.click();
+    exporting=false;
     state.active=pa; state.selected=ps; render();
   }
   document.getElementById('export').addEventListener('click',()=>exportSlide(state.active));
