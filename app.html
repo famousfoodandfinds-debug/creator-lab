@@ -11399,7 +11399,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 <!-- ===== Carousel Studio (embedded) ===== -->
 <!-- The full carousel (markup + CSS + JS) lives in this inert template and is rendered
      into an isolated, same-origin iframe (#carouselFrame) so it cannot collide with the app. -->
-<div id="carouselPanel" style="display:none;"><div id="carouselExitBar"><button id="carouselExitBtn" type="button" onclick="showMainTab('scripts')">&#10005;&nbsp;Done</button><span class="ce-title">Carousel</span></div><iframe id="carouselFrame" title="Saxe Carousel Studio"></iframe></div>
+<div id="carouselPanel" style="display:none;"><div id="carouselExitBar"><button id="carouselExitBtn" type="button" onclick="showMainTab('scripts')">&#10005;&nbsp;Done</button><span class="ce-title">Carousel</span></div><iframe id="carouselFrame" title="Saxe Carousel Studio" allow="web-share"></iframe></div>
 <template id="carouselTpl">
 <link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Archivo+Black&family=Fjalla+One&family=Alfa+Slab+One&family=Bungee&family=Teko:wght@400;600&family=Anton+SC&family=Playfair+Display:wght@400;700;900&family=Marcellus&family=DM+Serif+Display&family=Abril+Fatface&family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;500;600&family=Poppins:wght@400;600;700&family=Montserrat:wght@400;600;800&family=Outfit:wght@400;600&family=Work+Sans:wght@400;600&family=Pacifico&family=Dancing+Script:wght@400;700&family=Caveat:wght@400;700&family=Caveat+Brush&family=Kaushan+Script&family=Permanent+Marker&family=Satisfy&family=Courgette&family=Yellowtail&family=Patrick+Hand&family=Shadows+Into+Light+Two&family=Gloria+Hallelujah&family=Cormorant+Garamond:wght@500;600&family=EB+Garamond:wght@500&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Cinzel:wght@500&family=Italiana&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
@@ -13005,21 +13005,50 @@ Return ONLY valid JSON, no markdown, exactly:
   genBtn.addEventListener('click',generate);
 
   // ---------- export ----------
-  async function exportSlide(i){
+  // Render slide i to a PNG File, using the exact same pipeline (scale 3, .noexport/overlay excluded,
+  // unscaled aspect ratio). Returns a File or null.
+  async function renderSlideFile(i){
     const pa=state.active,ps=state.selected;
     state.active=i; state.selected=null; exporting=true; render();
     // capture at the intrinsic (unscaled) size — snap any zoom transform off instantly, no transition
     const prevTrans=stage.style.transition; stage.style.transition='none'; phZoom=1; stage.style.transform='';
     await new Promise(r=>setTimeout(r,70));
     const canvas=await html2canvas(stage,{scale:3,backgroundColor:null,useCORS:true,logging:false,ignoreElements:el=>el.classList&&el.classList.contains('noexport')});
-    const a=document.createElement('a'); a.download='saxe-slide-'+(i+1)+'.png'; a.href=canvas.toDataURL('image/png'); a.click();
     stage.style.transition=prevTrans;
     exporting=false;
     state.active=pa; state.selected=ps; render();
+    const blob=await new Promise(res=>{ try{ canvas.toBlob(res,'image/png'); }catch(e){ res(null); } });
+    return blob ? new File([blob], 'saxe-slide-'+(i+1)+'.png', {type:'image/png'}) : null;
+  }
+  function canShareFiles(files){ try{ return !!(navigator.canShare && navigator.canShare({files})); }catch(e){ return false; } }
+  function downloadFile(file){
+    const url=URL.createObjectURL(file);
+    const a=document.createElement('a'); a.download=file.name; a.href=url;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>{ try{URL.revokeObjectURL(url);}catch(e){} },15000);
+  }
+  // One tap: hand the rendered PNG(s) straight to the native share sheet (iOS "Save Image" -> Photos).
+  // Falls back to the plain download anywhere file-sharing isn't supported (e.g. desktop).
+  async function shareOrDownload(files){
+    if(!files.length) return;
+    if(canShareFiles(files)){
+      try{ await navigator.share({files:files, title:'Saxe carousel'}); return; }
+      catch(err){
+        if(err && err.name==='AbortError') return;   // user dismissed the share sheet — done, don't re-download
+        // any other error (activation expired, not allowed, etc.): fall through to the download path
+      }
+    }
+    for(const f of files){ downloadFile(f); await new Promise(r=>setTimeout(r,250)); }
+  }
+  async function exportSlide(i){
+    const f=await renderSlideFile(i);
+    if(f) await shareOrDownload([f]);
   }
   document.getElementById('export').addEventListener('click',()=>exportSlide(state.active));
   document.getElementById('exportAll').addEventListener('click',async()=>{
-    for(let i=0;i<state.slides.length;i++){await exportSlide(i);await new Promise(r=>setTimeout(r,250));}
+    const files=[];
+    for(let i=0;i<state.slides.length;i++){ const f=await renderSlideFile(i); if(f) files.push(f); }
+    await shareOrDownload(files);
   });
 
   document.getElementById('ratioSel').addEventListener('change',e=>{state.ratio=e.target.value;state.selected=null;renderCanvas();syncDockSpace();});
