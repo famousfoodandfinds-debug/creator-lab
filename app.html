@@ -11585,13 +11585,14 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     body.carousel-phone #cardAdd,
     body.carousel-phone #cardPhotos{display:none}
 
-    /* pinned slide dock at the top */
-    body.carousel-phone .phone-dock{position:sticky;top:0;z-index:40;background:var(--paper);
+    /* Slide dock LOCKED to the top of the viewport. position:fixed (not sticky) so page scroll,
+       tray height, and the on-screen keyboard can never move it. Its layout height is constant
+       (the slide never scales), so JS reserves exactly that much space below it (body padding-top). */
+    body.carousel-phone .phone-dock{position:fixed;top:0;left:0;right:0;z-index:40;background:var(--paper);
       display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px 8px 10px;
       box-shadow:0 10px 16px -14px rgba(43,42,39,.55)}
     body.carousel-phone .phone-dock .slidetabs{margin:0}
-    body.carousel-phone .phone-dock #stage{box-shadow:0 10px 26px -16px rgba(43,42,39,.55);
-      transform-origin:top center; transition:transform .18s ease}
+    body.carousel-phone .phone-dock #stage{box-shadow:0 10px 26px -16px rgba(43,42,39,.55)}
 
     /* fixed bottom tray */
     body.carousel-phone .phone-tray{position:fixed;left:0;right:0;bottom:0;z-index:60;
@@ -12007,10 +12008,11 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 
   function sizeStage(iw,ih){
     const phone=window.matchMedia('(max-width:760px)').matches;
-    // The slide's INTRINSIC size never changes on selection — the phone precision-zoom is a pure CSS
-    // transform: scale() applied separately (see applyZoom), so no element ever reflows or repositions.
+    // The phone slide has ONE fixed size — it never scales or resizes on selection, so it can never
+    // move. (The old selection-zoom is gone; it shifted lower elements away from the finger on tap.)
+    // Sized to sit comfortably between the fixed top dock and the fixed bottom tray.
     const maxW=phone?Math.min(360,(window.innerWidth||360)-18):360;
-    const maxH=phone?Math.max(220,Math.round((window.innerHeight||600)*0.44)):600;
+    const maxH=phone?Math.max(240,Math.round((window.innerHeight||600)*0.5)):600;
     let rr;
     if(state.ratio==='3:4')rr=3/4;
     else if(state.ratio==='9:16')rr=9/16;
@@ -12338,7 +12340,8 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 
     if(EDIT_INLINE.includes(el.type)){
       const startEdit=(ev)=>{
-        node.classList.add('editing'); body.setAttribute('contenteditable','true'); body.focus();
+        node.classList.add('editing'); body.setAttribute('contenteditable','true');
+        try{ body.focus({preventScroll:true}); }catch(_){ body.focus(); }   // keyboard must not scroll/move the slide
         const sel=window.getSelection(); sel.removeAllRanges();
         // place a visible blinking caret: where the user tapped if we have coords, else at the end
         let r=null, cx=ev&&ev.clientX, cy=ev&&ev.clientY;
@@ -12361,7 +12364,8 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     if(el.type==='benefits'||el.type==='features'){
       const startRowEdit=f=>{
         if(!f)return;
-        node.classList.add('editing'); f.setAttribute('contenteditable','true'); f.focus();
+        node.classList.add('editing'); f.setAttribute('contenteditable','true');
+        try{ f.focus({preventScroll:true}); }catch(_){ f.focus(); }   // keyboard must not scroll/move the slide
         const r=document.createRange(); r.selectNodeContents(f); r.collapse(false); // caret at end -> visible blinking cursor
         const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
         const done=()=>{
@@ -12409,19 +12413,11 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 
   stage.addEventListener('pointerdown',e=>{ if(e.target===stage||e.target===bg||e.target===ph){state.selected=null;render();} });
 
-  // Feature 1 (WYSIWYG precision zoom): scale the WHOLE slide as one unit via CSS transform, so every
-  // element keeps its exact relative position — nothing reflows. Intrinsic size is unchanged, so export
-  // (which deselects) is pixel-identical to what's shown, just unscaled. Driven by selection, not touch.
-  function applyZoom(){
-    if(!phActive || !state.selected){ phZoom=1; stage.style.transform=''; return; }
-    const w=stage.clientWidth||1, h=stage.clientHeight||1;
-    const vw=window.innerWidth||360, vh=window.innerHeight||640;
-    const wantH=Math.max(300, Math.round(vh*0.6)-60);   // editing height target, kept above the fixed tray (~60vh)
-    let z=wantH/h;                                       // grow toward that height...
-    z=Math.min(z,(vw-12)/w);                             // ...but never wider than the screen (no horizontal clipping)
-    z=Math.max(1,Math.min(z,1.7));                       // never shrink; sane cap
-    phZoom=z; stage.style.transform='scale('+z.toFixed(4)+')';
-  }
+  // The slide never scales/zooms any more — it stays one fixed size so it can never move on selection.
+  // This just guarantees no stray transform is ever left on the stage. phZoom stays 1 (drag/pinch map 1:1).
+  function applyZoom(){ phZoom=1; if(stage.style.transform) stage.style.transform=''; }
+  // Keep the flow content clear of the fixed top dock: reserve exactly the dock's (constant) height.
+  function syncDockSpace(){ if(phActive && phDock) document.body.style.paddingTop=phDock.offsetHeight+'px'; }
 
   // ----- two-finger pinch-to-resize the selected element (touch, phone only) -----
   // Scales el.size (the same property the corner handle / size slider use), with the same
@@ -13026,7 +13022,7 @@ Return ONLY valid JSON, no markdown, exactly:
     for(let i=0;i<state.slides.length;i++){await exportSlide(i);await new Promise(r=>setTimeout(r,250));}
   });
 
-  document.getElementById('ratioSel').addEventListener('change',e=>{state.ratio=e.target.value;state.selected=null;renderCanvas();});
+  document.getElementById('ratioSel').addEventListener('change',e=>{state.ratio=e.target.value;state.selected=null;renderCanvas();syncDockSpace();});
   document.getElementById('safeToggle').addEventListener('change',e=>{state.safe=e.target.checked;renderCanvas();});
   function ensureFade(){const s=cur();if(!s.fade)s.fade={dir:'none',color:'#ffffff',amt:0.55};return s.fade;}
   document.getElementById('fadeDir').addEventListener('change',e=>{ensureFade().dir=e.target.value;renderCanvas();});
@@ -13130,10 +13126,12 @@ Return ONLY valid JSON, no markdown, exactly:
     phBriefCard=briefEl.closest('.card');
     if(phBriefCard){ phBriefCard.classList.add('phone-brief-card'); phBriefCard.parentNode.insertBefore(phBriefBar, phBriefCard); }
     render(); // recompute element px for the smaller stage and sync the tray
+    syncDockSpace();
   }
   function phUnapply(){
     if(!phBuilt) return; phActive=false;
     phZoom=1; stage.style.transform='';   // never leave the desktop slide scaled
+    document.body.style.paddingTop='';    // release the reserved dock space
     document.body.classList.remove('carousel-phone','brief-collapsed','brief-open');
     if(phBriefBar&&phBriefBar.parentNode) phBriefBar.parentNode.removeChild(phBriefBar);
     if(phBriefCard) phBriefCard.classList.remove('phone-brief-card');
@@ -13169,6 +13167,15 @@ Return ONLY valid JSON, no markdown, exactly:
   if(phoneMQ.addEventListener) phoneMQ.addEventListener('change',phOnChange);
   else if(phoneMQ.addListener) phoneMQ.addListener(phOnChange);
   if(phoneMQ.matches) phApply();
+  // Re-size only on a real width change (orientation). Ignore height-only changes — those are the
+  // on-screen keyboard opening/closing, and reacting to them would shrink/move the slide.
+  var phLastW=window.innerWidth;
+  window.addEventListener('resize',function(){
+    if(!phActive) return;
+    if(window.innerWidth===phLastW) return;   // keyboard (height-only): leave the slide exactly as it is
+    phLastW=window.innerWidth;
+    sizeStage(cur().iw,cur().ih); renderCanvas(); syncDockSpace();
+  });
 })();
 </script>
 </template>
