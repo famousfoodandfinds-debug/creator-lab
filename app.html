@@ -11490,7 +11490,13 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   .el.hasScrim .scrim{display:block}
   .el .shade{position:absolute;inset:-14px -20px;z-index:-1;border-radius:18px;display:none;pointer-events:none}
   .el.hasShade .shade{display:block}
-  .el .cbox{position:absolute;z-index:-1;pointer-events:none;box-sizing:border-box}
+  /* Container box uses a NON-negative z-index (0) and the text is lifted to z-index:1 above it.
+     A negative z-index child does NOT paint above the backdrop inside a composited/position:fixed
+     layer on WebKit/iOS (the phone dock is exactly that), which is why the old z-index:-1 box
+     rendered nothing on phone even though the DOM node, size and color were all correct. */
+  .el .cbox{position:absolute;z-index:0;pointer-events:none;box-sizing:border-box}
+  .el.has-cbox > .t-caps, .el.has-cbox > .t-kicker, .el.has-cbox > .t-script, .el.has-cbox > .t-body,
+  .el.has-cbox > .benefits, .el.has-cbox > .features{position:relative;z-index:1}
   .el.ui-warn{outline:1.5px solid #E0962F}
   .el.sel.ui-warn{outline:1.5px solid #E0962F}
   .uiwarn-chip{position:absolute;right:-6px;top:-11px;background:#E0962F;color:#fff;font:700 9px/1 Inter,sans-serif;
@@ -12190,11 +12196,12 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       // (Legacy el.fill is read here too so older saved slides still show a box.)
       var boxOn=(el.box!=null)?el.box:!!el.fill;
       if(boxOn && (TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features')){
+        node.classList.add('has-cbox');   // lifts the text to z-index:1 above the box (see CSS)
         const bx=document.createElement('div'); bx.className='cbox';
         const fpx2=el.size*W, padY=Math.max(5,fpx2*0.20), padX=Math.max(8,fpx2*0.34);
         bx.style.top=(-padY)+'px'; bx.style.bottom=(-padY)+'px'; bx.style.left=(-padX)+'px'; bx.style.right=(-padX)+'px';
         const bxColor=el.boxColor||el.fillColor||'#000000';
-        const bxOp=(el.boxOpacity!=null)?el.boxOpacity:((el.fillOpacity!=null)?el.fillOpacity:0.55);
+        const bxOp=(el.boxOpacity!=null)?el.boxOpacity:((el.fillOpacity!=null)?el.fillOpacity:0.6);
         bx.style.background=hexA(bxColor, bxOp);
         bx.style.borderRadius=boxRadius(el.boxShape||'round', fpx2);
         if(el.boxBorder){
@@ -12801,7 +12808,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         if(el.box){
           if(el.boxShape==null)   el.boxShape='round';
           if(el.boxColor==null)   el.boxColor=el.fillColor||'#000000';
-          if(el.boxOpacity==null) el.boxOpacity=(el.fillOpacity!=null?el.fillOpacity:0.55);
+          if(el.boxOpacity==null) el.boxOpacity=(el.fillOpacity!=null?el.fillOpacity:0.6);
         }
         render();
       });
@@ -12816,7 +12823,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         // fill color (the BOX, not the text)
         inspector.appendChild(field('Box color', colorRow(el.boxColor||'#000000',c=>{el.boxColor=c;})));
         // fill opacity
-        const bo=document.createElement('input'); bo.type='range'; bo.min=0; bo.max=100; bo.step=1; bo.value=Math.round(((el.boxOpacity!=null)?el.boxOpacity:0.55)*100);
+        const bo=document.createElement('input'); bo.type='range'; bo.min=0; bo.max=100; bo.step=1; bo.value=Math.round(((el.boxOpacity!=null)?el.boxOpacity:0.6)*100);
         bo.addEventListener('input',()=>{el.boxOpacity=parseInt(bo.value,10)/100;renderCanvas();});
         inspector.appendChild(field('Box opacity',bo));
         // optional border
