@@ -11477,8 +11477,12 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     background:linear-gradient(150deg,#efe9e0,#e2d8cb 60%,#d8c8b8)}
   .stage img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:none}
 
-  .el{position:absolute;cursor:grab;outline:1.5px solid transparent;border-radius:6px;max-width:90%}
-  .el.sel{outline:1.5px solid var(--rose)}
+  /* Explicit z-index:0 makes each element its OWN stacking context (recognized live AND by
+     html2canvas), so the z-index:-1 backgrounds (container box, scrim, shade) paint above the
+     slide photo and below the text — instead of escaping to an ancestor context and rendering
+     behind the photo, which was the root cause of the old fill box never showing. */
+  .el{position:absolute;cursor:grab;outline:1.5px solid transparent;border-radius:6px;max-width:90%;z-index:0}
+  .el.sel{outline:1.5px solid var(--rose);z-index:10}   /* float the selected element so its handles stay above overlapping boxes */
   .el.editing{cursor:text;outline:1.5px solid var(--rose)}
   /* FIX 4: a clearly visible blinking caret while editing (renders on top of any text stroke/outline) */
   .el.editing [contenteditable], .el [contenteditable="true"]{caret-color:#ED5A98}
@@ -11486,7 +11490,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   .el.hasScrim .scrim{display:block}
   .el .shade{position:absolute;inset:-14px -20px;z-index:-1;border-radius:18px;display:none;pointer-events:none}
   .el.hasShade .shade{display:block}
-  .el .fillbox{position:absolute;z-index:-1;border-radius:10px;pointer-events:none}
+  .el .cbox{position:absolute;z-index:-1;pointer-events:none;box-sizing:border-box}
   .el.ui-warn{outline:1.5px solid #E0962F}
   .el.sel.ui-warn{outline:1.5px solid #E0962F}
   .uiwarn-chip{position:absolute;right:-6px;top:-11px;background:#E0962F;color:#fff;font:700 9px/1 Inter,sans-serif;
@@ -12179,15 +12183,25 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
           : 'radial-gradient(ellipse at center, rgba(255,255,255,.52) 0%, rgba(255,255,255,.34) 46%, rgba(255,255,255,0) 78%)';
         node.appendChild(shade);
       }
-      // Feature 4: a real, controllable fill box behind the text/block (distinct from the shade).
-      // Hugs the body with a little padding that scales with the text, respects the element width,
-      // and exports exactly (plain DOM element, no noexport class).
-      if(el.fill && (TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features')){
-        const fb=document.createElement('div'); fb.className='fillbox';
-        const fpx2=el.size*W, padY=Math.max(4,fpx2*0.16), padX=Math.max(7,fpx2*0.28);
-        fb.style.top=(-padY)+'px'; fb.style.bottom=(-padY)+'px'; fb.style.left=(-padX)+'px'; fb.style.right=(-padX)+'px';
-        fb.style.background=hexA(el.fillColor||'#000000', el.fillOpacity!=null?el.fillOpacity:0.6);
-        node.appendChild(fb);
+      // Container box: a real background box behind the text/block (distinct from the readability
+      // shade). Sits above the photo/veil and below the text and icons, hugs the body with padding
+      // that scales with the text, follows the element width, and exports exactly (plain DOM, no
+      // clip-path so html2canvas renders it identically). Fills the BOX, never the text color.
+      // (Legacy el.fill is read here too so older saved slides still show a box.)
+      var boxOn=(el.box!=null)?el.box:!!el.fill;
+      if(boxOn && (TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features')){
+        const bx=document.createElement('div'); bx.className='cbox';
+        const fpx2=el.size*W, padY=Math.max(5,fpx2*0.20), padX=Math.max(8,fpx2*0.34);
+        bx.style.top=(-padY)+'px'; bx.style.bottom=(-padY)+'px'; bx.style.left=(-padX)+'px'; bx.style.right=(-padX)+'px';
+        const bxColor=el.boxColor||el.fillColor||'#000000';
+        const bxOp=(el.boxOpacity!=null)?el.boxOpacity:((el.fillOpacity!=null)?el.fillOpacity:0.55);
+        bx.style.background=hexA(bxColor, bxOp);
+        bx.style.borderRadius=boxRadius(el.boxShape||'round', fpx2);
+        if(el.boxBorder){
+          const bw=(el.boxBorderW!=null?el.boxBorderW:0.06)*fpx2;
+          if(bw>0.4) bx.style.border=Math.max(1,bw)+'px solid '+(el.boxBorderColor||'#111111');
+        }
+        node.appendChild(bx);
       }
       const body=document.createElement('div');
       if(TEXT_TYPES.includes(el.type)){
@@ -12329,6 +12343,17 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     d.style.transform=_pokeFlag?'translateZ(0)':'none';
   }
   function hexA(hex,a){hex=(hex||'#ffffff').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return 'rgba('+r+','+g+','+b+','+a+')';}
+  // Container-box shapes as border-radius strings (export-safe: html2canvas renders border-radius,
+  // not clip-path). Radii scale with the text size (fpx) so shapes look consistent at any size.
+  const BOX_SHAPES=[['round','Rounded'],['sharp','Sharp'],['pill','Pill'],['leaf','Leaf'],['tab','Tab']];
+  function boxRadius(shape,fpx){
+    const r=Math.max(8,fpx*0.30), s=Math.max(2,fpx*0.06);
+    if(shape==='sharp') return '0';
+    if(shape==='pill')  return '999px';
+    if(shape==='leaf')  return s+'px '+r+'px '+s+'px '+r+'px';   // opposite corners rounded (angled/leaf)
+    if(shape==='tab')   return r+'px '+r+'px '+r+'px '+s+'px';   // three rounded, one sharp (label tab)
+    return r+'px';                                                // rounded rectangle (default)
+  }
   // Feature 5: a whole-slide veil that washes the ENTIRE photo lighter or darker, separate from
   // the per-element photo fade. Painted under the text/elements, so it exports as part of the image.
   function renderVeil(s){
@@ -12764,17 +12789,48 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       sw4.innerHTML='<i></i>'; sw4.addEventListener('click',()=>{el.shade=!el.shade;render();});
       shd.appendChild(sw4); inspector.appendChild(shd);
 
-      // Feature 4: a real, controllable fill box (solid or semi-transparent) behind the text.
+      // Container box: a real background box behind the text/block. Shape picker + fill color +
+      // fill opacity + optional border. Fills the BOX, never the text color (text color stays
+      // independent). Works on plain text and benefit/feature blocks, desktop and phone.
+      const boxIsOn=(el.box!=null)?el.box:!!el.fill;   // honor legacy el.fill
       const flt=document.createElement('div'); flt.className='toggle';
-      flt.innerHTML='<span>Fill box</span>';
-      const sw5=document.createElement('div'); sw5.className='switch'+(el.fill?' on':'');
-      sw5.innerHTML='<i></i>'; sw5.addEventListener('click',()=>{el.fill=!el.fill; if(el.fill&&el.fillColor==null)el.fillColor='#000000'; if(el.fill&&el.fillOpacity==null)el.fillOpacity=0.6; render();});
+      flt.innerHTML='<span>Container box</span>';
+      const sw5=document.createElement('div'); sw5.className='switch'+(boxIsOn?' on':'');
+      sw5.innerHTML='<i></i>'; sw5.addEventListener('click',()=>{
+        el.box=!boxIsOn;
+        if(el.box){
+          if(el.boxShape==null)   el.boxShape='round';
+          if(el.boxColor==null)   el.boxColor=el.fillColor||'#000000';
+          if(el.boxOpacity==null) el.boxOpacity=(el.fillOpacity!=null?el.fillOpacity:0.55);
+        }
+        render();
+      });
       flt.appendChild(sw5); inspector.appendChild(flt);
-      if(el.fill){
-        inspector.appendChild(field('Fill color', colorRow(el.fillColor||'#000000',c=>{el.fillColor=c;})));
-        const fo=document.createElement('input'); fo.type='range'; fo.min=0; fo.max=100; fo.step=1; fo.value=Math.round((el.fillOpacity!=null?el.fillOpacity:0.6)*100);
-        fo.addEventListener('input',()=>{el.fillOpacity=parseInt(fo.value,10)/100;renderCanvas();});
-        inspector.appendChild(field('Fill opacity',fo));
+      if(boxIsOn){
+        // shape picker
+        const shSel=document.createElement('select');
+        shSel.style.cssText='width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;color:var(--ink);background:#fff';
+        BOX_SHAPES.forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;if((el.boxShape||'round')===v)o.selected=true;shSel.appendChild(o);});
+        shSel.addEventListener('change',()=>{el.boxShape=shSel.value;renderCanvas();});
+        inspector.appendChild(field('Box shape',shSel));
+        // fill color (the BOX, not the text)
+        inspector.appendChild(field('Box color', colorRow(el.boxColor||'#000000',c=>{el.boxColor=c;})));
+        // fill opacity
+        const bo=document.createElement('input'); bo.type='range'; bo.min=0; bo.max=100; bo.step=1; bo.value=Math.round(((el.boxOpacity!=null)?el.boxOpacity:0.55)*100);
+        bo.addEventListener('input',()=>{el.boxOpacity=parseInt(bo.value,10)/100;renderCanvas();});
+        inspector.appendChild(field('Box opacity',bo));
+        // optional border
+        const brt=document.createElement('div'); brt.className='toggle';
+        brt.innerHTML='<span>Box border</span>';
+        const sw6=document.createElement('div'); sw6.className='switch'+(el.boxBorder?' on':'');
+        sw6.innerHTML='<i></i>'; sw6.addEventListener('click',()=>{el.boxBorder=!el.boxBorder; if(el.boxBorder){ if(el.boxBorderColor==null)el.boxBorderColor='#111111'; if(el.boxBorderW==null)el.boxBorderW=0.06; } render();});
+        brt.appendChild(sw6); inspector.appendChild(brt);
+        if(el.boxBorder){
+          inspector.appendChild(field('Border color', colorRow(el.boxBorderColor||'#111111',c=>{el.boxBorderColor=c;})));
+          const bw=document.createElement('input'); bw.type='range'; bw.min=0; bw.max=100; bw.step=1; bw.value=Math.round(((el.boxBorderW!=null)?el.boxBorderW:0.06)/0.20*100);
+          bw.addEventListener('input',()=>{el.boxBorderW=(parseInt(bw.value,10)/100)*0.20;renderCanvas();});
+          inspector.appendChild(field('Border width',bw));
+        }
       }
 
       // Feature 4: save this element's style as a reusable hook style, or apply the saved one.
