@@ -11486,6 +11486,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   .el.hasScrim .scrim{display:block}
   .el .shade{position:absolute;inset:-14px -20px;z-index:-1;border-radius:18px;display:none;pointer-events:none}
   .el.hasShade .shade{display:block}
+  .el .fillbox{position:absolute;z-index:-1;border-radius:10px;pointer-events:none}
   .el.ui-warn{outline:1.5px solid #E0962F}
   .el.sel.ui-warn{outline:1.5px solid #E0962F}
   .uiwarn-chip{position:absolute;right:-6px;top:-11px;background:#E0962F;color:#fff;font:700 9px/1 Inter,sans-serif;
@@ -11674,6 +11675,23 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     body.carousel-phone .phone-brief-toggle:active{border-color:var(--rose)}
     body.carousel-phone.brief-collapsed .phone-brief-card{display:none}
     body.carousel-phone.brief-collapsed.brief-open .phone-brief-card{display:block}
+    /* FIX 2: reclaim the screen. The slide + slide-tabs live in the pinned dock and every
+       slide-level control moves into the settings sheet, so the emptied stagewrap and the
+       in-flow "Write the carousel" card are hidden. Only the slide + tray + gear remain. */
+    body.carousel-phone .stagewrap{display:none}
+    body.carousel-phone.brief-collapsed #cardGenerate{display:none}
+    body.carousel-phone .phone-settings-btn{border:1px solid var(--line);background:#fff;border-radius:8px;
+      width:34px;height:30px;font-size:15px;line-height:1;color:var(--ink);cursor:pointer;font-family:inherit}
+    body.carousel-phone .phone-settings-btn:active{border-color:var(--rose)}
+    body.carousel-phone .phone-settings-body{display:flex;flex-direction:column;gap:14px;align-items:stretch}
+    body.carousel-phone .phone-settings-body #shapeRow,
+    body.carousel-phone .phone-settings-body #fadeRow,
+    body.carousel-phone .phone-settings-body #veilRow,
+    body.carousel-phone .phone-settings-body #exportRow,
+    body.carousel-phone .phone-settings-body #rmRow,
+    body.carousel-phone .phone-settings-body #angleBlock,
+    body.carousel-phone .phone-settings-body #meta{max-width:none;width:100%;margin:0}
+    body.carousel-phone .phone-settings-body #meta{text-align:left}
   }
 </style>
 </head>
@@ -11694,7 +11712,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         <div class="shots" id="shots"></div>
         <div class="drop" id="shotdrop">+ Add screenshots of the description<br><span style="font-size:11px">paste with Ctrl/Cmd + V or tap to upload</span></div>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;cursor:pointer;user-select:none"><input type="checkbox" id="matchPhotos" checked style="accent-color:var(--rose)"> Read each photo and match the copy to the product shown</label>
-        <div style="margin-top:12px">
+        <div style="margin-top:12px" id="angleBlock">
           <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Angle to focus on (optional)</label>
           <input id="angleInput" type="text" placeholder="The one promise, e.g. your whole home smells like a bouquet" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;color:var(--ink);box-sizing:border-box">
           <div style="display:flex;align-items:center;gap:8px;margin-top:6px;flex-wrap:wrap">
@@ -11737,7 +11755,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     <!-- STAGE -->
     <div class="stagewrap">
       <div class="slidetabs" id="slidetabs"></div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
+      <div id="shapeRow" style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)">
         <span>Shape</span>
         <select id="ratioSel" style="border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-family:inherit;font-size:12px;color:var(--ink);background:#fff">
           <option value="3:4">TikTok 3:4 (recommended)</option>
@@ -11751,7 +11769,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         <img class="bg" id="bg" alt="">
       </div>
       <div class="meta" id="meta"></div>
-      <div style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);width:100%;max-width:340px;flex-wrap:wrap">
+      <div id="fadeRow" style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);width:100%;max-width:340px;flex-wrap:wrap">
         <span style="flex:0 0 auto">Photo fade</span>
         <select id="fadeDir" style="border:1px solid var(--line);border-radius:8px;padding:5px 7px;font-family:inherit;font-size:12px;color:var(--ink);background:#fff">
           <option value="none">None</option>
@@ -11763,11 +11781,20 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         <input type="range" id="fadeAmt" min="10" max="100" value="55" style="flex:1;min-width:70px;accent-color:var(--rose)">
         <input type="color" id="fadeColor" value="#ffffff" title="Fade color" style="width:30px;height:26px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer">
       </div>
-      <div class="btnrow" style="width:100%;max-width:340px">
+      <!-- Feature 5: whole-slide photo veil (lighten/darken the entire image under the text) -->
+      <div id="veilRow" style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);width:100%;max-width:340px;flex-wrap:wrap">
+        <span style="flex:0 0 auto">Photo veil</span>
+        <select id="veilMode" style="border:1px solid var(--line);border-radius:8px;padding:5px 7px;font-family:inherit;font-size:12px;color:var(--ink);background:#fff">
+          <option value="light">Lighten</option>
+          <option value="dark">Darken</option>
+        </select>
+        <input type="range" id="veilAmt" min="0" max="100" value="0" title="Veil strength" style="flex:1;min-width:70px;accent-color:var(--rose)">
+      </div>
+      <div class="btnrow" id="exportRow" style="width:100%;max-width:340px">
         <button class="btn rose" id="export">Export this slide</button>
         <button class="btn ghost" id="exportAll" style="flex:0 0 auto;padding-left:14px;padding-right:14px">Export all</button>
       </div>
-      <div class="btnrow" style="width:100%;max-width:340px">
+      <div class="btnrow" id="rmRow" style="width:100%;max-width:340px">
         <button class="btn ghost sm danger" id="rmslide">Remove this slide</button>
       </div>
     </div>
@@ -11951,14 +11978,18 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   // 3:4 and 9:16). x0,y0 = top-left corner; x1,y1 = bottom-right corner (0..1).
   // Drives BOTH the visual overlay and the Feature-3 "text may be hidden" warning.
   // >>> Fine-tune these numbers to taste. <<<
+  // FIX 3: where the bottom TikTok UI band (shop tag + handle + caption) STARTS, as a
+  // fraction of slide height. The real posted layout sits lower/shorter than the old 0.77,
+  // so the band is raised to reclaim usable room at the bottom. Tune this one number.
+  const BOTTOM_SAFE_Y0 = 0.86;
   const SAFE_ZONES=[
     // Top search bar: full width, very top, ~7.5% tall.
-    { key:'top',    label:'search bar',       x0:0.00, y0:0.00, x1:1.00, y1:0.075 },
+    { key:'top',    label:'search bar',       x0:0.00, y0:0.00,          x1:1.00, y1:0.075 },
     // Right rail (profile / like / comment / bookmark): right 20% of width, and only the
     // LOWER part of the screen — starts 45% down and runs to near the bottom. NOT full height.
-    { key:'rail',   label:'buttons',          x0:0.80, y0:0.45, x1:1.00, y1:0.95  },
-    // Bottom band (shop tag, handle, caption): full width, bottom ~23% of height.
-    { key:'bottom', label:'caption & handle', x0:0.00, y0:0.77, x1:1.00, y1:1.00  },
+    { key:'rail',   label:'buttons',          x0:0.80, y0:0.45,          x1:1.00, y1:0.95  },
+    // Bottom band (shop tag, handle, caption): full width, bottom (1 - BOTTOM_SAFE_Y0) of height.
+    { key:'bottom', label:'caption & handle', x0:0.00, y0:BOTTOM_SAFE_Y0, x1:1.00, y1:1.00  },
   ];
   // 12-point starburst polygon
   const BURST_PTS=(function(){let p=[];for(let i=0;i<24;i++){const r=i%2?28:50;const a=(Math.PI/12)*i-Math.PI/2;p.push((50+r*Math.cos(a)).toFixed(1)+','+(50+r*Math.sin(a)).toFixed(1));}return p.join(' ');})();
@@ -12005,6 +12036,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 
   function cur(){return state.slides[state.active]}
   function selEl(){const s=cur();return s?s.elements.find(e=>e.id===state.selected):null}
+  function elById(idv){const s=cur();return s?s.elements.find(e=>e.id===idv):null}
 
   function sizeStage(iw,ih){
     const phone=window.matchMedia('(max-width:760px)').matches;
@@ -12125,6 +12157,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     sizeStage(s.iw,s.ih);
     if(s.photo){coverBg(s);ph.style.display='none';}
     else{bg.style.display='none';ph.style.display='flex';}
+    renderVeil(s);
     renderFade(s);
     [...stage.querySelectorAll('.el')].forEach(e=>e.remove());
     const W=stage.clientWidth, H=stage.clientHeight;
@@ -12143,6 +12176,16 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
           ? 'radial-gradient(ellipse at center, rgba(0,0,0,.46) 0%, rgba(0,0,0,.30) 46%, rgba(0,0,0,0) 78%)'
           : 'radial-gradient(ellipse at center, rgba(255,255,255,.52) 0%, rgba(255,255,255,.34) 46%, rgba(255,255,255,0) 78%)';
         node.appendChild(shade);
+      }
+      // Feature 4: a real, controllable fill box behind the text/block (distinct from the shade).
+      // Hugs the body with a little padding that scales with the text, respects the element width,
+      // and exports exactly (plain DOM element, no noexport class).
+      if(el.fill && (TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features')){
+        const fb=document.createElement('div'); fb.className='fillbox';
+        const fpx2=el.size*W, padY=Math.max(4,fpx2*0.16), padX=Math.max(7,fpx2*0.28);
+        fb.style.top=(-padY)+'px'; fb.style.bottom=(-padY)+'px'; fb.style.left=(-padX)+'px'; fb.style.right=(-padX)+'px';
+        fb.style.background=hexA(el.fillColor||'#000000', el.fillOpacity!=null?el.fillOpacity:0.6);
+        node.appendChild(fb);
       }
       const body=document.createElement('div');
       if(TEXT_TYPES.includes(el.type)){
@@ -12268,8 +12311,20 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     meta.innerHTML='<b>Slide '+(state.active+1)+' of '+state.slides.length+'</b> · rules on: no prices, no competing brands, action CTA, no em dashes';
     renderSafeZones();
     syncFade();
+    syncVeil();
   }
   function hexA(hex,a){hex=(hex||'#ffffff').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return 'rgba('+r+','+g+','+b+','+a+')';}
+  // Feature 5: a whole-slide veil that washes the ENTIRE photo lighter or darker, separate from
+  // the per-element photo fade. Painted under the text/elements, so it exports as part of the image.
+  function renderVeil(s){
+    const old=stage.querySelector('.photoveil'); if(old)old.remove();
+    const v=s.veil; if(!v||!s.photo) return;
+    const amt=Math.max(0,Math.min(v.amt!=null?v.amt:0,1)); if(amt<=0) return;
+    const g=document.createElement('div'); g.className='photoveil';
+    const col=(v.mode==='dark')?'0,0,0':'255,255,255';
+    g.style.cssText='position:absolute;inset:0;pointer-events:none;background:rgba('+col+','+amt.toFixed(3)+')';
+    stage.appendChild(g);
+  }
   function renderFade(s){
     const old=stage.querySelector('.photofade'); if(old)old.remove();
     const f=s.fade; if(!f||f.dir==='none'||!s.photo)return;
@@ -12309,12 +12364,20 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
   var pinching=false;   // true while a two-finger pinch-resize is in progress (suppresses 1-finger drag)
+  // FIX 1: the element id a touch/drag gesture is locked to. Captured on the FIRST
+  // finger down and used for the whole gesture; a second finger landing on another
+  // element must NOT re-target the gesture. Phone-only guard so desktop is unchanged.
+  var gestureLockId=null;
   function wire(node,el,body,handle){
     let drag=null;
     node.addEventListener('pointerdown',e=>{
       if(node.classList.contains('editing'))return;
       if(e.target===handle)return;
       if(e.target.classList&&e.target.classList.contains('delbtn'))return;
+      // Once a gesture is locked to one element, ignore a second finger that lands on
+      // a different element: do not re-select or start a second drag/resize on it.
+      if(phActive && gestureLockId && gestureLockId!==el.id) return;
+      gestureLockId=el.id;
       e.preventDefault();
       if(state.selected!==el.id){
         state.selected=el.id;
@@ -12336,7 +12399,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       el.x=nx/drag.W; el.y=ny/drag.H;
       drag.el.style.left=nx+'px'; drag.el.style.top=ny+'px';
     });
-    node.addEventListener('pointerup',()=>{ if(drag){drag.el.style.cursor='grab';drag=null;} });
+    node.addEventListener('pointerup',()=>{ if(drag){drag.el.style.cursor='grab';drag=null;} if(!phActive) gestureLockId=null; });
 
     if(EDIT_INLINE.includes(el.type)){
       const startEdit=(ev)=>{
@@ -12384,6 +12447,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     let rz=null;
     handle.addEventListener('pointerdown',e=>{
       e.stopPropagation(); e.preventDefault();
+      gestureLockId=el.id;   // corner-resize also locks to this element
       rz={sy:e.clientY,sx:e.clientX,of:el.size,ow:(el.w||(el.type==='features'?0.8:0.62)),W:stage.clientWidth};
       handle.setPointerCapture(e.pointerId);
     });
@@ -12408,7 +12472,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       else body.style.fontSize=px+'px';
       const sl=document.getElementById('sizeSlider'); if(sl)sl.value=(nf*1000).toFixed(0);
     });
-    handle.addEventListener('pointerup',()=>{rz=null;});
+    handle.addEventListener('pointerup',()=>{rz=null; if(!phActive) gestureLockId=null;});
   }
 
   stage.addEventListener('pointerdown',e=>{ if(e.target===stage||e.target===bg||e.target===ph){state.selected=null;render();} });
@@ -12428,8 +12492,10 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   function pinchBounds(el){ var bb=(el.type==='badge'||el.type==='burst'); return { min:bb?0.05:0.012, max:bb?0.30:(GFX_TYPES.includes(el.type)?0.45:0.20) }; }
   stage.addEventListener('touchstart',function(e){
     if(!phActive||e.touches.length!==2) return;
-    var el=selEl();
-    if(!el){ // nothing selected: select the element under either finger (or the midpoint), then scale it
+    // FIX 1: lock the pinch to the element the gesture STARTED on (captured by the
+    // first finger's pointerdown), never to whichever element is nearest the fingers.
+    var el = gestureLockId ? elById(gestureLockId) : selEl();
+    if(!el){ // nothing locked/selected: select the element under either finger (or the midpoint), then lock to it
       var pts=[e.touches[0], e.touches[1],
                {clientX:(e.touches[0].clientX+e.touches[1].clientX)/2, clientY:(e.touches[0].clientY+e.touches[1].clientY)/2}];
       for(var pi=0; pi<pts.length && !el; pi++){
@@ -12438,12 +12504,15 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       }
     }
     if(!el) return;
+    gestureLockId=el.id;   // hold the lock for the whole pinch
     e.preventDefault(); pinching=true;
     pinchState={ id:el.id, d0:pinchDist(e.touches), s0:el.size };
   },{passive:false});
   stage.addEventListener('touchmove',function(e){
     if(!pinchState||e.touches.length!==2) return;
-    var el=selEl(); if(!el||el.id!==pinchState.id) return;
+    // Resolve the element straight from the locked id, NOT from the current selection,
+    // so a second finger drifting over another box can never re-target the resize.
+    var el=elById(pinchState.id); if(!el) return;
     e.preventDefault();
     var scale=pinchDist(e.touches)/pinchState.d0; if(!isFinite(scale)||scale<=0) return;
     var b=pinchBounds(el);
@@ -12453,7 +12522,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   },{passive:false});
   function pinchEnd(e){
     if(!e.touches||e.touches.length<2) pinchState=null;
-    if(!e.touches||e.touches.length===0){ pinching=false; renderInspector(); phoneSync(); }
+    if(!e.touches||e.touches.length===0){ pinching=false; gestureLockId=null; renderInspector(); phoneSync(); }
   }
   stage.addEventListener('touchend',pinchEnd);
   stage.addEventListener('touchcancel',pinchEnd);
@@ -12532,18 +12601,22 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     }
 
     if(el.type==='benefits'||el.type==='features'){
+      // FIX 6: keep all TEXT-styling controls together (size + color are above; font + text
+      // stroke width/color follow), then the ICON controls in their own group AFTER. Same
+      // controls, same behavior, just regrouped so the stroke stays with the text color.
       inspector.appendChild(field('Text font',fontPicker(el)));
+      const TMAX=0.14;
+      const tsw=document.createElement('input'); tsw.type='range'; tsw.min=0; tsw.max=100; tsw.step=1; tsw.value=strokeToPos(el.textStrokeW,TMAX);
+      tsw.addEventListener('input',()=>{el.textStrokeW=posToStroke(tsw.value,TMAX);renderCanvas();});
+      inspector.appendChild(field('Text stroke width',tsw));
+      inspector.appendChild(field('Text stroke color', colorRow(el.textStrokeColor||'#111111',c=>{el.textStrokeColor=c;if(!el.textStrokeW)el.textStrokeW=0.05;})));
+      // --- icon controls group ---
       inspector.appendChild(field('Icon color', colorRow(el.iconColor||el.color,c=>{el.iconColor=c;})));
       inspector.appendChild(field('Badge ring color', colorRow(el.ringColor||el.iconColor||el.color,c=>{el.ringColor=c;})));
       const rw=document.createElement('input'); rw.type='range'; rw.min=0; rw.max=30; rw.step=1; rw.value=Math.round((el.ringW!=null?el.ringW:0.085)*100);
       rw.addEventListener('input',()=>{el.ringW=parseInt(rw.value,10)/100;renderCanvas();});
       inspector.appendChild(field('Badge ring width',rw));
       inspector.appendChild(field('Badge fill', colorRow(el.iconFill&&el.iconFill!=='transparent'?el.iconFill:'',c=>{el.iconFill=c;})));
-      const TMAX=0.14;
-      const tsw=document.createElement('input'); tsw.type='range'; tsw.min=0; tsw.max=100; tsw.step=1; tsw.value=strokeToPos(el.textStrokeW,TMAX);
-      tsw.addEventListener('input',()=>{el.textStrokeW=posToStroke(tsw.value,TMAX);renderCanvas();});
-      inspector.appendChild(field('Text stroke width',tsw));
-      inspector.appendChild(field('Text stroke color', colorRow(el.textStrokeColor||'#111111',c=>{el.textStrokeColor=c;if(!el.textStrokeW)el.textStrokeW=0.05;})));
     }
 
     if(el.type==='burst'){
@@ -12629,6 +12702,19 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       const sw4=document.createElement('div'); sw4.className='switch'+(el.shade?' on':'');
       sw4.innerHTML='<i></i>'; sw4.addEventListener('click',()=>{el.shade=!el.shade;render();});
       shd.appendChild(sw4); inspector.appendChild(shd);
+
+      // Feature 4: a real, controllable fill box (solid or semi-transparent) behind the text.
+      const flt=document.createElement('div'); flt.className='toggle';
+      flt.innerHTML='<span>Fill box</span>';
+      const sw5=document.createElement('div'); sw5.className='switch'+(el.fill?' on':'');
+      sw5.innerHTML='<i></i>'; sw5.addEventListener('click',()=>{el.fill=!el.fill; if(el.fill&&el.fillColor==null)el.fillColor='#000000'; if(el.fill&&el.fillOpacity==null)el.fillOpacity=0.6; render();});
+      flt.appendChild(sw5); inspector.appendChild(flt);
+      if(el.fill){
+        inspector.appendChild(field('Fill color', colorRow(el.fillColor||'#000000',c=>{el.fillColor=c;})));
+        const fo=document.createElement('input'); fo.type='range'; fo.min=0; fo.max=100; fo.step=1; fo.value=Math.round((el.fillOpacity!=null?el.fillOpacity:0.6)*100);
+        fo.addEventListener('input',()=>{el.fillOpacity=parseInt(fo.value,10)/100;renderCanvas();});
+        inspector.appendChild(field('Fill opacity',fo));
+      }
 
       // Feature 4: save this element's style as a reusable hook style, or apply the saved one.
       const hookRow=document.createElement('div'); hookRow.className='btnrow'; hookRow.style.marginTop='8px';
@@ -13057,6 +13143,11 @@ Return ONLY valid JSON, no markdown, exactly:
   document.getElementById('fadeDir').addEventListener('change',e=>{ensureFade().dir=e.target.value;renderCanvas();});
   document.getElementById('fadeAmt').addEventListener('input',e=>{ensureFade().amt=parseInt(e.target.value,10)/100;renderCanvas();});
   document.getElementById('fadeColor').addEventListener('input',e=>{const f=ensureFade();f.color=e.target.value;if(f.dir==='none')f.dir='left';renderCanvas();});
+  // Feature 5: whole-slide photo veil
+  function ensureVeil(){const s=cur();if(!s.veil)s.veil={mode:'light',amt:0};return s.veil;}
+  document.getElementById('veilMode').addEventListener('change',e=>{ensureVeil().mode=e.target.value;renderCanvas();});
+  document.getElementById('veilAmt').addEventListener('input',e=>{ensureVeil().amt=parseInt(e.target.value,10)/100;renderCanvas();});
+  function syncVeil(){const s=cur();const v=s.veil||{mode:'light',amt:0};const vm=document.getElementById('veilMode');if(vm)vm.value=v.mode||'light';const va=document.getElementById('veilAmt');if(va)va.value=Math.round((v.amt!=null?v.amt:0)*100);}
 
   render();
 
@@ -13069,6 +13160,8 @@ Return ONLY valid JSON, no markdown, exactly:
   var phActive=false, phBuilt=false, phMoves=[];
   var phDock, phTray, phTrayBody, phAdd, phTitle, phEditBtn, phDeleteBtn, phStickersBtn, phSheet, phSheetBody;
   var phBriefBar, phBriefToggle, phBriefCard;
+  // FIX 2: a compact "Slide settings & export" sheet + the one small button that opens it.
+  var phSettingsBtn, phSettingsSheet, phSettingsBody, phRegenBtn;
   function phMove(node,parent){ if(!node) return; phMoves.push({n:node,p:node.parentNode,s:node.nextSibling}); parent.appendChild(node); }
   function phRestore(){ for(var i=phMoves.length-1;i>=0;i--){ var m=phMoves[i]; if(!m.p) continue; if(m.s&&m.s.parentNode===m.p) m.p.insertBefore(m.n,m.s); else m.p.appendChild(m.n); } phMoves=[]; }
   function phLabel(el){ var t=el&&el.type;
@@ -13136,6 +13229,32 @@ Return ONLY valid JSON, no markdown, exactly:
     phBriefToggle=document.createElement('button'); phBriefToggle.type='button'; phBriefToggle.className='phone-brief-toggle'; phBriefToggle.textContent='Edit brief';
     phBriefToggle.addEventListener('click',function(){ document.body.classList.toggle('brief-open'); phBriefSync(); });
     phBriefBar.appendChild(addPhotoBtn); phBriefBar.appendChild(phBriefToggle);
+
+    // FIX 2: the "Slide settings & export" sheet. Reuses the phone-sheet look. It holds the
+    // slide-level controls (regenerate, Angle, Shape, Safe zones, Slide rules, Photo fade/veil,
+    // Export, Remove) so none of them sit in the scroll between the pinned slide and the tray.
+    phSettingsBtn=document.createElement('button'); phSettingsBtn.type='button'; phSettingsBtn.className='phone-settings-btn'; phSettingsBtn.setAttribute('aria-label','Slide settings & export'); phSettingsBtn.innerHTML='&#9881;';
+    phSettingsSheet=document.createElement('div'); phSettingsSheet.className='phone-sheet phone-settings-sheet';
+    var gBack=document.createElement('div'); gBack.className='phone-sheet-backdrop';
+    var gPanel=document.createElement('div'); gPanel.className='phone-sheet-panel';
+    var gHead=document.createElement('div'); gHead.className='phone-sheet-head';
+    var gTitle=document.createElement('span'); gTitle.className='phone-sheet-title'; gTitle.textContent='Slide settings & export';
+    var gClose=document.createElement('button'); gClose.type='button'; gClose.className='phone-sheet-close'; gClose.setAttribute('aria-label','Close'); gClose.innerHTML='&#10005;';
+    gHead.appendChild(gTitle); gHead.appendChild(gClose);
+    phSettingsBody=document.createElement('div'); phSettingsBody.className='phone-sheet-body phone-settings-body';
+    gPanel.appendChild(gHead); gPanel.appendChild(phSettingsBody);
+    phSettingsSheet.appendChild(gBack); phSettingsSheet.appendChild(gPanel);
+    // Regenerate button inside the sheet drives the same action as the flow "Write the carousel".
+    phRegenBtn=document.createElement('button'); phRegenBtn.type='button'; phRegenBtn.className='btn rose phone-regen'; phRegenBtn.style.width='100%'; phRegenBtn.textContent='↻ Regenerate carousel';
+    phRegenBtn.addEventListener('click',function(){ phSettingsSheet.classList.remove('open'); var g=document.getElementById('gen'); if(g) g.click(); });
+    function phCloseSettings(){ phSettingsSheet.classList.remove('open'); }
+    phSettingsBtn.addEventListener('click',function(){ phSettingsSheet.classList.add('open'); });
+    gClose.addEventListener('click',phCloseSettings);
+    gBack.addEventListener('click',phCloseSettings);
+    phTray.appendChild(phSettingsSheet);
+    phSettingsBody.appendChild(phRegenBtn);
+    // the gear lives in the tray head and is always visible (the one small piece of extra chrome)
+    actions.insertBefore(phSettingsBtn, close);
   }
   function phApply(){
     phBuild(); phActive=true;
@@ -13151,6 +13270,16 @@ Return ONLY valid JSON, no markdown, exactly:
     phMove(gallery, phSheetBody);              // the full gallery lives in the dismissible sheet
     phTrayBody.appendChild(phAdd);
     phMove(inspector, phTrayBody);
+    // FIX 2: move every slide-level control out of the scroll and into the settings sheet, so
+    // the phone editing view is just the pinned slide + the tray. All nodes are MOVED (wiring
+    // intact) and restored on phUnapply.
+    phMove(document.getElementById('angleBlock'), phSettingsBody);   // Angle
+    phMove(document.getElementById('shapeRow'),   phSettingsBody);   // Shape + Safe zones
+    phMove(meta,                                  phSettingsBody);   // Slide-rules line
+    phMove(document.getElementById('fadeRow'),    phSettingsBody);   // Photo fade
+    phMove(document.getElementById('veilRow'),    phSettingsBody);   // Photo veil (feature 5)
+    phMove(document.getElementById('exportRow'),  phSettingsBody);   // Export
+    phMove(document.getElementById('rmRow'),      phSettingsBody);   // Remove slide
     // collapse the brief card behind the compact bar once a carousel exists
     phBriefCard=briefEl.closest('.card');
     if(phBriefCard){ phBriefCard.classList.add('phone-brief-card'); phBriefCard.parentNode.insertBefore(phBriefBar, phBriefCard); }
