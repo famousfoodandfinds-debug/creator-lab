@@ -11662,7 +11662,9 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     body.carousel-phone .el{touch-action:none}
     body.carousel-phone .el .delbtn{width:28px;height:28px;left:-6px;top:-6px;
       font-size:18px;line-height:26px}
-    body.carousel-phone .el .handle{width:24px;height:24px;right:-10px;bottom:-10px}
+    /* FIX C: keep the resize handle INSIDE the selected element on phone so it never overhangs a
+       neighbor and steal a tap meant to select that neighbor. Resize is the handle or a pinch. */
+    body.carousel-phone .el .handle{width:24px;height:24px;right:0;bottom:0}
     /* brief + upload collapse once a carousel exists; compact bar takes their place */
     body.carousel-phone .phone-brief-bar{display:none}
     body.carousel-phone.brief-collapsed .phone-brief-bar{display:flex;align-items:center;gap:8px;
@@ -12312,6 +12314,19 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     renderSafeZones();
     syncFade();
     syncVeil();
+    pokeRepaint();   // FIX D: force the fixed-dock layer to repaint so control changes show live on phone
+  }
+  // FIX D root cause: the phone slide lives inside a position:fixed dock. WebKit/iOS does not
+  // repaint descendants of a fixed element when they change via JS until that compositor layer is
+  // invalidated (a scroll or gesture, which is why edits only appeared after a "save"/re-touch).
+  // Nudging the dock's transform each render invalidates the layer so every control updates live.
+  // Phone-only (guarded by phActive) so desktop is untouched.
+  var _pokeFlag=false;
+  function pokeRepaint(){
+    if(!phActive) return;
+    var d=(typeof phDock!=='undefined'&&phDock)?phDock:null; if(!d) return;
+    _pokeFlag=!_pokeFlag;
+    d.style.transform=_pokeFlag?'translateZ(0)':'none';
   }
   function hexA(hex,a){hex=(hex||'#ffffff').replace('#','');if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');const r=parseInt(hex.slice(0,2),16),g=parseInt(hex.slice(2,4),16),b=parseInt(hex.slice(4,6),16);return 'rgba('+r+','+g+','+b+','+a+')';}
   // Feature 5: a whole-slide veil that washes the ENTIRE photo lighter or darker, separate from
@@ -12477,6 +12492,46 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 
   stage.addEventListener('pointerdown',e=>{ if(e.target===stage||e.target===bg||e.target===ph){state.selected=null;render();} });
 
+  // FIX C (phone): centralized single-finger select + drag. Picks the SMALLEST element whose box is
+  // under the finger (so a small box stacked on a bigger one is selectable), selects it, and moves it.
+  // A single finger NEVER resizes; resize stays the selected element's corner handle or a two-finger
+  // pinch. Runs in the CAPTURE phase so it wins over the per-element handlers, so a neighbor's handle
+  // can't hijack the tap. Phone-only (guarded by phActive); desktop keeps the per-node behavior.
+  var capDrag=null;
+  stage.addEventListener('pointerdown',function(e){
+    if(!phActive) return;
+    var tgt=e.target;
+    if(tgt&&tgt.classList&&(tgt.classList.contains('handle')||tgt.classList.contains('delbtn'))) return; // deliberate resize/delete
+    if(tgt===stage||tgt===bg||tgt===ph) return;      // empty area: let the deselect handler run
+    if(capDrag||gestureLockId) return;               // a gesture is already active (e.g. 2nd finger -> pinch)
+    var W=stage.clientWidth,H=stage.clientHeight, best=null;
+    cur().elements.forEach(function(el){
+      var n=stage.querySelector('.el[data-id="'+el.id+'"]'); if(!n||n.classList.contains('editing')) return;
+      var r=n.getBoundingClientRect();
+      if(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom){
+        var area=r.width*r.height;
+        if(!best||area<=best.area) best={el:el,node:n,area:area};   // smallest; topmost (later in array) wins ties
+      }
+    });
+    if(!best) return;
+    e.stopPropagation(); e.preventDefault();
+    gestureLockId=best.el.id;
+    if(state.selected!==best.el.id){ state.selected=best.el.id; render(); phoneSync(); best.node=stage.querySelector('.el[data-id="'+best.el.id+'"]'); }
+    if(!best.node) return;
+    capDrag={sx:e.clientX,sy:e.clientY,ox:best.el.x*W,oy:best.el.y*H,W:W,H:H,el:best.el,node:best.node};
+    try{ best.node.setPointerCapture(e.pointerId); }catch(_){}
+  },true);
+  stage.addEventListener('pointermove',function(e){
+    if(!capDrag||pinching) return;
+    var nx=Math.max(-0.45*capDrag.W,Math.min(capDrag.ox+(e.clientX-capDrag.sx)/phZoom,0.98*capDrag.W));
+    var ny=Math.max(-0.45*capDrag.H,Math.min(capDrag.oy+(e.clientY-capDrag.sy)/phZoom,0.98*capDrag.H));
+    capDrag.el.x=nx/capDrag.W; capDrag.el.y=ny/capDrag.H;
+    capDrag.node.style.left=nx+'px'; capDrag.node.style.top=ny+'px';
+  },true);
+  function capEnd(){ capDrag=null; }
+  stage.addEventListener('pointerup',capEnd,true);
+  stage.addEventListener('pointercancel',capEnd,true);
+
   // The slide never scales/zooms any more — it stays one fixed size so it can never move on selection.
   // This just guarantees no stray transform is ever left on the stage. phZoom stays 1 (drag/pinch map 1:1).
   function applyZoom(){ phZoom=1; if(stage.style.transform) stage.style.transform=''; }
@@ -12589,7 +12644,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     const fillLabel=(GFX_TYPES.includes(el.type)||el.type==='badge')?'Fill':'Color';
     inspector.appendChild(field(fillLabel, colorRow(el.color,c=>{el.color=c;})));
 
-    if(cur()&&cur().photo&&(TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features')){
+    if(cur()&&cur().photo&&TEXT_TYPES.includes(el.type)){
       const mb=document.createElement('button'); mb.type='button'; mb.textContent='Match to photo';
       mb.style.cssText='width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;color:var(--ink);font-family:inherit;font-size:12.5px;cursor:pointer';
       mb.addEventListener('click',()=>matchPhotoColor(el));
@@ -12601,16 +12656,22 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     }
 
     if(el.type==='benefits'||el.type==='features'){
-      // FIX 6: keep all TEXT-styling controls together (size + color are above; font + text
-      // stroke width/color follow), then the ICON controls in their own group AFTER. Same
-      // controls, same behavior, just regrouped so the stroke stays with the text color.
-      inspector.appendChild(field('Text font',fontPicker(el)));
+      // FIX B: TEXT-styling grouped adjacently. Size + text color are emitted above; the text
+      // stroke (width + color) follows IMMEDIATELY here, then the color helper + font. The ICON
+      // controls are their own group AFTER. Same controls, same behavior, only regrouped.
       const TMAX=0.14;
       const tsw=document.createElement('input'); tsw.type='range'; tsw.min=0; tsw.max=100; tsw.step=1; tsw.value=strokeToPos(el.textStrokeW,TMAX);
       tsw.addEventListener('input',()=>{el.textStrokeW=posToStroke(tsw.value,TMAX);renderCanvas();});
       inspector.appendChild(field('Text stroke width',tsw));
       inspector.appendChild(field('Text stroke color', colorRow(el.textStrokeColor||'#111111',c=>{el.textStrokeColor=c;if(!el.textStrokeW)el.textStrokeW=0.05;})));
-      // --- icon controls group ---
+      if(cur()&&cur().photo){
+        const mb=document.createElement('button'); mb.type='button'; mb.textContent='Match to photo';
+        mb.style.cssText='width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;color:var(--ink);font-family:inherit;font-size:12.5px;cursor:pointer';
+        mb.addEventListener('click',()=>matchPhotoColor(el));
+        inspector.appendChild(field('Auto color',mb));
+      }
+      inspector.appendChild(field('Text font',fontPicker(el)));
+      // --- ICON controls group (after all text-styling) ---
       inspector.appendChild(field('Icon color', colorRow(el.iconColor||el.color,c=>{el.iconColor=c;})));
       inspector.appendChild(field('Badge ring color', colorRow(el.ringColor||el.iconColor||el.color,c=>{el.ringColor=c;})));
       const rw=document.createElement('input'); rw.type='range'; rw.min=0; rw.max=30; rw.step=1; rw.value=Math.round((el.ringW!=null?el.ringW:0.085)*100);
