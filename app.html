@@ -11553,6 +11553,15 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 
   /* inspector */
   .insp-hint{font-size:12.5px;color:var(--muted);line-height:1.5}
+  /* Tabbed inspector: sticky header (selection label + tab bar) stays visible while the active
+     tab's controls scroll. Works in the desktop card and the phone tray (both bg var(--panel)). */
+  .insp-head{position:sticky;top:0;z-index:3;background:var(--panel);padding-bottom:9px;margin-bottom:2px;border-bottom:1px solid var(--line)}
+  .insp-sel{font-size:11.5px;font-weight:700;color:var(--ink);margin-bottom:8px}
+  .insp-tabs{display:flex;gap:5px}
+  .insp-tab{flex:1;border:1px solid var(--line);background:#fff;border-radius:8px;padding:8px 4px;font-size:11.5px;font-weight:600;color:var(--muted);cursor:pointer;font-family:inherit;white-space:nowrap}
+  .insp-tab.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .insp-content{padding-top:11px}
+  .insp-actions{margin-top:6px;padding-bottom:28px}
   .field{display:flex;flex-direction:column;gap:6px;margin-bottom:13px}
   .field>label{font-size:10.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:600}
   input[type=range]{width:100%;accent-color:var(--rose)}
@@ -12660,203 +12669,217 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     box.appendChild(btn); box.appendChild(menu);
     return box;
   }
-  function renderInspector(){
-    inspector.innerHTML='';
-    const el=selEl();
-    if(!el){inspector.innerHTML='<div class="insp-hint">Tap a line or block on the slide to style it. Double-click text to rewrite it.</div>';return;}
+  var inspectorTab='text';   // session-remembered active inspector tab
 
-    // size
+  // ---- individual control-group builders (append into container c). Same controls/behavior
+  //      as before, just factored out so tabs can compose them. Nothing removed. ----
+  function ig_size(c,el){
     const sl=document.createElement('input'); sl.type='range'; sl.id='sizeSlider';
     const big=(el.type==='badge'||el.type==='burst'), wide=(el.type==='arrow'||el.type==='ring');
     sl.min=big?50:12; sl.max=big?300:(wide?450:200); sl.value=(el.size*1000).toFixed(0);
     sl.addEventListener('input',()=>{el.size=parseFloat(sl.value)/1000;renderCanvas();});
-    inspector.appendChild(field('Size',sl));
-
-    // color
+    c.appendChild(field('Size',sl));
+  }
+  function ig_color(c,el){
     const fillLabel=(GFX_TYPES.includes(el.type)||el.type==='badge')?'Fill':'Color';
-    inspector.appendChild(field(fillLabel, colorRow(el.color,c=>{el.color=c;})));
-
-    if(cur()&&cur().photo&&TEXT_TYPES.includes(el.type)){
+    c.appendChild(field(fillLabel, colorRow(el.color,v=>{el.color=v;})));
+    if(cur()&&cur().photo&&(TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features')){
       const mb=document.createElement('button'); mb.type='button'; mb.textContent='Match to photo';
       mb.style.cssText='width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;color:var(--ink);font-family:inherit;font-size:12.5px;cursor:pointer';
       mb.addEventListener('click',()=>matchPhotoColor(el));
-      inspector.appendChild(field('Auto color',mb));
+      c.appendChild(field('Auto color',mb));
     }
-
-    if(TEXT_FILL.includes(el.type)){
-      inspector.appendChild(field('Text color', colorRow(el.textColor||'#ffffff',c=>{el.textColor=c;})));
+  }
+  function ig_textColorFill(c,el){
+    c.appendChild(field('Text color', colorRow(el.textColor||'#ffffff',v=>{el.textColor=v;})));
+  }
+  function ig_font(c,el){ c.appendChild(field('Font',fontPicker(el))); }
+  function ig_styleSeg(c,el){
+    const fseg=document.createElement('div'); fseg.className='seg';
+    [['kicker','Kicker'],['caps','Caps'],['script','Script'],['body','Body']].forEach(([v,l])=>{
+      const b=document.createElement('button'); b.textContent=l; if(el.type===v)b.className='on';
+      b.addEventListener('click',()=>{el.type=v;render();}); fseg.appendChild(b);
+    });
+    c.appendChild(field('Style',fseg));
+  }
+  function ig_alignSeg(c,el){
+    const aseg=document.createElement('div'); aseg.className='seg';
+    [['left','Left'],['center','Center'],['right','Right']].forEach(([v,l])=>{
+      const b=document.createElement('button'); b.textContent=l; if((el.align||'left')===v)b.className='on';
+      b.addEventListener('click',()=>{el.align=v;render();}); aseg.appendChild(b);
+    });
+    c.appendChild(field('Align',aseg));
+  }
+  function ig_rotation(c,el){
+    const rsl=document.createElement('input'); rsl.type='range'; rsl.min=-180; rsl.max=180; rsl.step=1; rsl.value=el.rot||0;
+    rsl.addEventListener('input',()=>{el.rot=parseInt(rsl.value,10);renderCanvas();});
+    c.appendChild(field('Rotation',rsl));
+  }
+  function ig_burstText(c,el){
+    const ti=document.createElement('input'); ti.type='text'; ti.value=el.text||''; ti.placeholder='badge text';
+    ti.style.cssText='border:1px solid var(--line);border-radius:8px;padding:7px;font-family:inherit;font-size:13px;width:100%';
+    ti.addEventListener('input',()=>{el.text=ti.value.replace(/[—–]/g,'-');renderCanvas();});
+    c.appendChild(field('Text',ti));
+  }
+  function ig_textStroke(c,el){
+    const TMAX=0.14;
+    const tsw=document.createElement('input'); tsw.type='range'; tsw.min=0; tsw.max=100; tsw.step=1; tsw.value=strokeToPos(el.textStrokeW,TMAX);
+    tsw.addEventListener('input',()=>{el.textStrokeW=posToStroke(tsw.value,TMAX);renderCanvas();});
+    c.appendChild(field('Text stroke width',tsw));
+    c.appendChild(field('Text stroke color', colorRow(el.textStrokeColor||'#111111',v=>{el.textStrokeColor=v;if(!el.textStrokeW)el.textStrokeW=0.05;})));
+  }
+  function ig_outlineStroke(c,el,wLabel,cLabel){
+    const OMAX=0.12;
+    const osl=document.createElement('input'); osl.type='range'; osl.min=0; osl.max=100; osl.step=1; osl.value=strokeToPos(el.outlineW,OMAX);
+    osl.addEventListener('input',()=>{el.outlineW=posToStroke(osl.value,OMAX);renderCanvas();});
+    c.appendChild(field(wLabel,osl));
+    c.appendChild(field(cLabel, colorRow(el.outlineColor||'#111111',v=>{el.outlineColor=v;if(!el.outlineW)el.outlineW=0.06;})));
+  }
+  function ig_rows(c,el){
+    const wrap=document.createElement('div');
+    (el.items||[]).forEach((it,i)=>{
+      const row=document.createElement('div'); row.className='listrow';
+      const sel=document.createElement('select');
+      ICON_NAMES.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;if(it.icon===n)o.selected=true;sel.appendChild(o);});
+      sel.addEventListener('change',()=>{it.icon=sel.value;renderCanvas();});
+      const col=document.createElement('div'); col.className='col';
+      const lab=document.createElement('input'); lab.value=it.label||''; lab.placeholder='label';
+      lab.addEventListener('input',()=>{it.label=lab.value;renderCanvas();});
+      col.appendChild(lab);
+      if(el.type==='benefits'){
+        const des=document.createElement('input'); des.value=it.desc||''; des.placeholder='description';
+        des.addEventListener('input',()=>{it.desc=des.value;renderCanvas();});
+        col.appendChild(des);
+      }
+      const rm=document.createElement('button'); rm.className='rm'; rm.textContent='×';
+      rm.addEventListener('click',()=>{el.items.splice(i,1);render();});
+      row.appendChild(sel); row.appendChild(col); row.appendChild(rm);
+      wrap.appendChild(row);
+    });
+    const cap=el.type==='benefits'?5:4;
+    if((el.items||[]).length<cap){
+      const add=document.createElement('button'); add.className='btn ghost sm'; add.textContent='+ Add row';
+      add.addEventListener('click',()=>{el.items.push(el.type==='benefits'?{icon:'check',label:'New label',desc:'Short detail.'}:{icon:'check',label:'Label'});render();});
+      wrap.appendChild(add);
     }
+    c.appendChild(field('Rows',wrap));
+  }
+  function ig_iconControls(c,el){
+    c.appendChild(field('Icon color', colorRow(el.iconColor||el.color,v=>{el.iconColor=v;})));
+    c.appendChild(field('Badge ring color', colorRow(el.ringColor||el.iconColor||el.color,v=>{el.ringColor=v;})));
+    const rw=document.createElement('input'); rw.type='range'; rw.min=0; rw.max=30; rw.step=1; rw.value=Math.round((el.ringW!=null?el.ringW:0.085)*100);
+    rw.addEventListener('input',()=>{el.ringW=parseInt(rw.value,10)/100;renderCanvas();});
+    c.appendChild(field('Badge ring width',rw));
+    c.appendChild(field('Badge fill', colorRow(el.iconFill&&el.iconFill!=='transparent'?el.iconFill:'',v=>{el.iconFill=v;})));
+  }
+  function ig_scrim(c,el){
+    const scr=document.createElement('div'); scr.className='toggle'; scr.innerHTML='<span>Legibility band</span>';
+    const sw3=document.createElement('div'); sw3.className='switch'+(el.scrim?' on':''); sw3.innerHTML='<i></i>';
+    sw3.addEventListener('click',()=>{el.scrim=!el.scrim;render();}); scr.appendChild(sw3); c.appendChild(scr);
+  }
+  function ig_shade(c,el){
+    const shd=document.createElement('div'); shd.className='toggle'; shd.innerHTML='<span>Readability shade</span>';
+    const sw4=document.createElement('div'); sw4.className='switch'+(el.shade?' on':''); sw4.innerHTML='<i></i>';
+    sw4.addEventListener('click',()=>{el.shade=!el.shade;render();}); shd.appendChild(sw4); c.appendChild(shd);
+  }
+  function ig_container(c,el){
+    const boxIsOn=(el.box!=null)?el.box:!!el.fill;   // honor legacy el.fill
+    const flt=document.createElement('div'); flt.className='toggle'; flt.innerHTML='<span>Container box</span>';
+    const sw5=document.createElement('div'); sw5.className='switch'+(boxIsOn?' on':''); sw5.innerHTML='<i></i>';
+    sw5.addEventListener('click',()=>{
+      el.box=!boxIsOn;
+      if(el.box){ if(el.boxShape==null)el.boxShape='round'; if(el.boxColor==null)el.boxColor=el.fillColor||'#000000'; if(el.boxOpacity==null)el.boxOpacity=(el.fillOpacity!=null?el.fillOpacity:0.6); }
+      render();
+    });
+    flt.appendChild(sw5); c.appendChild(flt);
+    if(boxIsOn){
+      const shSel=document.createElement('select');
+      shSel.style.cssText='width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;color:var(--ink);background:#fff';
+      BOX_SHAPES.forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;if((el.boxShape||'round')===v)o.selected=true;shSel.appendChild(o);});
+      shSel.addEventListener('change',()=>{el.boxShape=shSel.value;renderCanvas();});
+      c.appendChild(field('Box shape',shSel));
+      c.appendChild(field('Box color', colorRow(el.boxColor||'#000000',v=>{el.boxColor=v;})));
+      const bo=document.createElement('input'); bo.type='range'; bo.min=0; bo.max=100; bo.step=1; bo.value=Math.round(((el.boxOpacity!=null)?el.boxOpacity:0.6)*100);
+      bo.addEventListener('input',()=>{el.boxOpacity=parseInt(bo.value,10)/100;renderCanvas();});
+      c.appendChild(field('Box opacity',bo));
+      const brt=document.createElement('div'); brt.className='toggle'; brt.innerHTML='<span>Box border</span>';
+      const sw6=document.createElement('div'); sw6.className='switch'+(el.boxBorder?' on':''); sw6.innerHTML='<i></i>';
+      sw6.addEventListener('click',()=>{el.boxBorder=!el.boxBorder; if(el.boxBorder){ if(el.boxBorderColor==null)el.boxBorderColor='#111111'; if(el.boxBorderW==null)el.boxBorderW=0.06; } render();});
+      brt.appendChild(sw6); c.appendChild(brt);
+      if(el.boxBorder){
+        c.appendChild(field('Border color', colorRow(el.boxBorderColor||'#111111',v=>{el.boxBorderColor=v;})));
+        const bw=document.createElement('input'); bw.type='range'; bw.min=0; bw.max=100; bw.step=1; bw.value=Math.round(((el.boxBorderW!=null)?el.boxBorderW:0.06)/0.20*100);
+        bw.addEventListener('input',()=>{el.boxBorderW=(parseInt(bw.value,10)/100)*0.20;renderCanvas();});
+        c.appendChild(field('Border width',bw));
+      }
+    }
+  }
+  function ig_hookStyle(c,el){
+    const hookRow=document.createElement('div'); hookRow.className='btnrow'; hookRow.style.marginTop='8px';
+    const saveB=document.createElement('button'); saveB.className='btn ghost sm'; saveB.textContent='Save style';
+    saveB.addEventListener('click',()=>{ saveHookStyle(el); meta.innerHTML='<b>Hook style saved.</b> Select another text element and tap Apply saved style.'; renderInspector(); });
+    const applyB=document.createElement('button'); applyB.className='btn ghost sm'; applyB.textContent='Apply saved style';
+    if(!hookStyle){ applyB.disabled=true; applyB.style.opacity='.5'; }
+    applyB.addEventListener('click',()=>{ applyHookStyle(el); render(); });
+    hookRow.appendChild(saveB); hookRow.appendChild(applyB); c.appendChild(hookRow);
+  }
 
+  // ---- tab builders (compose the groups above) ----
+  function tabText(c,el){
+    ig_size(c,el);
+    ig_color(c,el);
     if(el.type==='benefits'||el.type==='features'){
-      // FIX B: TEXT-styling grouped adjacently. Size + text color are emitted above; the text
-      // stroke (width + color) follows IMMEDIATELY here, then the color helper + font. The ICON
-      // controls are their own group AFTER. Same controls, same behavior, only regrouped.
-      const TMAX=0.14;
-      const tsw=document.createElement('input'); tsw.type='range'; tsw.min=0; tsw.max=100; tsw.step=1; tsw.value=strokeToPos(el.textStrokeW,TMAX);
-      tsw.addEventListener('input',()=>{el.textStrokeW=posToStroke(tsw.value,TMAX);renderCanvas();});
-      inspector.appendChild(field('Text stroke width',tsw));
-      inspector.appendChild(field('Text stroke color', colorRow(el.textStrokeColor||'#111111',c=>{el.textStrokeColor=c;if(!el.textStrokeW)el.textStrokeW=0.05;})));
-      if(cur()&&cur().photo){
-        const mb=document.createElement('button'); mb.type='button'; mb.textContent='Match to photo';
-        mb.style.cssText='width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;background:#fff;color:var(--ink);font-family:inherit;font-size:12.5px;cursor:pointer';
-        mb.addEventListener('click',()=>matchPhotoColor(el));
-        inspector.appendChild(field('Auto color',mb));
-      }
-      inspector.appendChild(field('Text font',fontPicker(el)));
-      // --- ICON controls group (after all text-styling) ---
-      inspector.appendChild(field('Icon color', colorRow(el.iconColor||el.color,c=>{el.iconColor=c;})));
-      inspector.appendChild(field('Badge ring color', colorRow(el.ringColor||el.iconColor||el.color,c=>{el.ringColor=c;})));
-      const rw=document.createElement('input'); rw.type='range'; rw.min=0; rw.max=30; rw.step=1; rw.value=Math.round((el.ringW!=null?el.ringW:0.085)*100);
-      rw.addEventListener('input',()=>{el.ringW=parseInt(rw.value,10)/100;renderCanvas();});
-      inspector.appendChild(field('Badge ring width',rw));
-      inspector.appendChild(field('Badge fill', colorRow(el.iconFill&&el.iconFill!=='transparent'?el.iconFill:'',c=>{el.iconFill=c;})));
+      ig_textStroke(c,el);
+      ig_font(c,el);
+      ig_rows(c,el);
+    } else {
+      ig_outlineStroke(c,el,'Text stroke width','Text stroke color');
+      ig_font(c,el);
+      ig_styleSeg(c,el);
+      ig_alignSeg(c,el);
     }
-
-    if(el.type==='burst'){
-      const ti=document.createElement('input'); ti.type='text'; ti.value=el.text||''; ti.placeholder='badge text';
-      ti.style.cssText='border:1px solid var(--line);border-radius:8px;padding:7px;font-family:inherit;font-size:13px;width:100%';
-      ti.addEventListener('input',()=>{el.text=ti.value.replace(/[\u2014\u2013]/g,'-');renderCanvas();});
-      inspector.appendChild(field('Text',ti));
+  }
+  function tabIcon(c,el){ ig_iconControls(c,el); }
+  function tabBox(c,el){ ig_container(c,el); }
+  function tabEffects(c,el){
+    ig_scrim(c,el);
+    ig_shade(c,el);
+    if(el.type==='benefits'||el.type==='features') ig_outlineStroke(c,el,'Extra stroke width','Extra stroke color');
+    ig_hookStyle(c,el);
+  }
+  function tabShapeStyle(c,el){
+    ig_size(c,el);
+    ig_color(c,el);
+    if(TEXT_FILL.includes(el.type)) ig_textColorFill(c,el);
+    if(el.type==='burst') ig_burstText(c,el);
+    if(GFX_TYPES.includes(el.type)||el.type==='badge') ig_rotation(c,el);
+  }
+  function tabShapeEffects(c,el){
+    ig_outlineStroke(c,el,'Stroke thickness','Stroke color');
+  }
+  function tabsFor(el){
+    const t=el.type, isText=TEXT_TYPES.includes(t), isBlock=(t==='benefits'||t==='features');
+    const tabs=[];
+    if(isText||isBlock){
+      tabs.push({key:'text',label:'Text',build:tabText});
+      if(isBlock) tabs.push({key:'icon',label:'Icon',build:tabIcon});
+      tabs.push({key:'box',label:'Box',build:tabBox});
+      tabs.push({key:'effects',label:'Effects',build:tabEffects});
+    } else {
+      tabs.push({key:'style',label:'Style',build:tabShapeStyle});
+      if(t!=='arrow'&&t!=='ring') tabs.push({key:'effects',label:'Effects',build:tabShapeEffects});
     }
+    return tabs;
+  }
 
-    if(GFX_TYPES.includes(el.type)||el.type==='badge'){
-      const rsl=document.createElement('input'); rsl.type='range'; rsl.min=-180; rsl.max=180; rsl.step=1; rsl.value=el.rot||0;
-      rsl.addEventListener('input',()=>{el.rot=parseInt(rsl.value,10);renderCanvas();});
-      inspector.appendChild(field('Rotation',rsl));
-    }
-
-    if(TEXT_TYPES.includes(el.type)){
-      inspector.appendChild(field('Font',fontPicker(el)));
-
-      const fseg=document.createElement('div'); fseg.className='seg';
-      [['kicker','Kicker'],['caps','Caps'],['script','Script'],['body','Body']].forEach(([v,l])=>{
-        const b=document.createElement('button'); b.textContent=l; if(el.type===v)b.className='on';
-        b.addEventListener('click',()=>{el.type=v;render();}); fseg.appendChild(b);
-      });
-      inspector.appendChild(field('Style',fseg));
-      const aseg=document.createElement('div'); aseg.className='seg';
-      [['left','Left'],['center','Center'],['right','Right']].forEach(([v,l])=>{
-        const b=document.createElement('button'); b.textContent=l; if((el.align||'left')===v)b.className='on';
-        b.addEventListener('click',()=>{el.align=v;render();}); aseg.appendChild(b);
-      });
-      inspector.appendChild(field('Align',aseg));
-    }
-
-    if(el.type==='benefits'||el.type==='features'){
-      const wrap=document.createElement('div');
-      (el.items||[]).forEach((it,i)=>{
-        const row=document.createElement('div'); row.className='listrow';
-        const sel=document.createElement('select');
-        ICON_NAMES.forEach(n=>{const o=document.createElement('option');o.value=n;o.textContent=n;if(it.icon===n)o.selected=true;sel.appendChild(o);});
-        sel.addEventListener('change',()=>{it.icon=sel.value;renderCanvas();});
-        const col=document.createElement('div'); col.className='col';
-        const lab=document.createElement('input'); lab.value=it.label||''; lab.placeholder='label';
-        lab.addEventListener('input',()=>{it.label=lab.value;renderCanvas();});
-        col.appendChild(lab);
-        if(el.type==='benefits'){
-          const des=document.createElement('input'); des.value=it.desc||''; des.placeholder='description';
-          des.addEventListener('input',()=>{it.desc=des.value;renderCanvas();});
-          col.appendChild(des);
-        }
-        const rm=document.createElement('button'); rm.className='rm'; rm.textContent='\u00d7';
-        rm.addEventListener('click',()=>{el.items.splice(i,1);render();});
-        row.appendChild(sel); row.appendChild(col); row.appendChild(rm);
-        wrap.appendChild(row);
-      });
-      const cap=el.type==='benefits'?5:4;
-      if((el.items||[]).length<cap){
-        const add=document.createElement('button'); add.className='btn ghost sm'; add.textContent='+ Add row';
-        add.addEventListener('click',()=>{el.items.push(el.type==='benefits'?{icon:'check',label:'New label',desc:'Short detail.'}:{icon:'check',label:'Label'});render();});
-        wrap.appendChild(add);
-      }
-      inspector.appendChild(field('Rows',wrap));
-    }
-
-    // outline / stroke - not for arrow & ring
-    if(el.type!=='arrow'&&el.type!=='ring'){
-      const OMAX=0.12;
-      const osl=document.createElement('input'); osl.type='range'; osl.min=0; osl.max=100; osl.step=1;
-      osl.value=strokeToPos(el.outlineW,OMAX);
-      osl.addEventListener('input',()=>{el.outlineW=posToStroke(osl.value,OMAX);renderCanvas();});
-      inspector.appendChild(field('Stroke thickness',osl));
-      inspector.appendChild(field('Stroke color', colorRow(el.outlineColor||'#111111',c=>{el.outlineColor=c;if(!el.outlineW)el.outlineW=0.06;})));
-    }
-
-    if(TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features'){
-      const scr=document.createElement('div'); scr.className='toggle';
-      scr.innerHTML='<span>Legibility band</span>';
-      const sw3=document.createElement('div'); sw3.className='switch'+(el.scrim?' on':'');
-      sw3.innerHTML='<i></i>'; sw3.addEventListener('click',()=>{el.scrim=!el.scrim;render();});
-      scr.appendChild(sw3); inspector.appendChild(scr);
-
-      // Feature 2: soft, auto-colored readability shade behind just this element's text.
-      const shd=document.createElement('div'); shd.className='toggle';
-      shd.innerHTML='<span>Readability shade</span>';
-      const sw4=document.createElement('div'); sw4.className='switch'+(el.shade?' on':'');
-      sw4.innerHTML='<i></i>'; sw4.addEventListener('click',()=>{el.shade=!el.shade;render();});
-      shd.appendChild(sw4); inspector.appendChild(shd);
-
-      // Container box: a real background box behind the text/block. Shape picker + fill color +
-      // fill opacity + optional border. Fills the BOX, never the text color (text color stays
-      // independent). Works on plain text and benefit/feature blocks, desktop and phone.
-      const boxIsOn=(el.box!=null)?el.box:!!el.fill;   // honor legacy el.fill
-      const flt=document.createElement('div'); flt.className='toggle';
-      flt.innerHTML='<span>Container box</span>';
-      const sw5=document.createElement('div'); sw5.className='switch'+(boxIsOn?' on':'');
-      sw5.innerHTML='<i></i>'; sw5.addEventListener('click',()=>{
-        el.box=!boxIsOn;
-        if(el.box){
-          if(el.boxShape==null)   el.boxShape='round';
-          if(el.boxColor==null)   el.boxColor=el.fillColor||'#000000';
-          if(el.boxOpacity==null) el.boxOpacity=(el.fillOpacity!=null?el.fillOpacity:0.6);
-        }
-        render();
-      });
-      flt.appendChild(sw5); inspector.appendChild(flt);
-      if(boxIsOn){
-        // shape picker
-        const shSel=document.createElement('select');
-        shSel.style.cssText='width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;color:var(--ink);background:#fff';
-        BOX_SHAPES.forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;if((el.boxShape||'round')===v)o.selected=true;shSel.appendChild(o);});
-        shSel.addEventListener('change',()=>{el.boxShape=shSel.value;renderCanvas();});
-        inspector.appendChild(field('Box shape',shSel));
-        // fill color (the BOX, not the text)
-        inspector.appendChild(field('Box color', colorRow(el.boxColor||'#000000',c=>{el.boxColor=c;})));
-        // fill opacity
-        const bo=document.createElement('input'); bo.type='range'; bo.min=0; bo.max=100; bo.step=1; bo.value=Math.round(((el.boxOpacity!=null)?el.boxOpacity:0.6)*100);
-        bo.addEventListener('input',()=>{el.boxOpacity=parseInt(bo.value,10)/100;renderCanvas();});
-        inspector.appendChild(field('Box opacity',bo));
-        // optional border
-        const brt=document.createElement('div'); brt.className='toggle';
-        brt.innerHTML='<span>Box border</span>';
-        const sw6=document.createElement('div'); sw6.className='switch'+(el.boxBorder?' on':'');
-        sw6.innerHTML='<i></i>'; sw6.addEventListener('click',()=>{el.boxBorder=!el.boxBorder; if(el.boxBorder){ if(el.boxBorderColor==null)el.boxBorderColor='#111111'; if(el.boxBorderW==null)el.boxBorderW=0.06; } render();});
-        brt.appendChild(sw6); inspector.appendChild(brt);
-        if(el.boxBorder){
-          inspector.appendChild(field('Border color', colorRow(el.boxBorderColor||'#111111',c=>{el.boxBorderColor=c;})));
-          const bw=document.createElement('input'); bw.type='range'; bw.min=0; bw.max=100; bw.step=1; bw.value=Math.round(((el.boxBorderW!=null)?el.boxBorderW:0.06)/0.20*100);
-          bw.addEventListener('input',()=>{el.boxBorderW=(parseInt(bw.value,10)/100)*0.20;renderCanvas();});
-          inspector.appendChild(field('Border width',bw));
-        }
-      }
-
-      // Feature 4: save this element's style as a reusable hook style, or apply the saved one.
-      const hookRow=document.createElement('div'); hookRow.className='btnrow'; hookRow.style.marginTop='8px';
-      const saveB=document.createElement('button'); saveB.className='btn ghost sm'; saveB.textContent='Save style';
-      saveB.addEventListener('click',()=>{ saveHookStyle(el); meta.innerHTML='<b>Hook style saved.</b> Select another text element and tap Apply saved style.'; renderInspector(); });
-      const applyB=document.createElement('button'); applyB.className='btn ghost sm'; applyB.textContent='Apply saved style';
-      if(!hookStyle){ applyB.disabled=true; applyB.style.opacity='.5'; }
-      applyB.addEventListener('click',()=>{ applyHookStyle(el); render(); });
-      hookRow.appendChild(saveB); hookRow.appendChild(applyB); inspector.appendChild(hookRow);
-    }
-
+  function buildInspActions(el){
+    const box=document.createElement('div'); box.className='insp-actions';
     const layer=document.createElement('div'); layer.className='btnrow'; layer.style.marginBottom='8px';
     const back=document.createElement('button'); back.className='btn ghost sm'; back.textContent='Send back';
     back.addEventListener('click',()=>{const els=cur().elements;const i=els.findIndex(x=>x.id===el.id);if(i>0){els.splice(i,1);els.unshift(el);render();}});
     const front=document.createElement('button'); front.className='btn ghost sm'; front.textContent='Bring front';
     front.addEventListener('click',()=>{const els=cur().elements;const i=els.findIndex(x=>x.id===el.id);if(i>=0&&i<els.length-1){els.splice(i,1);els.push(el);render();}});
-    layer.appendChild(back); layer.appendChild(front); inspector.appendChild(layer);
-
+    layer.appendChild(back); layer.appendChild(front); box.appendChild(layer);
     const cprow=document.createElement('div'); cprow.className='btnrow';
     const cp=document.createElement('button'); cp.className='btn ghost sm'; cp.textContent='Copy';
     cp.addEventListener('click',()=>{clipboardEl=JSON.parse(JSON.stringify(el));meta.innerHTML='<b>Copied.</b> Go to any slide and paste.';});
@@ -12864,11 +12887,41 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     ct.addEventListener('click',()=>{clipboardEl=JSON.parse(JSON.stringify(el));cur().elements=cur().elements.filter(x=>x.id!==el.id);state.selected=null;meta.innerHTML='<b>Cut.</b> Go to any slide and paste.';render();});
     const pst=document.createElement('button'); pst.className='btn ghost sm'; pst.textContent='Paste here';
     pst.addEventListener('click',pasteClipboard);
-    cprow.appendChild(cp); cprow.appendChild(ct); cprow.appendChild(pst); inspector.appendChild(cprow);
-
-    const del=document.createElement('button'); del.className='btn ghost sm danger'; del.textContent='Delete';
+    cprow.appendChild(cp); cprow.appendChild(ct); cprow.appendChild(pst); box.appendChild(cprow);
+    const del=document.createElement('button'); del.className='btn ghost sm danger'; del.textContent='Delete'; del.style.width='100%'; del.style.marginTop='8px';
     del.addEventListener('click',()=>{cur().elements=cur().elements.filter(x=>x.id!==el.id);state.selected=null;render();});
-    inspector.appendChild(del);
+    box.appendChild(del);
+    return box;
+  }
+
+  function renderInspector(){
+    inspector.innerHTML='';
+    const el=selEl();
+    if(!el){ inspector.innerHTML='<div class="insp-hint">Tap a line or block on the slide to style it. Double-click text to rewrite it.</div>'; return; }
+
+    const tabs=tabsFor(el);
+    const active = tabs.some(t=>t.key===inspectorTab) ? inspectorTab : tabs[0].key;
+
+    // sticky header: persistent selection label + tab bar (stay visible while detail controls scroll)
+    const head=document.createElement('div'); head.className='insp-head';
+    const lbl=document.createElement('div'); lbl.className='insp-sel'; lbl.textContent='Editing: '+phLabel(el);
+    head.appendChild(lbl);
+    const bar=document.createElement('div'); bar.className='insp-tabs';
+    tabs.forEach(t=>{
+      const b=document.createElement('button'); b.type='button'; b.className='insp-tab'+(t.key===active?' on':''); b.textContent=t.label;
+      b.addEventListener('click',()=>{ inspectorTab=t.key; renderInspector(); });
+      bar.appendChild(b);
+    });
+    head.appendChild(bar);
+    inspector.appendChild(head);
+
+    // only the active tab's controls
+    const content=document.createElement('div'); content.className='insp-content';
+    (tabs.find(t=>t.key===active)).build(content, el);
+    inspector.appendChild(content);
+
+    // common actions, always reachable at the end (with bottom padding via .insp-actions)
+    inspector.appendChild(buildInspActions(el));
   }
   let clipboardEl=null;
   function pasteClipboard(){
