@@ -12222,23 +12222,36 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   // ===== ART DIRECTION (this PR) =========================================
   function hexRgb(hex){ hex=(hex||'#000000').replace('#',''); if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');
     return [parseInt(hex.slice(0,2),16)||0, parseInt(hex.slice(2,4),16)||0, parseInt(hex.slice(4,6),16)||0]; }
-  // A near-black container color that carries a hint of the photo accent, so auto containers read as
-  // intentional design rather than a flat grey slab. Low lightness, restrained saturation.
-  function deriveDark(hex){ const [r,g,b]=hexRgb(hex); let [h,s]=rgbToHsl(r,g,b); s=Math.min(s,0.42); return hslToRgb(h,s,0.12); }
+  // Clean, well-saturated hue/sat of a sampled accent, or null if the sample is muddy/greyish (in which
+  // case callers fall back to a brand color instead of rendering grey-brown sludge). Guardrail for ITEM 1.
+  function cleanAccentHS(hex){ const [r,g,b]=hexRgb(hex); const [h,s]=rgbToHsl(r,g,b);
+    if(s<0.30) return null; return {h:h, s:Math.min(0.85, Math.max(0.58, s))}; }
+  // Brand palette used as clean fallbacks so an auto container is never a muddy wash.
+  const BRAND_INK='#241C1A', BRAND_ROSE='#B06A4E', BRAND_CREAM='#FBF4EE';
+  // ITEM 1: solid, intentional CARD color for an auto container. Chosen for contrast with the text and
+  // kept clean (deep saturated tone of the photo accent, or a brand color when the sample is muddy).
+  function containerFillFor(el){
+    const ad=artDirection||{}; const ca=ad.accentClean;   // {h,s} or null
+    const textLight=lumaOf(el.color||'#ffffff')>0.55;
+    if(textLight){ return ca ? hslToRgb(ca.h, Math.min(0.6, ca.s), 0.18) : BRAND_INK; }   // deep colored card, light text
+    return ca ? hslToRgb(ca.h, Math.min(0.45, ca.s), 0.92) : BRAND_CREAM;                  // soft light card, dark text
+  }
   // Pick the carousel's art direction once per generation: a font pairing (varies each time) plus a
   // starting accent. The accent is refined from the product photo in the async pass below.
   function pickArtDirection(){
     const f=FONT_PAIRS[Math.floor(Math.random()*FONT_PAIRS.length)];
-    const accent='#ED5A98';
-    return { fonts:f, accent:accent, accentDark:deriveDark(accent) };
+    const accent='#CE9A80';   // brand rose start; refined from the photo async
+    return { fonts:f, accent:accent, accentClean:null };
   }
   // Seed element props from the art direction (fonts + accent). Purely sets el.font / el.color /
-  // el.iconColor, all of which stay user-editable afterward.
+  // el.iconColor / a legibility stroke, all of which stay user-editable afterward.
   function applyArtToElement(el, ad){
     if(!ad||!ad.fonts) return; const f=ad.fonts;
     if(el.type==='caps') el.font=f.display;
     else if(el.type==='kicker') el.font=f.body;
-    else if(el.type==='script'){ el.font=f.script; el.color=ad.accent; }
+    else if(el.type==='script'){ el.font=f.script; el.color=ad.accent;
+      // ITEM 2: cursive accent lines are thin, so give them a strong dark halo to stay readable on any photo.
+      el.outlineW=Math.max(el.outlineW||0, 0.13); el.outlineColor='#141414'; }
     else if(el.type==='body') el.font=f.body;
     else if(el.type==='benefits'||el.type==='features'){ el.font=f.body; el.iconColor=ad.accent; el.ringColor=ad.accent; }
   }
@@ -12262,8 +12275,9 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
           buckets[key].r+=r*wt;buckets[key].g+=g*wt;buckets[key].b+=b*wt;buckets[key].w+=wt;
         }
         let best=null; Object.values(buckets).forEach(v=>{if(!best||v.w>best.w)best=v;});
-        let accent=null;
+        let accent=null, accentSat=0;
         if(best&&best.w>0.8){ let [h,sa,l]=rgbToHsl(best.r/best.w,best.g/best.w,best.b/best.w);
+          accentSat=sa;   // RAW saturation (before boosting) so callers can reject muddy samples
           sa=Math.min(1,Math.max(sa,0.5)); l=Math.min(0.6,Math.max(l,0.42)); accent=hslToRgb(h,sa,l); }
         function busy(x0,x1,y0,y1){
           x0=Math.max(0,Math.min(cw-1,x0|0)); x1=Math.max(x0+1,Math.min(cw,x1|0));
@@ -12271,7 +12285,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
           let vals=[]; for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=(y*cw+x)*4; vals.push(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]);}
           const m=vals.reduce((a,b)=>a+b,0)/vals.length; let v=0; vals.forEach(t=>v+=(t-m)*(t-m)); return Math.sqrt(v/vals.length);
         }
-        cb({accent:accent, avgLuma:(lumSum/Math.max(1,lumN))/255, busy:busy, cw:cw, ch:ch});
+        cb({accent:accent, accentSat:accentSat, avgLuma:(lumSum/Math.max(1,lumN))/255, busy:busy, cw:cw, ch:ch});
       }catch(e){ cb(null); }
     };
     img.onerror=function(){ cb(null); };
@@ -12333,8 +12347,9 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         bx.style.top=(-padY)+'px'; bx.style.bottom=(-padY)+'px'; bx.style.left=(-padX)+'px'; bx.style.right=(-padX)+'px';
         const bxColor=el.boxColor||el.fillColor||'#000000';
         const bxOp=(el.boxOpacity!=null)?el.boxOpacity:((el.fillOpacity!=null)?el.fillOpacity:0.6);
-        // ITEM 2: a soft vertical gradient reads as intentional design rather than a flat slab.
-        if(el.boxGrad){ bx.style.background='linear-gradient(180deg,'+hexA(bxColor, Math.min(1,bxOp+0.06))+' 0%, '+hexA(bxColor, Math.max(0,bxOp-0.20))+' 100%)'; }
+        // A gentle vertical gradient reads as intentional design; kept tight so a high-opacity card
+        // stays solid and clean rather than fading to a see-through wash (ITEM 1).
+        if(el.boxGrad){ bx.style.background='linear-gradient(180deg,'+hexA(bxColor, Math.min(1,bxOp+0.05))+' 0%, '+hexA(bxColor, Math.max(0,bxOp-0.08))+' 100%)'; }
         else bx.style.background=hexA(bxColor, bxOp);
         bx.style.borderRadius=boxRadius(el.boxShape||'round', fpx2);
         if(el.boxBorder){
@@ -12438,28 +12453,33 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       stage.appendChild(node);
       wire(node,el,body,handle);
 
-      // Feature 5: auto-fit benefit/feature blocks so they stay clean instead of overflowing the canvas.
+      // Feature 5 + ITEM 3: auto-fit benefit/feature blocks INSIDE the safe zone (above the bottom caption
+      // band, clear of the right rail), never below the readable floor.
       if(el.type==='benefits'||el.type==='features'){
-        const availH=Math.max(40, H-node.offsetTop-4), availW=Math.max(40, W-node.offsetLeft-4);
+        const inRail=(node.offsetTop/H>0.42);
+        const bottomLimitPx=(typeof BOTTOM_SAFE_Y0!=='undefined'?BOTTOM_SAFE_Y0:0.86)*H;
+        const safeRightPx=(inRail?LAY_RAIL:LAY_RIGHT)*W;
+        const availH=Math.max(40, bottomLimitPx-node.offsetTop-2), availW=Math.max(40, safeRightPx-node.offsetLeft-2);
         let fit=1;
         if(node.offsetHeight>availH) fit=Math.min(fit, availH/node.offsetHeight);
         if(node.offsetWidth >availW) fit=Math.min(fit, availW/node.offsetWidth);
         if(fit<1){
-          fit=Math.max(fit, 0.6);                       // sensible minimum: never below 60% of the chosen size
-          const fitSize=Math.max(0.012, el.size*fit);
+          const floorFrac=Math.min(1, minSizeFor(el)/(el.size||0.05));   // never below the readable floor
+          fit=Math.max(fit, floorFrac);
+          const fitSize=Math.max(minSizeFor(el), el.size*fit);
           body.style.fontSize=(fitSize*W)+'px';
           if(el.textStrokeW>0) body.style.textShadow=outlineShadow(el.textStrokeColor||'#111111', Math.max(0.6,(fitSize*W)*el.textStrokeW));
         }
       }
-      // ITEM 3: keep wrapped plain text inside the safe area — if it would run under the bottom
-      // caption band (or off the bottom of the slide), shrink the DISPLAYED size to fit. el.size
-      // is preserved, so the control still reflects the chosen size; only the render is clamped.
+      // ITEM 3: keep wrapped plain text inside the safe area — if it would run under the bottom caption
+      // band, shrink the DISPLAYED size to fit (never below the readable floor; the settle pass moves the
+      // block up first so this rarely triggers).
       if(TEXT_TYPES.includes(el.type) && el.w){
         const bottomLimit=Math.min(H-4, (typeof BOTTOM_SAFE_Y0!=='undefined'?BOTTOM_SAFE_Y0:0.86)*H);
         const avail=Math.max(24, bottomLimit-node.offsetTop);
         if(node.offsetHeight>avail){
           const f=Math.max(0.55, avail/node.offsetHeight);
-          body.style.fontSize=Math.max(8,(el.size*f)*W)+'px';
+          body.style.fontSize=Math.max(minSizeFor(el)*W,(el.size*f)*W)+'px';
           if(el.outlineW>0) body.style.textShadow=outlineShadow(el.outlineColor||'#111111', Math.max(0.6,(el.size*f*W)*el.outlineW));
         }
       }
@@ -13399,7 +13419,7 @@ Return ONLY valid JSON, no markdown, exactly:
     } else if(sl.layout==='feature'){
       if(sl.headline)add({type:'caps',text:clean(sl.headline),x:.07,y:.08,size:.078,color:'#ffffff'});
       if(sl.script)add({type:'script',text:clean(sl.script),x:.07,y:.215,size:.070,color:'#ED5A98'});
-      add({type:'features',x:.06,y:.80,size:.026,w:.8,color:'#ffffff',items:(sl.features||[]).slice(0,4).map(f=>({icon:ICON_NAMES.includes(f.icon)?f.icon:'check',label:clean(f.label)}))});
+      add({type:'features',x:.06,y:.73,size:.030,w:.8,color:'#ffffff',items:(sl.features||[]).slice(0,4).map(f=>({icon:ICON_NAMES.includes(f.icon)?f.icon:'check',label:clean(f.label)}))});
     } else if(sl.layout==='cta'){
       if(sl.line)add({type:'caps',text:clean(sl.line),x:.07,y:.56,size:.098,color:'#ffffff'});
       if(sl.script)add({type:'script',text:clean(sl.script),x:.07,y:.71,size:.082,color:'#ED5A98'});
@@ -13462,32 +13482,87 @@ Return ONLY valid JSON, no markdown, exactly:
       });
     }
   }
-  // Measured de-overlap for the CURRENTLY RENDERED slide: reads the real wrapped heights and pushes any
-  // overlapping plain-text block down so the hero slide is pixel-clean (the estimate handles the rest).
-  // Runs only right after generation / the async art pass, never during manual drags.
-  function settleActiveSlide(){
-    const s=cur(); if(!s||!s.elements) return;
-    if(s.elements.some(function(e){ return e.type==='benefits'||e.type==='features'; })) return;
-    const H=stage.clientHeight||0; if(H<40) return;
-    const items=[];
-    stage.querySelectorAll('.el').forEach(function(n){
-      const el=s.elements.find(function(e){ return e.id===n.dataset.id; });
-      if(el && TEXT_TYPES.includes(el.type)) items.push({el:el, top:n.offsetTop, h:n.offsetHeight});
-    });
-    if(items.length<2) return;
-    items.sort(function(a,b){ return a.top-b.top; });
-    const minGap=Math.max(6, H*0.022);
-    let changed=false, cursorBottom=null;
-    items.forEach(function(it){
-      if(cursorBottom!=null && it.top < cursorBottom+minGap){
-        const dy=((cursorBottom+minGap)-it.top)/H;
-        const ny=Math.min(LAY_BOTTOM-0.05, it.el.y+dy);
-        if(Math.abs(ny-it.el.y)>0.001){ it.el.y=ny; changed=true; }
-        cursorBottom=(it.el.y*H)+it.h;
-      } else { cursorBottom=it.top+it.h; }
-    });
-    if(changed) renderCanvas();
+  // ITEM 3: larger minimum readable size per block type (fraction of slide WIDTH). The settle pass will
+  // move a block up before it shrinks, and never shrink below these floors.
+  function minSizeFor(el){
+    switch(el.type){ case 'caps': return 0.058; case 'script': return 0.052; case 'kicker': return 0.026;
+      case 'body': return 0.034; case 'benefits': return 0.036; case 'features': return 0.026; default: return 0.032; }
   }
+  // ITEM 3 + 4: containment + de-overlap for the CURRENTLY RENDERED slide. Reads real wrapped heights and
+  // (a) separates every stacked text block so none overlap, (b) keeps every block inside the safe zone —
+  // above the bottom caption band and clear of the right rail — moving a block up first and only shrinking
+  // (down to the readable floor) when it truly cannot fit. Iterates to convergence. Requires this slide to
+  // be the rendered (active) one; settleAllSlides drives it across the whole deck.
+  function settleRendered(s){
+    if(!s||!s.elements) return;
+    const H=stage.clientHeight||0, W=stage.clientWidth||0; if(H<40||W<40) return;
+    const bottomPx=LAY_BOTTOM*H;
+    const hasBlock=s.elements.some(function(e){ return e.type==='benefits'||e.type==='features'; });
+    for(let iter=0; iter<6; iter++){
+      let changed=false;
+      const items=[];
+      stage.querySelectorAll('.el').forEach(function(n){
+        const el=s.elements.find(function(e){ return e.id===n.dataset.id; });
+        if(el && isTextish(el)) items.push({el:el, top:n.offsetTop, left:n.offsetLeft, h:n.offsetHeight, w:n.offsetWidth});
+      });
+      if(!items.length) break;
+      // Right-rail containment for any wrapped block: reflow narrower if it runs under the right buttons.
+      items.forEach(function(it){
+        if(!it.el.w) return;
+        const inRail=(it.el.y>0.42 && it.el.y<0.96);
+        const safeRight=(inRail?LAY_RAIL:LAY_RIGHT)*W;
+        if(it.left+it.w > safeRight+1){
+          const nw=Math.max(0.28, (safeRight-it.left)/W);
+          if(nw < it.el.w-0.004){ it.el.w=nw; changed=true; }
+        }
+      });
+      const texts=items.filter(function(it){ return TEXT_TYPES.includes(it.el.type); }).sort(function(a,b){ return a.top-b.top; });
+      if(!hasBlock && texts.length){
+        // ITEM 3 + 4: fit the WHOLE plain text stack into [startY .. bottom band]. Lift the start up first,
+        // then scale sizes down (to the readable floor) if it still won't fit, and lay the blocks out
+        // sequentially with a real gap so nothing overlaps and nothing crosses the caption band.
+        const minGapPx=Math.max(10, H*0.035);
+        let startY=Math.max(LAY_TOP, texts[0].el.y);
+        const contentPx=texts.reduce(function(t,it){ return t+it.h; },0)+minGapPx*(texts.length-1);
+        let bandPx=bottomPx-startY*H;
+        if(contentPx>bandPx){ const lift=Math.min((startY-LAY_TOP)*H, contentPx-bandPx); startY-=lift/H; bandPx=bottomPx-startY*H; }
+        const scale=(contentPx>bandPx+1)?Math.max(0.5, bandPx/contentPx):1;
+        let y=startY;
+        texts.forEach(function(it){
+          if(scale<1 && it.el.size){ const ns=Math.max(minSizeFor(it.el), it.el.size*scale); if(Math.abs(ns-it.el.size)>0.0004){ it.el.size=ns; changed=true; } }
+          const cy=Math.max(LAY_TOP, Math.min(y, LAY_BOTTOM-0.03));
+          if(Math.abs(cy-it.el.y)>0.001){ it.el.y=cy; changed=true; }
+          y = it.el.y + (it.h*scale)/H + minGapPx/H;
+        });
+      } else {
+        // Slides with a benefit/feature block: de-overlap the small label(s), then keep every element
+        // inside the bottom band (move up first, shrink to the floor only as a last resort).
+        const minGapPx=Math.max(8, H*0.025); let cursor=null;
+        texts.forEach(function(it){ const topPx=it.el.y*H;
+          if(cursor!=null && topPx<cursor+minGapPx){ const ny=Math.max(LAY_TOP,Math.min(LAY_BOTTOM-0.03,(cursor+minGapPx)/H)); if(Math.abs(ny-it.el.y)>0.001){ it.el.y=ny; changed=true; } cursor=it.el.y*H+it.h; }
+          else cursor=topPx+it.h; });
+        items.forEach(function(it){ const bottom=it.el.y*H+it.h;
+          if(bottom>bottomPx+1){ const overFrac=(bottom-bottomPx)/H;
+            if(it.el.y-overFrac>=LAY_TOP-0.001){ it.el.y=Math.max(LAY_TOP,it.el.y-overFrac); changed=true; }
+            else { it.el.y=LAY_TOP; const avail=bottomPx-LAY_TOP*H; const sc=avail/Math.max(1,it.h);
+              const ns=Math.max(minSizeFor(it.el),(it.el.size||0.05)*Math.max(0.5,sc)); if(ns<(it.el.size||0.05)-0.0005){ it.el.size=ns; changed=true; } }
+          }
+        });
+      }
+      if(changed) renderCanvas(); else break;
+    }
+  }
+  // Drive settleRendered across EVERY slide (ITEM 4): render each in turn, settle it, then restore.
+  function settleAllSlides(){
+    if(!state.slides||!state.slides.length||!stage) return;
+    const prevA=state.active, prevSel=state.selected;
+    state.selected=null;
+    for(let i=0;i<state.slides.length;i++){ state.active=i; renderCanvas(); settleRendered(state.slides[i]); }
+    state.active=prevA; state.selected=prevSel; renderCanvas();
+  }
+  // Debounced settle-all so the staggered async photo callbacks trigger one clean settle after the batch.
+  var _settlePending=false;
+  function scheduleSettleAll(){ if(_settlePending) return; _settlePending=true; setTimeout(function(){ _settlePending=false; settleAllSlides(); }, 60); }
   // Approx on-canvas height of a block, as a fraction of slide height, for busyness probing / spacing.
   function blockH(el){ if(el.type==='benefits') return 0.30; if(el.type==='features') return 0.12;
     if(el.type==='caps') return Math.max(0.12, (el.size||0.10)*1.7); if(el.type==='script') return 0.11;
@@ -13499,9 +13574,11 @@ Return ONLY valid JSON, no markdown, exactly:
     el.scrim=false;
     el.box=true; el._autoBox=true;
     el.boxShape=(el.type==='kicker')?'pill':'round';
-    el.boxColor=(artDirection&&artDirection.accentDark)||'#141414';
-    el.boxOpacity=(el.type==='body'||el.type==='kicker')?0.40:0.34;
-    el.boxGrad=true;   // soft top-to-bottom fade (see renderCanvas) so it reads as design
+    el.boxColor=containerFillFor(el);
+    el.boxOpacity=0.86;   // ITEM 1: reads as a solid design card, not a faint wash
+    el.boxGrad=true;      // subtle CLEAN gradient (tightened in renderCanvas)
+    // ITEM 2: over a dark card, force the script line to a bright tone so it pops off the card.
+    if(el.type==='script' && lumaOf(el.boxColor)<0.5) el.color='#ffffff';
   }
   // ITEM 2 + 7: async art-direction pass. Samples each photo once to (a) derive ONE cohesive accent
   // for the whole carousel and recolor script/icons/containers with it, (b) prefer moving a plain text
@@ -13509,13 +13586,16 @@ Return ONLY valid JSON, no markdown, exactly:
   // area, apply the designed container. Never overrides a block the creator already styled.
   function artDirectPhotoPass(){
     var accentApplied=false;
-    function applyAccent(accent){
+    function applyAccent(accent, sat){
       if(!accent||accentApplied) return; accentApplied=true;
-      artDirection.accent=accent; artDirection.accentDark=deriveDark(accent);
+      artDirection.accent=accent;
+      // Only treat the photo accent as "clean" if the raw sample was actually saturated; otherwise keep
+      // accentClean null so containers fall back to a brand color instead of a muddy tint (ITEM 1).
+      artDirection.accentClean = (sat!=null && sat>=0.30) ? cleanAccentHS(accent) : null;
       state.slides.forEach(function(s){ (s.elements||[]).forEach(function(el){
-        if(el.type==='script') el.color=accent;
+        if(el.type==='script'){ if(!(el._autoBox && lumaOf(el.boxColor||'#000')<0.5)) el.color=accent; }
         else if(el.type==='benefits'||el.type==='features'){ el.iconColor=accent; el.ringColor=accent; }
-        if(el._autoBox) el.boxColor=artDirection.accentDark;
+        if(el._autoBox){ el.boxColor=containerFillFor(el); if(el.type==='script' && lumaOf(el.boxColor)<0.5) el.color='#ffffff'; }
       }); });
       renderCanvas();
     }
@@ -13523,7 +13603,7 @@ Return ONLY valid JSON, no markdown, exactly:
       if(!s.photo||!s.elements||!s.elements.some(isTextish)) return;
       samplePhotoArt(s.photo, function(res){
         if(!res) return;
-        if(res.accent) applyAccent(res.accent);   // first photo with a usable accent wins, applied to all
+        if(res.accent) applyAccent(res.accent, res.accentSat);   // first photo with a usable accent wins, applied to all
         const cw=res.cw, ch=res.ch, busy=res.busy;
         // CLEAN-AREA placement (only plain text stacks: hook/statement, never benefit/feature/cta bars).
         const texts=s.elements.filter(function(e){ return TEXT_TYPES.includes(e.type); });
@@ -13551,7 +13631,7 @@ Return ONLY valid JSON, no markdown, exactly:
           else if(el._autoBox){ el.box=false; el._autoBox=false; changed=true; }   // moved to a clean spot -> drop the box
         });
         if(changed) renderCanvas();
-        if(si===state.active) settleActiveSlide();   // keep the on-screen slide pixel-clean after moves
+        scheduleSettleAll();   // ITEM 4: re-settle the whole deck once this batch of photo moves lands
       });
     });
   }
@@ -13586,7 +13666,7 @@ Return ONLY valid JSON, no markdown, exactly:
     // pulls the cohesive accent from the product photo, and adds designed containers only where needed.
     state.slides.forEach(function(s){ autoLayoutSlide(s); s.elements.forEach(function(el){ applyArtToElement(el, artDirection); }); });
     render();
-    settleActiveSlide();    // measured de-overlap on the hero slide
+    settleAllSlides();      // ITEM 3 + 4: de-overlap + safe-zone containment across every slide
     artDirectPhotoPass();   // async: cohesive accent + clean-area placement + designed containers
     updateGenLabel();
     if(typeof phBriefSync==='function') phBriefSync();
