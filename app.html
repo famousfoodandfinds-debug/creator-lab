@@ -11551,6 +11551,40 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   .bubble::after{content:"";position:absolute;left:1.3em;bottom:-.45em;width:0;height:0;
     border-left:.5em solid transparent;border-right:.5em solid transparent;border-top:.5em solid var(--bub,#000);}
 
+  /* ITEM 6 — clean text editing: while a caret is active, hide all the surrounding editor chrome
+     (other elements' outlines/handles/delete buttons, the safe-zone overlay, the warning chips)
+     so the canvas reads like the finished post. The element being edited keeps its caret + a soft
+     outline so the user can still see the text box they're typing in. Restored the instant editing ends. */
+  .stage.editing-active .el:not(.editing){outline-color:transparent!important}
+  .stage.editing-active .el:not(.editing) .handle,
+  .stage.editing-active .el:not(.editing) .delbtn,
+  .stage.editing-active .el.editing .handle,
+  .stage.editing-active .el.editing .delbtn,
+  .stage.editing-active .uiwarn-chip,
+  .stage.editing-active .safezone{display:none!important}
+  .stage.editing-active .el.editing{outline:1.5px dashed rgba(237,90,152,.7)}
+
+  /* ITEM 5 — full-screen loading veil while the carousel is being written */
+  .gen-loading{position:fixed;inset:0;z-index:99990;display:none;align-items:center;justify-content:center;
+    background:rgba(8,8,8,.5);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+  .gen-loading-card{display:flex;flex-direction:column;align-items:center;gap:15px;background:var(--panel,#fff);
+    padding:26px 34px;border-radius:16px;box-shadow:0 18px 50px rgba(0,0,0,.32)}
+  .gen-spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(206,154,128,.3);
+    border-top-color:#CE9A80;animation:genspin .8s linear infinite}
+  @keyframes genspin{to{transform:rotate(360deg)}}
+  .gen-loading-txt{font-family:Inter,sans-serif;font-size:14px;font-weight:600;color:var(--ink,#111)}
+
+  /* ITEM 1 — Undo controls (desktop + phone) */
+  .undo-btn{border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:9px;font-family:inherit;
+    font-size:12.5px;font-weight:600;padding:9px 12px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .undo-btn:disabled{cursor:default}
+  .phone-undo{border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.08);color:#fff;border-radius:9px;
+    font-family:inherit;font-size:13px;font-weight:600;padding:7px 12px;cursor:pointer}
+
+  /* ITEM 8 — Box tab clarity: hint shown when the container is OFF */
+  .box-off-hint{font-size:12px;color:var(--muted);line-height:1.5;background:#fbf4ee;border:1px dashed var(--line);
+    border-radius:9px;padding:9px 11px;margin-top:2px}
+
   /* inspector */
   .insp-hint{font-size:12.5px;color:var(--muted);line-height:1.5}
   /* Tabbed inspector: sticky header (selection label + tab bar) stays visible while the active
@@ -11689,10 +11723,13 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     body.carousel-phone.brief-collapsed .phone-brief-bar{display:flex;align-items:center;gap:8px;
       padding:0 0 10px;flex-wrap:wrap}
     body.carousel-phone .phone-brief-add,
+    body.carousel-phone .phone-brief-undo,
     body.carousel-phone .phone-brief-toggle{border:1px solid var(--line);background:#fff;border-radius:10px;
       padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--ink);font-family:inherit;cursor:pointer}
     body.carousel-phone .phone-brief-add{border-color:var(--rose);color:var(--rose)}
+    body.carousel-phone .phone-brief-undo:disabled{opacity:.4}
     body.carousel-phone .phone-brief-add:active,
+    body.carousel-phone .phone-brief-undo:active,
     body.carousel-phone .phone-brief-toggle:active{border-color:var(--rose)}
     body.carousel-phone.brief-collapsed .phone-brief-card{display:none}
     body.carousel-phone.brief-collapsed.brief-open .phone-brief-card{display:block}
@@ -11784,6 +11821,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
           <option value="9:16">Full screen 9:16</option>
         </select>
         <label style="display:flex;align-items:center;gap:5px;cursor:pointer;user-select:none"><input type="checkbox" id="safeToggle" checked style="accent-color:var(--rose)"> Safe zones</label>
+        <button type="button" id="undoBtn" class="undo-btn" style="margin-left:auto" disabled title="Undo (Ctrl/Cmd+Z)">↶ Undo</button>
       </div>
       <div class="stage" id="stage">
         <div class="ph" id="ph">No photo on this slide yet. You can still place and style the text. Upload a photo to see it land.</div>
@@ -12227,6 +12265,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         body.style.textAlign=el.align||'left';
         body.style.fontSize=(el.size*W)+'px';
         if(el.font) body.style.fontFamily="'"+el.font+"'";
+        if(el.w) body.style.width=(el.w*W)+'px';   // ITEM 3: wrap plain text within its safe-zone width
         if(el.align==='center'){node.style.textAlign='center';}
       } else if(el.type==='benefits'){
         body.className='benefits';
@@ -12324,6 +12363,18 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
           const fitSize=Math.max(0.012, el.size*fit);
           body.style.fontSize=(fitSize*W)+'px';
           if(el.textStrokeW>0) body.style.textShadow=outlineShadow(el.textStrokeColor||'#111111', Math.max(0.6,(fitSize*W)*el.textStrokeW));
+        }
+      }
+      // ITEM 3: keep wrapped plain text inside the safe area — if it would run under the bottom
+      // caption band (or off the bottom of the slide), shrink the DISPLAYED size to fit. el.size
+      // is preserved, so the control still reflects the chosen size; only the render is clamped.
+      if(TEXT_TYPES.includes(el.type) && el.w){
+        const bottomLimit=Math.min(H-4, (typeof BOTTOM_SAFE_Y0!=='undefined'?BOTTOM_SAFE_Y0:0.86)*H);
+        const avail=Math.max(24, bottomLimit-node.offsetTop);
+        if(node.offsetHeight>avail){
+          const f=Math.max(0.55, avail/node.offsetHeight);
+          body.style.fontSize=Math.max(8,(el.size*f)*W)+'px';
+          if(el.outlineW>0) body.style.textShadow=outlineShadow(el.outlineColor||'#111111', Math.max(0.6,(el.size*f*W)*el.outlineW));
         }
       }
 
@@ -12459,7 +12510,8 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 
     if(EDIT_INLINE.includes(el.type)){
       const startEdit=(ev)=>{
-        node.classList.add('editing'); body.setAttribute('contenteditable','true');
+        pushUndo();
+        node.classList.add('editing'); setEditingMode(true); body.setAttribute('contenteditable','true');
         try{ body.focus({preventScroll:true}); }catch(_){ body.focus(); }   // keyboard must not scroll/move the slide
         const sel=window.getSelection(); sel.removeAllRanges();
         // place a visible blinking caret: where the user tapped if we have coords, else at the end
@@ -12475,20 +12527,22 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       node._startEdit=startEdit;                 // reused by the phone tray "Edit text" button
       node.addEventListener('dblclick',startEdit);
       body.addEventListener('blur',()=>{
-        node.classList.remove('editing'); body.removeAttribute('contenteditable');
+        node.classList.remove('editing'); setEditingMode(false); body.removeAttribute('contenteditable');
         el.text=body.innerText.replace(/[\u2014\u2013]/g,'-').replace(/\n{3,}/g,'\n\n').replace(/\s+$/,''); body.textContent=el.text;
+        renderCanvas();
       });
     }
 
     if(el.type==='benefits'||el.type==='features'){
       const startRowEdit=f=>{
         if(!f)return;
-        node.classList.add('editing'); f.setAttribute('contenteditable','true');
+        pushUndo();
+        node.classList.add('editing'); setEditingMode(true); f.setAttribute('contenteditable','true');
         try{ f.focus({preventScroll:true}); }catch(_){ f.focus(); }   // keyboard must not scroll/move the slide
         const r=document.createRange(); r.selectNodeContents(f); r.collapse(false); // caret at end -> visible blinking cursor
         const sel=window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
         const done=()=>{
-          f.removeAttribute('contenteditable'); node.classList.remove('editing');
+          f.removeAttribute('contenteditable'); node.classList.remove('editing'); setEditingMode(false);
           const i=+f.dataset.i, k=f.dataset.k;
           if(el.items&&el.items[i]) el.items[i][k]=f.innerText.replace(/[\u2014\u2013]/g,'-').replace(/\s+/g,' ').trim();
           f.removeEventListener('blur',done);
@@ -12792,6 +12846,12 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       render();
     });
     flt.appendChild(sw5); c.appendChild(flt);
+    if(!boxIsOn){
+      // ITEM 8: make it obvious what the toggle does while it's off.
+      const hint=document.createElement('div'); hint.className='box-off-hint';
+      hint.textContent='Off — the text sits straight on the photo. Turn this on to add a solid background box behind the text for guaranteed readability over busy photos.';
+      c.appendChild(hint);
+    }
     if(boxIsOn){
       const shSel=document.createElement('select');
       shSel.style.cssText='width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;color:var(--ink);background:#fff';
@@ -12933,6 +12993,62 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
 
   function render(){ renderTabs(); renderCanvas(); renderInspector(); phoneSync(); }
 
+  // ===== ITEM 1: UNDO =====================================================
+  // Snapshot the whole slide model before a mutation. A single capture-phase pointerdown
+  // records the pre-action state (deduped against the top of the stack), which covers every
+  // pointer-driven mutation (drag/resize/pinch/restyle/add/delete/select). Keyboard and
+  // programmatic mutations (generate, delete key, paste) push explicitly. Undo pops back,
+  // skipping any no-op snapshots. Keeps 40 steps (>= the 20 required).
+  var undoStack=[]; const UNDO_MAX=40;
+  function _snap(){ return {slides:JSON.stringify(state.slides), active:state.active}; }
+  function pushUndo(){
+    const s=_snap();
+    if(undoStack.length && undoStack[undoStack.length-1].slides===s.slides) return; // nothing changed since last snapshot
+    undoStack.push(s); if(undoStack.length>UNDO_MAX) undoStack.shift();
+    updateUndoBtns();
+  }
+  function doUndo(){
+    while(undoStack.length){
+      const prev=undoStack.pop();
+      if(prev.slides===JSON.stringify(state.slides)) continue;   // skip snapshots that match the current state
+      state.slides=JSON.parse(prev.slides);
+      state.active=Math.min(prev.active, state.slides.length-1);
+      state.selected=null; render(); updateUndoBtns(); return;
+    }
+    updateUndoBtns();
+  }
+  function updateUndoBtns(){
+    const on=undoStack.length>0;
+    ['undoBtn','phUndoBtn'].forEach(function(idv){ var b=document.getElementById(idv); if(b){ b.disabled=!on; b.style.opacity=on?'1':'.4'; } });
+  }
+
+  // ===== ITEM 4 + 5: generate button label + loading state ==============
+  // hasCarousel is true only once a carousel has actually been written (applyCopy). It is NOT the
+  // same as carouselStarted (which flips as soon as a photo is uploaded), so the button reads
+  // "Write my carousel" the first time and only becomes "Regenerate carousel" after one exists.
+  var hasCarousel=false;
+  function updateGenLabel(){
+    if(!genBtn) return;
+    if(!genBtn.disabled) genBtn.textContent = hasCarousel ? 'Regenerate carousel' : 'Write my carousel';
+    if(typeof phRegenBtn!=='undefined' && phRegenBtn) phRegenBtn.textContent = hasCarousel ? '↻ Regenerate carousel' : '↻ Write my carousel';
+  }
+  function showGenLoading(on){
+    var ov=document.getElementById('genLoading');
+    if(on){
+      if(!ov){ ov=document.createElement('div'); ov.id='genLoading'; ov.className='gen-loading noexport';
+        ov.innerHTML='<div class="gen-loading-card"><div class="gen-spin"></div><div class="gen-loading-txt">Writing your carousel…</div></div>';
+        document.body.appendChild(ov); }
+      ov.style.display='flex';
+    } else if(ov){ ov.style.display='none'; }
+  }
+
+  // ===== ITEM 6: clean text-editing mode (hide surrounding chrome) ========
+  // Also flips the phone tray button to "Done" so tapping it (ITEM 7) commits the edit.
+  function setEditingMode(on){
+    if(stage) stage.classList.toggle('editing-active', !!on);
+    if(typeof phEditBtn!=='undefined' && phEditBtn) phEditBtn.textContent = on ? 'Done' : 'Edit text';
+  }
+
   // add elements
   function addElement(type, opt){
     opt=opt||{}; let el;
@@ -12965,19 +13081,25 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     });
   })();
 
-  // delete selected with keyboard
+  // ITEM 1: capture pre-action state on any pointerdown (deduped). Covers drag/resize/pinch/
+  // restyle/add/delete/select-then-mutate across stage, inspector, tray and buttons.
+  document.addEventListener('pointerdown', pushUndo, true);
+  (function(){ var ub=document.getElementById('undoBtn'); if(ub) ub.addEventListener('click',function(){ doUndo(); }); updateUndoBtns(); })();
+
+  // delete selected with keyboard (+ Ctrl/Cmd+Z undo)
   document.addEventListener('keydown',e=>{
     const a=document.activeElement;
     const typing=a&&(a.tagName==='INPUT'||a.tagName==='TEXTAREA'||a.isContentEditable);
+    if((e.metaKey||e.ctrlKey) && (e.key==='z'||e.key==='Z') && !e.shiftKey && !typing){ e.preventDefault(); doUndo(); return; }
     if((e.metaKey||e.ctrlKey)&&!typing){
       const k=e.key.toLowerCase();
       if(k==='c'&&state.selected){const el=cur().elements.find(x=>x.id===state.selected);if(el){clipboardEl=JSON.parse(JSON.stringify(el));e.preventDefault();}return;}
-      if(k==='x'&&state.selected){const el=cur().elements.find(x=>x.id===state.selected);if(el){clipboardEl=JSON.parse(JSON.stringify(el));cur().elements=cur().elements.filter(x=>x.id!==state.selected);state.selected=null;e.preventDefault();render();}return;}
-      if(k==='v'&&clipboardEl){e.preventDefault();pasteClipboard();return;}
+      if(k==='x'&&state.selected){const el=cur().elements.find(x=>x.id===state.selected);if(el){pushUndo();clipboardEl=JSON.parse(JSON.stringify(el));cur().elements=cur().elements.filter(x=>x.id!==state.selected);state.selected=null;e.preventDefault();render();}return;}
+      if(k==='v'&&clipboardEl){e.preventDefault();pushUndo();pasteClipboard();return;}
     }
     if(e.key!=='Delete'&&e.key!=='Backspace')return;
     if(typing)return;
-    if(state.selected){ e.preventDefault(); cur().elements=cur().elements.filter(x=>x.id!==state.selected); state.selected=null; render(); }
+    if(state.selected){ e.preventDefault(); pushUndo(); cur().elements=cur().elements.filter(x=>x.id!==state.selected); state.selected=null; render(); }
   });
 
   // remove slide
@@ -13064,6 +13186,8 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       state.active=0; state.selected=null; render();
     }
     if(note)note.textContent=failed?('Could not read '+failed+' photo'+(failed>1?'s':'')+'. Save as JPG first (Mac Finder: right-click, Quick Actions, Convert Image, JPEG), then re-upload.'):'';
+    updateGenLabel();   // ITEM 4: keep the generate button label current once photos are in
+    if(typeof phBriefSync==='function') phBriefSync();
   }
 
   // ---------- generation ----------
@@ -13195,7 +13319,63 @@ Return ONLY valid JSON, no markdown, exactly:
     return els;
   }
 
+  // ===== ITEM 2 + 3: smart auto-layout ===================================
+  // Safe text region from the corrected TikTok safe zones: below the top bar, above the bottom
+  // caption band, and clear of the right rail in the lower half. Deterministic pass sets a wrap
+  // width and clamps every text/block into the safe area so nothing runs under the UI.
+  const LAY_LEFT=0.06, LAY_RIGHT=0.94, LAY_RAIL=0.76, LAY_TOP=0.095, LAY_BOTTOM=BOTTOM_SAFE_Y0;
+  function isTextish(el){ return TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features'; }
+  function autoLayoutSlide(s){
+    if(!s||!s.elements) return;
+    s.elements.forEach(function(el){
+      if(!isTextish(el)) return;
+      if(el.x==null) el.x=LAY_LEFT;
+      el.x=Math.max(LAY_LEFT, Math.min(el.x, LAY_RIGHT-0.24));
+      // right bound: avoid the right-rail buttons when the block sits in the lower half
+      const inRail=(el.y!=null && el.y>0.42 && el.y<0.96);
+      const rightBound=inRail?LAY_RAIL:LAY_RIGHT;
+      const maxW=Math.max(0.30, rightBound-el.x);
+      const want=(el.type==='features')?0.8:(el.type==='benefits'?0.62:(el.w||maxW));
+      el.w=Math.min(want, maxW);   // wrap width (plain text now honors el.w in renderCanvas too)
+      if(el.y==null) el.y=LAY_TOP;
+      el.y=Math.max(LAY_TOP, Math.min(el.y, LAY_BOTTOM-0.06));
+    });
+  }
+  // Async pass: sample each photo, and where a text block sits over a BUSY region turn on a subtle
+  // readability treatment (scrim) so it stays legible with zero edits. Reuses the match-to-photo
+  // sampling approach. Never touches text the creator already gave a box/scrim.
+  function autoLayoutPhotoPass(){
+    state.slides.forEach(function(s){
+      if(!s.photo||!s.elements||!s.elements.some(isTextish)) return;
+      const img=new Image();
+      img.onload=function(){
+        try{
+          const cw=48, ch=84, c=document.createElement('canvas'); c.width=cw; c.height=ch;
+          const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,cw,ch);
+          const d=ctx.getImageData(0,0,cw,ch).data;
+          function busy(x0,x1,y0,y1){
+            x0=Math.max(0,Math.min(cw-1,x0|0)); x1=Math.max(x0+1,Math.min(cw,x1|0));
+            y0=Math.max(0,Math.min(ch-1,y0|0)); y1=Math.max(y0+1,Math.min(ch,y1|0));
+            let vals=[]; for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=(y*cw+x)*4; vals.push(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]);}
+            const m=vals.reduce((a,b)=>a+b,0)/vals.length; let v=0; vals.forEach(t=>v+=(t-m)*(t-m)); return Math.sqrt(v/vals.length);
+          }
+          let changed=false;
+          s.elements.forEach(function(el){
+            if(!isTextish(el)) return;
+            if(el.box || el.scrim || el.shade) return;   // creator/earlier pass already handled legibility
+            const w=el.w||0.6, h=(el.type==='benefits')?0.30:(el.type==='features')?0.12:0.13;
+            const b=busy(el.x*cw,(el.x+w)*cw, el.y*ch,(el.y+h)*ch);
+            if(b>28){ el.scrim=true; changed=true; }   // busy background -> add the legibility band
+          });
+          if(changed) renderCanvas();
+        }catch(e){}
+      };
+      img.src=s.photo;
+    });
+  }
+
   function applyCopy(p){
+    pushUndo();   // ITEM 1: a regenerate is undoable
     let incoming=(p.slides||[]).slice(0,15);
     const photos=state.slides.map(s=>({photo:s.photo,iw:s.iw,ih:s.ih}));
     const photoCount=photos.filter(x=>x.photo).length;
@@ -13215,9 +13395,16 @@ Return ONLY valid JSON, no markdown, exactly:
       return {photo:ph.photo,iw:ph.iw,ih:ph.ih,elements:buildSlideElements(sl)};
     });
     if(state.slides.length<2)state.slides.push(blankSlide());
-    state.active=0; state.selected=null; carouselStarted=true;
+    state.active=0; state.selected=null; carouselStarted=true; hasCarousel=true;
     if(p.desire){angleEl.style.display='block';angleEl.innerHTML='<b>Angle:</b> '+clean(p.desire);}
+    // ITEM 2/3: lay each slide out for a magazine-worthy result with zero edits (safe zones,
+    // photo-aware placement, auto-readability, auto-fit). Deterministic pass now; the async
+    // photo-busyness pass refines placement/readability once each photo is sampled.
+    state.slides.forEach(function(s){ autoLayoutSlide(s); });
     render();
+    autoLayoutPhotoPass();   // async: sample photos, move text to cleaner areas, add readability where busy
+    updateGenLabel();
+    if(typeof phBriefSync==='function') phBriefSync();
   }
 
   async function generate(){
@@ -13226,7 +13413,7 @@ Return ONLY valid JSON, no markdown, exactly:
     const targetN=photoCount()>=2?photoCount():0;
     const matchOn=document.getElementById('matchPhotos').checked && photoCount()>0;
     const angle=angleInput.value.trim();
-    genBtn.disabled=true; genBtn.textContent='Writing...';
+    genBtn.disabled=true; genBtn.textContent='Writing…'; showGenLoading(true);   // ITEM 5: loading state
     statusEl.textContent=targetN?('Writing '+targetN+' slides for your photos.'):'Reading the product and writing your carousel.';
     try{
       const content=[];
@@ -13253,9 +13440,9 @@ Return ONLY valid JSON, no markdown, exactly:
       }
       if(!res){ throw lastErr||new Error('Failed to fetch'); }
       const data=await res.json();
-      if(data && data.error){ statusEl.textContent='Error: '+(data.error.message||data.error.type||'request rejected'); genBtn.disabled=false; genBtn.textContent='Write the carousel'; return; }
+      if(data && data.error){ statusEl.textContent='Error: '+(data.error.message||data.error.type||'request rejected'); genBtn.disabled=false; showGenLoading(false); updateGenLabel(); return; }
       const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
-      if(!txt){ statusEl.textContent='No response came back. Try again in a moment.'; genBtn.disabled=false; genBtn.textContent='Write the carousel'; return; }
+      if(!txt){ statusEl.textContent='No response came back. Try again in a moment.'; genBtn.disabled=false; showGenLoading(false); updateGenLabel(); return; }
       let raw=txt.replace(/```json|```/g,'').trim();
       const a=raw.indexOf('{'), b=raw.lastIndexOf('}');
       if(a>=0 && b>a) raw=raw.slice(a,b+1);
@@ -13263,9 +13450,10 @@ Return ONLY valid JSON, no markdown, exactly:
       applyCopy(parsed);
       statusEl.textContent='Done. Move, restyle, and rewrite anything, then export.';
     }catch(err){statusEl.textContent='Could not reach the writer: '+(err&&err.message?err.message:'unknown')+'. Please try again in a moment.';console.error(err);}
-    genBtn.disabled=false; genBtn.textContent='Write the carousel';
+    genBtn.disabled=false; showGenLoading(false); updateGenLabel();
   }
   genBtn.addEventListener('click',generate);
+  updateGenLabel();   // initial label: "Write my carousel"
 
   // ---------- export ----------
   // Render slide i to a PNG File, using the exact same pipeline (scale 3, .noexport/overlay excluded,
@@ -13405,7 +13593,11 @@ Return ONLY valid JSON, no markdown, exactly:
     addPhotoBtn.addEventListener('click',function(){ photoInput.click(); });
     phBriefToggle=document.createElement('button'); phBriefToggle.type='button'; phBriefToggle.className='phone-brief-toggle'; phBriefToggle.textContent='Edit brief';
     phBriefToggle.addEventListener('click',function(){ document.body.classList.toggle('brief-open'); phBriefSync(); });
-    phBriefBar.appendChild(addPhotoBtn); phBriefBar.appendChild(phBriefToggle);
+    // ITEM 1: Undo is always reachable on phone — pinned in the top brief bar next to Add photo/Edit brief.
+    var phUndoBtn=document.createElement('button'); phUndoBtn.type='button'; phUndoBtn.id='phUndoBtn'; phUndoBtn.className='phone-brief-undo'; phUndoBtn.textContent='↶ Undo';
+    phUndoBtn.addEventListener('click',function(){ doUndo(); });
+    phBriefBar.appendChild(phUndoBtn); phBriefBar.appendChild(addPhotoBtn); phBriefBar.appendChild(phBriefToggle);
+    updateUndoBtns();
 
     // FIX 2: the "Slide settings & export" sheet. Reuses the phone-sheet look. It holds the
     // slide-level controls (regenerate, Angle, Shape, Safe zones, Slide rules, Photo fade/veil,
