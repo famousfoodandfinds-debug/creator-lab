@@ -12227,33 +12227,33 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   function cleanAccentHS(hex){ const [r,g,b]=hexRgb(hex); const [h,s]=rgbToHsl(r,g,b);
     if(s<0.30) return null; return {h:h, s:Math.min(0.85, Math.max(0.58, s))}; }
   // Brand palette used as clean fallbacks so an auto container is never a muddy wash.
-  const BRAND_INK='#241C1A', BRAND_ROSE='#B06A4E', BRAND_CREAM='#FBF4EE';
-  // ITEM 1: solid, intentional CARD color for an auto container. Chosen for contrast with the text and
-  // kept clean (deep saturated tone of the photo accent, or a brand color when the sample is muddy).
+  const BRAND_INK='#2B2A27', BRAND_ROSE='#CE9A80', BRAND_CREAM='#FBF4EE';
+  // ITEM 2: clean, tasteful CARD color for the (rare) auto container. A deep, clean tone of the PRODUCT
+  // accent, or a brand color when the product palette is muddy/absent. Never the olive-brown sludge.
   function containerFillFor(el){
-    const ad=artDirection||{}; const ca=ad.accentClean;   // {h,s} or null
+    const ad=artDirection||{}; const ca=ad.accentClean;   // {h,s} clean product hue or null
     const textLight=lumaOf(el.color||'#ffffff')>0.55;
-    if(textLight){ return ca ? hslToRgb(ca.h, Math.min(0.6, ca.s), 0.18) : BRAND_INK; }   // deep colored card, light text
-    return ca ? hslToRgb(ca.h, Math.min(0.45, ca.s), 0.92) : BRAND_CREAM;                  // soft light card, dark text
+    if(textLight){ return ca ? hslToRgb(ca.h, Math.min(0.62, ca.s), 0.20) : BRAND_INK; }   // deep clean card, light text
+    return ca ? hslToRgb(ca.h, Math.min(0.40, ca.s), 0.93) : BRAND_CREAM;                   // soft light card, dark text
   }
   // Pick the carousel's art direction once per generation: a font pairing (varies each time) plus a
-  // starting accent. The accent is refined from the product photo in the async pass below.
+  // starting accent + palette. The palette is refined from the product photo in the async pass below.
   function pickArtDirection(){
     const f=FONT_PAIRS[Math.floor(Math.random()*FONT_PAIRS.length)];
-    const accent='#CE9A80';   // brand rose start; refined from the photo async
-    return { fonts:f, accent:accent, accentClean:null };
+    return { fonts:f, accent:'#CE9A80', accentClean:null, palette:[] };   // brand rose start; refined from photo
   }
-  // Seed element props from the art direction (fonts + accent). Purely sets el.font / el.color /
-  // el.iconColor / a legibility stroke, all of which stay user-editable afterward.
+  // Seed element props from the art direction (fonts + accent). Sets el.font / el.color / el.iconColor and
+  // a CLEAN THIN outline + soft shadow for legibility on the photo (ITEM 3) — never a heavy scribble.
+  // Everything stays user-editable afterward.
   function applyArtToElement(el, ad){
     if(!ad||!ad.fonts) return; const f=ad.fonts;
-    if(el.type==='caps') el.font=f.display;
-    else if(el.type==='kicker') el.font=f.body;
+    if(el.type==='caps'){ el.font=f.display; el.outlineW=0.045; el.outlineColor='#101010'; el.softShadow=true; }   // bold hook: crisp thin outline
+    else if(el.type==='kicker'){ el.font=f.body; el.outlineW=0.035; el.outlineColor='#101010'; el.softShadow=true; }
     else if(el.type==='script'){ el.font=f.script; el.color=ad.accent;
-      // ITEM 2: cursive accent lines are thin, so give them a strong dark halo to stay readable on any photo.
-      el.outlineW=Math.max(el.outlineW||0, 0.13); el.outlineColor='#141414'; }
-    else if(el.type==='body') el.font=f.body;
-    else if(el.type==='benefits'||el.type==='features'){ el.font=f.body; el.iconColor=ad.accent; el.ringColor=ad.accent; }
+      el.outlineW=0.05; el.outlineColor='#101010'; el.softShadow=true; }   // ITEM 3: thin clean outline, not a thick messy one
+    else if(el.type==='body'){ el.font=f.body; el.outlineW=0.04; el.outlineColor='#101010'; el.softShadow=true; }
+    else if(el.type==='benefits'||el.type==='features'){ el.font=f.body; el.iconColor=ad.accent; el.ringColor=ad.accent;
+      el.softShadow=true; el.textStrokeW=0; }   // ITEM 5: labels get a soft shadow for depth, NO heavy stroke (avoids broken glyphs)
   }
   // Sample a photo ONCE: dominant accent (saturated-hue buckets, same approach as matchPhotoColor)
   // plus a busyness(variance-of-luma) probe closed over the pixel data so callers can query regions.
@@ -12264,28 +12264,42 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         const cw=48,ch=84,c=document.createElement('canvas'); c.width=cw;c.height=ch;
         const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,cw,ch);
         const d=ctx.getImageData(0,0,cw,ch).data;
+        // ITEM 4: pull the palette from the PRODUCT, not the whole scene. Weight each pixel by saturation
+        // squared (favor vivid product hues over dull background) AND centrality (the subject usually sits
+        // center frame, so brick/counter/box edges are downweighted). Build fine hue buckets and take the
+        // top one or two as a clean primary + secondary palette. Muddy/greyscale photos yield no palette.
         const buckets={}; let lumSum=0,lumN=0;
         for(let i=0;i<d.length;i+=4){
           const r=d[i],g=d[i+1],b=d[i+2];
           lumSum+=0.299*r+0.587*g+0.114*b; lumN++;
+          const px=(i/4)%cw, py=Math.floor((i/4)/cw);
+          const nx=px/cw-0.5, ny=py/ch-0.5;
+          const central=Math.max(0, 1-(Math.abs(nx)*1.5+Math.abs(ny)*1.05));   // center-weighted (product zone)
+          if(central<=0) continue;
           const [h,sat,l]=rgbToHsl(r,g,b);
-          if(sat<0.22||l<0.16||l>0.86)continue;
-          const key=Math.round(h*18); const wt=sat*(1-Math.abs(l-0.5));
-          if(!buckets[key])buckets[key]={r:0,g:0,b:0,w:0};
-          buckets[key].r+=r*wt;buckets[key].g+=g*wt;buckets[key].b+=b*wt;buckets[key].w+=wt;
+          if(sat<0.25||l<0.16||l>0.88)continue;
+          const key=Math.round(h*24); const wt=sat*sat*(1-Math.abs(l-0.55))*central;
+          if(!buckets[key])buckets[key]={r:0,g:0,b:0,w:0,sw:0,sn:0};
+          buckets[key].r+=r*wt;buckets[key].g+=g*wt;buckets[key].b+=b*wt;buckets[key].w+=wt;buckets[key].sw+=sat;buckets[key].sn++;
         }
-        let best=null; Object.values(buckets).forEach(v=>{if(!best||v.w>best.w)best=v;});
-        let accent=null, accentSat=0;
-        if(best&&best.w>0.8){ let [h,sa,l]=rgbToHsl(best.r/best.w,best.g/best.w,best.b/best.w);
-          accentSat=sa;   // RAW saturation (before boosting) so callers can reject muddy samples
-          sa=Math.min(1,Math.max(sa,0.5)); l=Math.min(0.6,Math.max(l,0.42)); accent=hslToRgb(h,sa,l); }
+        const ranked=Object.values(buckets).filter(v=>v.w>0).sort((a,b)=>b.w-a.w);
+        function toneOf(v){ let [h,sa,l]=rgbToHsl(v.r/v.w,v.g/v.w,v.b/v.w); const rawS=v.sw/Math.max(1,v.sn);
+          const cl=Math.min(0.62,Math.max(0.44,l)), cs=Math.min(0.90,Math.max(0.58,sa));
+          return { color:hslToRgb(h,cs,cl), h:h, s:cs, rawS:rawS, w:v.w }; }
+        // Build the palette: strongest bucket first, then a distinct second hue if it is also vivid enough.
+        const palette=[];
+        if(ranked.length){ const p=toneOf(ranked[0]); if(p.rawS>=0.30 && p.w>0.6){ palette.push(p);
+          for(let k=1;k<ranked.length && palette.length<2;k++){ const q=toneOf(ranked[k]);
+            if(q.rawS>=0.30 && q.w>0.5 && Math.abs(q.h-p.h)>0.06) palette.push(q); } } }
+        const accent=palette.length?palette[0].color:null;
+        const accentSat=palette.length?palette[0].rawS:0;
         function busy(x0,x1,y0,y1){
           x0=Math.max(0,Math.min(cw-1,x0|0)); x1=Math.max(x0+1,Math.min(cw,x1|0));
           y0=Math.max(0,Math.min(ch-1,y0|0)); y1=Math.max(y0+1,Math.min(ch,y1|0));
           let vals=[]; for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=(y*cw+x)*4; vals.push(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]);}
           const m=vals.reduce((a,b)=>a+b,0)/vals.length; let v=0; vals.forEach(t=>v+=(t-m)*(t-m)); return Math.sqrt(v/vals.length);
         }
-        cb({accent:accent, accentSat:accentSat, avgLuma:(lumSum/Math.max(1,lumN))/255, busy:busy, cw:cw, ch:ch});
+        cb({accent:accent, accentSat:accentSat, palette:palette, avgLuma:(lumSum/Math.max(1,lumN))/255, busy:busy, cw:cw, ch:ch});
       }catch(e){ cb(null); }
     };
     img.onerror=function(){ cb(null); };
@@ -12343,7 +12357,8 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       if(boxOn && (TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features')){
         node.classList.add('has-cbox');   // lifts the text to z-index:1 above the box (see CSS)
         const bx=document.createElement('div'); bx.className='cbox';
-        const fpx2=el.size*W, padY=Math.max(5,fpx2*0.20), padX=Math.max(8,fpx2*0.34);
+        const fpx2=el.size*W, padScale=(el.boxPad!=null?el.boxPad:0.20);
+        const padY=Math.max(5,fpx2*padScale), padX=Math.max(8,fpx2*(padScale*1.7));
         bx.style.top=(-padY)+'px'; bx.style.bottom=(-padY)+'px'; bx.style.left=(-padX)+'px'; bx.style.right=(-padX)+'px';
         const bxColor=el.boxColor||el.fillColor||'#000000';
         const bxOp=(el.boxOpacity!=null)?el.boxOpacity:((el.fillOpacity!=null)?el.fillOpacity:0.6);
@@ -12439,8 +12454,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       else if(el.type==='burst') fpx=(el.size*W)*0.17;
       else if(el.type==='arrow'||el.type==='ring'||el.type==='icon') fpx=0;
       else fpx=el.size*W;
-      if(fpx>0 && el.outlineW>0){ body.style.textShadow = outlineShadow(el.outlineColor||'#111111', Math.max(0.6, fpx*el.outlineW)); }
-      if((el.type==='benefits'||el.type==='features') && el.textStrokeW>0){ body.style.textShadow = outlineShadow(el.textStrokeColor||'#111111', Math.max(0.6,(el.size*W)*el.textStrokeW)); }
+      if(fpx>0){ const sh=composeShadow(el, fpx); if(sh) body.style.textShadow=sh; }
       if(el.rot){ node.style.transform='rotate('+el.rot+'deg)'; }
       node.appendChild(body);
       const handle=document.createElement('div'); handle.className='handle'; node.appendChild(handle);
@@ -12468,7 +12482,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
           fit=Math.max(fit, floorFrac);
           const fitSize=Math.max(minSizeFor(el), el.size*fit);
           body.style.fontSize=(fitSize*W)+'px';
-          if(el.textStrokeW>0) body.style.textShadow=outlineShadow(el.textStrokeColor||'#111111', Math.max(0.6,(fitSize*W)*el.textStrokeW));
+          { const sh=composeShadow(el, fitSize*W); if(sh) body.style.textShadow=sh; }
         }
       }
       // ITEM 3: keep wrapped plain text inside the safe area — if it would run under the bottom caption
@@ -12480,7 +12494,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         if(node.offsetHeight>avail){
           const f=Math.max(0.55, avail/node.offsetHeight);
           body.style.fontSize=Math.max(minSizeFor(el)*W,(el.size*f)*W)+'px';
-          if(el.outlineW>0) body.style.textShadow=outlineShadow(el.outlineColor||'#111111', Math.max(0.6,(el.size*f*W)*el.outlineW));
+          { const sh=composeShadow(el, el.size*f*W); if(sh) body.style.textShadow=sh; }
         }
       }
 
@@ -12569,10 +12583,23 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     }).join('');
     stage.appendChild(o);
   }
+  // Clean, even outline ring. 8 directions at a single radius (dropped the old far 1.4x points that
+  // over-extended and broke glyphs on cursive/thin faces) — a crisp thin outline, not a scribble.
   function outlineShadow(c,w){
     const o=Math.round(w*10)/10;
-    return [[-o,-o],[o,-o],[-o,o],[o,o],[0,-o],[0,o],[-o,0],[o,0],[-o*1.4,0],[o*1.4,0],[0,-o*1.4],[0,o*1.4]]
-      .map(p=>p[0]+'px '+p[1]+'px 0 '+c).join(',');
+    return [[-1,-1],[1,-1],[-1,1],[1,1],[0,-1],[0,1],[-1,0],[1,0]]
+      .map(p=>(p[0]*o).toFixed(1)+'px '+(p[1]*o).toFixed(1)+'px 0 '+c).join(',');
+  }
+  // Compose the text legibility treatment (ITEM 3): a crisp thin outline (from el.outlineW, capped so it
+  // never becomes a thick mess) plus an optional soft drop shadow for depth. Used for all auto text.
+  function composeShadow(el, fpx){
+    const isBlock=(el.type==='benefits'||el.type==='features');
+    const ow=isBlock ? (el.textStrokeW||0) : (el.outlineW||0);
+    const oc=isBlock ? (el.textStrokeColor||'#111111') : (el.outlineColor||'#111111');
+    const parts=[];
+    if(fpx>0 && ow>0){ parts.push(outlineShadow(oc, Math.max(0.6, fpx*ow))); }
+    if(el.softShadow && fpx>0){ parts.push('0 '+Math.max(1,fpx*0.028).toFixed(1)+'px '+Math.max(1.5,fpx*0.075).toFixed(1)+'px rgba(0,0,0,.5)'); }
+    return parts.join(',');
   }
   function esc(s){return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
@@ -13568,17 +13595,16 @@ Return ONLY valid JSON, no markdown, exactly:
     if(el.type==='caps') return Math.max(0.12, (el.size||0.10)*1.7); if(el.type==='script') return 0.11;
     if(el.type==='kicker') return 0.05; return 0.09; }
   const BUSY_THRESH=27;
-  // Give a text block a DESIGNED container (ITEM 2): a soft, photo-tinted, rounded box instead of the
-  // old flat grey scrim. Marked _autoBox so a later accent update can recolor it. Fully editable.
+  // Give a block a clean, tasteful container (ITEM 2): a product/brand color, tight and a touch lighter
+  // than before so the photo breathes. Only used for dense benefit/feature lists (see the pass below).
   function autoContainer(el){
     el.scrim=false;
     el.box=true; el._autoBox=true;
-    el.boxShape=(el.type==='kicker')?'pill':'round';
+    el.boxShape='round';
     el.boxColor=containerFillFor(el);
-    el.boxOpacity=0.86;   // ITEM 1: reads as a solid design card, not a faint wash
+    el.boxOpacity=0.72;   // ITEM 2: solid-ish but lighter than the old heavy card
     el.boxGrad=true;      // subtle CLEAN gradient (tightened in renderCanvas)
-    // ITEM 2: over a dark card, force the script line to a bright tone so it pops off the card.
-    if(el.type==='script' && lumaOf(el.boxColor)<0.5) el.color='#ffffff';
+    el.boxPad=0.14;       // tighter padding than the default (see renderCanvas)
   }
   // ITEM 2 + 7: async art-direction pass. Samples each photo once to (a) derive ONE cohesive accent
   // for the whole carousel and recolor script/icons/containers with it, (b) prefer moving a plain text
@@ -13586,16 +13612,17 @@ Return ONLY valid JSON, no markdown, exactly:
   // area, apply the designed container. Never overrides a block the creator already styled.
   function artDirectPhotoPass(){
     var accentApplied=false;
-    function applyAccent(accent, sat){
+    function applyAccent(accent, sat, palette){
       if(!accent||accentApplied) return; accentApplied=true;
-      artDirection.accent=accent;
-      // Only treat the photo accent as "clean" if the raw sample was actually saturated; otherwise keep
-      // accentClean null so containers fall back to a brand color instead of a muddy tint (ITEM 1).
+      artDirection.accent=accent; artDirection.palette=palette||[];
+      // ITEM 4: primary product tone drives script/highlights, a distinct secondary tone (if any) accents
+      // the benefit/feature icon rings, so the type feels connected to the product. Muddy sample -> brand.
+      const secondary=(palette&&palette[1])?palette[1].color:accent;
       artDirection.accentClean = (sat!=null && sat>=0.30) ? cleanAccentHS(accent) : null;
       state.slides.forEach(function(s){ (s.elements||[]).forEach(function(el){
         if(el.type==='script'){ if(!(el._autoBox && lumaOf(el.boxColor||'#000')<0.5)) el.color=accent; }
-        else if(el.type==='benefits'||el.type==='features'){ el.iconColor=accent; el.ringColor=accent; }
-        if(el._autoBox){ el.boxColor=containerFillFor(el); if(el.type==='script' && lumaOf(el.boxColor)<0.5) el.color='#ffffff'; }
+        else if(el.type==='benefits'||el.type==='features'){ el.iconColor=accent; el.ringColor=secondary; }
+        if(el._autoBox){ el.boxColor=containerFillFor(el); }
       }); });
       renderCanvas();
     }
@@ -13603,7 +13630,7 @@ Return ONLY valid JSON, no markdown, exactly:
       if(!s.photo||!s.elements||!s.elements.some(isTextish)) return;
       samplePhotoArt(s.photo, function(res){
         if(!res) return;
-        if(res.accent) applyAccent(res.accent, res.accentSat);   // first photo with a usable accent wins, applied to all
+        if(res.accent) applyAccent(res.accent, res.accentSat, res.palette);   // first photo with a usable product accent wins
         const cw=res.cw, ch=res.ch, busy=res.busy;
         // CLEAN-AREA placement (only plain text stacks: hook/statement, never benefit/feature/cta bars).
         const texts=s.elements.filter(function(e){ return TEXT_TYPES.includes(e.type); });
@@ -13620,15 +13647,17 @@ Return ONLY valid JSON, no markdown, exactly:
             if(dy>0.02) texts.forEach(function(e){ e.y=Math.max(LAY_TOP, Math.min(e.y+dy, LAY_BOTTOM-0.06)); });
           }
         }
-        // Designed container only where a block truly sits over a busy area.
+        // ITEM 1: containers are RARE. Only a dense benefit/feature LIST gets one, and only when it sits
+        // over a genuinely busy region. Hooks, script lines and short body lines never get a box — they
+        // rely on the clean thin outline + placement instead.
         let changed=false;
         s.elements.forEach(function(el){
-          if(!isTextish(el)) return;
+          if(el.type!=='benefits' && el.type!=='features') return;
           if(el._styledByUser || el.shade || (el.box && !el._autoBox)) return;
           const w=el.w||0.6, h=blockH(el);
           const b=busy(el.x*cw,(el.x+w)*cw, el.y*ch,(el.y+h)*ch);
           if(b>BUSY_THRESH){ if(!el.box){ autoContainer(el); changed=true; } }
-          else if(el._autoBox){ el.box=false; el._autoBox=false; changed=true; }   // moved to a clean spot -> drop the box
+          else if(el._autoBox){ el.box=false; el._autoBox=false; changed=true; }   // clean area -> no box
         });
         if(changed) renderCanvas();
         scheduleSettleAll();   // ITEM 4: re-settle the whole deck once this batch of photo moves lands
