@@ -11401,7 +11401,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
      into an isolated, same-origin iframe (#carouselFrame) so it cannot collide with the app. -->
 <div id="carouselPanel" style="display:none;"><div id="carouselExitBar"><button id="carouselExitBtn" type="button" onclick="showMainTab('scripts')">&#10005;&nbsp;Done</button><span class="ce-title">Carousel</span></div><iframe id="carouselFrame" title="Saxe Carousel Studio" allow="web-share"></iframe></div>
 <template id="carouselTpl">
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Archivo+Black&family=Fjalla+One&family=Alfa+Slab+One&family=Bungee&family=Teko:wght@400;600&family=Anton+SC&family=Playfair+Display:wght@400;700;900&family=Marcellus&family=DM+Serif+Display&family=Abril+Fatface&family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;500;600&family=Poppins:wght@400;600;700&family=Montserrat:wght@400;600;800&family=Outfit:wght@400;600&family=Work+Sans:wght@400;600&family=Pacifico&family=Dancing+Script:wght@400;700&family=Caveat:wght@400;700&family=Caveat+Brush&family=Kaushan+Script&family=Permanent+Marker&family=Satisfy&family=Courgette&family=Yellowtail&family=Patrick+Hand&family=Shadows+Into+Light+Two&family=Gloria+Hallelujah&family=Cormorant+Garamond:wght@500;600&family=EB+Garamond:wght@500&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Cinzel:wght@500&family=Italiana&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Oswald:wght@400;500;600;700&family=Archivo+Black&family=Fjalla+One&family=Alfa+Slab+One&family=Bungee&family=Teko:wght@400;600&family=Anton+SC&family=Playfair+Display:wght@400;700;900&family=Marcellus&family=DM+Serif+Display&family=Abril+Fatface&family=Cormorant+Garamond:wght@400;600&family=Inter:wght@400;500;600&family=Poppins:wght@400;600;700&family=Montserrat:wght@400;600;800&family=Outfit:wght@400;600&family=Work+Sans:wght@400;600&family=Pacifico&family=Dancing+Script:wght@400;700&family=Caveat:wght@400;700&family=Caveat+Brush&family=Kaushan+Script&family=Permanent+Marker&family=Satisfy&family=Courgette&family=Yellowtail&family=Patrick+Hand&family=Shadows+Into+Light+Two&family=Gloria+Hallelujah&family=Cormorant+Garamond:wght@500;600&family=EB+Garamond:wght@500&family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Cinzel:wght@500&family=Italiana&family=Prata&family=Instrument+Serif&family=Syne:wght@600;700;800&family=Libre+Franklin:wght@400;500;600&family=Bricolage+Grotesque:wght@600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
   :root{
@@ -11731,6 +11731,9 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     body.carousel-phone .phone-brief-add:active,
     body.carousel-phone .phone-brief-undo:active,
     body.carousel-phone .phone-brief-toggle:active{border-color:var(--rose)}
+    /* ITEM 1: primary generate action on the main editing screen — own full-width row in the top bar */
+    body.carousel-phone .phone-main-gen{flex:1 0 100%;width:100%;margin-top:2px;padding:13px;font-size:14.5px;
+      font-weight:700;border-radius:11px}
     body.carousel-phone.brief-collapsed .phone-brief-card{display:none}
     body.carousel-phone.brief-collapsed.brief-open .phone-brief-card{display:block}
     /* FIX 2: reclaim the screen. The slide + slide-tabs live in the pinned dock and every
@@ -12023,8 +12026,30 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     ['Playfair','Playfair Display'],['Marcellus','Marcellus'],['DM Serif','DM Serif Display'],['Abril Fatface','Abril Fatface'],['Cormorant','Cormorant Garamond'],
     ['Inter','Inter'],['Poppins','Poppins'],['Montserrat','Montserrat'],['Outfit','Outfit'],['Work Sans','Work Sans'],
     ['Kaushan (brush)','Kaushan Script'],['Caveat Brush','Caveat Brush'],['Caveat','Caveat'],['Pacifico','Pacifico'],['Satisfy','Satisfy'],['Courgette','Courgette'],['Yellowtail','Yellowtail'],['Dancing Script','Dancing Script'],['Patrick Hand','Patrick Hand'],['Shadows Into Light','Shadows Into Light Two'],['Gloria Hallelujah','Gloria Hallelujah'],['Permanent Marker','Permanent Marker'],
-    ['Fraunces (elegant)','Fraunces'],['EB Garamond','EB Garamond'],['Italiana','Italiana'],['Cinzel','Cinzel']
+    ['Fraunces (elegant)','Fraunces'],['EB Garamond','EB Garamond'],['Italiana','Italiana'],['Cinzel','Cinzel'],
+    ['Prata (fashion serif)','Prata'],['Instrument Serif','Instrument Serif'],['Syne (modern)','Syne'],['Bricolage','Bricolage Grotesque'],['Libre Franklin','Libre Franklin']
   ];
+
+  // ITEM 6: curated display+script+body pairings. Generation auto-picks one per carousel so the
+  // deck looks art-directed instead of the same Anton+Kaushan every time. Fully editable after.
+  // Each pairing is a strong display face for the hook, a tasteful script accent, and a clean
+  // readable body face. All families are loaded in the <link> above.
+  const FONT_PAIRS=[
+    {display:'Anton',           script:'Kaushan Script', body:'Inter'},
+    {display:'Archivo Black',   script:'Caveat',         body:'Poppins'},
+    {display:'Playfair Display',script:'Dancing Script', body:'Work Sans'},
+    {display:'DM Serif Display',script:'Satisfy',        body:'Montserrat'},
+    {display:'Fraunces',        script:'Courgette',      body:'Libre Franklin'},
+    {display:'Abril Fatface',   script:'Yellowtail',     body:'Outfit'},
+    {display:'Prata',           script:'Pacifico',       body:'Libre Franklin'},
+    {display:'Syne',            script:'Caveat',         body:'Inter'},
+    {display:'Bricolage Grotesque',script:'Courgette',   body:'Work Sans'},
+    {display:'Bebas Neue',      script:'Dancing Script', body:'Montserrat'}
+  ];
+  // Carousel-wide art direction chosen at generation: {fonts:{display,script,body}, accent, accentDark, ink}.
+  // Persisted on state so regenerate can vary it and so it survives re-render. All values are just
+  // seeds for element props (el.font / el.color / el.boxColor) — every element stays user-editable.
+  var artDirection=null;
 
   function id(){return 'e'+Math.random().toString(36).slice(2,8)}
   const TEXT_TYPES=['kicker','caps','script','body'];
@@ -12194,6 +12219,65 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     img.src=s.photo;
   }
 
+  // ===== ART DIRECTION (this PR) =========================================
+  function hexRgb(hex){ hex=(hex||'#000000').replace('#',''); if(hex.length===3)hex=hex.split('').map(c=>c+c).join('');
+    return [parseInt(hex.slice(0,2),16)||0, parseInt(hex.slice(2,4),16)||0, parseInt(hex.slice(4,6),16)||0]; }
+  // A near-black container color that carries a hint of the photo accent, so auto containers read as
+  // intentional design rather than a flat grey slab. Low lightness, restrained saturation.
+  function deriveDark(hex){ const [r,g,b]=hexRgb(hex); let [h,s]=rgbToHsl(r,g,b); s=Math.min(s,0.42); return hslToRgb(h,s,0.12); }
+  // Pick the carousel's art direction once per generation: a font pairing (varies each time) plus a
+  // starting accent. The accent is refined from the product photo in the async pass below.
+  function pickArtDirection(){
+    const f=FONT_PAIRS[Math.floor(Math.random()*FONT_PAIRS.length)];
+    const accent='#ED5A98';
+    return { fonts:f, accent:accent, accentDark:deriveDark(accent) };
+  }
+  // Seed element props from the art direction (fonts + accent). Purely sets el.font / el.color /
+  // el.iconColor, all of which stay user-editable afterward.
+  function applyArtToElement(el, ad){
+    if(!ad||!ad.fonts) return; const f=ad.fonts;
+    if(el.type==='caps') el.font=f.display;
+    else if(el.type==='kicker') el.font=f.body;
+    else if(el.type==='script'){ el.font=f.script; el.color=ad.accent; }
+    else if(el.type==='body') el.font=f.body;
+    else if(el.type==='benefits'||el.type==='features'){ el.font=f.body; el.iconColor=ad.accent; el.ringColor=ad.accent; }
+  }
+  // Sample a photo ONCE: dominant accent (saturated-hue buckets, same approach as matchPhotoColor)
+  // plus a busyness(variance-of-luma) probe closed over the pixel data so callers can query regions.
+  function samplePhotoArt(src, cb){
+    const img=new Image();
+    img.onload=function(){
+      try{
+        const cw=48,ch=84,c=document.createElement('canvas'); c.width=cw;c.height=ch;
+        const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,cw,ch);
+        const d=ctx.getImageData(0,0,cw,ch).data;
+        const buckets={}; let lumSum=0,lumN=0;
+        for(let i=0;i<d.length;i+=4){
+          const r=d[i],g=d[i+1],b=d[i+2];
+          lumSum+=0.299*r+0.587*g+0.114*b; lumN++;
+          const [h,sat,l]=rgbToHsl(r,g,b);
+          if(sat<0.22||l<0.16||l>0.86)continue;
+          const key=Math.round(h*18); const wt=sat*(1-Math.abs(l-0.5));
+          if(!buckets[key])buckets[key]={r:0,g:0,b:0,w:0};
+          buckets[key].r+=r*wt;buckets[key].g+=g*wt;buckets[key].b+=b*wt;buckets[key].w+=wt;
+        }
+        let best=null; Object.values(buckets).forEach(v=>{if(!best||v.w>best.w)best=v;});
+        let accent=null;
+        if(best&&best.w>0.8){ let [h,sa,l]=rgbToHsl(best.r/best.w,best.g/best.w,best.b/best.w);
+          sa=Math.min(1,Math.max(sa,0.5)); l=Math.min(0.6,Math.max(l,0.42)); accent=hslToRgb(h,sa,l); }
+        function busy(x0,x1,y0,y1){
+          x0=Math.max(0,Math.min(cw-1,x0|0)); x1=Math.max(x0+1,Math.min(cw,x1|0));
+          y0=Math.max(0,Math.min(ch-1,y0|0)); y1=Math.max(y0+1,Math.min(ch,y1|0));
+          let vals=[]; for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=(y*cw+x)*4; vals.push(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]);}
+          const m=vals.reduce((a,b)=>a+b,0)/vals.length; let v=0; vals.forEach(t=>v+=(t-m)*(t-m)); return Math.sqrt(v/vals.length);
+        }
+        cb({accent:accent, avgLuma:(lumSum/Math.max(1,lumN))/255, busy:busy, cw:cw, ch:ch});
+      }catch(e){ cb(null); }
+    };
+    img.onerror=function(){ cb(null); };
+    img.src=src;
+  }
+
   function renderTabs(){
     slidetabs.innerHTML='';
     state.slides.forEach((s,i)=>{
@@ -12249,7 +12333,9 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         bx.style.top=(-padY)+'px'; bx.style.bottom=(-padY)+'px'; bx.style.left=(-padX)+'px'; bx.style.right=(-padX)+'px';
         const bxColor=el.boxColor||el.fillColor||'#000000';
         const bxOp=(el.boxOpacity!=null)?el.boxOpacity:((el.fillOpacity!=null)?el.fillOpacity:0.6);
-        bx.style.background=hexA(bxColor, bxOp);
+        // ITEM 2: a soft vertical gradient reads as intentional design rather than a flat slab.
+        if(el.boxGrad){ bx.style.background='linear-gradient(180deg,'+hexA(bxColor, Math.min(1,bxOp+0.06))+' 0%, '+hexA(bxColor, Math.max(0,bxOp-0.20))+' 100%)'; }
+        else bx.style.background=hexA(bxColor, bxOp);
         bx.style.borderRadius=boxRadius(el.boxShape||'round', fpx2);
         if(el.boxBorder){
           const bw=(el.boxBorderW!=null?el.boxBorderW:0.06)*fpx2;
@@ -13031,6 +13117,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
     if(!genBtn) return;
     if(!genBtn.disabled) genBtn.textContent = hasCarousel ? 'Regenerate carousel' : 'Write my carousel';
     if(typeof phRegenBtn!=='undefined' && phRegenBtn) phRegenBtn.textContent = hasCarousel ? '↻ Regenerate carousel' : '↻ Write my carousel';
+    if(typeof phMainGenBtn!=='undefined' && phMainGenBtn) phMainGenBtn.textContent = hasCarousel ? '↻ Regenerate carousel' : '✍ Write my carousel';
   }
   function showGenLoading(on){
     var ov=document.getElementById('genLoading');
@@ -13273,6 +13360,8 @@ Each slide has a layout from this vocabulary:
 
 The first slide is a hook or statement. The last slide is a cta. Put benefits, feature and statement slides in the middle. Vary the layouts so it is not repetitive.
 
+THE FIRST-SLIDE HOOK IS THE MOST IMPORTANT LINE. It must be a genuine scroll-stopper that makes a woman 45+ stop mid-scroll: use a pattern interrupt, a curiosity gap, or a bold benefit-forward claim. Make the headline punchy and specific to THIS product's payoff, never a flat category label. Weak, banned styles: "MORE THAN CLEAN", "QUALITY YOU CAN TRUST", "THE BEST CHOICE", or naming the product category as the headline. Strong styles (match this energy, do not copy verbatim): "STOP SCROLLING", "YOUR MORNING JUST GOT BETTER", "READ THIS BEFORE YOU BUY", "THE ONE THING NOBODY TELLS YOU", "WHY IS EVERYONE OBSESSED", "THIS CHANGED MY WHOLE ROUTINE". The kicker sets up the hook, the headline lands the punch, the script adds a human aside.
+
 REQUIRED when there are 3 or more slides: at least one middle slide MUST use the "benefits" layout with 3 to 5 rows (each row a real icon, label and short detail tied to THIS product, never generic filler like "easy to use"), and include at least one "feature" slide too. Do not build a carousel out of only hook and statement text slides. The benefit and feature rows must name concrete, product-specific points.
 
 icon must be one of: `+ICON_NAMES.join(', ')+`.
@@ -13293,28 +13382,30 @@ Return ONLY valid JSON, no markdown, exactly:
 
   function buildSlideElements(sl){
     const els=[]; const add=o=>els.push({id:id(),scrim:false,align:'left',outlineW:0.06,outlineColor:'#111111',...o});
+    // ITEM 3 + 5: composed hierarchy with breathing room. Bigger display hook, an accent script line
+    // set well below it, and legible body text anchored separately (never a cluster of touching boxes).
     if(sl.layout==='hook'){
-      if(sl.kicker)add({type:'kicker',text:clean(sl.kicker).toUpperCase(),x:.07,y:.08,size:.030,color:'#ffffff'});
-      if(sl.headline)add({type:'caps',text:clean(sl.headline),x:.07,y:.15,size:.102,color:'#ffffff'});
-      if(sl.script)add({type:'script',text:clean(sl.script),x:.09,y:.33,size:.085,color:'#ED5A98'});
-      if(sl.sub)add({type:'body',text:clean(sl.sub),x:.07,y:.47,size:.032,color:'#ffffff'});
+      if(sl.kicker)add({type:'kicker',text:clean(sl.kicker).toUpperCase(),x:.07,y:.085,size:.028,color:'#ffffff'});
+      if(sl.headline)add({type:'caps',text:clean(sl.headline),x:.07,y:.155,size:.118,color:'#ffffff'});
+      if(sl.script)add({type:'script',text:clean(sl.script),x:.09,y:.375,size:.082,color:'#ED5A98'});
+      if(sl.sub)add({type:'body',text:clean(sl.sub),x:.07,y:.52,size:.040,color:'#ffffff'});
     } else if(sl.layout==='statement'){
-      if(sl.headline)add({type:'caps',text:clean(sl.headline),x:.06,y:.10,size:.105,color:'#ffffff'});
-      if(sl.script)add({type:'script',text:clean(sl.script),x:.08,y:.31,size:.085,color:'#ED5A98'});
-      if(sl.sub)add({type:'body',text:clean(sl.sub),x:.07,y:.46,size:.032,color:'#ffffff'});
+      if(sl.headline)add({type:'caps',text:clean(sl.headline),x:.06,y:.12,size:.118,color:'#ffffff'});
+      if(sl.script)add({type:'script',text:clean(sl.script),x:.08,y:.35,size:.082,color:'#ED5A98'});
+      if(sl.sub)add({type:'body',text:clean(sl.sub),x:.07,y:.52,size:.040,color:'#ffffff'});
     } else if(sl.layout==='benefits'){
-      if(sl.heading)add({type:'kicker',text:clean(sl.heading).toUpperCase(),x:.07,y:.07,size:.030,color:'#ffffff'});
-      add({type:'benefits',x:.07,y:.20,size:.036,w:.62,color:'#ffffff',items:(sl.benefits||[]).slice(0,5).map(b=>({icon:ICON_NAMES.includes(b.icon)?b.icon:'check',label:clean(b.label),desc:clean(b.desc)}))});
+      if(sl.heading)add({type:'kicker',text:clean(sl.heading).toUpperCase(),x:.07,y:.08,size:.030,color:'#ffffff'});
+      add({type:'benefits',x:.07,y:.22,size:.038,w:.62,color:'#ffffff',items:(sl.benefits||[]).slice(0,5).map(b=>({icon:ICON_NAMES.includes(b.icon)?b.icon:'check',label:clean(b.label),desc:clean(b.desc)}))});
     } else if(sl.layout==='feature'){
-      if(sl.headline)add({type:'caps',text:clean(sl.headline),x:.07,y:.07,size:.072,color:'#ffffff'});
-      if(sl.script)add({type:'script',text:clean(sl.script),x:.07,y:.20,size:.072,color:'#ED5A98'});
+      if(sl.headline)add({type:'caps',text:clean(sl.headline),x:.07,y:.08,size:.078,color:'#ffffff'});
+      if(sl.script)add({type:'script',text:clean(sl.script),x:.07,y:.215,size:.070,color:'#ED5A98'});
       add({type:'features',x:.06,y:.80,size:.026,w:.8,color:'#ffffff',items:(sl.features||[]).slice(0,4).map(f=>({icon:ICON_NAMES.includes(f.icon)?f.icon:'check',label:clean(f.label)}))});
     } else if(sl.layout==='cta'){
-      if(sl.line)add({type:'caps',text:clean(sl.line),x:.07,y:.58,size:.090,color:'#ffffff'});
-      if(sl.script)add({type:'script',text:clean(sl.script),x:.07,y:.72,size:.080,color:'#ED5A98'});
-      add({type:'body',text:clean(sl.cart||'Tap the orange cart'),x:.07,y:.85,size:.038,color:'#CE9A80'});
+      if(sl.line)add({type:'caps',text:clean(sl.line),x:.07,y:.56,size:.098,color:'#ffffff'});
+      if(sl.script)add({type:'script',text:clean(sl.script),x:.07,y:.71,size:.082,color:'#ED5A98'});
+      add({type:'body',text:clean(sl.cart||'Tap the orange cart'),x:.07,y:.845,size:.042,color:'#CE9A80'});
     } else {
-      if(sl.headline)add({type:'caps',text:clean(sl.headline),x:.07,y:.12,size:.09,color:'#ffffff'});
+      if(sl.headline)add({type:'caps',text:clean(sl.headline),x:.07,y:.13,size:.10,color:'#ffffff'});
     }
     return els;
   }
@@ -13325,6 +13416,19 @@ Return ONLY valid JSON, no markdown, exactly:
   // width and clamps every text/block into the safe area so nothing runs under the UI.
   const LAY_LEFT=0.06, LAY_RIGHT=0.94, LAY_RAIL=0.76, LAY_TOP=0.095, LAY_BOTTOM=BOTTOM_SAFE_Y0;
   function isTextish(el){ return TEXT_TYPES.includes(el.type)||el.type==='benefits'||el.type==='features'; }
+  // Estimated on-canvas height of a block as a fraction of slide height (3:4), accounting for wrap.
+  // el.size is a fraction of WIDTH; *0.75 converts to a fraction of the taller height axis.
+  function estBlockH(el){
+    if(el.type==='benefits') return 0.30; if(el.type==='features') return 0.12;
+    const w=el.w||0.6, fs=el.size||0.05;
+    // display faces (caps) run wide, so reserve more per glyph and taller line-height. Conservative on
+    // purpose: over-reserving just gives extra breathing room; the measured settle tightens slide one.
+    const cwf=(el.type==='caps')?0.66:(el.type==='script'?0.50:0.52);
+    const cpl=Math.max(5, w/(fs*cwf));
+    const lines=Math.max(1, Math.ceil((el.text||'').length/cpl));
+    const lh=(el.type==='caps')?1.12:(el.type==='script'?1.18:1.34);
+    return lines*fs*lh*0.75;
+  }
   function autoLayoutSlide(s){
     if(!s||!s.elements) return;
     s.elements.forEach(function(el){
@@ -13340,37 +13444,115 @@ Return ONLY valid JSON, no markdown, exactly:
       if(el.y==null) el.y=LAY_TOP;
       el.y=Math.max(LAY_TOP, Math.min(el.y, LAY_BOTTOM-0.06));
     });
+    // ITEM 3: de-cluster plain text stacks. Lay kicker/caps/script/body top-to-bottom with a real
+    // gap sized from each block's estimated wrapped height, so however the copy wraps the blocks keep
+    // breathing room and never overlap. Slides with a benefit/feature block keep their own layout.
+    const texts=s.elements.filter(function(e){ return TEXT_TYPES.includes(e.type); });
+    const hasBlock=s.elements.some(function(e){ return e.type==='benefits'||e.type==='features'; });
+    if(texts.length>=2 && !hasBlock){
+      texts.sort(function(a,b){ return (a.y||0)-(b.y||0); });
+      const GAP=0.032;
+      let y=Math.max(LAY_TOP, texts[0].y);
+      const totalH=texts.reduce(function(t,e){ return t+estBlockH(e); },0)+GAP*(texts.length-1);
+      const band=(LAY_BOTTOM-0.02)-y;
+      const gap=(totalH>band && totalH>0) ? Math.max(0.010, GAP*(band/totalH)) : GAP;
+      texts.forEach(function(e){
+        e.y=Math.max(LAY_TOP, Math.min(y, LAY_BOTTOM-0.05));
+        y = e.y + estBlockH(e) + gap;
+      });
+    }
   }
-  // Async pass: sample each photo, and where a text block sits over a BUSY region turn on a subtle
-  // readability treatment (scrim) so it stays legible with zero edits. Reuses the match-to-photo
-  // sampling approach. Never touches text the creator already gave a box/scrim.
-  function autoLayoutPhotoPass(){
-    state.slides.forEach(function(s){
+  // Measured de-overlap for the CURRENTLY RENDERED slide: reads the real wrapped heights and pushes any
+  // overlapping plain-text block down so the hero slide is pixel-clean (the estimate handles the rest).
+  // Runs only right after generation / the async art pass, never during manual drags.
+  function settleActiveSlide(){
+    const s=cur(); if(!s||!s.elements) return;
+    if(s.elements.some(function(e){ return e.type==='benefits'||e.type==='features'; })) return;
+    const H=stage.clientHeight||0; if(H<40) return;
+    const items=[];
+    stage.querySelectorAll('.el').forEach(function(n){
+      const el=s.elements.find(function(e){ return e.id===n.dataset.id; });
+      if(el && TEXT_TYPES.includes(el.type)) items.push({el:el, top:n.offsetTop, h:n.offsetHeight});
+    });
+    if(items.length<2) return;
+    items.sort(function(a,b){ return a.top-b.top; });
+    const minGap=Math.max(6, H*0.022);
+    let changed=false, cursorBottom=null;
+    items.forEach(function(it){
+      if(cursorBottom!=null && it.top < cursorBottom+minGap){
+        const dy=((cursorBottom+minGap)-it.top)/H;
+        const ny=Math.min(LAY_BOTTOM-0.05, it.el.y+dy);
+        if(Math.abs(ny-it.el.y)>0.001){ it.el.y=ny; changed=true; }
+        cursorBottom=(it.el.y*H)+it.h;
+      } else { cursorBottom=it.top+it.h; }
+    });
+    if(changed) renderCanvas();
+  }
+  // Approx on-canvas height of a block, as a fraction of slide height, for busyness probing / spacing.
+  function blockH(el){ if(el.type==='benefits') return 0.30; if(el.type==='features') return 0.12;
+    if(el.type==='caps') return Math.max(0.12, (el.size||0.10)*1.7); if(el.type==='script') return 0.11;
+    if(el.type==='kicker') return 0.05; return 0.09; }
+  const BUSY_THRESH=27;
+  // Give a text block a DESIGNED container (ITEM 2): a soft, photo-tinted, rounded box instead of the
+  // old flat grey scrim. Marked _autoBox so a later accent update can recolor it. Fully editable.
+  function autoContainer(el){
+    el.scrim=false;
+    el.box=true; el._autoBox=true;
+    el.boxShape=(el.type==='kicker')?'pill':'round';
+    el.boxColor=(artDirection&&artDirection.accentDark)||'#141414';
+    el.boxOpacity=(el.type==='body'||el.type==='kicker')?0.40:0.34;
+    el.boxGrad=true;   // soft top-to-bottom fade (see renderCanvas) so it reads as design
+  }
+  // ITEM 2 + 7: async art-direction pass. Samples each photo once to (a) derive ONE cohesive accent
+  // for the whole carousel and recolor script/icons/containers with it, (b) prefer moving a plain text
+  // stack onto the CLEANER half of the photo, and (c) only where text still sits over a genuinely busy
+  // area, apply the designed container. Never overrides a block the creator already styled.
+  function artDirectPhotoPass(){
+    var accentApplied=false;
+    function applyAccent(accent){
+      if(!accent||accentApplied) return; accentApplied=true;
+      artDirection.accent=accent; artDirection.accentDark=deriveDark(accent);
+      state.slides.forEach(function(s){ (s.elements||[]).forEach(function(el){
+        if(el.type==='script') el.color=accent;
+        else if(el.type==='benefits'||el.type==='features'){ el.iconColor=accent; el.ringColor=accent; }
+        if(el._autoBox) el.boxColor=artDirection.accentDark;
+      }); });
+      renderCanvas();
+    }
+    state.slides.forEach(function(s, si){
       if(!s.photo||!s.elements||!s.elements.some(isTextish)) return;
-      const img=new Image();
-      img.onload=function(){
-        try{
-          const cw=48, ch=84, c=document.createElement('canvas'); c.width=cw; c.height=ch;
-          const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,cw,ch);
-          const d=ctx.getImageData(0,0,cw,ch).data;
-          function busy(x0,x1,y0,y1){
-            x0=Math.max(0,Math.min(cw-1,x0|0)); x1=Math.max(x0+1,Math.min(cw,x1|0));
-            y0=Math.max(0,Math.min(ch-1,y0|0)); y1=Math.max(y0+1,Math.min(ch,y1|0));
-            let vals=[]; for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){const i=(y*cw+x)*4; vals.push(0.299*d[i]+0.587*d[i+1]+0.114*d[i+2]);}
-            const m=vals.reduce((a,b)=>a+b,0)/vals.length; let v=0; vals.forEach(t=>v+=(t-m)*(t-m)); return Math.sqrt(v/vals.length);
+      samplePhotoArt(s.photo, function(res){
+        if(!res) return;
+        if(res.accent) applyAccent(res.accent);   // first photo with a usable accent wins, applied to all
+        const cw=res.cw, ch=res.ch, busy=res.busy;
+        // CLEAN-AREA placement (only plain text stacks: hook/statement, never benefit/feature/cta bars).
+        const texts=s.elements.filter(function(e){ return TEXT_TYPES.includes(e.type); });
+        const isPlainStack = texts.length && s.elements.every(function(e){ return !isTextish(e)||TEXT_TYPES.includes(e.type); });
+        const isLast = si===state.slides.length-1;
+        if(isPlainStack && !isLast){
+          const topBusy=busy(0,cw, 0.08*ch, 0.52*ch);
+          const botBusy=busy(0,cw, 0.46*ch, 0.82*ch);
+          if(topBusy > botBusy + 9){
+            // top is notably busier -> slide the whole stack down into the cleaner lower band
+            let minY=1,maxY=0; texts.forEach(function(e){ minY=Math.min(minY,e.y); maxY=Math.max(maxY,e.y+blockH(e)); });
+            const target=Math.min(LAY_BOTTOM-0.04, 0.80) - (maxY-minY);
+            const dy=target-minY;
+            if(dy>0.02) texts.forEach(function(e){ e.y=Math.max(LAY_TOP, Math.min(e.y+dy, LAY_BOTTOM-0.06)); });
           }
-          let changed=false;
-          s.elements.forEach(function(el){
-            if(!isTextish(el)) return;
-            if(el.box || el.scrim || el.shade) return;   // creator/earlier pass already handled legibility
-            const w=el.w||0.6, h=(el.type==='benefits')?0.30:(el.type==='features')?0.12:0.13;
-            const b=busy(el.x*cw,(el.x+w)*cw, el.y*ch,(el.y+h)*ch);
-            if(b>28){ el.scrim=true; changed=true; }   // busy background -> add the legibility band
-          });
-          if(changed) renderCanvas();
-        }catch(e){}
-      };
-      img.src=s.photo;
+        }
+        // Designed container only where a block truly sits over a busy area.
+        let changed=false;
+        s.elements.forEach(function(el){
+          if(!isTextish(el)) return;
+          if(el._styledByUser || el.shade || (el.box && !el._autoBox)) return;
+          const w=el.w||0.6, h=blockH(el);
+          const b=busy(el.x*cw,(el.x+w)*cw, el.y*ch,(el.y+h)*ch);
+          if(b>BUSY_THRESH){ if(!el.box){ autoContainer(el); changed=true; } }
+          else if(el._autoBox){ el.box=false; el._autoBox=false; changed=true; }   // moved to a clean spot -> drop the box
+        });
+        if(changed) renderCanvas();
+        if(si===state.active) settleActiveSlide();   // keep the on-screen slide pixel-clean after moves
+      });
     });
   }
 
@@ -13390,6 +13572,8 @@ Return ONLY valid JSON, no markdown, exactly:
         incoming.splice(Math.max(1, incoming.length-1), 0, clone); // keep the cta last
       }
     }
+    // ITEM 6/7: choose one art direction (font pairing + starting accent) for the whole carousel.
+    artDirection=pickArtDirection();
     state.slides=incoming.map((sl,i)=>{
       const ph=photos[i]||{photo:null,iw:0,ih:0};
       return {photo:ph.photo,iw:ph.iw,ih:ph.ih,elements:buildSlideElements(sl)};
@@ -13397,12 +13581,13 @@ Return ONLY valid JSON, no markdown, exactly:
     if(state.slides.length<2)state.slides.push(blankSlide());
     state.active=0; state.selected=null; carouselStarted=true; hasCarousel=true;
     if(p.desire){angleEl.style.display='block';angleEl.innerHTML='<b>Angle:</b> '+clean(p.desire);}
-    // ITEM 2/3: lay each slide out for a magazine-worthy result with zero edits (safe zones,
-    // photo-aware placement, auto-readability, auto-fit). Deterministic pass now; the async
-    // photo-busyness pass refines placement/readability once each photo is sampled.
-    state.slides.forEach(function(s){ autoLayoutSlide(s); });
+    // ITEM 2/3: lay each slide out for a magazine-worthy result with zero edits (safe zones, hierarchy,
+    // font pairing + accent, auto-fit). Deterministic pass now; the async photo pass refines placement,
+    // pulls the cohesive accent from the product photo, and adds designed containers only where needed.
+    state.slides.forEach(function(s){ autoLayoutSlide(s); s.elements.forEach(function(el){ applyArtToElement(el, artDirection); }); });
     render();
-    autoLayoutPhotoPass();   // async: sample photos, move text to cleaner areas, add readability where busy
+    settleActiveSlide();    // measured de-overlap on the hero slide
+    artDirectPhotoPass();   // async: cohesive accent + clean-area placement + designed containers
     updateGenLabel();
     if(typeof phBriefSync==='function') phBriefSync();
   }
@@ -13526,7 +13711,7 @@ Return ONLY valid JSON, no markdown, exactly:
   var phDock, phTray, phTrayBody, phAdd, phTitle, phEditBtn, phDeleteBtn, phStickersBtn, phSheet, phSheetBody;
   var phBriefBar, phBriefToggle, phBriefCard;
   // FIX 2: a compact "Slide settings & export" sheet + the one small button that opens it.
-  var phSettingsBtn, phSettingsSheet, phSettingsBody, phRegenBtn;
+  var phSettingsBtn, phSettingsSheet, phSettingsBody, phRegenBtn, phMainGenBtn;
   function phMove(node,parent){ if(!node) return; phMoves.push({n:node,p:node.parentNode,s:node.nextSibling}); parent.appendChild(node); }
   function phRestore(){ for(var i=phMoves.length-1;i>=0;i--){ var m=phMoves[i]; if(!m.p) continue; if(m.s&&m.s.parentNode===m.p) m.p.insertBefore(m.n,m.s); else m.p.appendChild(m.n); } phMoves=[]; }
   function phLabel(el){ var t=el&&el.type;
@@ -13597,7 +13782,13 @@ Return ONLY valid JSON, no markdown, exactly:
     var phUndoBtn=document.createElement('button'); phUndoBtn.type='button'; phUndoBtn.id='phUndoBtn'; phUndoBtn.className='phone-brief-undo'; phUndoBtn.textContent='↶ Undo';
     phUndoBtn.addEventListener('click',function(){ doUndo(); });
     phBriefBar.appendChild(phUndoBtn); phBriefBar.appendChild(addPhotoBtn); phBriefBar.appendChild(phBriefToggle);
-    updateUndoBtns();
+    // ITEM 1 (this PR): the PRIMARY generate action lives on the main editing screen, not only in the
+    // gear. Full-width rose button in the top bar; label tracks Write vs Regenerate via updateGenLabel.
+    phMainGenBtn=document.createElement('button'); phMainGenBtn.type='button'; phMainGenBtn.id='phMainGenBtn'; phMainGenBtn.className='btn rose phone-main-gen';
+    phMainGenBtn.textContent='↻ Regenerate carousel';
+    phMainGenBtn.addEventListener('click',function(){ var g=document.getElementById('gen'); if(g) g.click(); });
+    phBriefBar.appendChild(phMainGenBtn);
+    updateUndoBtns(); updateGenLabel();
 
     // FIX 2: the "Slide settings & export" sheet. Reuses the phone-sheet look. It holds the
     // slide-level controls (regenerate, Angle, Shape, Safe zones, Slide rules, Photo fade/veil,
