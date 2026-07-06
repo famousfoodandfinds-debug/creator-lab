@@ -12034,17 +12034,20 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
   // deck looks art-directed instead of the same Anton+Kaushan every time. Fully editable after.
   // Each pairing is a strong display face for the hook, a tasteful script accent, and a clean
   // readable body face. All families are loaded in the <link> above.
+  // ITEM 4: every HOOK display is a bold / playful / high-impact face (single-weight impact fonts so they
+  // always render punchy) — no thin formal wedding-invitation serifs for the hook. Scripts stay playful,
+  // body faces stay clean and readable. Variety is preserved across 8 distinct display faces.
   const FONT_PAIRS=[
-    {display:'Anton',           script:'Kaushan Script', body:'Inter'},
-    {display:'Archivo Black',   script:'Caveat',         body:'Poppins'},
-    {display:'Playfair Display',script:'Dancing Script', body:'Work Sans'},
-    {display:'DM Serif Display',script:'Satisfy',        body:'Montserrat'},
-    {display:'Fraunces',        script:'Courgette',      body:'Libre Franklin'},
-    {display:'Abril Fatface',   script:'Yellowtail',     body:'Outfit'},
-    {display:'Prata',           script:'Pacifico',       body:'Libre Franklin'},
-    {display:'Syne',            script:'Caveat',         body:'Inter'},
-    {display:'Bricolage Grotesque',script:'Courgette',   body:'Work Sans'},
-    {display:'Bebas Neue',      script:'Dancing Script', body:'Montserrat'}
+    {display:'Anton',            script:'Kaushan Script', body:'Inter'},
+    {display:'Archivo Black',    script:'Caveat',         body:'Poppins'},
+    {display:'Abril Fatface',    script:'Yellowtail',     body:'Outfit'},
+    {display:'Bebas Neue',       script:'Dancing Script', body:'Montserrat'},
+    {display:'Alfa Slab One',    script:'Courgette',      body:'Work Sans'},
+    {display:'Bungee',           script:'Caveat',         body:'Inter'},
+    {display:'Fjalla One',       script:'Satisfy',        body:'Libre Franklin'},
+    {display:'Permanent Marker', script:'Dancing Script', body:'Poppins'},
+    {display:'Anton',            script:'Pacifico',       body:'Work Sans'},
+    {display:'Archivo Black',    script:'Courgette',      body:'Montserrat'}
   ];
   // Carousel-wide art direction chosen at generation: {fonts:{display,script,body}, accent, accentDark, ink}.
   // Persisted on state so regenerate can vary it and so it survives re-render. All values are just
@@ -12264,33 +12267,45 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
         const cw=48,ch=84,c=document.createElement('canvas'); c.width=cw;c.height=ch;
         const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,cw,ch);
         const d=ctx.getImageData(0,0,cw,ch).data;
-        // ITEM 4: pull the palette from the PRODUCT, not the whole scene. Weight each pixel by saturation
-        // squared (favor vivid product hues over dull background) AND centrality (the subject usually sits
-        // center frame, so brick/counter/box edges are downweighted). Build fine hue buckets and take the
-        // top one or two as a clean primary + secondary palette. Muddy/greyscale photos yield no palette.
-        const buckets={}; let lumSum=0,lumN=0;
+        // ITEM 1: pull the palette from the PRODUCT (the largest saturated colored mass), not the busy
+        // scene. Bin saturated pixels by hue into a CIRCULAR histogram, weighting by saturation and area
+        // (not saturation squared, which over-favored tiny vivid spots). The dominant hue is the bin+
+        // neighbors window with the most weight — computed circularly so pink/magenta/red (which straddle
+        // the hue-wheel wrap at 0.0/1.0) are not split in half and out-voted by a contiguous blue.
+        const NB=30; const bins=[]; for(let k=0;k<NB;k++) bins.push({r:0,g:0,b:0,w:0,sw:0,sn:0});
+        let lumSum=0,lumN=0;
         for(let i=0;i<d.length;i+=4){
           const r=d[i],g=d[i+1],b=d[i+2];
           lumSum+=0.299*r+0.587*g+0.114*b; lumN++;
           const px=(i/4)%cw, py=Math.floor((i/4)/cw);
           const nx=px/cw-0.5, ny=py/ch-0.5;
-          const central=Math.max(0, 1-(Math.abs(nx)*1.5+Math.abs(ny)*1.05));   // center-weighted (product zone)
-          if(central<=0) continue;
+          const central=Math.max(0.18, 1-0.85*Math.sqrt(nx*nx+ny*ny));   // mild center bias; edges still count
           const [h,sat,l]=rgbToHsl(r,g,b);
-          if(sat<0.25||l<0.16||l>0.88)continue;
-          const key=Math.round(h*24); const wt=sat*sat*(1-Math.abs(l-0.55))*central;
-          if(!buckets[key])buckets[key]={r:0,g:0,b:0,w:0,sw:0,sn:0};
-          buckets[key].r+=r*wt;buckets[key].g+=g*wt;buckets[key].b+=b*wt;buckets[key].w+=wt;buckets[key].sw+=sat;buckets[key].sn++;
+          if(sat<0.25||l<0.15||l>0.90)continue;
+          const key=((Math.round(h*NB)%NB)+NB)%NB;
+          const wt=sat*(1-Math.abs(l-0.55)*0.7)*central;   // area-weighted (favor the big product mass)
+          const bk=bins[key]; bk.r+=r*wt;bk.g+=g*wt;bk.b+=b*wt;bk.w+=wt;bk.sw+=sat;bk.sn++;
         }
-        const ranked=Object.values(buckets).filter(v=>v.w>0).sort((a,b)=>b.w-a.w);
-        function toneOf(v){ let [h,sa,l]=rgbToHsl(v.r/v.w,v.g/v.w,v.b/v.w); const rawS=v.sw/Math.max(1,v.sn);
-          const cl=Math.min(0.62,Math.max(0.44,l)), cs=Math.min(0.90,Math.max(0.58,sa));
-          return { color:hslToRgb(h,cs,cl), h:h, s:cs, rawS:rawS, w:v.w }; }
-        // Build the palette: strongest bucket first, then a distinct second hue if it is also vivid enough.
+        const winW=k=>{ const a=bins[(k-1+NB)%NB], b=bins[k], c=bins[(k+1)%NB]; return a.w+b.w+c.w; };
+        // combined color/stats of a 3-bin circular window centered at k
+        function windowTone(k){ const idx=[(k-1+NB)%NB,k,(k+1)%NB]; let r=0,g=0,bl=0,w=0,sw=0,sn=0;
+          idx.forEach(j=>{ const b=bins[j]; r+=b.r;g+=b.g;bl+=b.b;w+=b.w;sw+=b.sw;sn+=b.sn; });
+          if(w<=0) return null; let [h,sa,li]=rgbToHsl(r/w,g/w,bl/w); const rawS=sw/Math.max(1,sn);
+          const cl=Math.min(0.60,Math.max(0.44,li)), cs=Math.min(0.92,Math.max(0.60,sa));
+          return { color:hslToRgb(h,cs,cl), h:h, s:cs, rawS:rawS, w:w, k:k }; }
+        // rank window peaks by total weight; primary is the biggest saturated mass (the product)
+        const peaks=[]; for(let k=0;k<NB;k++) peaks.push({k:k, score:winW(k)});
+        peaks.sort((a,b)=>b.score-a.score);
         const palette=[];
-        if(ranked.length){ const p=toneOf(ranked[0]); if(p.rawS>=0.30 && p.w>0.6){ palette.push(p);
-          for(let k=1;k<ranked.length && palette.length<2;k++){ const q=toneOf(ranked[k]);
-            if(q.rawS>=0.30 && q.w>0.5 && Math.abs(q.h-p.h)>0.06) palette.push(q); } } }
+        if(peaks.length && peaks[0].score>0){
+          const p=windowTone(peaks[0].k);
+          if(p && p.rawS>=0.28 && p.w>0.5){ palette.push(p);
+            for(let m=1;m<peaks.length && palette.length<2;m++){
+              const dk=Math.min((peaks[m].k-p.k+NB)%NB,(p.k-peaks[m].k+NB)%NB);   // circular hue-bin distance
+              if(dk<3) continue;                                                   // must be a distinct hue family
+              const q=windowTone(peaks[m].k); if(q && q.rawS>=0.28 && q.w>0.35){ palette.push(q); } }
+          }
+        }
         const accent=palette.length?palette[0].color:null;
         const accentSat=palette.length?palette[0].rawS:0;
         function busy(x0,x1,y0,y1){
@@ -13409,6 +13424,8 @@ The first slide is a hook or statement. The last slide is a cta. Put benefits, f
 
 THE FIRST-SLIDE HOOK IS THE MOST IMPORTANT LINE. It must be a genuine scroll-stopper that makes a woman 45+ stop mid-scroll: use a pattern interrupt, a curiosity gap, or a bold benefit-forward claim. Make the headline punchy and specific to THIS product's payoff, never a flat category label. Weak, banned styles: "MORE THAN CLEAN", "QUALITY YOU CAN TRUST", "THE BEST CHOICE", or naming the product category as the headline. Strong styles (match this energy, do not copy verbatim): "STOP SCROLLING", "YOUR MORNING JUST GOT BETTER", "READ THIS BEFORE YOU BUY", "THE ONE THING NOBODY TELLS YOU", "WHY IS EVERYONE OBSESSED", "THIS CHANGED MY WHOLE ROUTINE". The kicker sets up the hook, the headline lands the punch, the script adds a human aside.
 
+GROUND EVERY LINE IN REAL, BELIEVABLE BENEFITS. Punchy AND true. An implausible hook is worse than a plain one, so only promise what is actually true for how THIS product is genuinely used, and never invent a use case that does not match the product. Read the photo and description to understand what the product really is before writing. Example for a single serve countertop coffee machine: the believable selling points are brewing both HOT and ICED, a compact size that fits a small counter, working with a TRAVEL MUG you take on the go (the mug travels, not the machine), a strong bold brew, and the value of the included bundle. Do NOT claim the countertop machine itself is portable or that you travel with the machine. Apply the same honesty to any product: match the copy to what it actually does, and drop any angle you are not sure is true.
+
 REQUIRED when there are 3 or more slides: at least one middle slide MUST use the "benefits" layout with 3 to 5 rows (each row a real icon, label and short detail tied to THIS product, never generic filler like "easy to use"), and include at least one "feature" slide too. Do not build a carousel out of only hook and statement text slides. The benefit and feature rows must name concrete, product-specific points.
 
 icon must be one of: `+ICON_NAMES.join(', ')+`.
@@ -13420,6 +13437,7 @@ HARD RULES:
 - Hook and cta lines must be speakable and scroll stopping.
 - Keep lines short for a phone. Caps lines are 1 to 4 words.
 - Only claim what the product's own label supports. Do not invent safety or health claims.
+- Never invent a use case or benefit the product does not actually have. Believable beats clever.
 
 Return ONLY valid JSON, no markdown, exactly:
 {"desire":"...","slides":[{"layout":"hook","kicker":"...","headline":"...","script":"...","sub":"..."}]}`;
@@ -13448,9 +13466,11 @@ Return ONLY valid JSON, no markdown, exactly:
       if(sl.script)add({type:'script',text:clean(sl.script),x:.07,y:.215,size:.070,color:'#ED5A98'});
       add({type:'features',x:.06,y:.73,size:.030,w:.8,color:'#ffffff',items:(sl.features||[]).slice(0,4).map(f=>({icon:ICON_NAMES.includes(f.icon)?f.icon:'check',label:clean(f.label)}))});
     } else if(sl.layout==='cta'){
-      if(sl.line)add({type:'caps',text:clean(sl.line),x:.07,y:.56,size:.098,color:'#ffffff'});
-      if(sl.script)add({type:'script',text:clean(sl.script),x:.07,y:.71,size:.082,color:'#ED5A98'});
-      add({type:'body',text:clean(sl.cart||'Tap the orange cart'),x:.07,y:.845,size:.042,color:'#CE9A80'});
+      // ITEM 3: CTA text lives in the readable middle/upper area (not jammed at the bottom safe zone).
+      // ITEM 6: the cart line is bright white (max contrast) and gets the clean outline from the art pass.
+      if(sl.line)add({type:'caps',text:clean(sl.line),x:.07,y:.28,size:.098,color:'#ffffff'});
+      if(sl.script)add({type:'script',text:clean(sl.script),x:.07,y:.47,size:.082,color:'#ED5A98'});
+      add({type:'body',text:clean(sl.cart||'Tap the orange cart'),x:.07,y:.61,size:.044,color:'#ffffff'});
     } else {
       if(sl.headline)add({type:'caps',text:clean(sl.headline),x:.07,y:.13,size:.10,color:'#ffffff'});
     }
@@ -13602,9 +13622,9 @@ Return ONLY valid JSON, no markdown, exactly:
     el.box=true; el._autoBox=true;
     el.boxShape='round';
     el.boxColor=containerFillFor(el);
-    el.boxOpacity=0.72;   // ITEM 2: solid-ish but lighter than the old heavy card
+    el.boxOpacity=0.62;   // ITEM 5: lighter still, so the photo breathes more (was 0.72)
     el.boxGrad=true;      // subtle CLEAN gradient (tightened in renderCanvas)
-    el.boxPad=0.14;       // tighter padding than the default (see renderCanvas)
+    el.boxPad=0.10;       // ITEM 5: tighter to the text (was 0.14)
   }
   // ITEM 2 + 7: async art-direction pass. Samples each photo once to (a) derive ONE cohesive accent
   // for the whole carousel and recolor script/icons/containers with it, (b) prefer moving a plain text
