@@ -4775,6 +4775,373 @@ function openDesirePicker(opts){
   });
 }
 
+// ===================================================================================
+// PAIN STACK LAYER
+// The structural spine of the script (which pains, in what order, resolved where).
+// It layers UNDERNEATH the winners and voice layers and never overrides them:
+//   Pain stack = STRUCTURE, Winners = the proven PLAY, Voice = the DELIVERY.
+// Phase 1 wires KITCHEN only in standard single-script mode. Other generators and
+// other category weightings are intentionally not wired yet.
+// ===================================================================================
+
+// The ten pain types, stored as data so the flow, the labels, and the prompt all read
+// from one source. `boltOnOnly` marks a type that is weak as a lead but strong as a
+// bolt-on (missing out / falling behind).
+var PAIN_TYPES = [
+  { id: "time",       label: "Time and exhaustion",         hint: "the hours and energy it quietly drains" },
+  { id: "money",      label: "Money leaking",               hint: "the slow bleed of paying for the wrong thing" },
+  { id: "letdown",    label: "Repeated disappointment",     hint: "the ones before this that let them down" },
+  { id: "social",     label: "Social sting",                hint: "embarrassment, how they are seen by others" },
+  { id: "friction",   label: "Physical friction",           hint: "the daily physical annoyance and discomfort of it" },
+  { id: "disgust",    label: "Disgust and gross-out",       hint: "the gross reality they put up with" },
+  { id: "identity",   label: "Self-image and identity gap", hint: "the gap between who they are and who they want to be" },
+  { id: "fear",       label: "Fear, risk and safety",       hint: "what could go wrong, what is at stake" },
+  { id: "overwhelm",  label: "Overwhelm and decision fatigue", hint: "too many choices, too much to manage" },
+  { id: "fomo",       label: "Missing out or falling behind",  hint: "weak as a lead, strong as a bolt-on", boltOnOnly: true }
+];
+
+// Per-category weighting. Sets DEFAULTS only, never restricts choice. When the category
+// is known we pre-select the top three. Phase 1 only reads the kitchen row; the rest are
+// here so Phase 2 can turn them on without touching this data.
+var PAIN_CATEGORY_WEIGHTS = {
+  kitchen: ["friction", "time", "disgust"],
+  home:    ["social", "money", "friction"],
+  beauty:  ["identity", "letdown", "disgust"],
+  health:  ["fear", "letdown", "identity"],
+  fashion: ["social", "money", "identity"],
+  tech:    ["fear", "overwhelm", "time"]
+};
+
+// The three chosen pain frames persist as state through the whole generation:
+// each item is { typeId, label, text }. `_painsConfirmed` mirrors `_desireConfirmed`.
+var currentPains = [];
+var _painsConfirmed = false;
+
+function painTypeById(id){
+  for (var i = 0; i < PAIN_TYPES.length; i++) { if (PAIN_TYPES[i].id === id) return PAIN_TYPES[i]; }
+  return null;
+}
+function painTypeLabel(id){ var t = painTypeById(id); return t ? t.label : (id || "Pain"); }
+
+// Normalize whatever the model returns for a type back to a known id (or null).
+function normalizePainType(raw){
+  var s = String(raw || "").toLowerCase().trim();
+  if (!s) return null;
+  for (var i = 0; i < PAIN_TYPES.length; i++) {
+    var t = PAIN_TYPES[i];
+    if (s === t.id || s === t.label.toLowerCase() || s.indexOf(t.id) > -1 || t.label.toLowerCase().indexOf(s) > -1) return t.id;
+  }
+  return null;
+}
+
+// Top three pain types for a category (defaults only). Falls back to the first three
+// non-boltOn types when the category is unknown.
+function defaultPainTypesForCategory(cat){
+  if (cat && PAIN_CATEGORY_WEIGHTS[cat]) return PAIN_CATEGORY_WEIGHTS[cat].slice(0, 3);
+  return PAIN_TYPES.filter(function(t){ return !t.boltOnOnly; }).slice(0, 3).map(function(t){ return t.id; });
+}
+
+// First pain type not already used, weighted toward the category defaults. Used when a
+// card is regenerated to a NEW type.
+function nextUnusedPainType(usedIds, cat){
+  var used = usedIds || [];
+  var order = defaultPainTypesForCategory(cat).concat(PAIN_TYPES.map(function(t){ return t.id; }));
+  for (var i = 0; i < order.length; i++) { if (used.indexOf(order[i]) === -1) return order[i]; }
+  return PAIN_TYPES[0].id;
+}
+
+// Phase 1 category detector. "kitchen" is read straight off the pasted listing, matching
+// the existing indoor-kitchen-appliance regex approach already used by the generators.
+function detectPainCategory(productText){
+  var s = String(productText || "").toLowerCase();
+  var kitchenRx = /kitchen|countertop|counter top|stovetop|stove top|blender|air ?fryer|deep ?fryer|\bmixer\b|food processor|cookware|frying pan|sauce ?pan|skillet|\bpots?\b|\bpans?\b|\bknife\b|knives|cutting board|utensil|spatula|whisk|colander|ice maker|nugget ice|\bcoffee\b|espresso|\bkettle\b|toaster|\boven\b|microwave|dishware|dinnerware|\bcookie\b|baking|bakeware|food storage|meal prep|grater|peeler|can opener|measuring cup|mandoline|slow cooker|crock ?pot|instant pot|pressure cooker|rice cooker|sous vide|griddle|waffle|juicer|chopper|\bspice\b|strainer|\bladle\b|\btongs\b|nonstick|non-stick|dishwasher|casserole|\bbaster\b|\bthermometer\b/;
+  if (kitchenRx.test(s)) return "kitchen";
+  return null;
+}
+function isKitchenProduct(productText){ return detectPainCategory(productText) === "kitchen"; }
+
+// Generic fallback pain text per type so a card is never empty if a model call fails.
+var PAIN_FALLBACK_TEXT = {
+  time:      "You lose more time on this than anyone should have to.",
+  money:     "You keep spending on ones that never quite work out.",
+  letdown:   "You have been let down by every version of this before.",
+  social:    "You quietly hope nobody looks too closely at it.",
+  friction:  "Every single time you use it, it fights you a little.",
+  disgust:   "You try not to think about how gross it actually gets.",
+  identity:  "It just does not feel like the person you are becoming.",
+  fear:      "In the back of your mind you worry something goes wrong.",
+  overwhelm: "There are too many options and none of them feel right.",
+  fomo:      "Everyone else already figured this out and you did not."
+};
+function fallbackPainText(id){ return PAIN_FALLBACK_TEXT[id] || "You put up with this every day without thinking about it."; }
+
+// Ask the model for pain frames. cfg:
+//   assignedTypes: [ids]  -> one pain per assigned type, in order (the initial three)
+//   forceType: id         -> exactly one pain of that type (swap / same-type regen)
+//   avoidTypes: [ids]     -> when neither of the above, pick a fresh unused type
+// Every pain is one spoken sentence, no product/brand/price, em dashes scrubbed.
+function requestPains(cfg, cb){
+  cfg = cfg || {};
+  var product = String(cfg.productText || currentProduct || "").slice(0, 900);
+  var buyer = String(cfg.buyerIntent || "").slice(0, 200);
+  var typeMenu = PAIN_TYPES.map(function(t){ return t.id + " (" + t.label + ")"; }).join("; ");
+  var instruction;
+  if (cfg.assignedTypes && cfg.assignedTypes.length) {
+    var lines = cfg.assignedTypes.map(function(id, i){ return " " + (i + 1) + ". " + id + " (" + painTypeLabel(id) + ")"; }).join("");
+    instruction = " Write exactly " + cfg.assignedTypes.length + " customer pains, one for EACH of these assigned pain types, IN THIS ORDER:" + lines + ". Return them in the same order, never three flavors of one type.";
+  } else if (cfg.forceType) {
+    instruction = " Write exactly 1 customer pain of the pain type " + cfg.forceType + " (" + painTypeLabel(cfg.forceType) + ").";
+  } else {
+    var avoid = (cfg.avoidTypes || []).filter(Boolean);
+    instruction = " Write exactly 1 customer pain. Choose ONE pain type from the set that is NOT any of these already-used types: " + (avoid.join(", ") || "none") + ". Return the type id you chose.";
+  }
+  var p = "Respond ONLY with JSON, no markdown: {\"pains\":[{\"type\":\"<type id>\",\"text\":\"<one spoken sentence>\"}]}." +
+    " You name the real pains a shopper already feels, to build the structure of a TikTok Shop video." +
+    " Use these exact pain type ids: " + typeMenu + "." +
+    instruction +
+    (buyer ? " Aim every pain at this exact buyer: " + buyer + "." : "") +
+    " Each pain text is ONE short spoken sentence naming a frustration the buyer already lives with, in plain everyday words they would nod at. Do NOT mention the product, any brand, or any price. No em dashes." +
+    " Product: " + product + ". Output JSON only.";
+  fetch("/api/claude", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 500, messages: [{ role: "user", content: p }] })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    var t = ""; (data.content || []).forEach(function(b){ if (b.type === "text") t += b.text; });
+    var arr = [];
+    try { arr = (JSON.parse(t.replace(/```json|```/g, "").trim()).pains) || []; } catch(e) {}
+    arr = arr.map(function(x){ return { typeId: normalizePainType(x && x.type), text: stripEmDashesStr(String((x && x.text) || "").trim()) }; }).filter(function(x){ return x.text; });
+    cb(arr);
+  })
+  .catch(function(){ cb([]); });
+}
+
+// The through-line directive. Mirrors getVoiceProfileNote(): returns "" until three
+// pains are chosen, so it can never accidentally steer a script it should not. When set,
+// it declares the pain stack as STRUCTURE only and hands the opener/body/close spine to
+// every generator that includes it.
+function getPainStackNote(){
+  if (!Array.isArray(currentPains) || currentPains.length < 3) return "";
+  var p = currentPains;
+  var list = "";
+  for (var i = 0; i < 3; i++) {
+    list += " PAIN " + (i + 1) + " (" + painTypeLabel(p[i].typeId) + "): " + String(p[i].text || "").trim();
+  }
+  return " PAIN STACK STRUCTURE -- THIS SETS THE STRUCTURAL SPINE (which pains, in what order, resolved where). It shapes STRUCTURE ONLY. It never overrides the winning framework or the proven moves from the saved winning scripts, and it never overrides the creator voice for how lines sound. Winners still set the play, voice still sets the delivery, this only sets the bones. Winners inject everywhere they already do." +
+    " THE THREE PAINS FOR THIS SCRIPT, IN ORDER:" + list + "." +
+    " OPENER: stack these three pains in the hook territory, connected with an 'or maybe you' widener, so the viewer recognizes themselves in at least one. Lead with pain one, then widen to pain two and pain three with 'or maybe you' phrasing. Keep it spoken and natural, never a robotic list." +
+    " BODY: resolve each of the three pains IN ORDER (pain one, then two, then three). Every product spec or feature you mention must answer one of these three pains AND carry a 'so that' outcome tied to that pain. If a spec does not resolve one of these three pains, leave it out. No spec dumping." +
+    " CLOSE: call back the single sharpest of these three pains (pain one is the lead, use it unless another is clearly sharper for this product), flipped from dread to relief, then an action verb that hands them the buy and points to the link below." +
+    " STRUCTURE COMPLIANCE: no em dashes anywhere, no exact prices or dollar figures, no competing or unrelated brand names (say tablet not a tablet brand, your usual coffee order not a coffee chain). Only the promoted product's own brand and the actual retailer, including QVC, may be named. The CTA uses an action verb to the cart and ends pointing to the link below.";
+}
+
+// The three-card generate / select / edit flow. opts:
+//   { productText, category, buyerIntent, preset, onChosen(pains) }
+// Each card shows its pain-type label, is freely editable, can be swapped to another
+// type, and can be regenerated (a NEW type by default, or same type with new wording).
+function openPainStackPicker(opts){
+  opts = opts || {};
+  var cat = opts.category || "kitchen";
+  var cards = [];              // [{ typeId, text, _loading }]
+  var openMenuIdx = -1;        // which card's swap menu is open
+
+  var ov = document.createElement("div");
+  ov.id = "painOverlay";
+  ov.style.cssText = "position:fixed;inset:0;background:rgba(8,7,6,0.72);z-index:4000;display:flex;align-items:flex-end;justify-content:center;";
+  var sheet = document.createElement("div");
+  sheet.style.cssText = "background:var(--surface);border:1px solid var(--border-md);border-radius:18px 18px 0 0;width:100%;max-width:520px;max-height:88vh;overflow:auto;padding:20px 18px 28px;";
+  if (window.matchMedia && window.matchMedia("(min-width:600px)").matches) { ov.style.alignItems = "center"; sheet.style.borderRadius = "18px"; }
+
+  var h = document.createElement("div");
+  h.style.cssText = "font-family:'Marcellus',serif;font-size:20px;color:var(--white);margin-bottom:4px;";
+  h.textContent = "Stack three pains";
+  var sub = document.createElement("div");
+  sub.style.cssText = "font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5;";
+  sub.textContent = "These three pains set the structure of your script. Your winners still lead and your voice still shapes how it sounds. Card one is your sharpest, lead pain. Edit the wording, swap the pain, or regenerate any card.";
+  sheet.appendChild(h); sheet.appendChild(sub);
+
+  var nudge = document.createElement("div");
+  nudge.style.cssText = "display:none;margin-bottom:14px;font-size:12.5px;color:var(--gold);line-height:1.5;background:var(--gold-dim);border:1px solid rgba(206,154,128,0.3);border-radius:10px;padding:10px 12px;";
+  sheet.appendChild(nudge);
+
+  var list = document.createElement("div");
+  list.style.cssText = "display:flex;flex-direction:column;gap:12px;";
+  sheet.appendChild(list);
+
+  var confirm = document.createElement("button");
+  confirm.style.cssText = "margin-top:18px;width:100%;background:var(--red);color:var(--white);border:none;border-radius:12px;padding:13px;font-family:'Instrument Sans',sans-serif;font-weight:600;font-size:15px;cursor:pointer;";
+  confirm.textContent = "Use these three pains";
+  sheet.appendChild(confirm);
+  var cancel = document.createElement("button");
+  cancel.style.cssText = "margin-top:10px;width:100%;background:transparent;border:1px solid var(--border-md);color:var(--white-dim);border-radius:12px;padding:11px;font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;";
+  cancel.textContent = "Cancel";
+  sheet.appendChild(cancel);
+
+  ov.appendChild(sheet);
+  document.body.appendChild(ov);
+
+  function close(){ if (ov.parentNode) ov.parentNode.removeChild(ov); }
+  cancel.addEventListener("click", close);
+  ov.addEventListener("click", function(e){ if (e.target === ov) close(); });
+
+  // Soft, non-blocking sameness guardrail: fires only when all three share one type.
+  function checkSameness(){
+    var ids = {};
+    cards.forEach(function(c){ if (c && c.typeId) ids[c.typeId] = 1; });
+    if (Object.keys(ids).length === 1 && cards.length === 3) {
+      nudge.innerHTML = "";
+      var msg = document.createElement("span");
+      msg.textContent = "These three lean on the same pain. Want to widen it? ";
+      var widen = document.createElement("button");
+      widen.textContent = "Widen it";
+      widen.style.cssText = "background:transparent;border:1px solid rgba(206,154,128,0.5);color:var(--gold);border-radius:7px;padding:3px 9px;font-family:'Instrument Sans',sans-serif;font-size:11px;cursor:pointer;margin-right:6px;";
+      widen.addEventListener("click", function(){ nudge.style.display = "none"; generateInitial(); });
+      var dismiss = document.createElement("button");
+      dismiss.textContent = "Keep them";
+      dismiss.style.cssText = "background:transparent;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:11px;cursor:pointer;text-decoration:underline;";
+      dismiss.addEventListener("click", function(){ nudge.style.display = "none"; });
+      nudge.appendChild(msg); nudge.appendChild(widen); nudge.appendChild(dismiss);
+      nudge.style.display = "block";
+    } else {
+      nudge.style.display = "none";
+    }
+  }
+
+  function setConfirmState(){
+    var ready = cards.length === 3 && cards.every(function(c){ return c && !c._loading && String(c.text || "").trim(); });
+    confirm.disabled = !ready;
+    confirm.style.opacity = ready ? "1" : "0.5";
+    confirm.style.cursor = ready ? "pointer" : "default";
+  }
+
+  function regenerateCard(idx, mode){
+    if (!cards[idx]) return;
+    var others = cards.map(function(c){ return c ? c.typeId : null; });
+    var cfg = { productText: opts.productText, buyerIntent: opts.buyerIntent, category: cat };
+    var lockType = null;
+    if (mode === "same") { cfg.forceType = cards[idx].typeId; lockType = cards[idx].typeId; }
+    else if (mode && mode.indexOf("type:") === 0) { lockType = mode.slice(5); cfg.forceType = lockType; }
+    else { lockType = nextUnusedPainType(others, cat); cfg.forceType = lockType; } // default: a NEW type
+    cards[idx]._loading = true; openMenuIdx = -1; renderCards();
+    requestPains(cfg, function(arr){
+      var got = arr && arr[0];
+      cards[idx] = { typeId: lockType || (got && got.typeId) || cards[idx].typeId, text: (got && got.text) ? got.text : fallbackPainText(lockType) };
+      renderCards();
+    });
+  }
+
+  function buildCard(card, idx){
+    var wrap = document.createElement("div");
+    wrap.style.cssText = "background:var(--surface2);border:1px solid var(--border-md);border-radius:13px;padding:13px 13px 11px;";
+
+    var top = document.createElement("div");
+    top.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:9px;";
+    var pill = document.createElement("span");
+    pill.style.cssText = "font-size:11px;font-weight:600;letter-spacing:0.04em;color:var(--gold);background:var(--gold-dim);border:1px solid rgba(206,154,128,0.3);border-radius:999px;padding:4px 10px;";
+    pill.textContent = painTypeLabel(card.typeId) + (idx === 0 ? "  ·  lead" : "");
+    var num = document.createElement("span");
+    num.style.cssText = "font-size:11px;color:var(--muted);";
+    num.textContent = "Pain " + (idx + 1);
+    top.appendChild(pill); top.appendChild(num);
+    wrap.appendChild(top);
+
+    if (card._loading) {
+      var load = document.createElement("div");
+      load.style.cssText = "font-size:13px;color:var(--muted);padding:10px 2px;";
+      load.textContent = "Writing a fresh pain...";
+      wrap.appendChild(load);
+      return wrap;
+    }
+
+    var ta = document.createElement("textarea");
+    ta.value = card.text || "";
+    ta.rows = 2;
+    ta.style.cssText = "width:100%;background:var(--surface);border:1px solid var(--border-md);color:var(--white);border-radius:9px;padding:10px;font-family:'Instrument Sans',sans-serif;font-size:14px;line-height:1.45;outline:none;resize:vertical;-webkit-user-select:text;user-select:text;box-sizing:border-box;";
+    ta.addEventListener("input", function(){ cards[idx].text = ta.value; setConfirmState(); });
+    wrap.appendChild(ta);
+
+    var controls = document.createElement("div");
+    controls.style.cssText = "display:flex;flex-wrap:wrap;gap:8px;margin-top:9px;align-items:center;";
+    function ctlBtn(label){
+      var b = document.createElement("button");
+      b.textContent = label;
+      b.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white-dim);border-radius:8px;padding:6px 10px;font-family:'Instrument Sans',sans-serif;font-size:11.5px;cursor:pointer;";
+      return b;
+    }
+    var swap = ctlBtn("Swap pain");
+    swap.addEventListener("click", function(){ openMenuIdx = (openMenuIdx === idx ? -1 : idx); renderCards(); });
+    var regen = ctlBtn("Regenerate");
+    regen.addEventListener("click", function(){ regenerateCard(idx, "new"); });
+    var same = document.createElement("button");
+    same.textContent = "same type, new wording";
+    same.style.cssText = "background:transparent;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:11px;cursor:pointer;text-decoration:underline;";
+    same.addEventListener("click", function(){ regenerateCard(idx, "same"); });
+    controls.appendChild(swap); controls.appendChild(regen); controls.appendChild(same);
+    wrap.appendChild(controls);
+
+    if (openMenuIdx === idx) {
+      var menu = document.createElement("div");
+      menu.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);";
+      var usedByOthers = {};
+      cards.forEach(function(c, i){ if (i !== idx && c) usedByOthers[c.typeId] = 1; });
+      PAIN_TYPES.forEach(function(t){
+        var b = document.createElement("button");
+        var isCurrent = t.id === card.typeId;
+        var taken = usedByOthers[t.id];
+        b.textContent = t.label + (taken ? " (in use)" : "");
+        b.title = t.hint;
+        b.style.cssText = "background:" + (isCurrent ? "var(--gold-dim)" : "transparent") + ";border:1px solid " + (isCurrent ? "rgba(206,154,128,0.5)" : "var(--border-md)") + ";color:" + (isCurrent ? "var(--gold)" : (taken ? "var(--muted)" : "var(--white-dim)")) + ";border-radius:7px;padding:5px 9px;font-family:'Instrument Sans',sans-serif;font-size:11px;cursor:pointer;";
+        b.addEventListener("click", function(){ regenerateCard(idx, "type:" + t.id); });
+        menu.appendChild(b);
+      });
+      wrap.appendChild(menu);
+    }
+    return wrap;
+  }
+
+  function renderCards(){
+    list.innerHTML = "";
+    cards.forEach(function(card, idx){ list.appendChild(buildCard(card, idx)); });
+    checkSameness();
+    setConfirmState();
+  }
+
+  // Generate the initial three, one per weighted default type (guarantees three
+  // different types, pre-selected from the category weighting).
+  function generateInitial(){
+    var assigned = defaultPainTypesForCategory(cat);
+    cards = assigned.map(function(id){ return { typeId: id, text: "", _loading: true }; });
+    renderCards();
+    requestPains({ productText: opts.productText, buyerIntent: opts.buyerIntent, category: cat, assignedTypes: assigned }, function(arr){
+      cards = assigned.map(function(id, i){
+        var got = arr[i];
+        return { typeId: id, text: (got && got.text) ? got.text : fallbackPainText(id) };
+      });
+      renderCards();
+    });
+  }
+
+  confirm.addEventListener("click", function(){
+    if (confirm.disabled) return;
+    var chosen = cards.slice(0, 3).map(function(c){
+      return { typeId: c.typeId, label: painTypeLabel(c.typeId), text: stripEmDashesStr(String(c.text || "").trim()) };
+    });
+    if (chosen.length < 3 || chosen.some(function(c){ return !c.text; })) { if (typeof showToast === "function") showToast("Fill in all three pains"); return; }
+    close();
+    if (opts.onChosen) opts.onChosen(chosen);
+  });
+
+  // Reuse the last confirmed stack for this product when present, else generate fresh.
+  if (opts.preset && Array.isArray(opts.preset) && opts.preset.length === 3) {
+    cards = opts.preset.map(function(c){ return { typeId: c.typeId, text: c.text }; });
+    renderCards();
+  } else {
+    generateInitial();
+  }
+}
+
 // PART 3 -- rewrite ONE saved script (script + on-screen text + caption) to the standard
 function regenerateOneScript(sc, desc, desire, cb){
   var voiceNote = getVoiceProfileNote();
@@ -6004,6 +6371,7 @@ function generateScriptBankSilent(onComplete) {
       (currentRealReason ? " CREATOR REAL REASON -- what made them want this (use this for authentic hook territory): " + currentRealReason + "." : "") +
       (currentSurprise ? " SURPRISE DETAIL -- build hooks around this unexpected truth: " + currentSurprise + "." : "") +
       " Product: " + currentProduct + ". " + getPriceContext() + "." + useCtx + uNote + voiceNote +
+      getPainStackNote() +
       " Return JSON: {productName:str,hooks:{\"Worse alternative\":[3],\"Desired transformation\":[3],\"Curiosity loop\":[3],\"Social proof\":[3],\"Scarcity and FOMO\":[3],\"Identity and aspiration\":[3],\"Skepticism disarm\":[3],\"Friction removal\":[3],\"Sensory observation\":[3]},body:{\"Feature to feeling\":[3],\"Quality proof\":[3],\"Simplicity and ease\":[3],\"Value reframe\":[3],\"Legacy and emotion\":[3],\"Multi-use reveal\":[3]},preClose:[4],seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
 
     fetch("/api/claude", {
@@ -6019,8 +6387,10 @@ function generateScriptBankSilent(onComplete) {
       parsed = stripEmDashesDeep(parsed);
       // Preserve saved winners across a full bank regeneration (no-op when none).
       var _keepWinners = (typeof allData === "object" && allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw : null;
+      var _keepPains = (typeof allData === "object" && allData && Array.isArray(allData.painStack)) ? allData.painStack : null;
       allData = parsed || {};
       if (_keepWinners) { allData.winnersRaw = _keepWinners; parsed.winnersRaw = _keepWinners; }
+      if (_keepPains) { allData.painStack = _keepPains; parsed.painStack = _keepPains; }
       allData.hooks = allData.hooks || {};
       allData.body = allData.body || {};
       allData.preClose = allData.preClose || [];
@@ -6059,7 +6429,27 @@ function generateScriptBank() {
     });
     return;
   }
+
+  // PAIN STACK LAYER (Phase 1: kitchen only). Set the structural spine before writing.
+  // Runs AFTER the desire is confirmed and BEFORE the confirmations are consumed, so a
+  // re-entry from the pain picker skips the desire picker instead of re-opening it.
+  if (!_painsConfirmed && isKitchenProduct(product)) {
+    openPainStackPicker({
+      productText: product.split(" PRODUCT DETAILS: ").pop(),
+      category: "kitchen",
+      buyerIntent: (currentFocus && currentFocus.focus) || currentDesire || "",
+      preset: (typeof allData === "object" && allData && allData.painStack) ? allData.painStack : null,
+      onChosen: function(pains){
+        currentPains = (pains && pains.length === 3) ? pains : [];
+        if (typeof allData === "object" && allData) allData.painStack = currentPains;
+        _painsConfirmed = true;
+        generateScriptBank();
+      }
+    });
+    return;
+  }
   _desireConfirmed = false; // consume the confirmation so the next generation asks again
+  _painsConfirmed = false;  // consume the pain confirmation too
 
   var btn = document.getElementById("genBtn");
   if (btn) { btn.disabled = true; btn.style.background = "var(--muted2)"; btn.innerHTML = "&#8987;&nbsp; Writing your script bank..."; }
@@ -6141,6 +6531,7 @@ function generateScriptBank() {
       " Product: " + product + "." + focusLine + priceLine + voiceNote +
       useContext +
       understandingNote +
+      getPainStackNote() +
 
       " THE ONLY TEST FOR EVERY LINE: Would I actually say this out loud to my best friend right now? If it sounds written, rewrite it until it sounds spoken." +
 
@@ -6232,8 +6623,10 @@ function generateScriptBank() {
       parsed = stripEmDashesDeep(parsed);
       // Preserve saved winners across a full bank regeneration (no-op when none).
       var _keepWinners = (typeof allData === "object" && allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw : null;
+      var _keepPains = (typeof allData === "object" && allData && Array.isArray(allData.painStack)) ? allData.painStack : null;
       allData = parsed || {};
       if (_keepWinners) { allData.winnersRaw = _keepWinners; parsed.winnersRaw = _keepWinners; }
+      if (_keepPains) { allData.painStack = _keepPains; parsed.painStack = _keepPains; }
       allData.hooks = allData.hooks || {};
       allData.body = allData.body || {};
       allData.preClose = allData.preClose || allData.preclose || [];
@@ -6268,6 +6661,7 @@ function generateScriptBank() {
       (getBuyerMotivation() ? " Creator insight: " + getBuyerMotivation() + "." : "") +
       " Product: " + product + "." + focusLine + priceLine + voiceNote +
       useContext +
+      getPainStackNote() +
       " HOOK RULES (10 words maximum): One specific experience. No AND or BUT. Never: You are the person who, I, My." +
       " SENSORY OBSERVATION HOOKS: Make the viewer feel the product -- sounds, textures, moments of use. Example: The satisfying clink of the bottle opener hitting the cap catcher." +
       " BODY RULES (under 25 words): Jump to the feeling. No cause-effect chains." +
@@ -6295,8 +6689,10 @@ function generateScriptBank() {
       parsed = stripEmDashesDeep(parsed);
       // Preserve saved winners across a full bank regeneration (no-op when none).
       var _keepWinners = (typeof allData === "object" && allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw : null;
+      var _keepPains = (typeof allData === "object" && allData && Array.isArray(allData.painStack)) ? allData.painStack : null;
       allData = parsed || {};
       if (_keepWinners) { allData.winnersRaw = _keepWinners; parsed.winnersRaw = _keepWinners; }
+      if (_keepPains) { allData.painStack = _keepPains; parsed.painStack = _keepPains; }
       allData.hooks = allData.hooks || {};
       allData.body = allData.body || {};
       allData.preClose = allData.preClose || allData.preclose || [];
@@ -6328,6 +6724,8 @@ function resetPicks(){
   expandedTrigger = { hooks:null,body:null,body1:null,preclose:null,body2:null,cta:null };
   screenTextPicks = {};
   currentFocus = null;
+  currentPains = [];        // clear the pain stack so a new product starts fresh
+  _painsConfirmed = false;
   wizardStep = 1;
 }
 
@@ -8999,6 +9397,7 @@ function generateBody2AndPreclose(body1Line, hookLine) {
     " SCRIPT SO FAR -- HOOK: " + (hookLine || "") +
     " BODY 1: " + body1Line +
     focusContext +
+    getPainStackNote() +
 
     " PRE-CLOSE RULES -- this is the most important part:" +
     " One sentence. First person works best. A private honest thought the creator had before or after buying." +
@@ -9229,6 +9628,7 @@ function generateCTA(hookLine, body1Line, preCloseLine, body2Line) {
     (preCloseLine ? " PRE-CLOSE: " + preCloseLine : "") +
     " BODY 2: " + (body2Line || "") +
     " Product: " + currentProduct + "." + focusContext + priceCtx +
+    getPainStackNote() +
 
     " THE RULE: Every CTA must contain specific language or imagery from the hook itself. If a viewer saw only the hook and the CTA they should feel like the CTA is the direct answer to the hook's exact tension. If you can swap this CTA onto a script for a completely different product -- rewrite it." +
 
