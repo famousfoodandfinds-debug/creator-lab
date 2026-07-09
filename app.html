@@ -6433,9 +6433,13 @@ function generateScriptBank() {
   // PAIN STACK LAYER (Phase 1: kitchen only). Set the structural spine before writing.
   // Runs AFTER the desire is confirmed and BEFORE the confirmations are consumed, so a
   // re-entry from the pain picker skips the desire picker instead of re-opening it.
-  if (!_painsConfirmed && isKitchenProduct(product)) {
+  // Detect kitchen from every available source (the compound product string, the saved
+  // product name, and the extracted facts), so a path where currentProduct holds only the
+  // product name still triggers the pain flow for a clearly kitchen product.
+  var _painDetectText = product + " " + (typeof currentProductName === "string" ? currentProductName : "") + " " + getGroundingFacts();
+  if (!_painsConfirmed && isKitchenProduct(_painDetectText)) {
     openPainStackPicker({
-      productText: product.split(" PRODUCT DETAILS: ").pop(),
+      productText: (getGroundingFacts() || product.split(" PRODUCT DETAILS: ").pop()),
       category: "kitchen",
       buyerIntent: (currentFocus && currentFocus.focus) || currentDesire || "",
       preset: (typeof allData === "object" && allData && allData.painStack) ? allData.painStack : null,
