@@ -1024,6 +1024,16 @@ var SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 
 var sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON);
 var currentUser = null;
+var currentAccessToken = null; // Supabase session JWT, sent to the backend for server-side auth
+// Standard headers for every /api/claude call: identifies the user AND carries the
+// verifiable Supabase session token so the backend can authenticate the request.
+function claudeHeaders(){
+  return {
+    "Content-Type": "application/json",
+    "x-user-id": (currentUser ? currentUser.id : ""),
+    "Authorization": "Bearer " + (currentAccessToken || "")
+  };
+}
 var currentProductId = null;
 var currentProduct = "";
 var currentProductName = ""; // display name only -- currentProduct holds the full description
@@ -1793,12 +1803,15 @@ function signOut() {
 sb.auth.getSession().then(function(result) {
   if (result.data.session) {
     currentUser = result.data.session.user;
+    currentAccessToken = result.data.session.access_token;
     onSignedIn();
   }
 });
 
 // Auth state listener
 sb.auth.onAuthStateChange(function(event, session) {
+  // Keep the cached JWT current across sign-in, token refresh, and sign-out.
+  currentAccessToken = session ? session.access_token : null;
   if (event === "PASSWORD_RECOVERY") {
     // Show password reset form instead of logging in
     var overlay = document.getElementById("authOverlay");
@@ -2228,7 +2241,7 @@ function cleanProductDescription(rawDesc, callback) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1500,
       messages: [{ role: "user", content: prompt }] })
   })
@@ -2384,7 +2397,7 @@ function generatePrecloseLines(parsed, callback) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000,
       messages: [{ role: "user", content: preclosePrompt }]
     })
@@ -2437,7 +2450,7 @@ function generateScreenTextOptions(hooksData, callback) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 2000,
       messages: [{ role: "user", content: screenPrompt }]
     })
@@ -3389,7 +3402,7 @@ function processAllImages() {
   msgContent.push({ type: "text", text: "These are product listing screenshots. Read ALL the text and extract every real product detail faithfully and completely. Do NOT summarize and do NOT shorten: include the full product name and brand, every material, ingredient, size, dimension, weight, capacity, certification, what is in the box, and every factual feature exactly as written, keeping each quality attached to exactly what the listing attached it to. Do not invent or combine details. Leave out only navigation, prices, star ratings, review counts, shipping, returns, and unrelated UI text. Start with the brand and product name. Return only the extracted product description text." });
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000, messages: [{ role: "user", content: msgContent }] })
   })
   .then(function(r) { return r.text(); })
@@ -3474,7 +3487,7 @@ function sendWinningAnglesToModel(b64, mediaType, container) {
   ];
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 4000, messages: [{ role: "user", content: msgContent }] })
   })
   .then(function(r) { return r.text(); })
@@ -3579,7 +3592,7 @@ function fetchWinningAngleByLink(inputEl, btnEl, statusEl, container) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ useTokscript: true, model: "claude-sonnet-4-6", max_tokens: 4000, messages: [{ role: "user", content: prompt }] }),
     signal: controller.signal
   })
@@ -3966,7 +3979,7 @@ function generateOnScreenText(productDesc, hooks) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 300, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -4224,7 +4237,7 @@ function generateBuyerCards() {
 
   fetch('/api/claude', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-user-id': (currentUser ? currentUser.id : '') },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -4437,7 +4450,7 @@ function showEditBuyersModal() {
   var prompt = 'A TikTok Shop affiliate creator is promoting this product. Generate exactly 4 distinct buyer types. Format as JSON only, no preamble: {"buyers":[{"title":"short label 4-6 words","description":"one sentence describing who they are and their specific frustration or situation"}]} Product: ' + desc.slice(0, 400);
   fetch('/api/claude', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-user-id': (currentUser ? currentUser.id : '') },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 400, messages: [{ role: 'user', content: prompt }] })
   }).then(function(r) { return r.json(); }).then(function(data) {
     var raw = '';
@@ -4636,7 +4649,7 @@ function suggestDesireAngles(productText, cb){
       " 1 to 3 words each. Product: " + String(productText || "").slice(0, 500) + ". Output JSON only.";
     fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+      headers: claudeHeaders(),
       body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 200, messages: [{ role: "user", content: p }] })
     })
     .then(function(r){ return r.json(); })
@@ -4662,7 +4675,7 @@ function checkCategoryFit(productText, category, cb){
       " Also answer fits=false with a short reason if the target itself is built on any banned supplement theme above (digestion, absorption, bloat, calorie deficit or diet guilt, or building muscle). Output JSON only.";
     fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+      headers: claudeHeaders(),
       body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 120, messages: [{ role: "user", content: p }] })
     })
     .then(function(r){ return r.json(); })
@@ -4904,7 +4917,7 @@ function requestPains(cfg, cb){
     " Product: " + product + ". Output JSON only.";
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 500, messages: [{ role: "user", content: p }] })
   })
   .then(function(r){ return r.json(); })
@@ -5155,7 +5168,7 @@ function regenerateOneScript(sc, desc, desire, cb){
     " Return ONLY valid JSON, no markdown: {\"hook\":str,\"body1\":str,\"preclose\":str,\"body2\":str,\"cta\":str,\"screenText\":[3 short on-screen text hook options],\"caption\":str,\"hashtags\":[5 strings, no hash symbol]}.";
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1500, system: system, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -5331,7 +5344,7 @@ function generateBatchCTAs(hooks, product, priceCtx, callback) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 400,
       messages: [{ role: "user", content: prompt }] })
   })
@@ -5365,7 +5378,7 @@ function generateBatchCaptions(scripts, angles, product, productName, callback) 
     "\n\nReturn ONLY valid JSON: {captions:[{text:string,hashtags:[5 strings no hash symbol]} per script]}";
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1200, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -5414,7 +5427,7 @@ function generateBatchScreenTexts(hooks, product, callback) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 800,
       messages: [{ role: "user", content: prompt }] })
   })
@@ -5502,7 +5515,7 @@ function generateWinnerFrameworkScripts(winnerPanels, count, priceCtx, callback)
 
       fetch("/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+        headers: claudeHeaders(),
         body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 3000,
           system: system,
           messages: [{ role: "user", content: wfPrompt }] })
@@ -5573,7 +5586,7 @@ function generateNormalBatch(angles, winnerScripts, winnerAngles) {
 
       fetch("/api/claude", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+        headers: claudeHeaders(),
         body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 150, messages: [{ role: "user", content: authPrompt }] })
       })
       .then(function(r) { return r.json(); })
@@ -5691,7 +5704,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
   // ── CALL 1: Get product understanding first ──
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600,
       messages: [{ role: "user", content: thinkPrompt }] })
   })
@@ -5763,7 +5776,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 400,
       messages: [{ role: "user", content: goldHookPrompt }] })
   })
@@ -5862,7 +5875,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
 
     fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000,
       system: system,
       messages: [{ role: "user", content: prompt }]
@@ -5933,7 +5946,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
       " Return ONLY valid JSON: {scripts:[{angle:string,hook:string,body1:string,preClose:string,body2:string,caption:string,hashtags:[string,string,string,string,string]}]}";
     fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+      headers: claudeHeaders(),
       body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000, system: system, messages: [{ role: "user", content: prompt }] })
     })
     .then(function(r) { return r.json(); })
@@ -6351,7 +6364,7 @@ function generateScriptBankSilent(onComplete) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600, messages: [{ role: "user", content: thinkPrompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -6376,7 +6389,7 @@ function generateScriptBankSilent(onComplete) {
 
     fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+      headers: claudeHeaders(),
       body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4500, system: system, messages: [{ role: "user", content: prompt }] })
     })
     .then(function(r) { return r.json(); })
@@ -6499,7 +6512,7 @@ function generateScriptBank() {
   // ── CALL 1: Get product understanding first ──
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600,
       messages: [{ role: "user", content: thinkPrompt }] })
   })
@@ -6612,7 +6625,7 @@ function generateScriptBank() {
 
     fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+      headers: claudeHeaders(),
       body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4500, system: system, messages: [{ role: "user", content: prompt }] }),
       signal: controller.signal
     })
@@ -6678,7 +6691,7 @@ function generateScriptBank() {
 
     fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+      headers: claudeHeaders(),
       body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4500, system: system, messages: [{ role: "user", content: prompt }] }),
       signal: controller2.signal
     })
@@ -7232,7 +7245,7 @@ function generateFormatScripts() {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 5000,
@@ -7385,7 +7398,7 @@ function renderFilmingSessionResults(scripts, mc) {
       " HARD RULES: 8 words maximum. Count them. Over 8 is a failure. Lowercase always. Never describe the product. Must feel like the beginning of a secret, not the end of one." +
       " Return ONLY valid JSON: {options:[3 strings]}";
       fetch("/api/claude", {
-        method:"POST", headers:{"Content-Type":"application/json","x-user-id":(currentUser?currentUser.id:"")},
+        method:"POST", headers: claudeHeaders(),
         body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:150,messages:[{role:"user",content:thPrompt}]})
       })
       .then(function(r){return r.json();})
@@ -7482,7 +7495,7 @@ function generateSkitScript(relationshipType) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 800, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -7638,7 +7651,7 @@ function generateUrgencyScripts(type) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 900, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -7707,7 +7720,7 @@ function generateUrgencyScripts(type) {
         " HARD RULES: 8 words maximum. Count them. Over 8 is a failure. Lowercase always. Never echo the verbal hook. Must feel like the beginning of a secret." +
         " Return ONLY valid JSON: {options:[3 strings]}";
         fetch("/api/claude", {
-          method:"POST", headers:{"Content-Type":"application/json","x-user-id":(currentUser?currentUser.id:"")},
+          method:"POST", headers: claudeHeaders(),
           body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:150,messages:[{role:"user",content:screenPrompt}]})
         })
         .then(function(r){return r.json();})
@@ -7787,7 +7800,7 @@ function renderBatchPicker() {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
   })
   .then(function(r) {
@@ -7954,7 +7967,7 @@ function renderBatchAngleGrid(wrap, focuses) {
         var refreshPrompt = "You are analyzing a TikTok Shop product to identify buyer desire angles. Product: " + currentProduct + ". Generate exactly 1 NEW buyer desire angle completely different from these: " + existingNames + ". TONE CALIBRATION: Does this product CREATE something wanted (pizza maker, waffle iron, cocktail tool, beauty tool) or SOLVE something unwanted (vacuum, cleaner, organizer)? Experience products need fun ritual angles. Functional products need problem-solving angles. Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation.";
         fetch("/api/claude", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+          headers: claudeHeaders(),
           body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 200, messages: [{ role: "user", content: refreshPrompt }] })
         })
         .then(function(r){ return r.json(); })
@@ -8088,7 +8101,7 @@ function renderFocusPicker() {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 600, messages: [{ role: "user", content: focusPrompt }] })
   })
   .then(function(r) {
@@ -8202,7 +8215,7 @@ function renderFocusOptionsForBuilder(wrap, loadingEl, focuses) {
         var existingNames = allFocuses.map(function(f){ return f.focus; }).join(", ");
         var refreshPrompt = "You are analyzing a TikTok Shop product to identify buyer desire angles. Product: " + currentProduct + ". Generate exactly 1 NEW buyer desire angle completely different from these: " + existingNames + ". TONE CALIBRATION: Match angle energy to product -- fun lifestyle products need light social angles, functional products need practical empowering angles. Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation.";
         fetch("/api/claude", {
-          method:"POST", headers:{"Content-Type":"application/json","x-user-id":(currentUser?currentUser.id:"")},
+          method:"POST", headers: claudeHeaders(),
           body:JSON.stringify({model:"claude-haiku-4-5-20251001",max_tokens:200,messages:[{role:"user",content:refreshPrompt}]})
         })
         .then(function(r){return r.json();})
@@ -8302,7 +8315,7 @@ function renderFocusOptions(wrap, loadingEl, focuses) {
           "Return ONLY valid JSON: {focus:string,desire:string,description:string} where desire is one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. focus is 4-8 words. description is one sentence.";
         fetch("/api/claude", {
           method: "POST",
-          headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+          headers: claudeHeaders(),
           body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 200, messages: [{ role: "user", content: refreshPrompt }] })
         })
         .then(function(r){ return r.json(); })
@@ -9423,7 +9436,7 @@ function generateBody2AndPreclose(body1Line, hookLine) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1200,
       system: system,
       messages: [{ role: "user", content: prompt }]
@@ -9655,7 +9668,7 @@ function generateCTA(hookLine, body1Line, preCloseLine, body2Line) {
 
   fetch("/api/claude", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+    headers: claudeHeaders(),
     body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1200,
       system: system,
       messages: [{ role: "user", content: prompt }]
@@ -10392,7 +10405,7 @@ function updateDonePanel(){
 
     fetch("/api/claude", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "x-user-id": (currentUser ? currentUser.id : "") },
+      headers: claudeHeaders(),
       body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 200, messages: [{ role: "user", content: screenPrompt }] })
     })
     .then(function(r) { return r.json(); })
@@ -10534,10 +10547,11 @@ function buildCarousel() {
   var tpl = document.getElementById("carouselTpl");
   if (!frame || !tpl) return;
   var uid = (currentUser && currentUser.id) ? currentUser.id : "";
-  // Inject the logged-in user's id (for /api/claude auth) and the current product
-  // (so the carousel can prefill its brief via window.__SAXE_PRODUCT__).
+  var tok = currentAccessToken || "";
+  // Inject the logged-in user's id and session token (for /api/claude auth) and the
+  // current product (so the carousel can prefill its brief via window.__SAXE_PRODUCT__).
   var prod = (typeof currentProduct === "string") ? currentProduct : "";
-  frame.srcdoc = "<script>window.__SAXE_USER_ID__=" + JSON.stringify(uid) + ";window.__SAXE_PRODUCT__=" + JSON.stringify(prod) + ";<\/script>" + tpl.innerHTML;
+  frame.srcdoc = "<script>window.__SAXE_USER_ID__=" + JSON.stringify(uid) + ";window.__SAXE_TOKEN__=" + JSON.stringify(tok) + ";window.__SAXE_PRODUCT__=" + JSON.stringify(prod) + ";<\/script>" + tpl.innerHTML;
   // Push the product once the iframe has loaded (covers the first open).
   frame.addEventListener("load", pushCarouselProduct, { once: true });
   carouselBuilt = true;
@@ -13756,7 +13770,7 @@ window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst
       shots.forEach(s=>content.push({type:'image',source:{type:'base64',media_type:s.media_type,data:s.data}}));
       content.push({type:'text',text:(desc?('Product:\n'+desc+'\n\n'):'The product is in the attached screenshots.\n\n')+'Give 4 distinct one-line selling angles for a TikTok Shop carousel of this product. Each is a single promise or desire, under 9 words, no price, no competing brand. Return ONLY JSON: {"angles":["...","...","...","..."]}'});
       const payload=JSON.stringify({model:'claude-sonnet-4-6',max_tokens:600,system:'You return only valid JSON, no markdown.',messages:[{role:'user',content}]});
-      const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-user-id':(window.__SAXE_USER_ID__||'')},body:payload});
+      const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-user-id':(window.__SAXE_USER_ID__||''),'Authorization':'Bearer '+(window.__SAXE_TOKEN__||'')},body:payload});
       const data=await res.json();
       if(data&&data.error){angleStatusEl.textContent='Could not get suggestions right now.';sgBtn.disabled=false;return;}
       const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
@@ -14152,7 +14166,7 @@ Return ONLY valid JSON, no markdown, exactly:
       for(let attempt=1; attempt<=3; attempt++){
         try{
           if(attempt>1) statusEl.textContent='Connection hiccup. Retrying ('+attempt+' of 3)...';
-          res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-user-id':(window.__SAXE_USER_ID__||'')},body:payload});
+          res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-user-id':(window.__SAXE_USER_ID__||''),'Authorization':'Bearer '+(window.__SAXE_TOKEN__||'')},body:payload});
           break;
         }catch(e){ lastErr=e; await new Promise(r=>setTimeout(r, 900*attempt)); }
       }

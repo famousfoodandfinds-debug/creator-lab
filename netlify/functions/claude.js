@@ -12,9 +12,29 @@ exports.handler = async function(event) {
     return { statusCode: 500, body: JSON.stringify({ error: "API key not configured" }) };
   }
 
-  // Get user ID from request headers (sent by the app)
-  const userId = event.headers["x-user-id"];
-  if (!userId) {
+  // Authenticate: require a valid Supabase session JWT, verified server-side.
+  // The x-user-id header is no longer trusted on its own; the user id is taken from
+  // the verified token, so a forged or rotated header cannot burn API credits.
+  const authHeader = event.headers["authorization"] || event.headers["Authorization"] || "";
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) {
+    return { statusCode: 401, body: JSON.stringify({ error: "Not authenticated" }) };
+  }
+  let userId;
+  try {
+    const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${token}` }
+    });
+    if (!authRes.ok) {
+      return { statusCode: 401, body: JSON.stringify({ error: "Not authenticated" }) };
+    }
+    const authUser = await authRes.json();
+    userId = authUser && authUser.id;
+    if (!userId) {
+      return { statusCode: 401, body: JSON.stringify({ error: "Not authenticated" }) };
+    }
+  } catch (err) {
+    // Auth verification is fail-closed by design: if the token cannot be verified, reject.
     return { statusCode: 401, body: JSON.stringify({ error: "Not authenticated" }) };
   }
 
