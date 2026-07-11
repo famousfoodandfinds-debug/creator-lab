@@ -4706,6 +4706,7 @@ function openDesirePicker(opts){
   sub.style.cssText = "font-size:13px;color:var(--muted);margin-bottom:16px;line-height:1.5;";
   sub.textContent = "Pick who or what this video is for. We say it out loud early so TikTok shows it to the right people. Tap to confirm or change.";
   sheet.appendChild(h); sheet.appendChild(sub);
+  renderVoiceModeToggle(sheet);
   var list = document.createElement("div");
   list.style.cssText = "display:flex;flex-direction:column;gap:8px;";
   sheet.appendChild(list);
@@ -4950,6 +4951,60 @@ function getPainStackNote(){
     " STRUCTURE COMPLIANCE: no em dashes anywhere, no exact prices or dollar figures, no competing or unrelated brand names (say tablet not a tablet brand, your usual coffee order not a coffee chain). Only the promoted product's own brand and the actual retailer, including QVC, may be named. The CTA uses an action verb to the cart and ends pointing to the link below.";
 }
 
+// ---- SCRIPT VOICE MODE (recommender vs testimonial) -------------------------------
+// Recommender (DEFAULT): second person, aimed at the viewer. The creator is a recommender
+// sharing what a product does and the pains it solves, not giving a personal testimonial.
+// Testimonial: opt-in first person for the occasional product the creator genuinely uses.
+// Never forced, never the default. The toggle lives in the desire and pain pickers.
+var scriptVoiceMode = "recommender"; // "recommender" | "testimonial"
+
+function getVoiceModeNote(){
+  if (scriptVoiceMode === "testimonial") {
+    return " SCRIPT VOICE MODE -- FIRST-PERSON TESTIMONIAL (creator-selected for this script): The creator genuinely uses this product, so first person is welcome. A personal hesitation, a private thought, or what changed for them (I kept telling myself, then I realized) may lead the pre-close and inform hooks. Keep it honest and specific to this product, never generic, never forced.";
+  }
+  // recommender (default)
+  return " SCRIPT VOICE MODE -- SECOND-PERSON RECOMMENDER (DEFAULT). THIS OVERRIDES ANY EARLIER INSTRUCTION to use first person, personal hesitation, a personal-transformation confession, or a first-person pre-close, including any rule that says first person works best and any first-person example line above. The creator is a recommender pointing the viewer to a product and the pains it solves, NOT giving a personal testimonial. Do NOT assume the creator owns, uses daily, or was changed by this product. Write to the VIEWER in second person (you, your). BANNED first-person testimonial framing everywhere in this script: I kept telling myself, then I realized I had been, I almost talked myself out of it, I used to, for years I, I did not expect, I kept putting it off, I calculated. The PRE-CLOSE is a second-person recommender observation or an honest catch about the viewer's own situation, still awkwardly true, not resolved into a lesson, never a personal confession. Any first-person example lines elsewhere in this prompt are illustrations of the BEAT only: keep the honest beat, rewrite it in second person about the viewer. Second-person pre-close examples: If your pans still stick no matter how much oil you use, that is the pan, not you. You have probably rewashed the same greasy pan twice already tonight. Or maybe you are just tired of scrubbing baked-on egg every single morning. Body lines say what the product does for the viewer (you), not what it did for me. The stacked pains, the 'or maybe you' widener, and every 'so that' outcome all stay in second person aimed at the viewer.";
+}
+
+// Shared segmented toggle so the creator picks the voice at generation time. Defaults to
+// recommender; sets the session-global scriptVoiceMode. Rendered into the desire picker
+// (every product) and the pain picker (kitchen).
+function renderVoiceModeToggle(container){
+  var wrap = document.createElement("div");
+  wrap.style.cssText = "margin-bottom:14px;background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;padding:11px 12px;";
+  var lbl = document.createElement("div");
+  lbl.style.cssText = "font-size:11px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;";
+  lbl.textContent = "Script voice";
+  wrap.appendChild(lbl);
+  var seg = document.createElement("div");
+  seg.style.cssText = "display:flex;gap:6px;";
+  var modes = [
+    { id: "recommender", name: "Recommender", sub: "To the viewer (default)" },
+    { id: "testimonial", name: "Testimonial", sub: "First person, I use it" }
+  ];
+  var btns = {};
+  function paint(){
+    modes.forEach(function(m){
+      var on = scriptVoiceMode === m.id;
+      var b = btns[m.id];
+      b.style.background = on ? "var(--red)" : "transparent";
+      b.style.color = on ? "var(--white)" : "var(--white-dim)";
+      b.style.borderColor = on ? "var(--red)" : "var(--border-md)";
+    });
+  }
+  modes.forEach(function(m){
+    var b = document.createElement("button");
+    b.style.cssText = "flex:1;text-align:left;border:1px solid var(--border-md);border-radius:9px;padding:9px 10px;font-family:'Instrument Sans',sans-serif;font-size:12.5px;cursor:pointer;line-height:1.3;";
+    b.innerHTML = "<div style='font-weight:600;'>" + m.name + "</div><div style='font-size:10.5px;opacity:0.8;margin-top:2px;'>" + m.sub + "</div>";
+    b.addEventListener("click", function(){ scriptVoiceMode = m.id; paint(); });
+    btns[m.id] = b;
+    seg.appendChild(b);
+  });
+  wrap.appendChild(seg);
+  container.appendChild(wrap);
+  paint();
+}
+
 // The three-card generate / select / edit flow. opts:
 //   { productText, category, buyerIntent, preset, onChosen(pains) }
 // Each card shows its pain-type label, is freely editable, can be swapped to another
@@ -4974,6 +5029,7 @@ function openPainStackPicker(opts){
   sub.style.cssText = "font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5;";
   sub.textContent = "These three pains set the structure of your script. Your winners still lead and your voice still shapes how it sounds. Card one is your sharpest, lead pain. Edit the wording, swap the pain, or regenerate any card.";
   sheet.appendChild(h); sheet.appendChild(sub);
+  renderVoiceModeToggle(sheet);
 
   var nudge = document.createElement("div");
   nudge.style.cssText = "display:none;margin-bottom:14px;font-size:12.5px;color:var(--gold);line-height:1.5;background:var(--gold-dim);border:1px solid rgba(206,154,128,0.3);border-radius:10px;padding:10px 12px;";
@@ -6385,6 +6441,7 @@ function generateScriptBankSilent(onComplete) {
       (currentSurprise ? " SURPRISE DETAIL -- build hooks around this unexpected truth: " + currentSurprise + "." : "") +
       " Product: " + currentProduct + ". " + getPriceContext() + "." + useCtx + uNote + voiceNote +
       getPainStackNote() +
+      getVoiceModeNote() +
       " Return JSON: {productName:str,hooks:{\"Worse alternative\":[3],\"Desired transformation\":[3],\"Curiosity loop\":[3],\"Social proof\":[3],\"Scarcity and FOMO\":[3],\"Identity and aspiration\":[3],\"Skepticism disarm\":[3],\"Friction removal\":[3],\"Sensory observation\":[3]},body:{\"Feature to feeling\":[3],\"Quality proof\":[3],\"Simplicity and ease\":[3],\"Value reframe\":[3],\"Legacy and emotion\":[3],\"Multi-use reveal\":[3]},preClose:[4],seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
 
     fetch("/api/claude", {
@@ -6610,6 +6667,7 @@ function generateScriptBank() {
 
       " BANNED WORDS: exact prices or any number for the price, game-changer elevate transform engineered crafted vessel intentional-as-lifestyle we our link in bio check it out guys gals ladies boys girls men women. Do not apologize for cost or frame the buy as a splurge or hesitation." +
 
+      getVoiceModeNote() +
       " Return JSON with the productName and these script option banks -- no CTAs needed, those are written separately:" +
       " {productName:str," +
       "hooks:{\"Worse alternative\":[3],\"Desired transformation\":[3],\"Curiosity loop\":[3],\"Social proof\":[3],\"Scarcity and FOMO\":[3],\"Identity and aspiration\":[3],\"Skepticism disarm\":[3],\"Friction removal\":[3],\"Sensory observation\":[3]}," +
@@ -6684,6 +6742,7 @@ function generateScriptBank() {
       " BODY RULES (under 25 words): Jump to the feeling. No cause-effect chains." +
       " PRE-CLOSE: One honest awkward human moment. Never resolves into a lesson." +
       " BANNED: exact prices or any number for the price, game-changer you become the person who." +
+      getVoiceModeNote() +
       " Return JSON: {productName:str,hooks:{\"Worse alternative\":[3],\"Desired transformation\":[3],\"Curiosity loop\":[3],\"Social proof\":[3],\"Scarcity and FOMO\":[3],\"Identity and aspiration\":[3],\"Skepticism disarm\":[3],\"Friction removal\":[3],\"Sensory observation\":[3]},body:{\"Feature to feeling\":[3],\"Quality proof\":[3],\"Simplicity and ease\":[3],\"Value reframe\":[3],\"Legacy and emotion\":[3],\"Multi-use reveal\":[3]},preClose:[4],seo:{caption:str,hashtags:[5 no symbol],keywords:[4]}}. ONLY valid JSON.";
 
     var controller2 = new AbortController();
@@ -6743,6 +6802,7 @@ function resetPicks(){
   currentFocus = null;
   currentPains = [];        // clear the pain stack so a new product starts fresh
   _painsConfirmed = false;
+  scriptVoiceMode = "recommender"; // every new product starts at the recommender default
   wizardStep = 1;
 }
 
@@ -9417,7 +9477,7 @@ function generateBody2AndPreclose(body1Line, hookLine) {
     getPainStackNote() +
 
     " PRE-CLOSE RULES -- this is the most important part:" +
-    " One sentence. First person works best. A private honest thought the creator had before or after buying." +
+    " One sentence. An honest, specific catch. Follow the SCRIPT VOICE MODE below for whether it is a first-person admission or a second-person observation about the viewer." +
     " CRITICAL: The hesitation must match what someone buying THIS specific product would actually feel." +
     " Read the product description. Understand what it is. Then ask: what would a real person buying this product actually worry about or admit?" +
     " A golf bag buyer worries about: spending this much on something they carry every round, whether it actually feels different, whether it is worth upgrading from what they have." +
@@ -9431,6 +9491,7 @@ function generateBody2AndPreclose(body1Line, hookLine) {
     " BODY 2 RULES: Different angle than Body 1 but connected. Under 25 words. One real spoken sentence -- not a list, not a cause-effect chain. Jump to the feeling." +
     " BANNED EVERYWHERE: exact prices or any specific dollar figure or number for the price (value and price feeling language like what a great price or this is a steal is allowed), game-changer elevate transform engineered crafted link in bio any competing brand name besides the product (the product's own brand may be named and spelled in full)." +
 
+    getVoiceModeNote() +
     " Generate 4 pre-close lines and 4 body2 option sets." +
     " Return ONLY valid JSON: {preClose:[4 strings],body2:{\"Feature to feeling\":[2 strings],\"Quality proof\":[2 strings],\"Multi-use reveal\":[2 strings],\"Legacy and emotion\":[2 strings]}}";
 
@@ -9664,6 +9725,7 @@ function generateCTA(hookLine, body1Line, preCloseLine, body2Line) {
     " Soft close (permission-giving, still hook-specific)," +
     " Community and trust (others already have it, still hook-specific)." +
 
+    getVoiceModeNote() +
     " Return ONLY valid JSON: {cta:{\"Scarcity\":[3 strings],\"Direct close\":[3 strings],\"Soft close\":[2 strings],\"Community and trust\":[2 strings]}}";
 
   fetch("/api/claude", {
