@@ -429,6 +429,17 @@ body.hub-mode #priceSelectorMount { display: none !important; }
 
 /* BATCH SCRIPT CARDS */
 .batch-script-card { background: var(--surface); border: 1px solid var(--border-md); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+/* Health/efficacy claim flags (non-blocking, flag-and-warn) */
+.claim-flag-high { border-left: 3px solid #E0533A !important; }
+.claim-flag-check { border-left: 3px solid #E0962F !important; }
+.claim-chip { position: absolute; right: 6px; top: 6px; z-index: 3; border: none; border-radius: 999px; padding: 2px 8px; font: 700 9px/1.5 'Instrument Sans', sans-serif; letter-spacing: 0.05em; text-transform: uppercase; cursor: pointer; color: #fff; }
+.claim-chip-high { background: #E0533A; }
+.claim-chip-check { background: #E0962F; }
+.claim-banner { border-radius: 10px; padding: 9px 12px; margin: 0 0 12px; font-size: 12.5px; line-height: 1.5; }
+.claim-banner-high { color: #E0533A; background: rgba(224,83,58,0.10); border: 1px solid rgba(224,83,58,0.35); }
+.claim-banner-check { color: var(--gold); background: var(--gold-dim); border: 1px solid rgba(206,154,128,0.3); }
+.claim-pop { position: absolute; z-index: 5000; max-width: 280px; background: var(--surface2); border: 1px solid var(--border-md); border-radius: 10px; padding: 10px 12px; font-size: 12px; line-height: 1.5; color: var(--white); box-shadow: 0 8px 24px rgba(0,0,0,0.45); }
+.claim-pop b { color: var(--gold); }
 .batch-script-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .batch-script-num { font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .batch-script-angle { font-size: 10px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); background: var(--gold-dim); border: 1px solid rgba(206,154,128,0.25); border-radius: 999px; padding: 2px 8px; }
@@ -2377,7 +2388,7 @@ function deleteScriptFromCloud(scriptId, callback) {
 // PRODUCT HUB
 // ============================================================
 function generatePrecloseLines(parsed, callback) {
-  var isBHPreclose = /serum|moisturizer|skincare|balm|supplement|vitamin|collagen|retinol|spf|sunscreen|mascara|foundation|blush|lipstick|eyeshadow|probiotic|protein|ashwagandha|pdrn|volufiline|hyaluronic|peptide|niacinamide/i.test(currentProduct.toLowerCase());
+  var isBHPreclose = isBeautyOrSupplement(currentProduct);
   var beautyBanPreclose = isBHPreclose ? " BEAUTY PRODUCT BAN: Never reference fillers needles injectors medical procedures plumping filling or clinical outcomes in pre-close lines. Personal observation and human admission only." : "";
   // Build a summary of what the product is
   var productDesc = currentProduct;
@@ -2415,7 +2426,7 @@ function generatePrecloseLines(parsed, callback) {
 }
 
 function generateScreenTextOptions(hooksData, callback) {
-  var isBHCurated = /serum|moisturizer|skincare|balm|supplement|vitamin|collagen|retinol|spf|sunscreen|mascara|foundation|blush|lipstick|eyeshadow|probiotic|protein|ashwagandha|pdrn|volufiline|hyaluronic|peptide|niacinamide/i.test(currentProduct.toLowerCase());
+  var isBHCurated = isBeautyOrSupplement(currentProduct);
   var beautyBanCurated = isBHCurated ? " BEAUTY PRODUCT BAN: Never reference fillers needles injectors medical procedures or clinical outcomes. Personal observation only." : "";
   // Build list of all hook lines
   var hookLines = [];
@@ -2561,6 +2572,12 @@ function renderSavedScriptView(sc, mc) {
   topRow.appendChild(scriptLbl); topRow.appendChild(copyAllBtn);
   scriptBox.appendChild(topRow);
 
+  // Health/efficacy claim summary for this saved script (read-only; nothing changes).
+  var _svScreen = "";
+  if (sc.screen_text) { try { _svScreen = JSON.parse(sc.screen_text); } catch(e) { _svScreen = sc.screen_text; } }
+  var _svScan = scanScriptFields({ hook: sc.hook, body1: sc.body1, preClose: (sc.preclose || sc.preClose || sc.pre_close), body2: sc.body2, cta: sc.cta, caption: sc.caption, screenText: _svScreen });
+  var _svBanner = claimBanner(_svScan); if (_svBanner) scriptBox.appendChild(_svBanner);
+
   // Editable sections
   sections.forEach(function(s) {
     var row = document.createElement("div");
@@ -2575,6 +2592,7 @@ function renderSavedScriptView(sc, mc) {
     ta.rows = Math.ceil(s.val.length / 60) + 1;
     ta.addEventListener("input", function(){ this.rows = Math.ceil(this.value.length / 60) + 1; });
     row.appendChild(lbl); row.appendChild(ta);
+    attachClaimFlag(row, s.val);
     scriptBox.appendChild(row);
   });
 
@@ -3951,8 +3969,159 @@ function stripEmDashesDeep(o){
   return o;
 }
 
+// ============================================================
+// HEALTH / EFFICACY CLAIM SAFETY NET (flag-and-warn, read-only)
+// Deterministic scanner over FINAL generated text. It NEVER edits, strips, or
+// regenerates anything and makes NO API calls -- it only returns match metadata
+// the renderers use to draw non-blocking review flags. Severities: "high" (red,
+// near-certain violation) and "check" (amber, review before posting).
+// ============================================================
+var CLAIM_RULES = {
+  // Tier 1 -- drug / OTC-effect claims -> HIGH
+  tier1: ["cure","cures","cured","treat","treats","treated","heal","heals","healed","prevent","prevents","prevented","reverse","reverses","reversed","eliminate","eliminates","eliminated","detox","detoxes","detoxify","detoxifies","boosts immunity","boost your immune","immune support","supports immunity","strengthens immunity","balances hormones","balance your hormones","regulates hormones","hormone balance","lowers blood sugar","controls blood sugar","lowers cholesterol","lowers blood pressure","kills bacteria","kills germs","antibacterial","antiviral","antifungal","antimicrobial","relieves pain","pain relief","relieves","anti-inflammatory","reduces inflammation","fights inflammation","heals your gut","fixes your gut","cures acne","clears up eczema"],
+  // Tier 2 -- efficacy / authority / proof -> HIGH
+  tier2: ["clinically proven","clinically shown","clinically tested","clinical results","clinical study","clinical trial","dermatologist recommended","dermatologist tested","dermatologist approved","dermatologist developed","doctor recommended","doctor approved","doctor formulated","physician recommended","FDA approved","FDA cleared","FDA registered","scientifically proven","science-backed","backed by science","studies show","research shows","proven to","guaranteed results","guaranteed to","results guaranteed","money-back if it doesn't work","patented formula proven"],
+  // Tier 5 -- medical condition terms + mechanism/absorption -> HIGH (both)
+  tier5: ["eczema","psoriasis","rosacea","dermatitis","acne","arthritis","anxiety","depression","insomnia","migraine","headaches","blood sugar","diabetes","cholesterol","blood pressure","hormones","gut health","leaky gut","bloating","thyroid","immune system","immunity","inflammation","menopause","PMS","IBS","absorbs into the skin","penetrates deep","penetrates the skin","enters the bloodstream","into your bloodstream","sinks into your cells","works at the cellular level","increases absorption","boosts absorption","bioavailable"],
+  // Tier 3 -- body-change outcome: a verb within 4 words of a body-noun -> CHECK
+  tier3Verbs: ["reduce","remove","erase","smooth","firm","tighten","lift","plump","fill","de-puff","depuff","fade","clear","shrink","rebuild","restore","stimulate","increase","boost","regrow","stop","burn","melt","dissolve"],
+  tier3Nouns: ["wrinkles","fine lines","puffiness","dark circles","eye bags","redness","acne","breakouts","pores","cellulite","scars","stretch marks","hyperpigmentation","dark spots","collagen","elastin","volume","hollows","sagging","jowls","inflammation","bloating","belly fat","body fat","hair loss","thinning hair"],
+  // Tier 4 -- timeline / results-in-time: first-person -> CHECK, impersonal -> HIGH
+  tier4Triggers: ["results in","visible results","real results","you'll see results","you will see results","see a difference","saw a difference","noticed a difference","notice a difference","works in","starts working in","before and after","overnight"]
+};
+
+function _claimEsc(s){ return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
+function _claimTermsRe(list){ return new RegExp("\\b(?:" + list.map(_claimEsc).join("|") + ")\\b", "gi"); }
+
+// When a candidate match overlaps one of these spans it is dropped (won't-flag list).
+var _CLAIM_EXCLUSIONS = [
+  /\btreat yourself\b/gi,
+  /\b(?:a|sweet|little|some|special)\s+treats?\b/gi,
+  /\bgive\s+(?:them|him|her|your\s+\w+)\s+a\s+treat\b/gi,
+  /\breduce\s+(?:clutter|waste|stress)\b/gi,
+  /\bclear\s+(?:counters?|the\s+clutter|space|out)\b/gi,
+  /\bfills?\s+your\s+cup\b/gi,
+  /\bfirm\s+(?:mattress|pillow|grip|handshake)\b/gi,
+  /\blift\s+the\s+lid\b/gi,
+  /\bboosts?\s+(?:your\s+)?(?:mood|confidence)\b/gi
+];
+var _CLAIM_FIRST_PERSON = /\b(?:i|i'm|i've|my|me|mine)\b|\bfor me\b/i;
+
+function _claimExclusionRanges(text){
+  var ranges = [], m, i, re;
+  for (i = 0; i < _CLAIM_EXCLUSIONS.length; i++){
+    re = _CLAIM_EXCLUSIONS[i]; re.lastIndex = 0;
+    while ((m = re.exec(text)) !== null){ ranges.push([m.index, m.index + m[0].length]); if (m[0].length === 0) re.lastIndex++; }
+  }
+  return ranges;
+}
+
+// Returns [{phrase,index,length,severity,tier}] for one string. Mutates nothing.
+function scanForClaims(text){
+  text = String(text || "");
+  if (!text) return [];
+  var excl = _claimExclusionRanges(text);
+  var found = [];
+  function inExcluded(idx, end){ for (var i = 0; i < excl.length; i++){ if (idx < excl[i][1] && end > excl[i][0]) return true; } return false; }
+  function collect(re, sev, tier){
+    re.lastIndex = 0; var m;
+    while ((m = re.exec(text)) !== null){
+      if (!inExcluded(m.index, m.index + m[0].length)) found.push({ phrase: m[0], index: m.index, length: m[0].length, severity: sev, tier: tier });
+      if (m[0].length === 0) re.lastIndex++;
+    }
+  }
+  // Tiers 1, 2, 5 -- literal -> HIGH
+  collect(_claimTermsRe(CLAIM_RULES.tier1), "high", "tier1");
+  collect(_claimTermsRe(CLAIM_RULES.tier2), "high", "tier2");
+  collect(_claimTermsRe(CLAIM_RULES.tier5), "high", "tier5");
+  // Tier 2 numeric proof -> HIGH
+  collect(/\b\d{1,3}\s?%\s*(?:fewer|less|more|reduction|improvement|of\s+(?:users|people|women|customers))/gi, "high", "tier2");
+  collect(/\breduc\w*\s+(?:\w+\s+){0,3}by\s+\d{1,3}\s?%/gi, "high", "tier2");
+  collect(/\b\d+\s?x\b(?=\s+(?:more|faster|stronger|better|longer|results|the)\b)/gi, "high", "tier2");
+  // Tier 3 -- verb within 4 words of a body-noun -> CHECK
+  var v = CLAIM_RULES.tier3Verbs.map(_claimEsc).join("|");
+  var n = CLAIM_RULES.tier3Nouns.map(_claimEsc).join("|");
+  collect(new RegExp("\\b(?:" + v + ")\\w*\\b(?:\\W+\\w+){0,4}\\W+\\b(?:" + n + ")\\b", "gi"), "check", "tier3");
+  collect(new RegExp("\\b(?:" + n + ")\\b(?:\\W+\\w+){0,4}\\W+\\b(?:" + v + ")\\w*\\b", "gi"), "check", "tier3");
+  // Tier 4 -- timeline/results; first-person CHECK, impersonal HIGH
+  var t4 = _CLAIM_FIRST_PERSON.test(text) ? "check" : "high";
+  collect(_claimTermsRe(CLAIM_RULES.tier4Triggers), t4, "tier4");
+  collect(/\b(?:in|within|after|by|takes)\s+(?:just\s+)?(?:a\s+|one\s+|two\s+|three\s+|a\s+few\s+|\d+\s+)?(?:day|days|week|weeks|night|nights|month|months)\b/gi, t4, "tier4");
+  // De-dupe identical ranges, keep the highest severity
+  var rank = { high: 2, check: 1 }, byKey = {};
+  found.forEach(function(f){ var k = f.index + ":" + f.length; if (!byKey[k] || rank[f.severity] > rank[byKey[k].severity]) byKey[k] = f; });
+  return Object.keys(byKey).map(function(k){ return byKey[k]; }).sort(function(a, b){ return a.index - b.index; });
+}
+
+// Summary over a set of named fields (arrays are joined). Mutates nothing.
+function scanScriptFields(fields){
+  var perField = {}, high = 0, check = 0;
+  Object.keys(fields || {}).forEach(function(key){
+    var val = fields[key];
+    if (Array.isArray(val)) val = val.join(" ");
+    var ms = scanForClaims(val);
+    if (ms.length){ perField[key] = ms; ms.forEach(function(x){ if (x.severity === "high") high++; else check++; }); }
+  });
+  return { perField: perField, high: high, check: check };
+}
+
+// Unified beauty/skincare/supplement detector -- replaces seven divergent inline
+// regexes so the prompt-level beauty bans fire consistently. (The claim scanner
+// above runs on ALL products regardless; this only gates the prompt bans.)
+function isBeautyOrSupplement(text){
+  return /serum|moisturizer|skincare|balm|supplement|vitamin|collagen|retinol|spf|sunscreen|mascara|foundation|blush|lipstick|eyeshadow|probiotic|protein|ashwagandha|magnesium|omega|beauty|antiaging|wrinkle|acne|hair growth|\bnail\b|lash|pdrn|volufiline|hyaluronic|peptide|niacinamide/i.test(String(text || "").toLowerCase());
+}
+
+// --- Claim flag UI (non-blocking). These only DECORATE; they never change text. ---
+var _claimPopEl = null;
+function _closeClaimPop(){ if (_claimPopEl && _claimPopEl.parentNode) _claimPopEl.parentNode.removeChild(_claimPopEl); _claimPopEl = null; }
+function showClaimPopover(anchorEl, matches){
+  _closeClaimPop();
+  var hasHigh = matches.some(function(m){ return m.severity === "high"; });
+  var pop = document.createElement("div");
+  pop.className = "claim-pop";
+  var phrases = matches.map(function(m){ return "“" + m.phrase + "”"; }).join(", ");
+  pop.innerHTML = (hasHigh
+    ? "<b>Health/efficacy claim</b><br>This line makes a claim that can get a video removed and an account flagged: "
+    : "<b>Possible claim, review it</b><br>This line may read as a health or results claim: ")
+    + phrases + ".<br><br>Nothing was changed. Edit this line before posting if it does not fit your product.";
+  document.body.appendChild(pop);
+  var r = anchorEl.getBoundingClientRect();
+  pop.style.top = (window.scrollY + r.bottom + 6) + "px";
+  pop.style.left = (window.scrollX + Math.max(8, r.right - 280)) + "px";
+  setTimeout(function(){ document.addEventListener("click", _closeClaimPop, { once: true }); }, 0);
+}
+// Scan `text`, and if risky, add a border + chip to fieldEl. Returns {hasHigh,count} or null.
+function attachClaimFlag(fieldEl, text){
+  if (!fieldEl) return null;
+  var matches = scanForClaims(text);
+  if (!matches.length) return null;
+  var hasHigh = matches.some(function(m){ return m.severity === "high"; });
+  fieldEl.classList.add(hasHigh ? "claim-flag-high" : "claim-flag-check");
+  var cs = window.getComputedStyle(fieldEl);
+  if (cs && cs.position === "static") fieldEl.style.position = "relative";
+  var chip = document.createElement("button");
+  chip.type = "button";
+  chip.className = "claim-chip " + (hasHigh ? "claim-chip-high" : "claim-chip-check");
+  chip.textContent = hasHigh ? "⚠ Review" : "⚠ Check";
+  chip.addEventListener("click", function(e){ e.stopPropagation(); showClaimPopover(chip, matches); });
+  fieldEl.appendChild(chip);
+  return { hasHigh: hasHigh, count: matches.length };
+}
+// Build a summary banner element from a scanScriptFields() result, or null when clean.
+function claimBanner(summary){
+  if (!summary || (!summary.high && !summary.check)) return null;
+  var el = document.createElement("div");
+  el.className = "claim-banner " + (summary.high ? "claim-banner-high" : "claim-banner-check");
+  var parts = [];
+  if (summary.high) parts.push(summary.high + " high-risk");
+  if (summary.check) parts.push(summary.check + " to check");
+  el.textContent = "⚠ Health/efficacy claims flagged: " + parts.join(", ") + ". Review the marked lines before posting. Nothing was changed.";
+  return el;
+}
+
 function generateOnScreenText(productDesc, hooks) {
-  var isBHOnScreen = /serum|moisturizer|skincare|balm|supplement|vitamin|collagen|retinol|spf|sunscreen|mascara|foundation|blush|lipstick|eyeshadow|probiotic|protein|ashwagandha|pdrn|volufiline|hyaluronic|peptide|niacinamide/i.test((productDesc || currentProduct).toLowerCase());
+  var isBHOnScreen = isBeautyOrSupplement(productDesc || currentProduct);
   var beautyBanOnScreen = isBHOnScreen ? " BEAUTY PRODUCT BAN: Never reference fillers needles injectors medical procedures or clinical outcomes." : "";
   // Get a sample of hook lines to inspire on-screen text
   var hookSamples = [];
@@ -5385,7 +5554,7 @@ function renderModeChoice(wrap, focuses) {
 // ============================================================
 function generateBatchCTAs(hooks, product, priceCtx, callback) {
   var hookList = hooks.map(function(h, i){ return "Hook " + (i+1) + ": " + h; }).join("\n");
-  var isBHProduct = /serum|moisturizer|skincare|balm|supplement|vitamin|collagen|retinol|spf|sunscreen|mascara|foundation|blush|lipstick|eyeshadow|probiotic|protein|ashwagandha|pdrn|volufiline|hyaluronic|peptide|niacinamide/i.test(product.toLowerCase());
+  var isBHProduct = isBeautyOrSupplement(product);
   var beautyCtaBan = isBHProduct ? " BEAUTY PRODUCT CTA BAN: Never write CTAs referencing filler results, injection alternatives, needle-free results, or medical procedures. Wrong: Get filler results without the injection fear. Right: Finally see a difference in your under-eyes. The CTA must describe the creator experience only." : "";
   var prompt = "You have one job. For each hook below, write a CTA that closes the exact tension opened by that hook." +
     saxeAux() +
@@ -5419,7 +5588,7 @@ function generateBatchCTAs(hooks, product, priceCtx, callback) {
 // ============================================================
 function generateBatchCaptions(scripts, angles, product, productName, callback) {
   var productLower = product.toLowerCase();
-  var isBeautyHealth = /serum|moisturizer|skincare|supplement|vitamin|collagen|retinol|spf|sunscreen|mascara|foundation|blush|lipstick|eyeshadow|probiotic|protein|ashwagandha|magnesium|omega|beauty|antiaging|wrinkle|acne|hair growth|nail|lash/i.test(productLower);
+  var isBeautyHealth = isBeautyOrSupplement(productLower);
   var scriptList = scripts.map(function(s, i) {
     return "Script " + (i+1) + " angle: " + (angles[i] ? angles[i].desire : "") + ". Hook: " + (s.hook || "") + ".";
   }).join("\n");
@@ -5455,7 +5624,7 @@ function generateBatchCaptions(scripts, angles, product, productName, callback) 
 function generateBatchScreenTexts(hooks, product, callback) {
   var hookList = hooks.map(function(h, i){ return "Hook " + (i+1) + ": " + h; }).join("\n");
 
-  var isBHScreen = /serum|moisturizer|skincare|balm|supplement|vitamin|collagen|retinol|spf|sunscreen|mascara|foundation|blush|lipstick|eyeshadow|probiotic|protein|ashwagandha|pdrn|volufiline|hyaluronic|peptide|niacinamide/i.test(product.toLowerCase());
+  var isBHScreen = isBeautyOrSupplement(product);
   var beautyScreenBan = isBHScreen ? " BEAUTY PRODUCT SCREEN TEXT BAN: Never reference fillers needles injectors medical procedures or clinical outcomes in text hooks. Never write filler alternative needle-free plumping clinical. Personal observation only." : "";
   var prompt = "You write on-screen text hooks for TikTok Shop videos. These appear on screen while the creator speaks the verbal hook -- a completely separate psychological layer." + beautyScreenBan + saxeAux() +
 
@@ -5727,7 +5896,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
   var anglesText = angles.map(function(a,i){
     angleVariationTrack[a.focus] = (angleVariationTrack[a.focus]||0)+1;
     var varNote = angleCounts[a.focus] > 1 ? " VARIATION " + angleVariationTrack[a.focus] + " OF " + angleCounts[a.focus] + " -- must be meaningfully different hook opening, different body angle, different CTA phrasing from other variations of this angle" : "";
-    var isBeautyProduct = /serum|moisturizer|skincare|balm|supplement|vitamin|collagen|retinol|spf|sunscreen|mascara|foundation|blush|lipstick|eyeshadow|probiotic|protein|ashwagandha|magnesium|omega|beauty|wrinkle|acne|hair growth|nail|lash|pdrn|volufiline|hyaluronic/i.test(currentProduct.toLowerCase());
+    var isBeautyProduct = isBeautyOrSupplement(currentProduct);
     var beautyNote = isBeautyProduct ? " BEAUTY/SKINCARE PRODUCT RULE: This is a topical cosmetic product. Never write that it fills, plumps, rebuilds, restores volume, or produces clinical outcomes. Only write what the creator personally noticed or experienced. Wrong: this stick plumps the hollow. Right: my under-eyes looked different after a week. Wrong: rebuilds skin density. Right: my skin felt different. Personal observation only." : "";
     return "Script " + (i+1) + " angle: " + a.focus + " (" + a.desire + ") -- " + a.description + varNote + beautyNote + " ASSIGNED HOOK TYPE: " + hookTypeAssignments[i] + ". HOOK INSTRUCTION: " + (HOOK_TYPE_GUIDANCE[hookTypeAssignments[i]] || "Write a specific tension-creating hook that names one frustration or moment.") + " Never write a trend observation. Never start with Everyone is talking about. Never use the word gap. Hook must be under 10 words and be a complete sentence.";
   }).join(". ");
@@ -6068,6 +6237,11 @@ function renderBatchResults(scripts, angles, authHooks) {
   wrap.appendChild(heading);
   wrap.appendChild(sub);
 
+  // Claim-flag summary slot (filled after cards are scanned). Flag-only, non-blocking.
+  var claimSummarySlot = document.createElement("div");
+  wrap.appendChild(claimSummarySlot);
+  var totalClaimHigh = 0, totalClaimCheck = 0;
+
   // Render script cards first
   scripts.forEach(function(script, idx) {
     var angle = angles[idx] || {};
@@ -6135,6 +6309,11 @@ function renderBatchResults(scripts, angles, authHooks) {
       psychRow.appendChild(psychBadge);
       card.appendChild(psychRow);
     }
+
+    // Scan every field of this script for health/efficacy claims (read-only).
+    var cardScan = scanScriptFields({ hook: script.hook, body1: script.body1, preClose: (script.preClose || script.preclose || script.pre_close), body2: script.body2, cta: script.cta, caption: script.caption, screenText: script.screenText });
+    totalClaimHigh += cardScan.high; totalClaimCheck += cardScan.check;
+    var cardClaimBanner = claimBanner(cardScan); if (cardClaimBanner) card.appendChild(cardClaimBanner);
 
     var lines = [
       { label: "HOOK", val: script.hook },
@@ -6206,6 +6385,7 @@ function renderBatchResults(scripts, angles, authHooks) {
       lineWrap.appendChild(lbl);
       lineWrap.appendChild(txt);
       lineWrap.appendChild(feedbackRow);
+      attachClaimFlag(lineWrap, line.val);
       card.appendChild(lineWrap);
     });
 
@@ -6254,6 +6434,7 @@ function renderBatchResults(scripts, angles, authHooks) {
         captionText.style.cssText = "font-size:13px;color:var(--white-dim);line-height:1.7;font-weight:300;margin-bottom:8px;";
         captionText.textContent = script.caption;
         captionSection.appendChild(captionText);
+        attachClaimFlag(captionText, script.caption);
       }
       if(script.hashtags && script.hashtags.length) {
         var hashRow = document.createElement("div");
@@ -6302,6 +6483,7 @@ function renderBatchResults(scripts, angles, authHooks) {
         cp.style.cssText = "font-size:10px;color:var(--purple);flex-shrink:0;margin-left:8px;";
         cp.textContent = "Copy";
         row.appendChild(txt); row.appendChild(cp);
+        attachClaimFlag(row, opt);
         (function(o){ row.addEventListener("click",function(){ copyRaw(o); showToast("Text hook copied"); }); })(opt);
         grid.appendChild(row);
       });
@@ -6312,6 +6494,10 @@ function renderBatchResults(scripts, angles, authHooks) {
 
     wrap.appendChild(card);
   });
+
+  // Fill the results-level claim summary now that every card has been scanned.
+  var claimSummaryEl = claimBanner({ high: totalClaimHigh, check: totalClaimCheck });
+  if (claimSummaryEl) claimSummarySlot.appendChild(claimSummaryEl);
 
   // Save all scripts -- ensure product exists first
   var saveStatusEl = document.createElement("div");
@@ -8148,7 +8334,7 @@ function renderFocusPicker() {
   wrap.appendChild(loading);
   mc.appendChild(wrap);
 
-  var isBeautyFilming = /serum|moisturizer|skincare|balm|supplement|vitamin|collagen|retinol|spf|sunscreen|mascara|foundation|blush|lipstick|eyeshadow|probiotic|protein|ashwagandha|pdrn|volufiline|hyaluronic|peptide|niacinamide/i.test(currentProduct.toLowerCase());
+  var isBeautyFilming = isBeautyOrSupplement(currentProduct);
   var focusPrompt = "Respond ONLY with valid JSON. No markdown. No explanation. No headers. JSON format: {\"focuses\":[{\"focus\":\"string\",\"desire\":\"string\",\"description\":\"string\"}]}" + (isBeautyFilming ? " BEAUTY ANGLE RULES: Never reference fillers needles or medical procedures in any focus title or description." : "") +
     " CRITICAL: The creator described their buyer as: " + getBuyerMotivation() + ". Generate angles that serve THIS specific buyer. Do not generate angles based on product features the buyer did not mention." +
     " Task: Generate 5 buyer desire angles for this TikTok Shop product: " + currentProduct +
@@ -9433,6 +9619,7 @@ function buildTriggerCard(cat,lines,catTags,catScreens,sectionKey) {
         if(!dismissedLines[l]) selectLine(l,c,sk);
       });
     })(line,cat,sectionKey);
+    attachClaimFlag(opt, cleanLine);
     opts.appendChild(opt);
   });
   card.appendChild(opts);
@@ -9611,6 +9798,7 @@ function rebuildPrecloseStep() {
     row.appendChild(check);
     card.appendChild(row);
     (function(l){ card.addEventListener("click",function(e){ if(e.target.tagName==="BUTTON") return; picks.preClose=picks.preClose===l?null:l; rebuildPrecloseStep(); updateScriptSlots(); if(picks.preClose) setTimeout(function(){ showStep(4); }, 400); }); })(cleanLine);
+    attachClaimFlag(card, cleanLine);
     grid.appendChild(card);
   });
 
