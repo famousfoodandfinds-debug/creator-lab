@@ -5855,7 +5855,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     // ── CALL 2: Write scripts from that understanding ──
     var prompt = "You write TikTok Shop scripts that sound exactly like a real person talking to a friend about something they genuinely love." +
       desireDirective() +
-      saxeAux() +
+      factsDirective() +
       winnersBlock +
 
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it. Features are proof, not the point. FIELD 1 ANCHOR -- THIS IS MANDATORY: Before writing any hook, read the creator insight again: " + (getBuyerMotivation() || "") + ". Every hook must speak to the person described in that insight. If a hook could apply to a different buyer than the one described, rewrite it. The product features only matter as proof for the feeling the creator already identified. Feature-first hooks are wrong if the creator gave you a buyer insight." +
@@ -5988,7 +5988,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     // Call 1 failed -- fall back to writing without product understanding
     var prompt = "You write TikTok Shop scripts that sound exactly like a real person talking to a friend about something they found." +
       desireDirective() +
-      saxeAux() +
+      factsDirective() +
       winnersBlock +
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
       " Product: " + currentProduct + ". Price context: " + priceCtx + ". Write " + angles.length + " scripts for these angles: " + anglesText + "." +
