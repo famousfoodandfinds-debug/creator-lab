@@ -1071,7 +1071,7 @@ var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
 // analytics, not followers). Persisted to Supabase user_metadata. All fields
 // optional; when blank, getAudienceNote() returns "" so every prompt it feeds
 // is byte-identical to before this feature existed.
-var audienceProfile = { genderFemale:"", genderMale:"", age:{"18-24":"","25-34":"","35-44":"","45-54":"","55+":""}, lifeStage:[], notes:"" };
+var audienceProfile = { genderFemale:"", genderMale:"", age:{"18-24":"","25-34":"","35-44":"","45-54":"","55+":""}, lifeStage:[], notes:"", writeTo:"", giftBuyers:false };
 var APP_VERSION = "3.0.4";
 var authMode = "signin";
 
@@ -1570,7 +1570,9 @@ function normalizeAudience(a) {
     genderMale:   a.genderMale == null ? "" : String(a.genderMale),
     age: {},
     lifeStage: Array.isArray(a.lifeStage) ? a.lifeStage.slice() : [],
-    notes: a.notes == null ? "" : String(a.notes)
+    notes: a.notes == null ? "" : String(a.notes),
+    writeTo: (a.writeTo === "women" || a.writeTo === "men" || a.writeTo === "both") ? a.writeTo : "",
+    giftBuyers: a.giftBuyers === true
   };
   AUDIENCE_AGE_BANDS.forEach(function(b){ out.age[b] = srcAge[b] == null ? "" : String(srcAge[b]); });
   return out;
@@ -1624,9 +1626,54 @@ function getAudienceNote() {
     parts.push(n);
   }
 
-  if(!parts.length) return "";
-  return " CREATOR'S ACTUAL BUYERS (people who purchased, not followers): " + parts.join(" ") +
-         " Generate buyer types that plausibly belong to THIS group of real buyers.";
+  var hasDemo = parts.length > 0;
+
+  // WHO SHE/HE WRITES TO -- a creative choice, distinct from who buys. Kept as a
+  // separate signal so the model doesn't collapse "addresses in scripts" into the
+  // raw purchase percentages.
+  var strategy = "";
+  var wt = a.writeTo;
+  // the clause that ties it back to the demographics only makes sense when
+  // demographics are actually present above it
+  var diffClause = hasDemo ? "which may differ from the raw buyer percentages above"
+                           : "which may differ from who technically buys";
+  if(wt === "women") {
+    strategy = " CREATOR VOICE TARGET -- WHO SHE WRITES TO: The creator WRITES TO women." +
+      " Note this is who she addresses in scripts, " + diffClause +
+      " -- men who buy are usually shopping for someone else." +
+      " Never write buyer cards or scripts addressed to men." +
+      " When the product is male-oriented (golf, whiskey, tools), still write to a woman buying it as a gift for the man in her life.";
+  } else if(wt === "men") {
+    strategy = " CREATOR VOICE TARGET -- WHO HE WRITES TO: The creator WRITES TO men." +
+      " Note this is who he addresses in scripts, " + diffClause +
+      " -- women who buy are usually shopping for someone else." +
+      " Never write buyer cards or scripts addressed to women." +
+      " When the product is female-oriented (jewelry, skincare, handbags), still write to a man buying it as a gift for the woman in his life.";
+  } else if(wt === "both") {
+    strategy = " CREATOR VOICE TARGET -- WHO THEY WRITE TO: The creator writes to women or men depending on the product." +
+      " A script can only address one person at a time, so for THIS product decide the single most likely buyer and write every line to that one person consistently." +
+      (hasDemo ? " Use the buyer percentages above to inform that choice." : "");
+  }
+
+  // Gift-buyer framing -- independent of write-to; the watcher is shopping for
+  // someone else.
+  var giftLine = "";
+  if(a.giftBuyers) {
+    giftLine = " GIFT BUYERS: The creator also promotes products bought as gifts for someone else --" +
+      " the person watching is shopping for another person, not themselves" +
+      " (for example, a woman buying golf gear for her husband, or a man buying jewelry for his wife)." +
+      " When the product fits, frame the buyer as the gift-giver and speak to them, not the recipient.";
+  }
+
+  if(!hasDemo && !strategy && !giftLine) return "";
+
+  var out = "";
+  if(hasDemo) {
+    out += " CREATOR'S ACTUAL BUYERS (people who purchased, not followers): " + parts.join(" ") +
+           " Generate buyer types that plausibly belong to THIS group of real buyers.";
+  }
+  out += strategy + giftLine;
+  return out;
 }
 
 function showProfile() {
@@ -1862,10 +1909,69 @@ function showProfile() {
   notesInput.rows = 2;
   notesInput.value = audienceProfile.notes || "";
   notesInput.placeholder = "e.g. mostly gift buyers, shop for their grandkids, budget-conscious";
-  notesInput.style.cssText = "width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px 12px;outline:none;box-sizing:border-box;resize:vertical;margin-bottom:24px;line-height:1.5;";
+  notesInput.style.cssText = "width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px 12px;outline:none;box-sizing:border-box;resize:vertical;margin-bottom:20px;line-height:1.5;";
   notesInput.addEventListener("input", function(){ audienceProfile.notes = notesInput.value; });
   notesInput.addEventListener("blur", function(){ saveAudienceProfile(); });
   card.appendChild(notesInput);
+
+  // Who do you write to? -- who the creator SPEAKS TO (a creative choice),
+  // distinct from the buyer percentages above (who actually purchases).
+  var wtLabel = document.createElement("div");
+  wtLabel.style.cssText = "font-size:11px;color:var(--white-dim);margin-bottom:2px;font-weight:600;";
+  wtLabel.textContent = "Who do you write to?";
+  card.appendChild(wtLabel);
+  var wtSub = document.createElement("div");
+  wtSub.style.cssText = "font-size:11px;color:var(--muted);margin-bottom:8px;line-height:1.5;";
+  wtSub.textContent = "The person you address in scripts. This can differ from who buys -- pick one.";
+  card.appendChild(wtSub);
+
+  var wtWrap = document.createElement("div");
+  wtWrap.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;";
+  var wtBtns = [];
+  [["women","Women"],["men","Men"],["both","Both, depending on the product"]].forEach(function(pair){
+    var val = pair[0];
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.textContent = pair[1];
+    wtBtns.push({ val: val, btn: btn });
+    btn.addEventListener("click", function(){
+      // single-select: choosing the active one clears it, otherwise select it
+      audienceProfile.writeTo = (audienceProfile.writeTo === val) ? "" : val;
+      paintWriteTo();
+      saveAudienceProfile();
+    });
+    wtWrap.appendChild(btn);
+  });
+  function paintWriteTo(){
+    wtBtns.forEach(function(o){
+      var sel = audienceProfile.writeTo === o.val;
+      o.btn.style.cssText = "padding:7px 12px;border-radius:999px;border:1px solid " + (sel ? "var(--silver-bright)" : "var(--border-md)") + ";background:" + (sel ? "rgba(206,154,128,0.15)" : "var(--surface2)") + ";color:" + (sel ? "var(--silver-bright)" : "var(--white-dim)") + ";font-family:'Instrument Sans',sans-serif;font-size:12px;cursor:pointer;transition:all 0.15s;";
+    });
+  }
+  paintWriteTo();
+  card.appendChild(wtWrap);
+
+  // Optional gift-buyer flag
+  var giftRow = document.createElement("label");
+  giftRow.style.cssText = "display:flex;align-items:flex-start;gap:10px;cursor:pointer;margin-bottom:6px;";
+  var giftBox = document.createElement("input");
+  giftBox.type = "checkbox";
+  giftBox.checked = !!audienceProfile.giftBuyers;
+  giftBox.style.cssText = "margin-top:2px;flex-shrink:0;width:16px;height:16px;accent-color:var(--silver-bright);cursor:pointer;";
+  giftBox.addEventListener("change", function(){
+    audienceProfile.giftBuyers = giftBox.checked;
+    saveAudienceProfile();
+  });
+  var giftText = document.createElement("span");
+  giftText.style.cssText = "font-size:12px;color:var(--white-dim);line-height:1.5;";
+  giftText.textContent = "I also promote products bought as gifts for someone else";
+  giftRow.appendChild(giftBox); giftRow.appendChild(giftText);
+  card.appendChild(giftRow);
+
+  var giftHelp = document.createElement("div");
+  giftHelp.style.cssText = "font-size:11px;color:var(--muted);margin:0 0 24px 26px;line-height:1.5;";
+  giftHelp.textContent = "For example, a woman buying golf gear for her husband, or a man buying jewelry for his wife. The person watching is shopping for someone who isn't.";
+  card.appendChild(giftHelp);
 
   // ── POSTING GOAL ──
   var goalLabel = document.createElement("div");
