@@ -1067,6 +1067,11 @@ var currentAuthority = ""; // Field 3b: optional authority/credential
 var currentBuyers = []; // Selected buyer types from buyer card flow
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
+// AUDIENCE PROFILE -- the creator's ACTUAL BUYERS (from TikTok Shop customer
+// analytics, not followers). Persisted to Supabase user_metadata. All fields
+// optional; when blank, getAudienceNote() returns "" so every prompt it feeds
+// is byte-identical to before this feature existed.
+var audienceProfile = { genderFemale:"", genderMale:"", age:{"18-24":"","25-34":"","35-44":"","45-54":"","55+":""}, lifeStage:[], notes:"" };
 var APP_VERSION = "3.0.4";
 var authMode = "signin";
 
@@ -1391,6 +1396,7 @@ function onSignedIn() {
   document.getElementById("appWrap").style.display = "block";
   document.getElementById("userEmail").textContent = currentUser.email;
   loadLocalData();
+  loadAudienceProfile();
   loadDismissedLines();
   loadUserStyleProfile();
   buildSelect();
@@ -1539,17 +1545,88 @@ function getVoiceProfileNote() {
   return note;
 }
 
-function getVerticalNote() {
-  var verticalContexts = {
-    home: "CREATOR VOICE CALIBRATION -- HOME AND LIFESTYLE: This creator's audience is used to content about how life feels at home, how routines work, and whether things make daily life easier or better. Whatever product this script is for, write it the way a home and lifestyle creator would naturally talk about it -- grounded, practical, focused on how it fits into real daily life. Apply this voice to any product regardless of category.",
-    beauty: "CREATOR VOICE CALIBRATION -- BEAUTY AND PERSONAL CARE: This creator's audience is used to content about routines, self-care, and products that actually deliver after others that did not. Whatever product this script is for, write it the way a beauty creator would naturally talk about it -- personal, specific, focused on how it makes you feel. Apply this voice to any product regardless of category.",
-    tech: "CREATOR VOICE CALIBRATION -- TECH AND BOOKS: This creator's audience is used to content about things that work better, setups that are smarter, and products that solve real friction. Whatever product this script is for, write it the way a tech creator would naturally talk about it -- direct, specific, focused on what it actually does differently. Apply this voice to any product regardless of category.",
-    sports: "CREATOR VOICE CALIBRATION -- SPORTS AND OUTDOORS: This creator's audience is used to content about performance, preparation, and gear that does not let you down. Whatever product this script is for, write it the way a sports creator would naturally talk about it -- active, specific, focused on what happens when you are actually using it. Apply this voice to any product regardless of category.",
-    health: "CREATOR VOICE CALIBRATION -- HEALTH AND WELLNESS: This creator's audience is used to content about feeling better, building habits, and finding things that actually work. Whatever product this script is for, write it the way a health creator would naturally talk about it -- honest, personal, focused on how it feels to use it consistently. Apply this voice to any product regardless of category.",
-    fashion: "CREATOR VOICE CALIBRATION -- FASHION: This creator's audience is used to content about how things look, how they make you feel, and whether they fit the life you are building. Whatever product this script is for, write it the way a fashion creator would naturally talk about it -- identity-aware, specific, focused on the feeling of having the right thing. Apply this voice to any product regardless of category."
+// ── AUDIENCE PROFILE HELPERS ──────────────────────────────────────────────
+// TikTok's exact age bands and the life-stage options a creator can self-report.
+var AUDIENCE_AGE_BANDS = ["18-24","25-34","35-44","45-54","55+"];
+var AUDIENCE_LIFE_STAGES = ["young adults no kids","parents with kids at home","empty nesters","grandparents","retired","first-time homeowners","established homeowners"];
+
+// Treat empty / non-numeric as "not provided"; otherwise keep the creator's
+// typed value verbatim (no forced normalization of the percentages).
+function audiencePct(v) {
+  if(v === null || v === undefined) return null;
+  var s = String(v).trim();
+  if(s === "") return null;
+  if(!/^[0-9]+(\.[0-9]+)?$/.test(s)) return null;
+  return s;
+}
+
+// Coerce any stored/partial object into the canonical shape so old or missing
+// metadata never throws.
+function normalizeAudience(a) {
+  a = (a && typeof a === "object") ? a : {};
+  var srcAge = (a.age && typeof a.age === "object") ? a.age : {};
+  var out = {
+    genderFemale: a.genderFemale == null ? "" : String(a.genderFemale),
+    genderMale:   a.genderMale == null ? "" : String(a.genderMale),
+    age: {},
+    lifeStage: Array.isArray(a.lifeStage) ? a.lifeStage.slice() : [],
+    notes: a.notes == null ? "" : String(a.notes)
   };
-  if(!userVertical || !verticalContexts[userVertical]) return "";
-  return " " + verticalContexts[userVertical];
+  AUDIENCE_AGE_BANDS.forEach(function(b){ out.age[b] = srcAge[b] == null ? "" : String(srcAge[b]); });
+  return out;
+}
+
+// Load from Supabase user_metadata (set on currentUser at sign-in).
+function loadAudienceProfile() {
+  try {
+    var meta = (currentUser && currentUser.user_metadata) || {};
+    audienceProfile = normalizeAudience(meta.audienceProfile);
+  } catch(e) {
+    audienceProfile = normalizeAudience(null);
+  }
+}
+
+// Persist to Supabase user_metadata. updateUser merges into metadata, so this
+// never clobbers other keys; it also refreshes the local session/user.
+function saveAudienceProfile() {
+  if(!sb || !currentUser) return;
+  var payload = normalizeAudience(audienceProfile);
+  sb.auth.updateUser({ data: { audienceProfile: payload } }).then(function(result){
+    if(result && result.data && result.data.user) currentUser = result.data.user;
+  });
+}
+
+// Assemble the structured audience into a prompt note. Built piece by piece so a
+// partial profile still reads cleanly, and returns "" when fully blank -- making
+// every injection a guaranteed no-op for creators who leave this section empty.
+function getAudienceNote() {
+  var a = audienceProfile || {};
+  var parts = [];
+
+  var g = [];
+  var gf = audiencePct(a.genderFemale), gm = audiencePct(a.genderMale);
+  if(gf !== null) g.push(gf + "% female");
+  if(gm !== null) g.push(gm + "% male");
+  if(g.length) parts.push(g.join(", ") + ".");
+
+  var ag = [];
+  AUDIENCE_AGE_BANDS.forEach(function(b){
+    var v = a.age ? audiencePct(a.age[b]) : null;
+    if(v !== null) ag.push(v + "% " + b);
+  });
+  if(ag.length) parts.push("Age: " + ag.join(", ") + ".");
+
+  if(a.lifeStage && a.lifeStage.length) parts.push("Life stage: " + a.lifeStage.join(", ") + ".");
+
+  if(a.notes && String(a.notes).trim()) {
+    var n = String(a.notes).trim();
+    if(!/[.!?]$/.test(n)) n += ".";
+    parts.push(n);
+  }
+
+  if(!parts.length) return "";
+  return " CREATOR'S ACTUAL BUYERS (people who purchased, not followers): " + parts.join(" ") +
+         " Generate buyer types that plausibly belong to THIS group of real buyers.";
 }
 
 function showProfile() {
@@ -1677,6 +1754,118 @@ function showProfile() {
     voiceWrap.appendChild(qWrap);
   });
   card.appendChild(voiceWrap);
+
+  // ── YOUR BUYERS (AUDIENCE PROFILE) ──
+  var audDivider = document.createElement("div");
+  audDivider.style.cssText = "border-top:1px solid var(--border);margin:4px 0 16px;";
+  card.appendChild(audDivider);
+
+  var audHeading = document.createElement("div");
+  audHeading.style.cssText = "font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);margin-bottom:6px;";
+  audHeading.textContent = "Your Buyers";
+  card.appendChild(audHeading);
+
+  var audHelp = document.createElement("div");
+  audHelp.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6;";
+  audHelp.innerHTML = "Get these from TikTok Shop for Creator → View details → Est. commission → Audience → Analytics, last 30 days. Select <strong style='color:var(--white-dim);'>CUSTOMERS, not Followers</strong>. These are the people actually buying from you.";
+  card.appendChild(audHelp);
+
+  // shared factory: a percent input wired to a getter/setter, saving on blur
+  function audPctInput(getVal, setVal) {
+    var inp = document.createElement("input");
+    inp.type = "number"; inp.min = "0"; inp.max = "100"; inp.placeholder = "%";
+    inp.value = getVal();
+    inp.style.cssText = "width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:8px 10px;outline:none;box-sizing:border-box;text-align:center;";
+    inp.addEventListener("input", function(){ setVal(inp.value); });
+    inp.addEventListener("blur", function(){ saveAudienceProfile(); });
+    return inp;
+  }
+
+  // Gender
+  var genderLabel = document.createElement("div");
+  genderLabel.style.cssText = "font-size:11px;color:var(--white-dim);margin-bottom:6px;font-weight:600;";
+  genderLabel.textContent = "Gender";
+  card.appendChild(genderLabel);
+
+  var genderGrid = document.createElement("div");
+  genderGrid.style.cssText = "display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;";
+  [["Female","genderFemale"],["Male","genderMale"]].forEach(function(pair){
+    var cell = document.createElement("div");
+    cell.style.cssText = "display:flex;align-items:center;gap:8px;";
+    var cl = document.createElement("span");
+    cl.style.cssText = "font-size:12px;color:var(--muted);flex-shrink:0;";
+    cl.textContent = pair[0];
+    var key = pair[1];
+    var inp = audPctInput(function(){ return audienceProfile[key] || ""; }, function(v){ audienceProfile[key] = v; });
+    cell.appendChild(cl); cell.appendChild(inp);
+    genderGrid.appendChild(cell);
+  });
+  card.appendChild(genderGrid);
+
+  // Age (TikTok's exact bands)
+  var ageLabel = document.createElement("div");
+  ageLabel.style.cssText = "font-size:11px;color:var(--white-dim);margin-bottom:6px;font-weight:600;";
+  ageLabel.textContent = "Age";
+  card.appendChild(ageLabel);
+
+  var ageGrid = document.createElement("div");
+  ageGrid.style.cssText = "display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:16px;";
+  AUDIENCE_AGE_BANDS.forEach(function(band){
+    var cell = document.createElement("div");
+    cell.style.cssText = "display:flex;flex-direction:column;gap:4px;";
+    var bl = document.createElement("span");
+    bl.style.cssText = "font-size:10px;color:var(--muted);text-align:center;";
+    bl.textContent = band;
+    var inp = audPctInput(
+      function(){ return (audienceProfile.age && audienceProfile.age[band]) || ""; },
+      function(v){ if(!audienceProfile.age) audienceProfile.age = {}; audienceProfile.age[band] = v; }
+    );
+    cell.appendChild(bl); cell.appendChild(inp);
+    ageGrid.appendChild(cell);
+  });
+  card.appendChild(ageGrid);
+
+  // Life stage (optional, multi-select)
+  var lsLabel = document.createElement("div");
+  lsLabel.style.cssText = "font-size:11px;color:var(--white-dim);margin-bottom:6px;font-weight:600;";
+  lsLabel.textContent = "Life stage (optional)";
+  card.appendChild(lsLabel);
+
+  var lsWrap = document.createElement("div");
+  lsWrap.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px;";
+  AUDIENCE_LIFE_STAGES.forEach(function(stage){
+    var chip = document.createElement("button");
+    chip.type = "button";
+    chip.textContent = stage;
+    function paint(sel){
+      chip.style.cssText = "padding:7px 11px;border-radius:999px;border:1px solid " + (sel ? "var(--silver-bright)" : "var(--border-md)") + ";background:" + (sel ? "rgba(206,154,128,0.15)" : "var(--surface2)") + ";color:" + (sel ? "var(--silver-bright)" : "var(--white-dim)") + ";font-family:'Instrument Sans',sans-serif;font-size:12px;cursor:pointer;transition:all 0.15s;";
+    }
+    paint(audienceProfile.lifeStage && audienceProfile.lifeStage.indexOf(stage) > -1);
+    chip.addEventListener("click", function(){
+      if(!audienceProfile.lifeStage) audienceProfile.lifeStage = [];
+      var idx = audienceProfile.lifeStage.indexOf(stage);
+      if(idx > -1) { audienceProfile.lifeStage.splice(idx,1); paint(false); }
+      else { audienceProfile.lifeStage.push(stage); paint(true); }
+      saveAudienceProfile();
+    });
+    lsWrap.appendChild(chip);
+  });
+  card.appendChild(lsWrap);
+
+  // Free text
+  var notesLabel = document.createElement("div");
+  notesLabel.style.cssText = "font-size:11px;color:var(--white-dim);margin-bottom:6px;font-weight:600;";
+  notesLabel.textContent = "Anything else about your buyers? (optional)";
+  card.appendChild(notesLabel);
+
+  var notesInput = document.createElement("textarea");
+  notesInput.rows = 2;
+  notesInput.value = audienceProfile.notes || "";
+  notesInput.placeholder = "e.g. mostly gift buyers, shop for their grandkids, budget-conscious";
+  notesInput.style.cssText = "width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px 12px;outline:none;box-sizing:border-box;resize:vertical;margin-bottom:24px;line-height:1.5;";
+  notesInput.addEventListener("input", function(){ audienceProfile.notes = notesInput.value; });
+  notesInput.addEventListener("blur", function(){ saveAudienceProfile(); });
+  card.appendChild(notesInput);
 
   // ── POSTING GOAL ──
   var goalLabel = document.createElement("div");
@@ -4422,7 +4611,7 @@ function generateBuyerCards() {
   }
   loadingMsg.style.display = 'flex';
 
-  var prompt = 'A TikTok Shop affiliate creator is promoting this product. Generate exactly 4 distinct buyer types -- real people with real frustrations who would buy this. Each buyer type must be different from the others. IMPORTANT: never use apostrophes or single quotes inside the JSON values -- use plain words instead. Format as JSON only, no preamble, no markdown: {"buyers":[{"title":"short label 4-6 words","description":"one sentence describing who they are and their specific frustration before finding this product"}]} Product: ' + product.slice(0, 500) + SUPP_GUARD;
+  var prompt = 'A TikTok Shop affiliate creator is promoting this product. Generate exactly 4 distinct buyer types -- real people with real frustrations who would buy this. Each buyer type must be different from the others. IMPORTANT: never use apostrophes or single quotes inside the JSON values -- use plain words instead. Format as JSON only, no preamble, no markdown: {"buyers":[{"title":"short label 4-6 words","description":"one sentence describing who they are and their specific frustration before finding this product"}]} Product: ' + product.slice(0, 500) + SUPP_GUARD + getAudienceNote();
 
   fetch('/api/claude', {
     method: 'POST',
@@ -8234,7 +8423,7 @@ function renderBatchPicker() {
   mc.appendChild(wrap);
 
   var safeProduct = currentProduct.replace(/AUTHORITY:[^\n]*/gi, "").replace(/REAL REASON:[^\n]*/gi, "").trim();
-  var focusPrompt = 'Respond ONLY with valid JSON. No preamble. No explanation. No markdown. Start your response with { and end with }. JSON format: {"focuses":[{"focus":"string","desire":"string","description":"string"}]} CRITICAL: The creator described their buyer as: ' + getBuyerMotivation() + '. Generate angles that serve THIS buyer. Do not generate feature-based angles the buyer did not mention. Task: 5 buyer desire angles for this product: ' + safeProduct + ' Rules: desire must be one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER Social Media, Influencer, Viral. focus is 4-8 words specific to this product. BEAUTY/SKINCARE ANGLE RULES: Never generate angles referencing injectable fillers needles or medical procedures. Never use in focus titles: filler needle injectable botox without-needles needle-free filler-alternative clinical. Focus titles must describe creator experience only.' + SUPP_GUARD + ' Output JSON only. Begin with {';
+  var focusPrompt = 'Respond ONLY with valid JSON. No preamble. No explanation. No markdown. Start your response with { and end with }. JSON format: {"focuses":[{"focus":"string","desire":"string","description":"string"}]} CRITICAL: The creator described their buyer as: ' + getBuyerMotivation() + '.' + getAudienceNote() + ' Generate angles that serve THIS buyer. Do not generate feature-based angles the buyer did not mention. Task: 5 buyer desire angles for this product: ' + safeProduct + ' Rules: desire must be one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER Social Media, Influencer, Viral. focus is 4-8 words specific to this product. BEAUTY/SKINCARE ANGLE RULES: Never generate angles referencing injectable fillers needles or medical procedures. Never use in focus titles: filler needle injectable botox without-needles needle-free filler-alternative clinical. Focus titles must describe creator experience only.' + SUPP_GUARD + ' Output JSON only. Begin with {';
 
   fetch("/api/claude", {
     method: "POST",
@@ -8528,7 +8717,7 @@ function renderFocusPicker() {
 
   var isBeautyFilming = isBeautyOrSupplement(currentProduct);
   var focusPrompt = "Respond ONLY with valid JSON. No markdown. No explanation. No headers. JSON format: {\"focuses\":[{\"focus\":\"string\",\"desire\":\"string\",\"description\":\"string\"}]}" + (isBeautyFilming ? " BEAUTY ANGLE RULES: Never reference fillers needles or medical procedures in any focus title or description." : "") +
-    " CRITICAL: The creator described their buyer as: " + getBuyerMotivation() + ". Generate angles that serve THIS specific buyer. Do not generate angles based on product features the buyer did not mention." +
+    " CRITICAL: The creator described their buyer as: " + getBuyerMotivation() + "." + getAudienceNote() + " Generate angles that serve THIS specific buyer. Do not generate angles based on product features the buyer did not mention." +
     " Task: Generate 5 buyer desire angles for this TikTok Shop product: " + currentProduct +
     " Rules: desire must be one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER use Social Media, Influencer, Viral." +
     " focus is 4-8 words specific to THIS product. description is one sentence about who the buyer is." +
