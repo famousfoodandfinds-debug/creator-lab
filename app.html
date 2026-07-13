@@ -4081,7 +4081,10 @@ function showClaimPopover(anchorEl, matches){
   var pop = document.createElement("div");
   pop.className = "claim-pop";
   var phrases = matches.map(function(m){ return "“" + m.phrase + "”"; }).join(", ");
-  pop.innerHTML = (hasHigh
+  var onlyHollow = matches.length && matches.every(function(m){ return m.tier === "hollow_praise"; });
+  pop.innerHTML = (onlyHollow
+    ? "<b>Hollow praise, add a concrete detail</b><br>An adjective alone is what gets flagged in audits. Back it with a specific visual or sensory detail: "
+    : hasHigh
     ? "<b>Health/efficacy claim</b><br>This line makes a claim that can get a video removed and an account flagged: "
     : "<b>Possible claim, review it</b><br>This line may read as a health or results claim: ")
     + phrases + ".<br><br>Nothing was changed. Edit this line before posting if it does not fit your product.";
@@ -4092,9 +4095,26 @@ function showClaimPopover(anchorEl, matches){
   setTimeout(function(){ document.addEventListener("click", _closeClaimPop, { once: true }); }, 0);
 }
 // Scan `text`, and if risky, add a border + chip to fieldEl. Returns {hasHigh,count} or null.
+// Hollow-praise post-check (Section 5): on want-driven scripts, an adjective alone with
+// nothing concrete behind it is the most-flagged violation. Flags such lines for review.
+var _HOLLOW_PRAISE_RE = /\b(?:so|really|just|absolutely|literally|super|totally)?\s*(?:pretty|gorgeous|beautiful|cute|adorable|stunning|amazing|lovely|perfect|obsessed)\b/gi;
+var _CONCRETE_ANCHOR_RE = /\d|\b(?:inch|inches|cm|lb|pound|pounds|ounce|oz|glass|ceramic|wood|wooden|metal|steel|brass|cotton|linen|velvet|light|weight|weighs|heavy|texture|matte|glossy|so that|because|catches|brush ?stroke|grain|finish|scent|smell|sound|clicks?)\b/i;
+function scanHollowPraise(text){
+  text = String(text || "");
+  if (!text || _CONCRETE_ANCHOR_RE.test(text)) return [];
+  var out = [], m; _HOLLOW_PRAISE_RE.lastIndex = 0;
+  while ((m = _HOLLOW_PRAISE_RE.exec(text)) !== null){
+    if (m[0].trim()) out.push({ phrase: m[0].trim(), index: m.index, length: m[0].length, severity: "check", tier: "hollow_praise" });
+    if (m[0].length === 0) _HOLLOW_PRAISE_RE.lastIndex++;
+  }
+  return out;
+}
+function driverWantDrivenActive(){ return Array.isArray(currentPains) && currentPains.length >= 1 && isWantDrivenAxis(driverAxisOfCard(currentPains[0])); }
+
 function attachClaimFlag(fieldEl, text){
   if (!fieldEl) return null;
   var matches = scanForClaims(text);
+  if (driverWantDrivenActive()) matches = matches.concat(scanHollowPraise(text));
   if (!matches.length) return null;
   var hasHigh = matches.some(function(m){ return m.severity === "high"; });
   fieldEl.classList.add(hasHigh ? "claim-flag-high" : "claim-flag-check");
@@ -4971,16 +4991,16 @@ function openDesirePicker(opts){
 // from one source. `boltOnOnly` marks a type that is weak as a lead but strong as a
 // bolt-on (missing out / falling behind).
 var PAIN_TYPES = [
-  { id: "time",       label: "Time and exhaustion",         hint: "the hours and energy it quietly drains" },
-  { id: "money",      label: "Money leaking",               hint: "the slow bleed of paying for the wrong thing" },
-  { id: "letdown",    label: "Repeated disappointment",     hint: "the ones before this that let them down" },
-  { id: "social",     label: "Social sting",                hint: "embarrassment, how they are seen by others" },
-  { id: "friction",   label: "Physical friction",           hint: "the daily physical annoyance and discomfort of it" },
-  { id: "disgust",    label: "Disgust and gross-out",       hint: "the gross reality they put up with" },
-  { id: "identity",   label: "Self-image and identity gap", hint: "the gap between who they are and who they want to be" },
-  { id: "fear",       label: "Fear, risk and safety",       hint: "what could go wrong, what is at stake" },
-  { id: "overwhelm",  label: "Overwhelm and decision fatigue", hint: "too many choices, too much to manage" },
-  { id: "fomo",       label: "Missing out or falling behind",  hint: "weak as a lead, strong as a bolt-on", boltOnOnly: true }
+  { id: "time",       label: "Time and exhaustion",         axis: "functional_pain", hint: "the hours and energy it quietly drains" },
+  { id: "money",      label: "Money leaking",               axis: "functional_pain", hint: "the slow bleed of paying for the wrong thing" },
+  { id: "letdown",    label: "Repeated disappointment",     axis: "functional_pain", hint: "the ones before this that let them down" },
+  { id: "social",     label: "Social sting",                axis: "functional_pain", hint: "embarrassment, how they are seen by others" },
+  { id: "friction",   label: "Physical friction",           axis: "micro_friction",  hint: "the daily physical annoyance and discomfort of it" },
+  { id: "disgust",    label: "Disgust and gross-out",       axis: "functional_pain", hint: "the gross reality they put up with" },
+  { id: "identity",   label: "Self-image and identity gap", axis: "functional_pain", hint: "the gap between who they are and who they want to be" },
+  { id: "fear",       label: "Fear, risk and safety",       axis: "functional_pain", hint: "what could go wrong, what is at stake" },
+  { id: "overwhelm",  label: "Overwhelm and decision fatigue", axis: "functional_pain", hint: "too many choices, too much to manage" },
+  { id: "fomo",       label: "Missing out or falling behind",  axis: "functional_pain", hint: "weak as a lead, strong as a bolt-on", boltOnOnly: true }
 ];
 
 // Per-category weighting. Sets DEFAULTS only, never restricts choice. When the category
@@ -4995,23 +5015,112 @@ var PAIN_CATEGORY_WEIGHTS = {
   tech:    ["fear", "overwhelm", "time"]
 };
 
+// ============================================================
+// DRIVER FRAMEWORK (generalizes pain -> driver; want-driven categories)
+// A driver is whatever moves the buyer to the cart. Pain is one kind. Internal
+// symbols (PAIN_TYPES, currentPains, getPainStackNote, allData.painStack) stay
+// stable on purpose; only the user-facing concept and the library expand. The
+// three existing pain-family axes reproduce today's behavior exactly, so any
+// product whose lead driver is pain-family gets byte-identical output.
+// ============================================================
+var DRIVER_AXES = [
+  // EXISTING (pain-family) -- lead axis here => the legacy note verbatim
+  { id: "functional_pain", label: "Functional pain",   wantDriven: false, painFamily: true,  opener: "Open on the frustrating scene or moment, then the relief." },
+  { id: "body_pain",       label: "Body pain",         wantDriven: false, painFamily: true,  opener: "Existing behavior. The clinical-claim pre-processor applies." },
+  { id: "micro_friction",  label: "Micro friction",    wantDriven: false, painFamily: true,  opener: "State the small annoying detail plainly." },
+  // NEW
+  { id: "aspiration_gap",  label: "Aspiration gap",    wantDriven: true,  painFamily: false, opener: "Open on the scene plus the feeling that it does not look how she pictured it, then the reveal." },
+  { id: "occasion_pressure", label: "Occasion pressure", wantDriven: false, painFamily: false, opener: "Open on the deadline on the calendar, then the fix. Urgency is real, never manufactured." },
+  { id: "gifting_anxiety", label: "Gifting anxiety",   wantDriven: false, painFamily: false, opener: "Open on the recipient problem (what do I get the person who has everything), then the answer." },
+  { id: "identity_delight",label: "Identity delight",  wantDriven: true,  painFamily: false, opener: "Open on the reaction, not relief. Nothing is being solved. It is a joy." },
+  { id: "nostalgia",       label: "Nostalgia",         wantDriven: true,  painFamily: false, opener: "Open on the memory it brings back, then the object." },
+  { id: "social_proof_pull", label: "Social proof pull", wantDriven: true, painFamily: false, opener: "Acknowledge she has seen it everywhere, then give her the reason (permission, not persuasion)." }
+];
+
+// New-axis drivers, kept SEPARATE from PAIN_TYPES so every existing code path that
+// reads PAIN_TYPES (typeMenu, defaults, fallback) stays byte-identical.
+var DRIVER_EXTRA = [
+  { id: "aspiration",   label: "Aspiration gap",     axis: "aspiration_gap",    hint: "the space does not look how she pictured it" },
+  { id: "occasion",     label: "Occasion pressure",  axis: "occasion_pressure", hint: "people are coming, the date is on the calendar" },
+  { id: "gifting",      label: "Gifting anxiety",    axis: "gifting_anxiety",   hint: "what do I get for the person who has everything" },
+  { id: "delight",      label: "Pure delight",       axis: "identity_delight",  hint: "it is cute, it is fun, it makes her happy" },
+  { id: "nostalgia",    label: "Nostalgia",          axis: "nostalgia",         hint: "it reminds her of her mom's kitchen, of childhood" },
+  { id: "social_proof", label: "Social proof pull",  axis: "social_proof_pull", hint: "she has seen it everywhere and has not bought it yet" }
+];
+// Full library = the ten legacy drivers + the new-axis drivers. Used only by the
+// new driver-routing path; existing paths keep using PAIN_TYPES.
+var DRIVER_LIBRARY = PAIN_TYPES.concat(DRIVER_EXTRA);
+
+// Section 4: category -> primary/secondary axis. Seed 2 cards from primary, >=1 from secondary.
+var DRIVER_CATEGORY_AXES = {
+  kitchen:      { primary: "functional_pain", secondary: "micro_friction" },
+  tools:        { primary: "functional_pain", secondary: "micro_friction" },
+  cleaning:     { primary: "functional_pain", secondary: "micro_friction" },
+  organization: { primary: "functional_pain", secondary: "micro_friction" },
+  decor:        { primary: "aspiration_gap",  secondary: "micro_friction" },
+  seasonal:     { primary: "aspiration_gap",  secondary: "micro_friction" },
+  gifting:      { primary: "gifting_anxiety", secondary: "identity_delight" },
+  novelty:      { primary: "identity_delight", secondary: "nostalgia" },
+  personal:     { primary: "identity_delight", secondary: "nostalgia" },
+  hosting:      { primary: "occasion_pressure", secondary: "aspiration_gap" },
+  entertaining: { primary: "occasion_pressure", secondary: "aspiration_gap" },
+  beauty:       { primary: "body_pain",       secondary: null },
+  wellness:     { primary: "body_pain",       secondary: null },
+  fallback:     { primary: "functional_pain", secondary: "identity_delight" }
+};
+
+function driverAxisById(axisId){ for (var i = 0; i < DRIVER_AXES.length; i++){ if (DRIVER_AXES[i].id === axisId) return DRIVER_AXES[i]; } return null; }
+function isPainFamilyAxis(axisId){ var a = driverAxisById(axisId); return !a || a.painFamily === true; }
+function isWantDrivenAxis(axisId){ var a = driverAxisById(axisId); return !!(a && a.wantDriven); }
+// Resolve a chosen card's axis: explicit card.axis, else look up its typeId in the library.
+function driverAxisOfCard(card){
+  if (!card) return null;
+  if (card.axis) return card.axis;
+  for (var i = 0; i < DRIVER_LIBRARY.length; i++){ if (DRIVER_LIBRARY[i].id === card.typeId) return DRIVER_LIBRARY[i].axis; }
+  return null;
+}
+function driverCategoryAxes(cat){ return DRIVER_CATEGORY_AXES[cat] || DRIVER_CATEGORY_AXES.fallback; }
+
+// Route a product to a DRIVER_CATEGORY_AXES key. Reuses the existing beauty and kitchen
+// detection (no new deterministic classifier); the model resolves everything else.
+function classifyDriverCategory(productText, cb){
+  var keys = Object.keys(DRIVER_CATEGORY_AXES).filter(function(k){ return k !== "fallback"; });
+  if (isBeautyOrSupplement(productText)) { cb("beauty"); return; }
+  if (isKitchenProduct(productText)) { cb("kitchen"); return; }
+  var p = "Classify this product into ONE category. Answer with ONLY the single category word, nothing else. Categories: " + keys.join(", ") + ". If unsure, answer fallback. Product: " + String(productText || "").slice(0, 500);
+  fetch("/api/claude", {
+    method: "POST",
+    headers: claudeHeaders(),
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 12, messages: [{ role: "user", content: p }] })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    var t = ""; (data.content || []).forEach(function(b){ if (b.type === "text") t += b.text; });
+    t = String(t || "").toLowerCase().replace(/[^a-z]/g, "");
+    var hit = keys.filter(function(k){ return t.indexOf(k) > -1; })[0];
+    cb(hit || "fallback");
+  })
+  .catch(function(){ cb("fallback"); });
+}
+var _batchDriversConfirmed = false;
+
 // The three chosen pain frames persist as state through the whole generation:
 // each item is { typeId, label, text }. `_painsConfirmed` mirrors `_desireConfirmed`.
 var currentPains = [];
 var _painsConfirmed = false;
 
 function painTypeById(id){
-  for (var i = 0; i < PAIN_TYPES.length; i++) { if (PAIN_TYPES[i].id === id) return PAIN_TYPES[i]; }
+  for (var i = 0; i < DRIVER_LIBRARY.length; i++) { if (DRIVER_LIBRARY[i].id === id) return DRIVER_LIBRARY[i]; }
   return null;
 }
-function painTypeLabel(id){ var t = painTypeById(id); return t ? t.label : (id || "Pain"); }
+function painTypeLabel(id){ var t = painTypeById(id); return t ? t.label : (id || "Driver"); }
 
 // Normalize whatever the model returns for a type back to a known id (or null).
 function normalizePainType(raw){
   var s = String(raw || "").toLowerCase().trim();
   if (!s) return null;
-  for (var i = 0; i < PAIN_TYPES.length; i++) {
-    var t = PAIN_TYPES[i];
+  for (var i = 0; i < DRIVER_LIBRARY.length; i++) {
+    var t = DRIVER_LIBRARY[i];
     if (s === t.id || s === t.label.toLowerCase() || s.indexOf(t.id) > -1 || t.label.toLowerCase().indexOf(s) > -1) return t.id;
   }
   return null;
@@ -5020,7 +5129,20 @@ function normalizePainType(raw){
 // Top three pain types for a category (defaults only). Falls back to the first three
 // non-boltOn types when the category is unknown.
 function defaultPainTypesForCategory(cat){
+  // Existing categories keep their exact legacy seeds -> byte-identical behavior.
   if (cat && PAIN_CATEGORY_WEIGHTS[cat]) return PAIN_CATEGORY_WEIGHTS[cat].slice(0, 3);
+  // New driver categories: seed 2 cards from the primary axis, 1 from the secondary.
+  if (cat && DRIVER_CATEGORY_AXES[cat]) {
+    var ax = DRIVER_CATEGORY_AXES[cat];
+    var byAxis = function(axisId){ return axisId ? DRIVER_LIBRARY.filter(function(d){ return d.axis === axisId && !d.boltOnOnly; }).map(function(d){ return d.id; }) : []; };
+    var prim = byAxis(ax.primary), sec = byAxis(ax.secondary);
+    var seed = [];
+    if (prim[0]) seed.push(prim[0]);
+    seed.push(prim[1] || sec[0] || prim[0]);   // second card: another primary, else secondary
+    seed.push(sec[0] || prim[1] || prim[0]);   // third card: secondary
+    while (seed.length < 3) seed.push(prim[0] || sec[0] || PAIN_TYPES[0].id);
+    return seed.slice(0, 3);
+  }
   return PAIN_TYPES.filter(function(t){ return !t.boltOnOnly; }).slice(0, 3).map(function(t){ return t.id; });
 }
 
@@ -5078,13 +5200,29 @@ function requestPains(cfg, cb){
     var avoid = (cfg.avoidTypes || []).filter(Boolean);
     instruction = " Write exactly 1 customer pain. Choose ONE pain type from the set that is NOT any of these already-used types: " + (avoid.join(", ") || "none") + ". Return the type id you chose.";
   }
-  var p = "Respond ONLY with JSON, no markdown: {\"pains\":[{\"type\":\"<type id>\",\"text\":\"<one spoken sentence>\"}]}." +
-    " You name the real pains a shopper already feels, to build the structure of a TikTok Shop video." +
-    " Use these exact pain type ids: " + typeMenu + "." +
-    instruction +
-    (buyer ? " Aim every pain at this exact buyer: " + buyer + "." : "") +
-    " Each pain text is ONE short spoken sentence naming a frustration the buyer already lives with, in plain everyday words they would nod at. Do NOT mention the product, any brand, or any price. No em dashes." +
-    " Product: " + product + ". Output JSON only.";
+  // Driver mode: any assigned/forced type on a NON-pain-family axis. Want-driven and
+  // occasion/gifting products are framed as DRIVERS, never invented pains. Legacy
+  // (all pain-family, e.g. kitchen) keeps the exact original prompt below.
+  var _dvIds = (cfg.assignedTypes && cfg.assignedTypes.length) ? cfg.assignedTypes : (cfg.forceType ? [cfg.forceType] : []);
+  var _driverMode = _dvIds.some(function(id){ var t = painTypeById(id); return t && !isPainFamilyAxis(t.axis); });
+  var p;
+  if (_driverMode) {
+    var dlines = _dvIds.map(function(id, i){ var t = painTypeById(id) || {}; var a = driverAxisById(t.axis) || {}; return " " + (i + 1) + ". " + (t.label || id) + " -- " + (a.opener || ""); }).join("");
+    p = "Respond ONLY with JSON, no markdown: {\"pains\":[{\"type\":\"<label>\",\"text\":\"<one spoken sentence>\"}]}." +
+      " A DRIVER is whatever moves a shopper to want this product. This product is NOT sold on a problem, so do NOT invent a pain and do NOT use empty adjectives (pretty, gorgeous, cute, amazing) with nothing concrete behind them." +
+      " Write exactly " + _dvIds.length + " driver lines, one for EACH of these in this order, in the shape each one calls for:" + dlines + "." +
+      (buyer ? " Aim every line at this exact buyer: " + buyer + "." : "") +
+      " Each line is ONE short spoken sentence. Back any claim with a concrete visual or a specific sensory detail, never an adjective alone. Do NOT mention the product name, any brand, or any price. No em dashes." +
+      " Product: " + product + ". Output JSON only.";
+  } else {
+    p = "Respond ONLY with JSON, no markdown: {\"pains\":[{\"type\":\"<type id>\",\"text\":\"<one spoken sentence>\"}]}." +
+      " You name the real pains a shopper already feels, to build the structure of a TikTok Shop video." +
+      " Use these exact pain type ids: " + typeMenu + "." +
+      instruction +
+      (buyer ? " Aim every pain at this exact buyer: " + buyer + "." : "") +
+      " Each pain text is ONE short spoken sentence naming a frustration the buyer already lives with, in plain everyday words they would nod at. Do NOT mention the product, any brand, or any price. No em dashes." +
+      " Product: " + product + ". Output JSON only.";
+  }
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
@@ -5107,6 +5245,13 @@ function requestPains(cfg, cb){
 // every generator that includes it.
 function getPainStackNote(){
   if (!Array.isArray(currentPains) || currentPains.length < 3) return "";
+  // Lead card's axis chooses the opener shape. Pain-family or legacy (no axis) => the
+  // exact pre-driver note, so every existing category is byte-identical to today.
+  var leadAxis = driverAxisOfCard(currentPains[0]);
+  if (isPainFamilyAxis(leadAxis)) return _painStackNoteLegacy();
+  return _driverNoteForAxis(leadAxis);
+}
+function _painStackNoteLegacy(){
   var p = currentPains;
   var list = "";
   for (var i = 0; i < 3; i++) {
@@ -5118,6 +5263,25 @@ function getPainStackNote(){
     " BODY: resolve each of the three pains IN ORDER (pain one, then two, then three). Every product spec or feature you mention must answer one of these three pains AND carry a 'so that' outcome tied to that pain. If a spec does not resolve one of these three pains, leave it out. No spec dumping." +
     " CLOSE: call back the single sharpest of these three pains (pain one is the lead, use it unless another is clearly sharper for this product), flipped from dread to relief, then an action verb that hands them the buy and points to the link below." +
     " STRUCTURE COMPLIANCE: no em dashes anywhere, no exact prices or dollar figures, no competing or unrelated brand names (say tablet not a tablet brand, your usual coffee order not a coffee chain). Only the promoted product's own brand and the actual retailer, including QVC, may be named. The CTA uses an action verb to the cart and ends pointing to the link below.";
+}
+
+// New-axis driver note (want-driven and other non-pain axes). Opener shape comes from
+// the LEAD card's axis; want-driven axes carry the hollow-praise concrete-detail rule.
+function _driverNoteForAxis(axisId){
+  var ax = driverAxisById(axisId) || {};
+  var p = currentPains;
+  var list = "";
+  for (var i = 0; i < 3; i++) {
+    var a = driverAxisById(driverAxisOfCard(p[i])) || {};
+    list += " DRIVER " + (i + 1) + " (" + (a.label || "driver") + "): " + String((p[i] && p[i].text) || "").trim();
+  }
+  return " DRIVER STACK STRUCTURE -- THIS SETS THE STRUCTURAL SPINE (which drivers, in what order, resolved where). It shapes STRUCTURE ONLY. It never overrides the winning framework or the proven moves from the saved winning scripts, and it never overrides the creator voice for how lines sound. Winners still set the play, voice still sets the delivery, this only sets the bones. A driver is whatever moves the buyer to the cart. This product is NOT sold on a problem, so do NOT invent a pain and do NOT fall back on hollow praise." +
+    " THE THREE DRIVERS FOR THIS SCRIPT, IN ORDER:" + list + "." +
+    " OPENER (the lead driver axis is " + (ax.label || axisId) + "): " + (ax.opener || "") + " Lead with driver one, then let drivers two and three deepen it. Keep it spoken and natural, never a robotic list." +
+    " BODY: resolve each of the three drivers IN ORDER (driver one, then two, then three). Every product spec or feature you mention must answer one of these three drivers AND carry a 'so that' outcome tied to that driver. If a spec does not resolve one of these three drivers, leave it out. No spec dumping." +
+    " CLOSE: call back the single strongest of these three drivers (driver one is the lead, use it unless another is clearly stronger for this product), then an action verb that hands them the buy and points to the link below." +
+    (ax.wantDriven ? " CONCRETE DETAIL RULE -- CRITICAL: this axis has no problem to anchor to, so empty adjectives are the failure mode and the most-flagged violation. Every claim must be backed by a concrete visual or a specific sensory detail. An adjective alone is a fail. Fails: it is so pretty, it is just gorgeous, I love it so much. Passes: the glass catches the light every time you walk past it, you can see the brush strokes on the ceramic, it is heavier than it looks which is exactly why it does not tip." : "") +
+    " STRUCTURE COMPLIANCE: no em dashes anywhere, never use the word price (use value, deal, or worth it), no competing or unrelated brand names (only the promoted product's own brand and the actual retailer, including QVC, may be named). Seasonal urgency may reference sellouts and the calendar, but never a misleading discount claim. The CTA uses an action verb to the cart and ends pointing to the link below.";
 }
 
 // ---- SCRIPT VOICE MODE (recommender vs testimonial) -------------------------------
@@ -5221,8 +5385,10 @@ function openPainStackPicker(opts){
   document.body.appendChild(ov);
 
   function close(){ if (ov.parentNode) ov.parentNode.removeChild(ov); }
-  cancel.addEventListener("click", close);
-  ov.addEventListener("click", function(e){ if (e.target === ov) close(); });
+  var _cancelled = false;
+  function cancelClose(){ close(); if (!_cancelled) { _cancelled = true; if (opts.onCancel) opts.onCancel(); } }
+  cancel.addEventListener("click", cancelClose);
+  ov.addEventListener("click", function(e){ if (e.target === ov) cancelClose(); });
 
   // Soft, non-blocking sameness guardrail: fires only when all three share one type.
   function checkSameness(){
@@ -5770,6 +5936,32 @@ function generateWinnerFrameworkScripts(winnerPanels, count, priceCtx, callback)
 function generateNormalBatch(angles, winnerScripts, winnerAngles) {
   winnerScripts = winnerScripts || [];
   winnerAngles = winnerAngles || [];
+
+  // DRIVER FRAMEWORK: pick the driver stack once before a batch runs (mirrors the
+  // single-script gate). Cancelling proceeds with NO drivers, so getPainStackNote()
+  // returns "" and the batch is byte-identical to today.
+  if (!_batchDriversConfirmed) {
+    var _bp = currentProduct.split(" PRODUCT DETAILS: ").pop();
+    var _proceed = function(drivers){
+      currentPains = (drivers && drivers.length === 3) ? drivers : [];
+      if (typeof allData === "object" && allData) allData.painStack = currentPains;
+      _batchDriversConfirmed = true;
+      generateNormalBatch(angles, winnerScripts, winnerAngles);
+    };
+    classifyDriverCategory(_bp, function(cat){
+      openPainStackPicker({
+        productText: _bp,
+        category: cat,
+        buyerIntent: (currentFocus && currentFocus.focus) || currentDesire || "",
+        preset: (typeof allData === "object" && allData && allData.painStack) ? allData.painStack : null,
+        onChosen: _proceed,
+        onCancel: function(){ _proceed([]); }
+      });
+    });
+    return;
+  }
+  _batchDriversConfirmed = false; // consume so the next batch asks again
+
   var mc = document.getElementById("mainContent");
   mc.innerHTML = "";
   var wrap = document.createElement("div");
@@ -6035,7 +6227,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
       " YOUR PRIMARY BRIEF (hooks must serve this): " + getBuyerMotivation() + (currentRealReason ? " CREATOR REAL REASON: " + currentRealReason + "." : "") + (currentSurprise ? " SURPRISE DETAIL -- BUILD HOOKS AROUND THIS: " + currentSurprise + "." : "") + (currentAuthority ? " The creator has authority on this product: " + currentAuthority + ". Let this inform the emotional angles and voice throughout all scripts." : "") + " PRODUCT DETAILS (proof only): " + currentProduct.split(' PRODUCT DETAILS: ').pop() + ". Price context: " + priceCtx + "." +
       batchUseContext +
       understandingNote +
-      " " + profileNote + voiceNote +
+      " " + profileNote + voiceNote + getPainStackNote() +
 
       " Write " + angles.length + " scripts, one for each angle: " + anglesText +
       " Each script must be written exclusively for the specific person in that angle -- not a general audience. If someone reading script 1 could feel equally spoken to by script 2, rewrite it." +
@@ -6161,7 +6353,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
       winnersBlock +
       " THE ONLY PRINCIPLE: You are never selling the product. You are selling the version of the buyer who already has it." +
       " Product: " + currentProduct + ". Price context: " + priceCtx + ". Write " + angles.length + " scripts for these angles: " + anglesText + "." +
-      " " + profileNote + voiceNote +
+      " " + profileNote + voiceNote + getPainStackNote() +
       " HOOK (10 words maximum): Name the exact moment or feeling. Stop there. One idea. No AND or BUT." +
       " BODY 1 (under 20 words): One specific thing. Jump to the feeling. Only use details from the description." +
       " PRE-CLOSE (one sentence): Private thought you almost didn't say. A real, non-money hesitation like doubting it would work, never apologizing for the cost." +
