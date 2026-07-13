@@ -5342,9 +5342,40 @@ var DRIVER_EXTRA = [
   { id: "nostalgia",    label: "Nostalgia",          axis: "nostalgia",         hint: "it reminds her of her mom's kitchen, of childhood" },
   { id: "social_proof", label: "Social proof pull",  axis: "social_proof_pull", hint: "she has seen it everywhere and has not bought it yet" }
 ];
-// Full library = the ten legacy drivers + the new-axis drivers. Used only by the
-// new driver-routing path; existing paths keep using PAIN_TYPES.
-var DRIVER_LIBRARY = PAIN_TYPES.concat(DRIVER_EXTRA);
+
+// WANT FACETS -- a want-driven product is sold on ONE want, not a stack of problems.
+// These are BEATS of a single want (present-moment through future-facing), never
+// separate drivers. Each sits on a want-driven axis so the through-line note and the
+// hollow-praise scanner treat it correctly. The future-facing register (legacy,
+// tradition, the memory it becomes) is first-class here, not an afterthought.
+var WANT_FACETS = [
+  { id: "wf_legacy",       label: "Legacy & memory", axis: "nostalgia",        facet: true, register: "future",  hint: "the memory this becomes years from now -- what they will remember long after the gift is forgotten" },
+  { id: "wf_tradition",    label: "Tradition",       axis: "nostalgia",        facet: true, register: "future",  hint: "the thing your family does every year, the one that means it is finally starting" },
+  { id: "wf_anticipation", label: "Anticipation",    axis: "identity_delight", facet: true, register: "present", hint: "the daily little thrill of it, the what-is-next feeling" },
+  { id: "wf_identity",     label: "Who it makes her", axis: "identity_delight", facet: true, register: "present", hint: "the joy and the identity of being the person who has this" },
+  { id: "wf_aspiration",   label: "The picture in her head", axis: "aspiration_gap", facet: true, register: "present", hint: "how she pictures it looking and feeling once it is out" }
+];
+// Per-category facet seed (ordered), used ONLY when a category's lead axis is want-driven.
+// Seasonal/keepsake lead with the future-facing register on purpose.
+var WANT_FACET_SEED = {
+  seasonal: ["wf_legacy", "wf_anticipation", "wf_tradition"],
+  decor:    ["wf_aspiration", "wf_identity", "wf_legacy"],
+  novelty:  ["wf_identity", "wf_anticipation", "wf_legacy"],
+  personal: ["wf_identity", "wf_legacy", "wf_anticipation"],
+  _default: ["wf_legacy", "wf_anticipation", "wf_identity"]
+};
+// Fallback text if generation fails -- recommender voice, second person, future-facing.
+var WANT_FACET_FALLBACK = {
+  wf_legacy: "When they are grown they will not remember what you bought them, they will remember the magic you made.",
+  wf_tradition: "This becomes the thing your family does, the one that means it is finally starting.",
+  wf_anticipation: "Every morning there is that little flicker of what is behind today's door.",
+  wf_identity: "It is the kind of thing that just makes the whole season feel like yours.",
+  wf_aspiration: "You can already picture exactly how it looks the moment it is out."
+};
+
+// Full library = the ten legacy drivers + the new-axis drivers + the want facets. Used
+// only by the new driver-routing path; existing paths keep using PAIN_TYPES.
+var DRIVER_LIBRARY = PAIN_TYPES.concat(DRIVER_EXTRA).concat(WANT_FACETS);
 
 // Section 4: category -> primary/secondary axis. Seed 2 cards from primary, >=1 from secondary.
 var DRIVER_CATEGORY_AXES = {
@@ -5375,6 +5406,11 @@ function driverAxisOfCard(card){
   return null;
 }
 function driverCategoryAxes(cat){ return DRIVER_CATEGORY_AXES[cat] || DRIVER_CATEGORY_AXES.fallback; }
+// A category's lead (primary) axis, and whether that lead is want-driven -- the trigger
+// for facet mode (one want in three beats) instead of stacking three separate drivers.
+function categoryLeadAxis(cat){ var ax = DRIVER_CATEGORY_AXES[cat]; return ax ? ax.primary : null; }
+function isWantFacetCategory(cat){ return isWantDrivenAxis(categoryLeadAxis(cat)); }
+function isFacetType(id){ var t = painTypeById(id); return !!(t && t.facet); }
 
 // Route a product to a DRIVER_CATEGORY_AXES key. Reuses the existing beauty and kitchen
 // detection (no new deterministic classifier); the model resolves everything else.
@@ -5426,6 +5462,12 @@ function normalizePainType(raw){
 function defaultPainTypesForCategory(cat){
   // Existing categories keep their exact legacy seeds -> byte-identical behavior.
   if (cat && PAIN_CATEGORY_WEIGHTS[cat]) return PAIN_CATEGORY_WEIGHTS[cat].slice(0, 3);
+  // Want-driven lead: DON'T stack three drivers. A want has one through-line, so seed
+  // three FACETS of that single want (never a pain-family secondary, which is what used
+  // to force cards 2 and 3 to scrape the product for complaints).
+  if (cat && isWantFacetCategory(cat)) {
+    return (WANT_FACET_SEED[cat] || WANT_FACET_SEED._default).slice(0, 3);
+  }
   // New driver categories: seed 2 cards from the primary axis, 1 from the secondary.
   if (cat && DRIVER_CATEGORY_AXES[cat]) {
     var ax = DRIVER_CATEGORY_AXES[cat];
@@ -5449,6 +5491,15 @@ function nextUnusedPainType(usedIds, cat){
   for (var i = 0; i < order.length; i++) { if (used.indexOf(order[i]) === -1) return order[i]; }
   return PAIN_TYPES[0].id;
 }
+
+// Next unused want facet -- the facet-mode analogue of nextUnusedPainType.
+function nextUnusedWantFacet(usedIds){
+  var used = usedIds || [];
+  for (var i = 0; i < WANT_FACETS.length; i++) { if (used.indexOf(WANT_FACETS[i].id) === -1) return WANT_FACETS[i].id; }
+  return WANT_FACETS[0].id;
+}
+// Fallback text for a card: facet fallback first, else the pain fallback (unchanged).
+function fallbackTextFor(id){ return WANT_FACET_FALLBACK[id] || fallbackPainText(id); }
 
 // Phase 1 category detector. "kitchen" is read straight off the pasted listing, matching
 // the existing indoor-kitchen-appliance regex approach already used by the generators.
@@ -5499,12 +5550,34 @@ function requestPains(cfg, cb){
   // occasion/gifting products are framed as DRIVERS, never invented pains. Legacy
   // (all pain-family, e.g. kitchen) keeps the exact original prompt below.
   var _dvIds = (cfg.assignedTypes && cfg.assignedTypes.length) ? cfg.assignedTypes : (cfg.forceType ? [cfg.forceType] : []);
-  var _driverMode = _dvIds.some(function(id){ var t = painTypeById(id); return t && !isPainFamilyAxis(t.axis); });
+  var _facetMode = _dvIds.length > 0 && _dvIds.every(isFacetType);
+  var _driverMode = !_facetMode && _dvIds.some(function(id){ var t = painTypeById(id); return t && !isPainFamilyAxis(t.axis); });
+  // HARD RULE shared by both non-pain-family branches: a driver is always in the buyer's
+  // life, NEVER a downside of the product itself. This is the thing that was producing
+  // "batteries not included" cards on want-driven products.
+  var _hardRule = " HARD RULE -- NEVER BASH THE PRODUCT: a driver is always something in the BUYER'S life that moves her toward the cart (an ache, a want, a deadline, a longing, a memory being made). It is NEVER a downside, limitation, or annoyance of the product itself (batteries not included, takes up space, requires assembly, needs charging). There is no problem to solve here, so do not invent one and do not criticize the product; if a line has nothing real to say, reach for another genuine want instead.";
   var p;
-  if (_driverMode) {
+  if (_facetMode) {
+    // Want-driven: ONE want expressed as several FACETS (beats of the same through-line),
+    // not several separate drivers. Emotional and future-facing register, recommender voice.
+    var flines = _dvIds.map(function(id, i){ var t = painTypeById(id) || {}; return " " + (i + 1) + ". " + (t.label || id) + " -- " + (t.hint || ""); }).join("");
+    var voiceLine = (scriptVoiceMode === "testimonial")
+      ? " VOICE: first person is welcome here (the creator genuinely uses this), but keep it about the feeling, honest and specific, never generic."
+      : " VOICE -- RECOMMENDER: talk TO the viewer about HER life and her people (second person: you, your). Never a first-person testimonial, never 'I remember when my mom.' You are pointing her at what this will mean for her, not sharing your own memory.";
+    p = "Respond ONLY with JSON, no markdown: {\"pains\":[{\"type\":\"<label>\",\"text\":\"<one spoken sentence>\"}]}." +
+      " This product is sold on ONE want, not a stack of problems. Write exactly " + _dvIds.length + " FACETS of that single want -- " + _dvIds.length + " beats of the SAME emotional through-line, in this order:" + flines + "." +
+      " They are facets of one want, never three separate reasons and never a product complaint." +
+      _hardRule +
+      " REGISTER: reach for the EMOTIONAL and FUTURE-FACING register -- legacy, tradition, the memory this becomes years from now -- not just how it looks in the present moment. The best facet for a keepsake is who it makes her family become, not a feature. Example of the exact register and voice to aim for: \"When they are adults they will not remember what you bought them each Christmas, but they will remember the magic you created, the daily anticipation of seeing what is inside.\"" +
+      voiceLine +
+      (buyer ? " Aim every line at this exact buyer: " + buyer + "." : "") +
+      " Each line is ONE short spoken sentence. Never an empty adjective (pretty, gorgeous, cute, amazing) alone -- back a feeling with a concrete image or a specific moment. Do NOT mention the product name, any brand, or any price. No em dashes." +
+      " Product: " + product + ". Output JSON only.";
+  } else if (_driverMode) {
     var dlines = _dvIds.map(function(id, i){ var t = painTypeById(id) || {}; var a = driverAxisById(t.axis) || {}; return " " + (i + 1) + ". " + (t.label || id) + " -- " + (a.opener || ""); }).join("");
     p = "Respond ONLY with JSON, no markdown: {\"pains\":[{\"type\":\"<label>\",\"text\":\"<one spoken sentence>\"}]}." +
       " A DRIVER is whatever moves a shopper to want this product. This product is NOT sold on a problem, so do NOT invent a pain and do NOT use empty adjectives (pretty, gorgeous, cute, amazing) with nothing concrete behind them." +
+      _hardRule +
       " Write exactly " + _dvIds.length + " driver lines, one for EACH of these in this order, in the shape each one calls for:" + dlines + "." +
       (buyer ? " Aim every line at this exact buyer: " + buyer + "." : "") +
       " Each line is ONE short spoken sentence. Back any claim with a concrete visual or a specific sensory detail, never an adjective alone. Do NOT mention the product name, any brand, or any price. No em dashes." +
@@ -5570,7 +5643,7 @@ function _driverNoteForAxis(axisId){
     var a = driverAxisById(driverAxisOfCard(p[i])) || {};
     list += " DRIVER " + (i + 1) + " (" + (a.label || "driver") + "): " + String((p[i] && p[i].text) || "").trim();
   }
-  return " DRIVER STACK STRUCTURE -- THIS SETS THE STRUCTURAL SPINE (which drivers, in what order, resolved where). It shapes STRUCTURE ONLY. It never overrides the winning framework or the proven moves from the saved winning scripts, and it never overrides the creator voice for how lines sound. Winners still set the play, voice still sets the delivery, this only sets the bones. A driver is whatever moves the buyer to the cart. This product is NOT sold on a problem, so do NOT invent a pain and do NOT fall back on hollow praise." +
+  return " DRIVER STACK STRUCTURE -- THIS SETS THE STRUCTURAL SPINE (which drivers, in what order, resolved where). It shapes STRUCTURE ONLY. It never overrides the winning framework or the proven moves from the saved winning scripts, and it never overrides the creator voice for how lines sound. Winners still set the play, voice still sets the delivery, this only sets the bones. A driver is whatever moves the buyer to the cart. This product is NOT sold on a problem, so do NOT invent a pain and do NOT fall back on hollow praise. A driver is always something in the buyer's life; NEVER a downside or limitation of the product itself (batteries not included, takes up space, requires assembly, needs charging)." +
     " THE THREE DRIVERS FOR THIS SCRIPT, IN ORDER:" + list + "." +
     " OPENER (the lead driver axis is " + (ax.label || axisId) + "): " + (ax.opener || "") + " Lead with driver one, then let drivers two and three deepen it. Keep it spoken and natural, never a robotic list." +
     " BODY: resolve each of the three drivers IN ORDER (driver one, then two, then three). Every product spec or feature you mention must answer one of these three drivers AND carry a 'so that' outcome tied to that driver. If a spec does not resolve one of these three drivers, leave it out. No spec dumping." +
@@ -5640,6 +5713,10 @@ function renderVoiceModeToggle(container){
 function openPainStackPicker(opts){
   opts = opts || {};
   var cat = opts.category || "kitchen";
+  // Want-driven leads show FACET language and behavior; pain-family leads (kitchen etc.)
+  // keep the exact original "pain" copy and flow -> byte-identical.
+  var _isWant = isWantFacetCategory(cat);
+  var _noun = _isWant ? "facet" : "pain";
   var cards = [];              // [{ typeId, text, _loading }]
   var openMenuIdx = -1;        // which card's swap menu is open
 
@@ -5652,10 +5729,12 @@ function openPainStackPicker(opts){
 
   var h = document.createElement("div");
   h.style.cssText = "font-family:'Marcellus',serif;font-size:20px;color:var(--white);margin-bottom:4px;";
-  h.textContent = "Stack three pains";
+  h.textContent = _isWant ? "Three facets of one want" : "Stack three pains";
   var sub = document.createElement("div");
   sub.style.cssText = "font-size:13px;color:var(--muted);margin-bottom:14px;line-height:1.5;";
-  sub.textContent = "These three pains set the structure of your script. Your winners still lead and your voice still shapes how it sounds. Card one is your sharpest, lead pain. Edit the wording, swap the pain, or regenerate any card.";
+  sub.textContent = _isWant
+    ? "This product is sold on one want, not a stack of problems. These three cards are beats of that single want -- edit the wording, swap a facet, or regenerate any card. Card one is your lead. Your winners still lead and your voice still shapes how it sounds."
+    : "These three pains set the structure of your script. Your winners still lead and your voice still shapes how it sounds. Card one is your sharpest, lead pain. Edit the wording, swap the pain, or regenerate any card.";
   sheet.appendChild(h); sheet.appendChild(sub);
   renderVoiceModeToggle(sheet);
 
@@ -5669,7 +5748,7 @@ function openPainStackPicker(opts){
 
   var confirm = document.createElement("button");
   confirm.style.cssText = "margin-top:18px;width:100%;background:var(--red);color:var(--white);border:none;border-radius:12px;padding:13px;font-family:'Instrument Sans',sans-serif;font-weight:600;font-size:15px;cursor:pointer;";
-  confirm.textContent = "Use these three pains";
+  confirm.textContent = _isWant ? "Use these three" : "Use these three pains";
   sheet.appendChild(confirm);
   var cancel = document.createElement("button");
   cancel.style.cssText = "margin-top:10px;width:100%;background:transparent;border:1px solid var(--border-md);color:var(--white-dim);border-radius:12px;padding:11px;font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;";
@@ -5686,7 +5765,10 @@ function openPainStackPicker(opts){
   ov.addEventListener("click", function(e){ if (e.target === ov) cancelClose(); });
 
   // Soft, non-blocking sameness guardrail: fires only when all three share one type.
+  // Skipped for want-driven leads -- facets of one want are SUPPOSED to share a register,
+  // so "widen it" would be exactly the wrong nudge.
   function checkSameness(){
+    if (_isWant) { nudge.style.display = "none"; return; }
     var ids = {};
     cards.forEach(function(c){ if (c && c.typeId) ids[c.typeId] = 1; });
     if (Object.keys(ids).length === 1 && cards.length === 3) {
@@ -5722,11 +5804,11 @@ function openPainStackPicker(opts){
     var lockType = null;
     if (mode === "same") { cfg.forceType = cards[idx].typeId; lockType = cards[idx].typeId; }
     else if (mode && mode.indexOf("type:") === 0) { lockType = mode.slice(5); cfg.forceType = lockType; }
-    else { lockType = nextUnusedPainType(others, cat); cfg.forceType = lockType; } // default: a NEW type
+    else { lockType = _isWant ? nextUnusedWantFacet(others) : nextUnusedPainType(others, cat); cfg.forceType = lockType; } // default: a NEW type
     cards[idx]._loading = true; openMenuIdx = -1; renderCards();
     requestPains(cfg, function(arr){
       var got = arr && arr[0];
-      cards[idx] = { typeId: lockType || (got && got.typeId) || cards[idx].typeId, text: (got && got.text) ? got.text : fallbackPainText(lockType) };
+      cards[idx] = { typeId: lockType || (got && got.typeId) || cards[idx].typeId, text: (got && got.text) ? got.text : fallbackTextFor(lockType) };
       renderCards();
     });
   }
@@ -5742,14 +5824,14 @@ function openPainStackPicker(opts){
     pill.textContent = painTypeLabel(card.typeId) + (idx === 0 ? "  ·  lead" : "");
     var num = document.createElement("span");
     num.style.cssText = "font-size:11px;color:var(--muted);";
-    num.textContent = "Pain " + (idx + 1);
+    num.textContent = (_isWant ? "Facet " : "Pain ") + (idx + 1);
     top.appendChild(pill); top.appendChild(num);
     wrap.appendChild(top);
 
     if (card._loading) {
       var load = document.createElement("div");
       load.style.cssText = "font-size:13px;color:var(--muted);padding:10px 2px;";
-      load.textContent = "Writing a fresh pain...";
+      load.textContent = _isWant ? "Writing a fresh facet..." : "Writing a fresh pain...";
       wrap.appendChild(load);
       return wrap;
     }
@@ -5769,7 +5851,7 @@ function openPainStackPicker(opts){
       b.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white-dim);border-radius:8px;padding:6px 10px;font-family:'Instrument Sans',sans-serif;font-size:11.5px;cursor:pointer;";
       return b;
     }
-    var swap = ctlBtn("Swap pain");
+    var swap = ctlBtn(_isWant ? "Swap facet" : "Swap pain");
     swap.addEventListener("click", function(){ openMenuIdx = (openMenuIdx === idx ? -1 : idx); renderCards(); });
     var regen = ctlBtn("Regenerate");
     regen.addEventListener("click", function(){ regenerateCard(idx, "new"); });
@@ -5785,7 +5867,7 @@ function openPainStackPicker(opts){
       menu.style.cssText = "display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);";
       var usedByOthers = {};
       cards.forEach(function(c, i){ if (i !== idx && c) usedByOthers[c.typeId] = 1; });
-      PAIN_TYPES.forEach(function(t){
+      (_isWant ? WANT_FACETS : PAIN_TYPES).forEach(function(t){
         var b = document.createElement("button");
         var isCurrent = t.id === card.typeId;
         var taken = usedByOthers[t.id];
@@ -5816,7 +5898,7 @@ function openPainStackPicker(opts){
     requestPains({ productText: opts.productText, buyerIntent: opts.buyerIntent, category: cat, assignedTypes: assigned }, function(arr){
       cards = assigned.map(function(id, i){
         var got = arr[i];
-        return { typeId: id, text: (got && got.text) ? got.text : fallbackPainText(id) };
+        return { typeId: id, text: (got && got.text) ? got.text : fallbackTextFor(id) };
       });
       renderCards();
     });
@@ -5827,7 +5909,7 @@ function openPainStackPicker(opts){
     var chosen = cards.slice(0, 3).map(function(c){
       return { typeId: c.typeId, label: painTypeLabel(c.typeId), text: stripEmDashesStr(String(c.text || "").trim()) };
     });
-    if (chosen.length < 3 || chosen.some(function(c){ return !c.text; })) { if (typeof showToast === "function") showToast("Fill in all three pains"); return; }
+    if (chosen.length < 3 || chosen.some(function(c){ return !c.text; })) { if (typeof showToast === "function") showToast(_isWant ? "Fill in all three facets" : "Fill in all three pains"); return; }
     close();
     if (opts.onChosen) opts.onChosen(chosen);
   });
