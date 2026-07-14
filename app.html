@@ -6707,7 +6707,77 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
   });
 }
 
+// ── SHARPEN: rerun ONLY the hook for one script (one call, not a full six-call regen) ──
+// Builds a focused single-hook prompt from the same signals the gold-standard hook call
+// uses (buyer insight, real reason, surprise, product, confirmed drivers), plus the
+// current hook as the thing to BEAT -- a different, stronger angle, never a rephrase.
+function buildSharpenPrompt(currentHook) {
+  return "You write TikTok hooks. One job. Stop the scroll. The creator did not like the current hook and wants a STRONGER, genuinely DIFFERENT one for this exact product and buyer -- a new angle and a different mechanism, not a reword of what is there." +
+    " BUYER INSIGHT -- WHO IS BUYING AND WHY: " + getBuyerMotivation() + "." +
+    (currentRealReason ? " CREATOR REAL REASON -- WHAT MADE THEM WANT THIS: " + currentRealReason + "." : "") +
+    (currentSurprise ? " SURPRISE DETAIL -- WHAT WOULD SHOCK SOMEONE WHO HAS NEVER SEEN THIS: " + currentSurprise + ". If there is a surprise detail, build the hook around it." : "") +
+    ((Array.isArray(currentPains) && currentPains.length) ? " WHAT DRIVES THIS BUYER: " + currentPains.map(function(p){ return (p && p.text) ? p.text : ""; }).filter(Boolean).join(" ") + "." : "") +
+    " PRODUCT: " + currentProduct.split(' PRODUCT DETAILS: ').pop() + "." +
+    " THE CURRENT HOOK YOU MUST BEAT (do NOT rephrase it, do NOT reuse its structure -- pick a different mechanism and a different angle): " + currentHook + "." +
+    " PICK ONE MECHANISM AND COMMIT: THE REFRAME (flip something they feel bad about into an advantage); REMOVE THE BLAME (it was never their fault); DISRUPT THE HABIT (name something they trusted without questioning); THE STATUS THREAT (the gap between who they are and who they could be); THE VERDICT (render judgment on something they normalized); THE PIVOT (set up one thing, land somewhere they did not expect)." +
+    " GOLD STANDARD BENCHMARK -- your hook must feel like it belongs in this list: We are not waiting on the cart girl. Your counters look amazing and then you open the fridge. You clean the vacuum more than it cleans your floors. Your procrastination has finally paid off. Does epsom salt actually do anything. Stop packing like a rookie." +
+    " HARD RULES: category or product name in words 1-5 for TikTok SEO; under 10 words, count them, over 10 is a failure; stop at the tension, never explain the consequence; one idea only, no AND or BUT; starting with I is ONLY for a specific honest confession the viewer recognizes in themselves, never to introduce yourself or the product." +
+    " SELF CHECK before returning: is this the unexpected version, not the obvious one? Is it clearly DIFFERENT from the current hook? Under 10 words? First word not I or My? If any fails, rewrite." +
+    " YEAR BAN: never reference a specific year. TIKTOK MODERATION -- HARD BAN: never use kill, killed, killing, die, dies, dying, dead, death, haunting; use lost, gone, gave up, brown leaves, did not make it instead." +
+    SUPP_GUARD +
+    " Return ONLY valid JSON: {mechanism_used:string, hook:string}";
+}
+
+var SHARPEN_MAX = 3; // per-script cap so the daily limit cannot be drained on one script
+function updateSharpenBtn(btn, left) {
+  if (left == null) left = SHARPEN_MAX;
+  if (left <= 0) {
+    btn.textContent = "No sharpens left";
+    btn.disabled = true; btn.style.opacity = "0.5"; btn.style.cursor = "default";
+  } else {
+    btn.textContent = "✦ Sharpen hook (" + left + " left)";
+    btn.disabled = false; btn.style.opacity = "1"; btn.style.cursor = "pointer";
+  }
+}
+
+// One /api/claude call. Replaces ONLY the hook in place; body/caption/everything untouched.
+// Counts as 1 against the daily limit (the proxy increments per call) and logs to
+// model_usage as call_name "sharpen" under the parent script's generation_id.
+function sharpenHook(scriptObj, txtEl, btn, genIdForBatch) {
+  if (scriptObj._sharpensLeft == null) scriptObj._sharpensLeft = SHARPEN_MAX;
+  if (scriptObj._sharpensLeft <= 0) { updateSharpenBtn(btn, 0); return; }
+  var current = scriptObj.hook || "";
+  btn.disabled = true; btn.style.cursor = "default"; btn.textContent = "Sharpening...";
+  fetch("/api/claude", {
+    method: "POST",
+    headers: claudeHeaders(),
+    body: JSON.stringify({ call_name: "sharpen", generation_id: genIdForBatch, model: "claude-sonnet-4-6", max_tokens: 400, messages: [{ role: "user", content: buildSharpenPrompt(current) }] })
+  })
+  .then(function(r){ return r.json(); })
+  .then(function(data){
+    if (!data || data.error) {
+      var m = (data && data.message) ? data.message
+            : (data && data.error && data.error.message) ? data.error.message
+            : "Could not sharpen, try again";
+      showToast(m);
+      updateSharpenBtn(btn, scriptObj._sharpensLeft);
+      return;
+    }
+    var raw = ""; (data.content || []).forEach(function(b){ if (b.type === "text") raw += b.text; });
+    var parsed = null; try { parsed = JSON.parse(raw.replace(/```json|```/g, "").trim()); } catch(e){}
+    var nh = (parsed && parsed.hook) ? stripEmDashesStr(String(parsed.hook).trim()) : "";
+    if (!nh) { showToast("Could not sharpen, try again"); updateSharpenBtn(btn, scriptObj._sharpensLeft); return; }
+    scriptObj.hook = nh;
+    txtEl.textContent = nh;
+    scriptObj._sharpensLeft -= 1;
+    updateSharpenBtn(btn, scriptObj._sharpensLeft);
+    showToast(scriptObj._sharpensLeft > 0 ? "Hook sharpened -- " + scriptObj._sharpensLeft + " left" : "Hook sharpened -- no sharpens left on this script");
+  })
+  .catch(function(){ showToast("Could not sharpen, try again"); updateSharpenBtn(btn, scriptObj._sharpensLeft); });
+}
+
 function renderBatchResults(scripts, angles, authHooks) {
+  var genIdForBatch = currentGenerationId; // parent generation id, shared by every sharpen on this render
   // If dedicated authority hooks were generated, inject into the first 3 NORMAL scripts.
   // Winning-framework scripts are skipped so their winner-based hooks are preserved.
   if (authHooks && authHooks.length > 0) {
@@ -6748,6 +6818,7 @@ function renderBatchResults(scripts, angles, authHooks) {
   // Render script cards first
   scripts.forEach(function(script, idx) {
     var angle = angles[idx] || {};
+    if (script._sharpensLeft == null) script._sharpensLeft = SHARPEN_MAX;
     var card = document.createElement("div");
     card.className = "batch-script-card";
 
@@ -6885,6 +6956,17 @@ function renderBatchResults(scripts, angles, authHooks) {
       feedbackRow.appendChild(thumbsDown);
       feedbackRow.appendChild(feedbackNote);
 
+      // Sharpen button: HOOK line only. Reruns just the hook (1 call), replaces it in place.
+      if (line.label === "HOOK") {
+        var sharpenBtn = document.createElement("button");
+        sharpenBtn.style.cssText = "background:none;border:1px solid var(--gold);border-radius:999px;padding:3px 12px;font-size:11px;cursor:pointer;color:var(--gold);font-family:'Instrument Sans',sans-serif;margin-left:auto;transition:all 0.15s;";
+        updateSharpenBtn(sharpenBtn, script._sharpensLeft);
+        (function(sObj, tEl, b) {
+          b.addEventListener("click", function(){ sharpenHook(sObj, tEl, b, genIdForBatch); });
+        })(script, txt, sharpenBtn);
+        feedbackRow.appendChild(sharpenBtn);
+      }
+
       lineWrap.appendChild(lbl);
       lineWrap.appendChild(txt);
       lineWrap.appendChild(feedbackRow);
@@ -6903,9 +6985,13 @@ function renderBatchResults(scripts, angles, authHooks) {
     copyBtn.className = "batch-copy-btn";
     copyBtn.style.cssText = "flex:1;";
     copyBtn.textContent = "Copy";
-    (function(text) {
-      copyBtn.addEventListener("click", function(){ copyRaw(text); showToast("Script " + (idx+1) + " copied"); });
-    })(fullText);
+    // Re-derive from the live script object at click time so a sharpened hook is copied.
+    copyBtn.addEventListener("click", (function(s, pc, i) {
+      return function(){
+        var t = [s.hook, s.body1, pc, s.body2, s.cta].filter(Boolean).join(" ");
+        copyRaw(t); showToast("Script " + (i+1) + " copied");
+      };
+    })(script, preCloseVal, idx));
 
     var postedBtn = document.createElement("button");
     postedBtn.className = "batch-copy-btn";
