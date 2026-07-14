@@ -6535,7 +6535,6 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
       (understanding.cultural_moment ? " CULTURAL MOMENT -- this is where the best hook for this product lives. At least one hook must open with this shared experience that everyone in this world knows: " + understanding.cultural_moment : "") +
       (understanding.purchase_type === "AESTHETIC PURCHASE" ? " AESTHETIC PURCHASE OVERRIDE -- CRITICAL: This product is bought for identity and appearance, not function or performance. Every hook must be about how owning this makes the buyer feel or look -- never about what it does or how it performs. Never frame as solving a problem. Never suggest it improves performance or function. The hook lives in the gap between who they are and who they want to be seen as. Examples of what NOT to do for a golf bag: helps your game, performs better on the course, improves your round. Examples of what TO DO: names the cultural moment of showing up with the wrong bag, the look of someone whose gear matches their level, the feeling of finally having a setup that looks like you." : "")
       : "";
-    understandingNote += goldHookNote;
 
   // ── CALL 1.5: Write the gold standard hook in isolation ──
   var goldHookPrompt = "You write TikTok hooks. One job. Stop the scroll." +
@@ -6605,6 +6604,12 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     var startsWithI = /^(I |I'm |I've |I was |My )/i.test(goldHook);
     var goldWordCount = goldHook.split(' ').length;
     var goldHookNote = goldHook ? " GOLD STANDARD HOOK -- THIS IS YOUR BENCHMARK: Every hook you write must match this quality and stay anchored to this buyer. If your hook could work for a different product or buyer it is wrong. Gold standard hook: " + goldHook + " (mechanism: " + goldHookType + "). " + (startsWithI ? "NOTE: This benchmark starts with I -- only acceptable if it is a specific honest confession the viewer recognizes in themselves. Weak I openers that introduce you or the product must be rewritten." : "") + (goldWordCount > 10 ? " NOTE: This benchmark is slightly long -- tighten hooks to under 10 words." : "") + " Buyer insight: " + getBuyerMotivation() + "." : "";
+    // Append the gold-hook benchmark now that goldHookNote exists in THIS scope, before
+    // CALL 2 is built. This line previously ran one scope up in the CALL 1 handler, where
+    // goldHookNote was undefined -- it threw ReferenceError every time, dropping the whole
+    // batch into the no-understanding fallback (so the gold hook and 11-type framework
+    // never ran). understandingNote is closed over from the CALL 1 handler.
+    understandingNote += goldHookNote;
 
     // ── CALL 2: Write scripts from that understanding ──
     var prompt = "You write TikTok Shop scripts that sound exactly like a real person talking to a friend about something they genuinely love." +
