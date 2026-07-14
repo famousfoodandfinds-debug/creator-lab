@@ -1066,6 +1066,19 @@ var currentSurprise = ""; // Field 3: what would surprise someone
 var currentAuthority = ""; // Field 3b: optional authority/credential
 var currentBuyers = []; // Selected buyer types from buyer card flow
 var currentUseContext = ""; // indoor/outdoor context string, set at generate time
+// MODEL USAGE LOGGING -- one id groups every /api/claude call belonging to a single
+// script generation, so token cost can be rolled up per generation later. The id is
+// threaded into the request body; the serverless proxy logs it to model_usage and
+// strips it before forwarding to Anthropic. Purely bookkeeping; never blocks generation.
+var currentGenerationId = null;
+function newGenerationId(){
+  var id = null;
+  try { if (window.crypto && crypto.randomUUID) id = crypto.randomUUID(); } catch(e){}
+  if (!id) id = "gen-" + Date.now() + "-" + Math.random().toString(16).slice(2, 10);
+  currentGenerationId = id;
+  return id;
+}
+function genId(){ return currentGenerationId || newGenerationId(); }
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
 // AUDIENCE PROFILE -- the creator's ACTUAL BUYERS (from TikTok Shop customer
 // analytics, not followers). Persisted to Supabase user_metadata. All fields
@@ -2542,13 +2555,14 @@ function sanitizeProductDescription(desc) {
 // ============================================================
 function cleanProductDescription(rawDesc, callback) {
   if (!rawDesc || rawDesc.trim().length < 20) { callback(rawDesc); return; }
+  genId(); // reuse the current generation group if one exists, else start one
 
   var prompt = "You are a fact extractor and compliance editor for TikTok Shop affiliate creators. A creator has given you a product listing (pasted text or read from a screenshot) that mixes real facts with junk and with claim language. Your job is to extract the REAL, USABLE PRODUCT FACTS into a clean factual spec the creator can safely ground a script in. CLEAN OUT JUNK: remove blank lines, repeated spaces, bullet and symbol characters, emojis, navigation and UI text, star ratings and review counts, prices and discounts, shipping, returns, warranty, and seller or marketing boilerplate. KEEP every real fact, do not summarize it away and do not impose a length limit: keep all materials, ingredients, active compounds and percentages, dimensions, sizes, weights, capacity, format, what it is made of, how it is physically used, compatibility, what is in the box, and certifications like PFOA-free, OEKO-TEX, or organic. PRESERVE FACTS EXACTLY AS STATED, keeping each quality attached to exactly what the listing attached it to. Do NOT combine two separate facts into a new claim, do NOT add anything that is not in the listing, and do NOT invent specs, numbers, or certifications. REMOVE only: claims that the product causes a physical change in the body, comparisons to a medical procedure or prescription treatment, outcome language like volumizes, plumps, fills hollow, rebuilds density, reduces wrinkles, anti-aging, restores volume, reverses, eliminates, firms, tightens, deflates, clinically proven, dermatologist approved, and the names of competing brands, injectable fillers, prescription drugs, or medical devices. Output a clean factual product spec only, as plain sentences or short factual lines, no preamble, no explanation, nothing else. Raw listing to clean and extract facts from: " + rawDesc;
 
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1500,
+    body: JSON.stringify({ call_name: "spec_translation", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 1500,
       messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -4673,6 +4687,7 @@ function updateSaveBtn() {
 }
 
 function generateBuyerCards() {
+  newGenerationId(); // start a fresh usage-logging group for this product flow
   var nameEl = document.getElementById('newProductNameInput');
   var productEl = document.getElementById('productInput');
   var name = nameEl ? nameEl.value.trim() : '';
@@ -4722,7 +4737,7 @@ function generateBuyerCards() {
   fetch('/api/claude', {
     method: 'POST',
     headers: claudeHeaders(),
-    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
+    body: JSON.stringify({ call_name: 'buyer_card', generation_id: currentGenerationId, model: 'claude-sonnet-4-6', max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
@@ -6113,7 +6128,7 @@ function generateBatchCTAs(hooks, product, priceCtx, callback) {
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 400,
+    body: JSON.stringify({ call_name: "cta", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 400,
       messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -6147,7 +6162,7 @@ function generateBatchCaptions(scripts, angles, product, productName, callback) 
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1200, messages: [{ role: "user", content: prompt }] })
+    body: JSON.stringify({ call_name: "caption", generation_id: currentGenerationId, model: "claude-sonnet-4-6", max_tokens: 1200, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
   .then(function(data){
@@ -6196,7 +6211,7 @@ function generateBatchScreenTexts(hooks, product, callback) {
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 800,
+    body: JSON.stringify({ call_name: "screen_text", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 800,
       messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -6216,6 +6231,7 @@ var WINNER_SCRIPT_COUNT = 2;
 // generate WINNER_SCRIPT_COUNT winning-framework scripts (built directly from the winners) plus the
 // remaining normal scripts. When there are no winners, behave exactly as before (no change at all).
 function generateBatchScripts(angles) {
+  newGenerationId(); // start a fresh usage-logging group for this whole batch
   // Reset the winner-framework diagnostic so a no-winners batch never shows a stale note.
   lastWinnerFrameworkAttempted = 0;
   lastWinnerFrameworkGenerated = 0;
@@ -6284,7 +6300,7 @@ function generateWinnerFrameworkScripts(winnerPanels, count, priceCtx, callback)
       fetch("/api/claude", {
         method: "POST",
         headers: claudeHeaders(),
-        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 3000,
+        body: JSON.stringify({ call_name: "winner_framework", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 3000,
           system: system,
           messages: [{ role: "user", content: wfPrompt }] })
       })
@@ -6381,7 +6397,7 @@ function generateNormalBatch(angles, winnerScripts, winnerAngles) {
       fetch("/api/claude", {
         method: "POST",
         headers: claudeHeaders(),
-        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 150, messages: [{ role: "user", content: authPrompt }] })
+        body: JSON.stringify({ call_name: "authority_hook", generation_id: currentGenerationId, model: "claude-sonnet-4-6", max_tokens: 150, messages: [{ role: "user", content: authPrompt }] })
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
@@ -6499,7 +6515,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 600,
+    body: JSON.stringify({ call_name: "understanding", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 600,
       messages: [{ role: "user", content: thinkPrompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -6571,7 +6587,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 400,
+    body: JSON.stringify({ call_name: "hook", generation_id: currentGenerationId, model: "claude-sonnet-4-6", max_tokens: 400,
       messages: [{ role: "user", content: goldHookPrompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -6670,7 +6686,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000,
+    body: JSON.stringify({ call_name: "body", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 4000,
       system: system,
       messages: [{ role: "user", content: prompt }]
     })
@@ -6741,7 +6757,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     fetch("/api/claude", {
       method: "POST",
       headers: claudeHeaders(),
-      body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 4000, system: system, messages: [{ role: "user", content: prompt }] })
+      body: JSON.stringify({ call_name: "body", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 4000, system: system, messages: [{ role: "user", content: prompt }] })
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {

@@ -1,6 +1,38 @@
 const DAILY_LIMIT = 30;
 const SUPABASE_URL = "https://ysacpditbxcrairmypsp.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYWNwZGl0YnhjcmFpcm15cHNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjU4MjYsImV4cCI6MjA4OTM0MTgyNn0.U8W_KpDkYCT-jVBbXneAP1q_W9ChfhTi69DD0SS6G3o";
+// Service-role key (already present in the Netlify env; used by the other webhook
+// functions). Used ONLY here to write model_usage rows, which are service-role-write
+// only and never exposed to the browser.
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
+
+// Insert one model_usage row. Fire-and-forget in spirit but awaited with a hard timeout
+// so a slow/unreachable Supabase can never stall a member's generation. ALL failures are
+// swallowed: logging must NEVER break generation.
+async function logModelUsage(row) {
+  try {
+    if (!SUPABASE_SERVICE_KEY) return; // not configured -> silently skip
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    try {
+      await fetch(`${SUPABASE_URL}/rest/v1/model_usage`, {
+        method: "POST",
+        headers: {
+          "apikey": SUPABASE_SERVICE_KEY,
+          "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+          "Content-Type": "application/json",
+          "Prefer": "return=minimal"
+        },
+        body: JSON.stringify(row),
+        signal: controller.signal
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (err) {
+    // swallow -- a logging error is never allowed to fail a member's script
+  }
+}
 
 exports.handler = async function(event) {
   if (event.httpMethod !== "POST") {
@@ -95,6 +127,15 @@ exports.handler = async function(event) {
   try {
     const body = JSON.parse(event.body);
 
+    // Usage-logging metadata travels in the body from the client. Pull it out and STRIP
+    // it before forwarding, so Anthropic never sees these non-API fields. Unlabeled calls
+    // are logged as "other" so no model spend is ever silently uncosted.
+    const callName = (typeof body.call_name === "string" && body.call_name) ? body.call_name : "other";
+    const generationId = (typeof body.generation_id === "string" && body.generation_id) ? body.generation_id : null;
+    const modelUsed = body.model || null;
+    delete body.call_name;
+    delete body.generation_id;
+
     const headers = {
       "Content-Type": "application/json",
       "x-api-key": apiKey,
@@ -173,6 +214,22 @@ exports.handler = async function(event) {
     });
 
     const data = await response.json();
+
+    // Record what this call cost. Token counts + labels only -- never prompt or output
+    // text. Wrapped so a logging failure can never fail the generation.
+    const usage = (data && data.usage) || {};
+    await logModelUsage({
+      user_id: userId,
+      call_name: callName,
+      model: modelUsed,
+      input_tokens: usage.input_tokens || 0,
+      output_tokens: usage.output_tokens || 0,
+      cache_read_tokens: (usage.cache_read_input_tokens != null) ? usage.cache_read_input_tokens : null,
+      cache_write_tokens: (usage.cache_creation_input_tokens != null) ? usage.cache_creation_input_tokens : null,
+      generation_id: generationId,
+      success: response.ok && !(data && data.error)
+    });
+
     // Merge the safe TokScript diagnostic into the response so the test panel can
     // display it (auth mode + key length, never the key value).
     if (tokscriptDebug && data && typeof data === "object" && !Array.isArray(data)) {
