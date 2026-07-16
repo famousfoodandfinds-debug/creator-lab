@@ -6320,7 +6320,7 @@ function generateWinnerFrameworkScripts(winnerPanels, count, priceCtx, callback)
         method: "POST",
         headers: claudeHeaders(),
         body: JSON.stringify({ call_name: "winner_framework", generation_id: currentGenerationId, model: MODELS.winner_framework, max_tokens: 3000,
-          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+          system: [{ type: "text", text: system, cache_control: { type: "ephemeral", ttl: "1h" } }],
           messages: [{ role: "user", content: wfPrompt }] })
       })
       .then(function(r) { return r.json(); })
@@ -6710,7 +6710,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     method: "POST",
     headers: claudeHeaders(),
     body: JSON.stringify({ call_name: "body", generation_id: currentGenerationId, model: MODELS.body, max_tokens: 4000,
-      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+      system: [{ type: "text", text: system, cache_control: { type: "ephemeral", ttl: "1h" } }],
       messages: [{ role: "user", content: prompt }]
     })
   })
@@ -6780,7 +6780,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     fetch("/api/claude", {
       method: "POST",
       headers: claudeHeaders(),
-      body: JSON.stringify({ call_name: "body", generation_id: currentGenerationId, model: MODELS.body, max_tokens: 4000, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages: [{ role: "user", content: prompt }] })
+      body: JSON.stringify({ call_name: "body", generation_id: currentGenerationId, model: MODELS.body, max_tokens: 4000, system: [{ type: "text", text: system, cache_control: { type: "ephemeral", ttl: "1h" } }], messages: [{ role: "user", content: prompt }] })
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
