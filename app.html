@@ -1079,6 +1079,25 @@ function newGenerationId(){
   return id;
 }
 function genId(){ return currentGenerationId || newGenerationId(); }
+// MODELS -- single source of truth for which model each batch call uses. Every model
+// string in the batch-generation pipeline is routed through here so the choices are
+// visible in one place instead of buried inline at each call site. This object reflects
+// the pipeline AS IT RUNS TODAY -- it changes no behavior on its own. Note the calls that
+// quietly run on Sonnet (buyer_card, caption, authority_hook, hook); surfacing them here is
+// the point, so a future cost review can decide deliberately whether each still needs it.
+var MODELS = {
+  spec_translation: "claude-haiku-4-5-20251001",
+  buyer_card:       "claude-sonnet-4-6",
+  understanding:    "claude-haiku-4-5-20251001",
+  winner_framework: "claude-haiku-4-5-20251001",
+  authority_hook:   "claude-sonnet-4-6",
+  hook:             "claude-sonnet-4-6",
+  body:             "claude-haiku-4-5-20251001",
+  cta:              "claude-haiku-4-5-20251001",
+  screen_text:      "claude-haiku-4-5-20251001",
+  caption:          "claude-sonnet-4-6",
+  sharpen:          "claude-sonnet-4-6"
+};
 var voiceProfile = {}; // { q1:'A'|'B', q2:'A'|'B', ... }
 // AUDIENCE PROFILE -- the creator's ACTUAL BUYERS (from TikTok Shop customer
 // analytics, not followers). Persisted to Supabase user_metadata. All fields
@@ -2562,7 +2581,7 @@ function cleanProductDescription(rawDesc, callback) {
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ call_name: "spec_translation", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 1500,
+    body: JSON.stringify({ call_name: "spec_translation", generation_id: currentGenerationId, model: MODELS.spec_translation, max_tokens: 1500,
       messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -4737,7 +4756,7 @@ function generateBuyerCards() {
   fetch('/api/claude', {
     method: 'POST',
     headers: claudeHeaders(),
-    body: JSON.stringify({ call_name: 'buyer_card', generation_id: currentGenerationId, model: 'claude-sonnet-4-6', max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
+    body: JSON.stringify({ call_name: 'buyer_card', generation_id: currentGenerationId, model: MODELS.buyer_card, max_tokens: 500, messages: [{ role: 'user', content: prompt }] })
   })
   .then(function(r) { return r.json(); })
   .then(function(data) {
@@ -6128,7 +6147,7 @@ function generateBatchCTAs(hooks, product, priceCtx, callback) {
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ call_name: "cta", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 400,
+    body: JSON.stringify({ call_name: "cta", generation_id: currentGenerationId, model: MODELS.cta, max_tokens: 400,
       messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -6162,7 +6181,7 @@ function generateBatchCaptions(scripts, angles, product, productName, callback) 
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ call_name: "caption", generation_id: currentGenerationId, model: "claude-sonnet-4-6", max_tokens: 1200, messages: [{ role: "user", content: prompt }] })
+    body: JSON.stringify({ call_name: "caption", generation_id: currentGenerationId, model: MODELS.caption, max_tokens: 1200, messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
   .then(function(data){
@@ -6211,7 +6230,7 @@ function generateBatchScreenTexts(hooks, product, callback) {
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ call_name: "screen_text", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 800,
+    body: JSON.stringify({ call_name: "screen_text", generation_id: currentGenerationId, model: MODELS.screen_text, max_tokens: 800,
       messages: [{ role: "user", content: prompt }] })
   })
   .then(function(r){ return r.json(); })
@@ -6300,8 +6319,8 @@ function generateWinnerFrameworkScripts(winnerPanels, count, priceCtx, callback)
       fetch("/api/claude", {
         method: "POST",
         headers: claudeHeaders(),
-        body: JSON.stringify({ call_name: "winner_framework", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 3000,
-          system: system,
+        body: JSON.stringify({ call_name: "winner_framework", generation_id: currentGenerationId, model: MODELS.winner_framework, max_tokens: 3000,
+          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
           messages: [{ role: "user", content: wfPrompt }] })
       })
       .then(function(r) { return r.json(); })
@@ -6397,7 +6416,7 @@ function generateNormalBatch(angles, winnerScripts, winnerAngles) {
       fetch("/api/claude", {
         method: "POST",
         headers: claudeHeaders(),
-        body: JSON.stringify({ call_name: "authority_hook", generation_id: currentGenerationId, model: "claude-sonnet-4-6", max_tokens: 150, messages: [{ role: "user", content: authPrompt }] })
+        body: JSON.stringify({ call_name: "authority_hook", generation_id: currentGenerationId, model: MODELS.authority_hook, max_tokens: 150, messages: [{ role: "user", content: authPrompt }] })
       })
       .then(function(r) { return r.json(); })
       .then(function(data) {
@@ -6515,7 +6534,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ call_name: "understanding", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 600,
+    body: JSON.stringify({ call_name: "understanding", generation_id: currentGenerationId, model: MODELS.understanding, max_tokens: 600,
       messages: [{ role: "user", content: thinkPrompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -6586,7 +6605,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ call_name: "hook", generation_id: currentGenerationId, model: "claude-sonnet-4-6", max_tokens: 400,
+    body: JSON.stringify({ call_name: "hook", generation_id: currentGenerationId, model: MODELS.hook, max_tokens: 400,
       messages: [{ role: "user", content: goldHookPrompt }] })
   })
   .then(function(r) { return r.json(); })
@@ -6690,8 +6709,8 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ call_name: "body", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 4000,
-      system: system,
+    body: JSON.stringify({ call_name: "body", generation_id: currentGenerationId, model: MODELS.body, max_tokens: 4000,
+      system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
       messages: [{ role: "user", content: prompt }]
     })
   })
@@ -6761,7 +6780,7 @@ function generateBatchScriptsWithProfile(angles, priceCtx, profileNote, authHook
     fetch("/api/claude", {
       method: "POST",
       headers: claudeHeaders(),
-      body: JSON.stringify({ call_name: "body", generation_id: currentGenerationId, model: "claude-haiku-4-5-20251001", max_tokens: 4000, system: system, messages: [{ role: "user", content: prompt }] })
+      body: JSON.stringify({ call_name: "body", generation_id: currentGenerationId, model: MODELS.body, max_tokens: 4000, system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }], messages: [{ role: "user", content: prompt }] })
     })
     .then(function(r) { return r.json(); })
     .then(function(data) {
@@ -6837,7 +6856,7 @@ function sharpenHook(scriptObj, txtEl, btn, genIdForBatch) {
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ call_name: "sharpen", generation_id: genIdForBatch, model: "claude-sonnet-4-6", max_tokens: 400, messages: [{ role: "user", content: buildSharpenPrompt(current) }] })
+    body: JSON.stringify({ call_name: "sharpen", generation_id: genIdForBatch, model: MODELS.sharpen, max_tokens: 400, messages: [{ role: "user", content: buildSharpenPrompt(current) }] })
   })
   .then(function(r){ return r.json(); })
   .then(function(data){
