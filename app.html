@@ -1673,38 +1673,34 @@ function getAudienceNote() {
     strategy = " CREATOR VOICE TARGET -- WHO SHE WRITES TO: The creator WRITES TO women." +
       " Note this is who she addresses in scripts, " + diffClause +
       " -- men who buy are usually shopping for someone else." +
-      " Never write buyer cards or scripts addressed to men." +
-      " When the product is male-oriented (golf, whiskey, tools), still write to a woman buying it as a gift for the man in her life.";
+      " Never write buyer cards or scripts addressed to men.";
   } else if(wt === "men") {
     strategy = " CREATOR VOICE TARGET -- WHO HE WRITES TO: The creator WRITES TO men." +
       " Note this is who he addresses in scripts, " + diffClause +
       " -- women who buy are usually shopping for someone else." +
-      " Never write buyer cards or scripts addressed to women." +
-      " When the product is female-oriented (jewelry, skincare, handbags), still write to a man buying it as a gift for the woman in his life.";
+      " Never write buyer cards or scripts addressed to women.";
   } else if(wt === "both") {
     strategy = " CREATOR VOICE TARGET -- WHO THEY WRITE TO: The creator writes to women or men depending on the product." +
       " A script can only address one person at a time, so for THIS product decide the single most likely buyer and write every line to that one person consistently." +
       (hasDemo ? " Use the buyer percentages above to inform that choice." : "");
   }
 
-  // Gift-buyer framing -- independent of write-to; the watcher is shopping for
-  // someone else.
-  var giftLine = "";
-  if(a.giftBuyers) {
-    giftLine = " GIFT BUYERS: The creator also promotes products bought as gifts for someone else --" +
-      " the person watching is shopping for another person, not themselves" +
-      " (for example, a woman buying golf gear for her husband, or a man buying jewelry for his wife)." +
-      " When the product fits, frame the buyer as the gift-giver and speak to them, not the recipient.";
-  }
+  // Gift-buyer framing is deliberately NOT injected here. `giftBuyers` is a creator-level
+  // fact ("I sometimes sell as gifts"), not a per-script instruction. Injecting it into the
+  // audience note fired gift + invented-recipient framing into the foundation of EVERY
+  // generation (buyer cards + angles), decoupled from whether Gift was actually selected for
+  // the script. Gift framing now fires only on the real per-script signal -- currentPrice ===
+  // "gift" -- which is already handled downstream (getPriceContext, the angle GIFT FRAME, and
+  // the understanding GIFT FRAME). So the flag stays background-only and emits nothing here.
 
-  if(!hasDemo && !strategy && !giftLine) return "";
+  if(!hasDemo && !strategy) return "";
 
   var out = "";
   if(hasDemo) {
     out += " CREATOR'S ACTUAL BUYERS (people who purchased, not followers): " + parts.join(" ") +
            " Generate buyer types that plausibly belong to THIS group of real buyers.";
   }
-  out += strategy + giftLine;
+  out += strategy;
   return out;
 }
 
@@ -9041,7 +9037,7 @@ function renderFocusPicker() {
     " Rules: desire must be one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER use Social Media, Influencer, Viral." +
     " focus is 4-8 words specific to THIS product. description is one sentence about who the buyer is." +
     " Classify product first: does it CREATE something wanted (pizza maker, cocktail tool, beauty tool) or SOLVE something unwanted (vacuum, cleaner, organizer)? Match angle energy to product type." +
-    (currentPrice === "gift" ? " GIFT FRAME: every angle must speak to the gift GIVER not the user. Hook must establish giver perspective in first five words. No specific occasions." : "") +
+    (currentPrice === "gift" ? " GIFT FRAME: every angle must speak to the gift GIVER not the user. Hook must establish giver perspective in first five words. No specific occasions. Never assume the recipient's gender or name -- keep the recipient unnamed." : "") +
     SUPP_GUARD +
     " Output JSON only. Nothing before or after the JSON object.";
 
@@ -11203,7 +11199,7 @@ function getPriceContext() {
 
     luxury: "PRICE TIER -- $150+ -- ASPIRATIONAL: This buyer is not solving a problem. They already have a solution. They are completing a vision of how their life looks and feels. Do NOT frame this as fixing something broken. Do NOT manufacture pain that does not exist. The hook names the gap in an otherwise complete picture -- something that does not match the rest of the life they have built. Every line speaks to identity and aspiration. The pre-close is about deserving it or finally giving themselves permission -- never about whether it works. CTA is a soft invitation, never a push. The product is the last piece of something they have been building.",
 
-    gift: "PURCHASE FRAME -- GIFT: The buyer is not buying for themselves. They are buying for the feeling of being the person who found the perfect thing. HOOK RULE -- CRITICAL: The hook must establish giver perspective in the first five words. The viewer must immediately know they are the person shopping for someone else, not the person using the product. Use language like: The cook in your life, The golfer in your life, If someone you love, You finally found the one, The person who has everything -- language that signals giver not receiver. NEVER open a gift hook with a line that sounds like a self-buyer talking about their own experience. EVERGREEN RULE: Never mention specific gift occasions like birthdays, holidays, Christmas, or Mother's Day. The hook must work in any month of any year. Instead of occasions use relationship signals -- the cook in your life, someone who takes this seriously, the person who would never buy this for themselves. Body shows why this is the one -- specific enough that it sounds personal, not generic. Pre-close is the moment they almost did not get it or almost went with something safer. Body 2 is the moment the recipient opens it and the giver feels like they got it exactly right. CTA speaks to the giver: be the one who found it. Never speak to the recipient directly.",
+    gift: "PURCHASE FRAME -- GIFT: The buyer is not buying for themselves. They are buying for the feeling of being the person who found the perfect thing. HOOK RULE -- CRITICAL: The hook must establish giver perspective in the first five words. The viewer must immediately know they are the person shopping for someone else, not the person using the product. Use language like: The cook in your life, The golfer in your life, If someone you love, You finally found the one, The person who has everything -- language that signals giver not receiver. NEVER open a gift hook with a line that sounds like a self-buyer talking about their own experience. EVERGREEN RULE: Never mention specific gift occasions like birthdays, holidays, Christmas, or Mother's Day. The hook must work in any month of any year. Instead of occasions use relationship signals -- the cook in your life, someone who takes this seriously, the person who would never buy this for themselves. Body shows why this is the one -- specific enough that it sounds personal, not generic. Pre-close is the moment they almost did not get it or almost went with something safer. Body 2 puts the buyer in the moment of imagining the reaction to opening it -- their face, the pause -- and knowing they chose exactly right. CTA speaks to the giver: be the one who found it. Never speak to the recipient directly, and never assume the recipient's gender, name, or relationship -- keep them unnamed so the line fits whoever the buyer already has in mind.",
 
     sellthesale: "SELL THE URGENCY: Known brand. Do NOT educate. Do NOT say the price. Do NOT name the platform. Create urgency and get them to tap. Maximum 3 sentences."
   };
