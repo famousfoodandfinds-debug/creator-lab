@@ -139,7 +139,11 @@ exports.handler = async function(event) {
     const headers = {
       "Content-Type": "application/json",
       "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01"
+      "anthropic-version": "2023-06-01",
+      // Enables the 1-hour cache TTL (cache_control: { ttl: "1h" }) used by the batch body
+      // prompt. Without this beta header the extended TTL is ignored and caching falls back
+      // to the 5-minute default, which expires between generations (0% read rate).
+      "anthropic-beta": "extended-cache-ttl-2025-04-11"
     };
 
     // Safe diagnostic about the TokScript auth shape, surfaced in the response so
