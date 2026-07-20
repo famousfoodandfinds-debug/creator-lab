@@ -2820,9 +2820,10 @@ function renderSavedScriptView(sc, mc) {
   var wrap = document.createElement("div");
   wrap.style.cssText = "padding:16px;";
 
-  // Back button
+  // Back button -- a clear, prominent button (creators use it constantly when
+  // flipping through saved scripts), not faint grey text.
   var backBtn = document.createElement("button");
-  backBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;padding:0 0 16px;";
+  backBtn.style.cssText = "display:inline-flex;align-items:center;gap:6px;background:var(--surface2);border:1px solid var(--border-md);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;padding:9px 16px;border-radius:10px;margin-bottom:16px;";
   backBtn.innerHTML = "← Back to product";
   backBtn.addEventListener("click", function(){ renderProductHub(); });
   wrap.appendChild(backBtn);
@@ -3415,8 +3416,13 @@ function renderProductHub() {
         var card = document.createElement("div");
         card.className = "saved-card";
         card.style.marginBottom = "8px";
+        // Main line is the script's DESCRIPTIVE title (sc.angle, the same field the
+        // loaded-script view shows), so entries are distinguishable instead of all
+        // repeating the generic angle name. The generic angle (sc.desire) sits under
+        // it as a small tag.
         card.innerHTML =
-          "<div class='saved-card-name' style='font-size:13px;color:var(--white);margin-bottom:5px;display:flex;align-items:center;gap:6px;'>" + (sc.desire || sc.angle || "Script") + (sc.top_performer ? " <span style='font-size:11px;color:#FFD700;'>⭐</span>" : "") + "</div>" +
+          "<div class='saved-card-name' style='font-size:14px;font-weight:600;color:var(--white);margin-bottom:4px;display:flex;align-items:center;gap:6px;'>" + (sc.angle || sc.desire || "Script") + (sc.top_performer ? " <span style='font-size:11px;color:#FFD700;'>⭐</span>" : "") + "</div>" +
+          (sc.desire ? "<div style='display:inline-flex;align-items:center;font-size:9px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted);background:rgba(0,0,0,0.25);border:1px solid var(--border-md);border-radius:999px;padding:2px 8px;margin-bottom:6px;'>" + sc.desire + "</div>" : "") +
           "<div class='saved-card-preview' style='white-space:normal;font-size:12px;color:var(--muted);line-height:1.5;'>" + (sc.hook || "No hook") + "</div>" +
           "<div class='saved-card-foot'><span class='saved-card-date'>" + (sc.created_at ? new Date(sc.created_at).toLocaleDateString() : "") + "</span>" +
           "<button class='saved-del' data-id='" + sc.id + "'>Delete</button></div>";
