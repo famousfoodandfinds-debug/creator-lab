@@ -1,4 +1,25 @@
-const DAILY_LIMIT = 30;
+// ── Generation cap (billing-critical) ────────────────────────────────────────
+// Count FINISHED SCRIPTS, not model calls. All model calls for one script share a
+// generation_id; the cap counts DISTINCT script generation_ids per member per calendar
+// month. The first script-batch call for a new generation_id counts as one; every
+// sub-call for that same id rides free. Setup/utility calls and anything without a
+// generation_id are never counted, so the rest of the tool stays usable at the limit.
+const MONTHLY_SCRIPT_LIMIT = 300; // finished scripts per member per calendar month (UTC), resets on the 1st
+
+// call_names that constitute a real finished-script batch. spec_translation (description
+// cleaning) and buyer_card (buyer discovery) are SETUP, not scripts, so they are excluded.
+// If a new call_name becomes part of the script batch, add it here.
+const SCRIPT_CALL_NAMES = new Set([
+  "understanding", "hook", "body", "cta", "caption",
+  "screen_text", "winner_framework", "authority_hook", "sharpen"
+]);
+
+// Shown to the member at the limit. No upsell -- point them back to their library.
+const LIMIT_MESSAGE =
+  "You've reached your 300 scripts for this month. You may have scripts in your library " +
+  "you haven't used yet, and revisiting your proven winners is often the fastest way to " +
+  "keep posting. Your limit resets on the 1st.";
+
 const SUPABASE_URL = "https://ysacpditbxcrairmypsp.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYWNwZGl0YnhjcmFpcm15cHNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjU4MjYsImV4cCI6MjA4OTM0MTgyNn0.U8W_KpDkYCT-jVBbXneAP1q_W9ChfhTi69DD0SS6G3o";
 // Service-role key (already present in the Netlify env; used by the other webhook
@@ -32,6 +53,66 @@ async function logModelUsage(row) {
   } catch (err) {
     // swallow -- a logging error is never allowed to fail a member's script
   }
+}
+
+// Service-role Supabase headers. The cap table is service-role-only so the browser can
+// never read, write, or tamper with a member's script count.
+function svcHeaders() {
+  return {
+    "apikey": SUPABASE_SERVICE_KEY,
+    "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+    "Content-Type": "application/json"
+  };
+}
+
+// Enforce the monthly finished-script cap for ONE new script generation.
+// Returns { blocked, count }. Idempotent per generation_id: sub-calls of a script that is
+// already recorded return blocked:false without incrementing. Throws on any transport/DB
+// error so the caller can FAIL OPEN (never wrongly block a paying member).
+//
+// Counting model: the script_generations table holds one row per (user_id, generation_id),
+// with the month it was first counted. Row count for (user_id, current month) == distinct
+// scripts this month. The month key is UTC "YYYY-MM", so it rolls over automatically on the
+// 1st regardless of month length.
+async function enforceMonthlyScriptCap(userId, generationId) {
+  if (!SUPABASE_SERVICE_KEY) return { blocked: false }; // not configured -> no cap (fail open)
+
+  const monthKey = new Date().toISOString().slice(0, 7); // "YYYY-MM" (UTC)
+
+  // 1) Already recorded? -> this script was already counted; every sub-call rides free.
+  const seenRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/script_generations` +
+      `?user_id=eq.${encodeURIComponent(userId)}` +
+      `&generation_id=eq.${encodeURIComponent(generationId)}` +
+      `&select=generation_id&limit=1`,
+    { headers: svcHeaders() }
+  );
+  const seen = await seenRes.json();
+  if (Array.isArray(seen) && seen.length > 0) return { blocked: false };
+
+  // 2) New script this month -> how many distinct scripts already counted this month?
+  const countRes = await fetch(
+    `${SUPABASE_URL}/rest/v1/script_generations` +
+      `?user_id=eq.${encodeURIComponent(userId)}` +
+      `&month=eq.${monthKey}&select=generation_id`,
+    { headers: Object.assign({}, svcHeaders(), { "Prefer": "count=exact", "Range": "0-0" }) }
+  );
+  // total lives in the Content-Range header ("0-0/NNN" or "*/NNN"); no rows are transferred.
+  const contentRange = countRes.headers.get("content-range") || "";
+  const total = parseInt(contentRange.split("/")[1], 10) || 0;
+
+  if (total >= MONTHLY_SCRIPT_LIMIT) {
+    return { blocked: true, count: total };
+  }
+
+  // 3) Under the limit -> record this generation as one script. Idempotent on the primary
+  // key (user_id, generation_id) so concurrent sub-calls of the same script cannot double-count.
+  await fetch(`${SUPABASE_URL}/rest/v1/script_generations`, {
+    method: "POST",
+    headers: Object.assign({}, svcHeaders(), { "Prefer": "resolution=merge-duplicates,return=minimal" }),
+    body: JSON.stringify({ user_id: userId, generation_id: generationId, month: monthKey })
+  });
+  return { blocked: false, count: total + 1 };
 }
 
 exports.handler = async function(event) {
@@ -70,72 +151,49 @@ exports.handler = async function(event) {
     return { statusCode: 401, body: JSON.stringify({ error: "Not authenticated" }) };
   }
 
-  // Get today's date in YYYY-MM-DD format
-  const today = new Date().toISOString().split("T")[0];
-
-  // Check and increment rate limit in Supabase
+  // Parse the request body once. Usage-logging metadata (call_name, generation_id) travels in
+  // the body from the client; pull it out and STRIP it before forwarding so Anthropic never sees
+  // these non-API fields. Unlabeled calls are logged as "other" so no model spend is uncosted.
+  let body;
   try {
-    // Get current count for today
-    const checkRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/rate_limits?user_id=eq.${userId}&date=eq.${today}`,
-      {
-        headers: {
-          "apikey": SUPABASE_ANON,
-          "Authorization": `Bearer ${SUPABASE_ANON}`,
-          "Content-Type": "application/json"
-        }
+    body = JSON.parse(event.body || "{}");
+  } catch (e) {
+    return { statusCode: 400, body: JSON.stringify({ error: "Invalid JSON body" }) };
+  }
+  const callName = (typeof body.call_name === "string" && body.call_name) ? body.call_name : "other";
+  const generationId = (typeof body.generation_id === "string" && body.generation_id) ? body.generation_id : null;
+  const modelUsed = body.model || null;
+  delete body.call_name;
+  delete body.generation_id;
+
+  // ── Enforce the monthly finished-script cap ────────────────────────────────────────────────
+  // Only a real script-batch call that carries a generation_id is gated. Setup/utility calls
+  // (description cleaning, buyer discovery), regenerating or reusing library scripts, the Planner,
+  // and anything without a generation_id are never blocked -- this is a generate-only cap, so the
+  // rest of the tool stays fully usable at the limit.
+  if (generationId && SCRIPT_CALL_NAMES.has(callName)) {
+    try {
+      const cap = await enforceMonthlyScriptCap(userId, generationId);
+      if (cap.blocked) {
+        return {
+          statusCode: 429,
+          body: JSON.stringify({
+            error: "monthly_limit_reached",
+            message: LIMIT_MESSAGE,
+            count: cap.count,
+            limit: MONTHLY_SCRIPT_LIMIT
+          })
+        };
       }
-    );
-    const rows = await checkRes.json();
-    const currentCount = rows.length > 0 ? rows[0].count : 0;
-
-    // Block if over limit
-    if (currentCount >= DAILY_LIMIT) {
-      return {
-        statusCode: 429,
-        body: JSON.stringify({
-          error: "daily_limit_reached",
-          message: "You have reached your 30 generations for today. Your limit resets at midnight.",
-          count: currentCount,
-          limit: DAILY_LIMIT
-        })
-      };
+    } catch (err) {
+      // FAIL OPEN: a cap-check error (e.g. Supabase unreachable) must never wrongly block a
+      // paying member. Let the generation through.
+      console.error("Script cap check failed (allowing through):", err && err.message);
     }
-
-    // Upsert incremented count
-    await fetch(`${SUPABASE_URL}/rest/v1/rate_limits`, {
-      method: "POST",
-      headers: {
-        "apikey": SUPABASE_ANON,
-        "Authorization": `Bearer ${SUPABASE_ANON}`,
-        "Content-Type": "application/json",
-        "Prefer": "resolution=merge-duplicates"
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        date: today,
-        count: currentCount + 1
-      })
-    });
-
-  } catch (err) {
-    // If rate limit check fails, allow the request through rather than blocking users
-    console.error("Rate limit check failed:", err.message);
   }
 
   // Forward request to Anthropic
   try {
-    const body = JSON.parse(event.body);
-
-    // Usage-logging metadata travels in the body from the client. Pull it out and STRIP
-    // it before forwarding, so Anthropic never sees these non-API fields. Unlabeled calls
-    // are logged as "other" so no model spend is ever silently uncosted.
-    const callName = (typeof body.call_name === "string" && body.call_name) ? body.call_name : "other";
-    const generationId = (typeof body.generation_id === "string" && body.generation_id) ? body.generation_id : null;
-    const modelUsed = body.model || null;
-    delete body.call_name;
-    delete body.generation_id;
-
     const headers = {
       "Content-Type": "application/json",
       "x-api-key": apiKey,
