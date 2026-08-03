@@ -971,6 +971,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
       <p class="small muted" style="margin:4px 0 10px;">Assign products from your library to a bucket. Top sellers get filmed the most, focus products are this week's push, incoming samples are new tests.</p>
       <input id="plProdSearch" class="srch" placeholder="Search your products..." style="width:100%;margin-bottom:10px;" oninput="Planner.onSearch(this.value)">
       <div id="plProductPicker" class="list" style="max-height:340px;overflow-y:auto;"></div>
+      <div style="margin-top:10px;"><button class="btn ghost" type="button" onclick="Planner.openAddSample()">＋ Add a sample not in your library</button></div>
     </div>
 
     <div class="card">
@@ -999,7 +1000,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
       </div>
       <div class="row" style="margin-top:16px;align-items:center;">
         <div class="note" id="plSetupNote" style="margin:0;">Select at least one product to generate.</div>
-        <button class="btn" id="plGenBtn" disabled style="margin-left:auto;" onclick="Planner.generate()">Generate my plan</button>
+        <button class="btn" id="plGenBtn" style="margin-left:auto;" onclick="Planner.generate()">Generate my plan</button>
       </div>
       <div class="err hidden" id="plErr"></div>
     </div>
@@ -12161,10 +12162,16 @@ else { document.addEventListener("DOMContentLoaded", updateThemeToggleLabel); }
 // 1) Every product for the current user, with the fields the generator needs.
 function loadLibraryProducts(){
   if(!currentUser||!sb) return Promise.resolve([]);
+  // Same table + same user filter as the main productSelect picker (buildSelect), so the Planner
+  // shows the exact same library. Sorted alphabetically by name to match the picker's default.
   return sb.from("products")
     .select("id, name, description, motivation, real_reason, surprise, authority, buyers, bank")
     .eq("user_id", currentUser.id)
-    .then(function(r){ return (r&&!r.error&&r.data)?r.data:[]; }, function(){ return []; });
+    .then(function(r){
+      var list=(r&&!r.error&&r.data)?r.data:[];
+      list.sort(function(a,b){ return String(a.name||"").toLowerCase().localeCompare(String(b.name||"").toLowerCase()); });
+      return list;
+    }, function(){ return []; });
 }
 
 // 2) Transcribe a TikTok URL via the tokscript MCP server (key stays server-side). URL in,
@@ -12299,7 +12306,7 @@ function genOneScript(opts){
   function loadLibrary(cb){
     loadLibraryProducts().then(function(list){ S.lib = list || []; if(cb) cb(); }, function(){ S.lib=[]; if(cb) cb(); });
   }
-  function onSearch(v){ S.q = v || ''; renderPicker(); }
+  function onSearch(v){ S.q = (v || '').trim(); renderPicker(); }
   function renderPicker(){
     var box = el('plProductPicker'); if(!box) return;
     box.innerHTML = '';
@@ -12323,9 +12330,11 @@ function genOneScript(opts){
     syncGenBtn();
   }
   function syncGenBtn(){
+    // The button stays clickable so generate() can explain what's missing; it's only disabled
+    // WHILE a generation is running (to prevent double-fire).
     var n = selectedIds().length, btn = el('plGenBtn'), note = el('plSetupNote');
-    if(btn) btn.disabled = (n===0 || S.generating);
-    if(note) note.textContent = n ? (n + ' product' + (n>1?'s':'') + ' selected' + (S.links.length ? (' · ' + S.links.length + ' winning video' + (S.links.length>1?'s':'')) : '')) : 'Select at least one product to generate.';
+    if(btn) btn.disabled = S.generating;
+    if(note) note.textContent = n ? (n + ' product' + (n>1?'s':'') + ' selected' + (S.links.length ? (' · ' + S.links.length + ' winning video' + (S.links.length>1?'s':'')) : '')) : 'Assign at least one product to a bucket to generate.';
   }
 
   // ---- winning-video links ----
@@ -12365,12 +12374,18 @@ function genOneScript(opts){
 
   // ---- generation orchestrator ----
   function generate(){
+    var errEl = el('plErr');
+    function showErr(m){ if(errEl){ errEl.textContent = m; errEl.classList.remove('hidden'); } }
+    if(errEl) errEl.classList.add('hidden');
     if(S.generating) return;
-    var ids = bucketOrderIds(); if(!ids.length) return;
+    // Never fail silently: say exactly what's missing.
+    if(!currentUser || !sb){ showErr('Please sign in first, then try again.'); return; }
+    if(!S.lib.length){ showErr('No products in your library yet — add a sample below, or build a product in the Scripts tab first.'); return; }
+    var ids = bucketOrderIds();
+    if(!ids.length){ showErr('Assign at least one product to a bucket first — tap Top, Focus, or Incoming next to a product in the list above.'); return; }
     S.perProd = Math.max(1, Math.min(7, parseInt(el('plPerProd').value) || 2));
     S.perDay = Math.max(1, Math.min(30, parseInt(el('plPerDay').value) || 4));
     S.generating = true; syncGenBtn();
-    var errEl = el('plErr'); if(errEl) errEl.classList.add('hidden');
     var btn = el('plGenBtn');
     // reset any prior plan
     S.takes = {}; S.order = []; S.board = { days: [] }; S.posted = {}; S.filmed = {};
@@ -12624,6 +12639,46 @@ function genOneScript(opts){
     ov.classList.remove('hidden');
   }
 
+  // ---- add an incoming sample (creates a real library product, flagged incoming) ----
+  function openAddSample(){
+    var ov = el('overlay'); if(!ov) return;
+    ov.innerHTML = '<div class="sheet"><h3>Add a sample</h3>' +
+      '<div class="note" style="margin:0 0 12px;">This creates a new product in your library, flags it as an incoming sample, and drops it into the Incoming samples bucket. It works in the Scripts tab too.</div>' +
+      '<div class="lbl" style="margin-bottom:4px;">Product name</div>' +
+      '<input id="plSampleName" class="srch" placeholder="e.g. Ceramic pour-over kettle" style="width:100%;margin-bottom:10px;">' +
+      '<div class="lbl" style="margin-bottom:4px;">Product details</div>' +
+      '<textarea id="plSampleDesc" class="srch" placeholder="Paste the product description / spec" style="width:100%;min-height:96px;resize:vertical;"></textarea>' +
+      '<div class="err hidden" id="plSampleErr" style="margin-top:8px;"></div>' +
+      '<div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px;">' +
+        '<button class="btn ghost" type="button" onclick="document.getElementById(\'overlay\').classList.add(\'hidden\')">Cancel</button>' +
+        '<button class="btn" type="button" id="plSampleSave" onclick="Planner.saveSample()">Add to samples</button>' +
+      '</div></div>';
+    ov.classList.remove('hidden');
+    var nm = el('plSampleName'); if(nm){ try{ nm.focus(); }catch(e){} }
+  }
+  function saveSample(){
+    var nm = el('plSampleName'), ds = el('plSampleDesc'), er = el('plSampleErr'), sv = el('plSampleSave');
+    var name = (nm && nm.value ? nm.value : '').trim();
+    var desc = (ds && ds.value ? ds.value : '').trim();
+    function showErr(m){ if(er){ er.textContent = m; er.classList.remove('hidden'); } }
+    if(er) er.classList.add('hidden');
+    if(!name){ showErr('Give the sample a name.'); return; }
+    if(!currentUser || !sb){ showErr('Please sign in first.'); return; }
+    if(sv){ sv.disabled = true; sv.textContent = 'Adding...'; }
+    sb.from('products').insert({ user_id: currentUser.id, name: name, description: desc || null, bank: { incoming: true } }).select().single().then(function(r){
+      if(!r || r.error || !r.data){ if(sv){ sv.disabled = false; sv.textContent = 'Add to samples'; } showErr('Could not add that sample, please try again.'); return; }
+      var p = r.data;
+      S.lib = S.lib.filter(function(x){ return x.id !== p.id; });
+      S.lib.push(p);
+      S.lib.sort(function(a,b){ return String(a.name||'').toLowerCase().localeCompare(String(b.name||'').toLowerCase()); });
+      S.picks[p.id] = 'sample';
+      var ov = el('overlay'); if(ov) ov.classList.add('hidden');
+      S.q = ''; var srch = el('plProdSearch'); if(srch) srch.value = '';
+      renderPicker(); syncGenBtn(); save();
+      if(typeof buildSelect === 'function'){ try{ buildSelect(); }catch(e){} }  // keep the main app picker in sync
+    }, function(){ if(sv){ sv.disabled = false; sv.textContent = 'Add to samples'; } showErr('Could not add that sample, please try again.'); });
+  }
+
   // ---- persistence (Supabase planner_state, one JSONB row per user) ----
   function snapshot(){
     return {
@@ -12671,11 +12726,14 @@ function genOneScript(opts){
   var loadedForUser = null;
   function load(){
     if(!currentUser || !sb) return;
-    if(loadedForUser === currentUser.id) return;
-    if(loadedForUser !== null) resetAll();   // a different user signed in this session
+    var firstForUser = (loadedForUser !== currentUser.id);
+    if(loadedForUser !== null && loadedForUser !== currentUser.id) resetAll();  // a different user signed in
     loadedForUser = currentUser.id;
+    // Always refresh the library list on open so it matches the rest of the app (products added in
+    // the Scripts tab show up here immediately). Restore the saved plan state only once per user.
     loadLibrary(function(){
       renderPicker(); renderLinks();
+      if(!firstForUser) return;
       try{
         sb.from('planner_state').select('data').eq('user_id', currentUser.id).maybeSingle().then(function(res){
           if(res && !res.error && res.data && res.data.data){ restoreFrom(res.data.data); }
@@ -12685,7 +12743,7 @@ function genOneScript(opts){
     });
   }
 
-  window.Planner = { load: load, openGuide: openGuide, onSearch: onSearch, addLink: addLink, setIter: setIter, generate: generate, setLayout: setLayout, startOver: startOver };
+  window.Planner = { load: load, openGuide: openGuide, onSearch: onSearch, addLink: addLink, setIter: setIter, generate: generate, setLayout: setLayout, startOver: startOver, openAddSample: openAddSample, saveSample: saveSample };
 })();
 </script>
 
