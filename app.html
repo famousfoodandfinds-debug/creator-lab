@@ -12216,7 +12216,8 @@ function suggestFreshAngles(desc, motivation, n){
 
 // Compact week-level "winning videos to borrow" block, built from pasted link transcripts.
 function plannerWinnersBlock(links){
-  var t=(links||[]).map(function(l){ return String((l&&l.transcript)||"").trim(); }).filter(Boolean);
+  var arr=Array.isArray(links)?links:[];
+  var t=arr.map(function(l){ return String((l&&l.transcript)||"").trim(); }).filter(Boolean);
   if(!t.length) return "";
   var b=" WINNING VIDEOS TO BORROW FROM (guide STRUCTURE and PSYCHOLOGY only, never copy wording):";
   t.forEach(function(x,i){ b+=" VIRAL FORMAT "+(i+1)+" to optionally borrow: "+x; });
@@ -12702,12 +12703,16 @@ function genOneScript(opts){
   function restoreFrom(d){
     S.restoring = true;
     try{
-      // v2 planner state. Old v1 (export-era) rows have none of these keys -> treated as empty.
-      S.picks = d.picks || {}; S.links = d.links || []; S.iter = (d.iter==='same'?'same':'fresh');
+      // v2 planner state. Old v1 (export-era) rows have a different shape (e.g. links was an
+      // OBJECT map, and there were no picks/takes/order), so coerce every field by type — never
+      // trust a stale row to have the right container type.
+      function obj(x){ return (x && typeof x==='object' && !Array.isArray(x)) ? x : {}; }
+      function arr(x){ return Array.isArray(x) ? x : []; }
+      S.picks = obj(d.picks); S.links = arr(d.links); S.iter = (d.iter==='same'?'same':'fresh');
       S.perProd = d.perProd || 2; S.perDay = d.perDay || 4; S.layout = (d.layout==='day'?'day':'bucket');
-      S.takes = d.takes || {}; S.order = d.order || [];
-      S.board = (d.board && d.board.days) ? { days: d.board.days } : { days: [] };
-      S.posted = d.posted || {}; S.filmed = d.filmed || {}; IID = d.iid || IID;
+      S.takes = obj(d.takes); S.order = arr(d.order);
+      S.board = (d.board && arr(d.board.days).length) ? { days: arr(d.board.days) } : { days: [] };
+      S.posted = obj(d.posted); S.filmed = obj(d.filmed); IID = d.iid || IID;
       setIter(S.iter);
       var perP = el('plPerProd'); if(perP) perP.value = S.perProd;
       var perD = el('plPerDay'); if(perD) perD.value = S.perDay;
