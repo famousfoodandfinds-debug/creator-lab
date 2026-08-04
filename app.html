@@ -1011,7 +1011,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px;flex-wrap:wrap;">
       <div class="seg">
         <button id="plLayoutBucket" class="on" onclick="Planner.setLayout('bucket')">By bucket</button>
-        <button id="plLayoutDay" onclick="Planner.setLayout('day')">By day</button>
+        <button id="plLayoutDay" onclick="Planner.setLayout('day')">Weekly board</button>
       </div>
       <button class="btn ghost" onclick="Planner.startOver()">↑ New plan</button>
     </div>
@@ -12588,6 +12588,15 @@ function genOneScript(opts){
   var sorters = [];
   function renderDays(){
     var wrap = el('plDayView'); wrap.innerHTML='';
+    ensureBoard();
+    if(!Object.keys(S.takes).length){ wrap.innerHTML = '<div class="note" style="margin:12px 0;">No scripts yet — generate a plan first, then switch here to spread them across the week.</div>'; return; }
+    var bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:14px;';
+    var hint = document.createElement('div'); hint.className='note'; hint.style.margin='0';
+    hint.textContent = 'Your week — drag any card between days to plan when you film it.';
+    var resp = document.createElement('button'); resp.type='button'; resp.className='btn ghost sm'; resp.textContent='Re-spread evenly';
+    resp.addEventListener('click', function(){ respread(); });
+    bar.appendChild(hint); bar.appendChild(resp); wrap.appendChild(bar);
     var board = document.createElement('div'); board.className='days';
     S.board.days.forEach(function(day,di){
       var col = document.createElement('div'); col.className='daycol';
@@ -12626,8 +12635,21 @@ function genOneScript(opts){
 
   function setLayout(l){
     S.layout = (l==='day') ? 'day' : 'bucket';
+    if(S.layout==='day') ensureBoard();   // never show an empty weekly board
     renderResults(); save();
   }
+  // Keep the weekly board in sync with the current takes: (re)deal if missing, drop stale
+  // ids, and place any take that isn't on the board yet. Guarantees the weekly view is never
+  // blank when takes exist.
+  function ensureBoard(){
+    if(!S.board || !Array.isArray(S.board.days) || !S.board.days.length){ dealDays(); return; }
+    var onBoard = {};
+    S.board.days.forEach(function(d){ (d.items||[]).forEach(function(iid){ onBoard[iid]=1; }); });
+    S.board.days.forEach(function(d){ d.items = (d.items||[]).filter(function(iid){ return S.takes[iid]; }); });
+    var missing = S.order.filter(function(iid){ return S.takes[iid] && !onBoard[iid]; });
+    if(missing.length){ var k=0; missing.forEach(function(iid){ S.board.days[k % S.board.days.length].items.push(iid); k++; }); }
+  }
+  function respread(){ dealDays(); renderDays(); save(); }
   function startOver(){
     el('plResults').classList.add('hidden'); el('plSetup').classList.remove('hidden');
     renderPicker(); renderLinks(); syncGenBtn(); window.scrollTo(0,0);
