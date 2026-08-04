@@ -12181,22 +12181,30 @@ function loadLibraryProducts(){
 function transcribeTikTokLink(url){
   url=String(url||"").trim();
   if(!url) return Promise.reject(new Error("Paste a TikTok link first."));
+  // Send tokscript a clean canonical URL — the pasted share link carries tracking params
+  // (?is_from_webapp=1&sender_device=pc&web_id=...) that can slow or trip up resolution.
+  var cleanUrl=url.split(/[?#]/)[0] || url;
   var controller=new AbortController();
-  var timer=setTimeout(function(){ controller.abort(); }, 90000);
-  var prompt="Use the tokscript MCP server to fetch the transcript and engagement stats for this video URL: "+url+". Then respond with ONLY a JSON object and nothing else (no prose, no markdown fences) with these keys: handle (the creator handle), views (the view count as text), transcript (every spoken transcript segment joined into one string in order, no timestamps), topic (a short label of what product or subject the video is about). Output only that JSON object.";
+  // Client cap sits just above the 60s Netlify function timeout so a server-side timeout
+  // surfaces as an error we can show, rather than the client aborting first.
+  var timer=setTimeout(function(){ controller.abort(); }, 75000);
+  var prompt="Use the tokscript MCP server to fetch the transcript and engagement stats for this video URL: "+cleanUrl+". Then respond with ONLY a JSON object and nothing else (no prose, no markdown fences) with these keys: handle (the creator handle), views (the view count as text), transcript (every spoken transcript segment joined into one string in order, no timestamps), topic (a short label of what product or subject the video is about). Output only that JSON object.";
   return fetch("/api/claude",{ method:"POST", headers:claudeHeaders(), signal:controller.signal,
       body:JSON.stringify({ useTokscript:true, model:"claude-sonnet-4-6", max_tokens:4000, messages:[{role:"user",content:prompt}] }) })
-    .then(function(r){ return r.text(); })
-    .then(function(raw){
+    .then(function(r){ return r.text().then(function(raw){ return { ok:r.ok, status:r.status, raw:raw }; }); })
+    .then(function(res){
       clearTimeout(timer);
-      var data=JSON.parse(raw);
-      if(data.error) throw new Error(data.error.message||"request failed");
+      var data;
+      try{ data=JSON.parse(res.raw); }
+      catch(e){ throw new Error(res.status===504||res.status===502 ? "the transcription service timed out — try again in a moment" : ("the server returned an unexpected response (HTTP "+res.status+")")); }
+      if(data && data.error) throw new Error((data.error.message||data.error.type||"request failed"));
       var text=""; if(Array.isArray(data.content)) data.content.forEach(function(b){ if(b&&b.type==="text") text+=b.text; });
+      if(!text.trim()) throw new Error("the video could not be read (it may be private, region-locked, or too new)");
       var obj=(typeof parseWinnerJson==="function")?parseWinnerJson(text):null;
-      if(!obj) throw new Error("could not read the transcript");
+      if(!obj) throw new Error("could not parse the transcript from the response");
       return { handle:obj.handle!=null?String(obj.handle):"", views:obj.views!=null?String(obj.views):"",
                transcript:obj.transcript!=null?String(obj.transcript):"", topic:obj.topic!=null?String(obj.topic):"" };
-    }, function(e){ clearTimeout(timer); throw e; });
+    }, function(e){ clearTimeout(timer); if(e&&e.name==="AbortError"){ throw new Error("the transcription took too long (over 75s) — try again"); } throw e; });
 }
 
 // 3) Up to n fresh buyer-desire angles for a product (constrained to the standard desire list).
@@ -12352,7 +12360,7 @@ function genOneScript(opts){
       S.links.push({ url:url, handle:o.handle, views:o.views, transcript:o.transcript, topic:o.topic });
       if(inp) inp.value=''; if(st){ st.style.display='none'; st.textContent=''; }
       renderLinks(); syncGenBtn(); save();
-    }).catch(function(){ show('var(--red)','That took too long or failed, please try again.'); });
+    }).catch(function(err){ show('var(--red)','Could not fetch that video: ' + ((err && err.message) ? err.message : 'unknown error') + '.'); });
   }
   function removeLink(i){ S.links.splice(i,1); renderLinks(); syncGenBtn(); save(); }
   function renderLinks(){
