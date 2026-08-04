@@ -12197,7 +12197,15 @@ function transcribeTikTokLink(url){
       var data;
       try{ data=JSON.parse(res.raw); }
       catch(e){ throw new Error(res.status===504||res.status===502 ? "the transcription service timed out — try again in a moment" : ("the server returned an unexpected response (HTTP "+res.status+")")); }
-      if(data && data.error) throw new Error((data.error.message||data.error.type||"request failed"));
+      if(data && data.error){
+        var msg=(data.error.message||data.error.type||"request failed");
+        var dbg=data.tokscriptDebug;   // safe diagnostic from the proxy: key length + auth mode, never the key
+        if(dbg && typeof dbg.keyLength==="number"){
+          msg += dbg.keyLength ? (" [tokscript key present ("+dbg.keyLength+" chars), auth mode "+(dbg.authMode||"?")+"]")
+                               : " [tokscript key MISSING in this deploy — the TOKSCRIPT_API_KEY env var isn't set for this context]";
+        }
+        throw new Error(msg);
+      }
       var text=""; if(Array.isArray(data.content)) data.content.forEach(function(b){ if(b&&b.type==="text") text+=b.text; });
       if(!text.trim()) throw new Error("the video could not be read (it may be private, region-locked, or too new)");
       var obj=(typeof parseWinnerJson==="function")?parseWinnerJson(text):null;
