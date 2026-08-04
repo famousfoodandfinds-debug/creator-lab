@@ -651,7 +651,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
 #plannerPanel .btn:disabled{background:var(--surface3);color:var(--faint);cursor:not-allowed;}
 #plannerPanel .btn.ghost{background:transparent;border:1px solid var(--border-md);color:var(--text);font-weight:500;padding:9px 15px;font-size:13px;}
 #plannerPanel .numin{width:60px;background:var(--surface2);border:1px solid var(--border-md);color:var(--text);border-radius:9px;padding:9px;font-size:15px;font-family:inherit;text-align:center;}
-#plannerPanel .note{font-size:11px;color:var(--faint);margin-top:12px;}
+#plannerPanel .note{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5;}
 #plannerPanel .hidden{display:none!important;}
 #plannerPanel .err{color:#e88;font-size:12px;margin-top:8px;}
 #plannerPanel .topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;}
@@ -1011,14 +1011,16 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px;flex-wrap:wrap;">
       <div class="seg">
         <button id="plLayoutBucket" class="on" onclick="Planner.setLayout('bucket')">By bucket</button>
-        <button id="plLayoutDay" onclick="Planner.setLayout('day')">Weekly board</button>
+        <button id="plLayoutDaily" onclick="Planner.setLayout('daily')">Daily</button>
+        <button id="plLayoutWeekly" onclick="Planner.setLayout('weekly')">Weekly</button>
       </div>
       <button class="btn ghost" onclick="Planner.startOver()">↑ New plan</button>
     </div>
     <div class="summary" id="plSummary"></div>
     <div id="plProductsPanel"></div>
     <div id="plBucketView"></div>
-    <div id="plDayView" class="hidden"></div>
+    <div id="plDailyView" class="hidden"></div>
+    <div id="plWeekView" class="hidden"></div>
   </div>
 
   <div id="overlay" class="overlay hidden"></div>
@@ -12274,7 +12276,7 @@ function genOneScript(opts){
   var S = {
     lib: [], picks: {}, q: '',
     links: [], iter: 'fresh', perProd: 2, perDay: 4,
-    takes: {}, order: [], board: { days: [] }, layout: 'bucket',
+    takes: {}, order: [], board: { days: [] }, layout: 'bucket', activeDay: 0,
     posted: {}, filmed: {}, generating: false, restoring: false
   };
   var IID = 1;
@@ -12492,9 +12494,14 @@ function genOneScript(opts){
   function renderResults(){
     renderSummary(); renderProductsPanel();
     el('plLayoutBucket').classList.toggle('on', S.layout==='bucket');
-    el('plLayoutDay').classList.toggle('on', S.layout==='day');
-    if(S.layout==='day'){ el('plBucketView').classList.add('hidden'); el('plDayView').classList.remove('hidden'); renderDays(); }
-    else { el('plDayView').classList.add('hidden'); el('plBucketView').classList.remove('hidden'); renderBucketView(); }
+    el('plLayoutDaily').classList.toggle('on', S.layout==='daily');
+    el('plLayoutWeekly').classList.toggle('on', S.layout==='weekly');
+    el('plBucketView').classList.toggle('hidden', S.layout!=='bucket');
+    el('plDailyView').classList.toggle('hidden', S.layout!=='daily');
+    el('plWeekView').classList.toggle('hidden', S.layout!=='weekly');
+    if(S.layout==='daily') renderDaily();
+    else if(S.layout==='weekly') renderDays();
+    else renderBucketView();
   }
   function renderSummary(){
     var total = Object.keys(S.takes).length, prods = bucketOrderIds().filter(function(id){ return countForProduct(id)>0; }).length;
@@ -12586,8 +12593,40 @@ function genOneScript(opts){
     return wd[t.getDay()] + ' ' + (t.getMonth()+1) + '/' + t.getDate();
   }
   var sorters = [];
+  // DAILY view: one day at a time, with a prev/next stepper. Good for "what do I film today".
+  function renderDaily(){
+    var wrap = el('plDailyView'); wrap.innerHTML='';
+    ensureBoard();
+    if(!Object.keys(S.takes).length){ wrap.innerHTML = '<div class="note" style="margin:12px 0;">No scripts yet — generate a plan first, then come back to see each day.</div>'; return; }
+    var days = S.board.days.length || 7;
+    if(S.activeDay==null || S.activeDay<0) S.activeDay=0;
+    if(S.activeDay>=days) S.activeDay=days-1;
+    var day = S.board.days[S.activeDay] || { items: [] };
+    var nav = document.createElement('div');
+    nav.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;';
+    var prev = document.createElement('button'); prev.type='button'; prev.className='btn ghost sm'; prev.textContent='‹ Prev';
+    prev.disabled = (S.activeDay<=0);
+    prev.addEventListener('click', function(){ if(S.activeDay>0){ S.activeDay--; renderDaily(); save(); } });
+    var title = document.createElement('div'); title.style.cssText='text-align:center;flex:1;';
+    title.innerHTML = '<div style="font-family:\'Marcellus\',serif;font-size:16px;letter-spacing:0.04em;color:var(--text);">' + esc(dayLabel(S.activeDay)) + '</div>' +
+      '<div class="small" style="color:var(--muted);margin-top:2px;">' + day.items.length + ' to film' + (day.items.length>S.perDay?' · over your daily target':'') + '</div>';
+    var next = document.createElement('button'); next.type='button'; next.className='btn ghost sm'; next.textContent='Next ›';
+    next.disabled = (S.activeDay>=days-1);
+    next.addEventListener('click', function(){ if(S.activeDay<days-1){ S.activeDay++; renderDaily(); save(); } });
+    nav.appendChild(prev); nav.appendChild(title); nav.appendChild(next); wrap.appendChild(nav);
+    var card = document.createElement('div'); card.className='card';
+    if(!day.items.length){ card.innerHTML = '<div class="note" style="margin:6px 0;">Nothing set for this day. On the Weekly view you can drag scripts onto any day.</div>'; }
+    else {
+      var list = document.createElement('div'); list.className='list';
+      day.items.forEach(function(iid){ var c = takeCard(iid); if(c) list.appendChild(c); });
+      card.appendChild(list);
+    }
+    wrap.appendChild(card);
+  }
+
+  // WEEKLY view: all 7 days as columns, drag cards between days.
   function renderDays(){
-    var wrap = el('plDayView'); wrap.innerHTML='';
+    var wrap = el('plWeekView'); wrap.innerHTML='';
     ensureBoard();
     if(!Object.keys(S.takes).length){ wrap.innerHTML = '<div class="note" style="margin:12px 0;">No scripts yet — generate a plan first, then switch here to spread them across the week.</div>'; return; }
     var bar = document.createElement('div');
@@ -12620,7 +12659,7 @@ function genOneScript(opts){
   }
   // Cross-day drag: rebuild each day's item list from the DOM, then persist.
   function syncDaysFromDOM(){
-    var wrap = el('plDayView');
+    var wrap = el('plWeekView');
     S.board.days.forEach(function(day,di){
       var list = wrap.querySelector('.list[data-di="' + di + '"]');
       day.items = list ? [].slice.call(list.querySelectorAll('.cardv')).map(function(c){ return c.getAttribute('data-iid'); }) : [];
@@ -12634,8 +12673,9 @@ function genOneScript(opts){
   }
 
   function setLayout(l){
-    S.layout = (l==='day') ? 'day' : 'bucket';
-    if(S.layout==='day') ensureBoard();   // never show an empty weekly board
+    if(l==='day') l='weekly';   // legacy value
+    S.layout = (l==='daily' || l==='weekly') ? l : 'bucket';
+    if(S.layout!=='bucket') ensureBoard();   // daily + weekly both read the dealt board
     renderResults(); save();
   }
   // Keep the weekly board in sync with the current takes: (re)deal if missing, drop stale
@@ -12656,8 +12696,14 @@ function genOneScript(opts){
   }
   function openGuide(){
     var ov = el('overlay'); if(!ov) return;
-    ov.innerHTML = '<div class="sheet"><h3>How the Planner works</h3>' +
-      '<div class="note" style="margin:0 0 12px;">1. Assign products from your library to a bucket — top sellers, focus products, incoming samples. 2. Optionally paste up to two winning video links; their transcripts guide every script. 3. Choose New angles or Same angle / fresh wording, and how many videos per product. 4. Generate — Saxe writes the scripts, inserts them into your library, and groups them by bucket. Switch to By day to spread them across the week and drag between days.</div>' +
+    ov.innerHTML = '<div class="sheet"><h3 style="margin:0 0 12px;">How the Planner works</h3>' +
+      '<ol style="margin:0 0 16px;padding-left:22px;font-size:14px;line-height:1.7;color:var(--text);">' +
+        '<li><b>Pick products.</b> Assign products from your library to a bucket — top sellers, focus products, or incoming samples.</li>' +
+        '<li style="margin-top:6px;"><b>Add winning videos (optional).</b> Paste up to two links; their transcripts guide the structure of every script.</li>' +
+        '<li style="margin-top:6px;"><b>Choose how to generate.</b> New angles, or Same angle / fresh wording — and how many videos per product.</li>' +
+        '<li style="margin-top:6px;"><b>Generate.</b> Saxe writes the scripts, saves them to your library, and groups them by bucket.</li>' +
+        '<li style="margin-top:6px;"><b>Plan your week.</b> Switch to <b>Daily</b> to see one day at a time, or <b>Weekly</b> to see the whole week and drag cards between days.</li>' +
+      '</ol>' +
       '<div style="text-align:center;"><button class="btn ghost" type="button" onclick="document.getElementById(\'overlay\').classList.add(\'hidden\')">Close</button></div></div>';
     ov.classList.remove('hidden');
   }
@@ -12705,7 +12751,7 @@ function genOneScript(opts){
   // ---- persistence (Supabase planner_state, one JSONB row per user) ----
   function snapshot(){
     return {
-      v: 2, picks: S.picks, links: S.links, iter: S.iter, perProd: S.perProd, perDay: S.perDay, layout: S.layout,
+      v: 2, picks: S.picks, links: S.links, iter: S.iter, perProd: S.perProd, perDay: S.perDay, layout: S.layout, activeDay: S.activeDay,
       takes: S.takes, order: S.order,
       board: { days: (S.board.days||[]).map(function(d){ return { items: d.items || [] }; }) },
       posted: S.posted, filmed: S.filmed, iid: IID
@@ -12719,7 +12765,7 @@ function genOneScript(opts){
   }
   function resetAll(){
     S.picks = {}; S.links = []; S.iter = 'fresh'; S.perProd = 2; S.perDay = 4;
-    S.takes = {}; S.order = []; S.board = { days: [] }; S.layout = 'bucket';
+    S.takes = {}; S.order = []; S.board = { days: [] }; S.layout = 'bucket'; S.activeDay = 0;
     S.posted = {}; S.filmed = {}; S.q = ''; IID = 1;
   }
   function restoreFrom(d){
@@ -12731,7 +12777,9 @@ function genOneScript(opts){
       function obj(x){ return (x && typeof x==='object' && !Array.isArray(x)) ? x : {}; }
       function arr(x){ return Array.isArray(x) ? x : []; }
       S.picks = obj(d.picks); S.links = arr(d.links); S.iter = (d.iter==='same'?'same':'fresh');
-      S.perProd = d.perProd || 2; S.perDay = d.perDay || 4; S.layout = (d.layout==='day'?'day':'bucket');
+      S.perProd = d.perProd || 2; S.perDay = d.perDay || 4;
+      S.layout = (d.layout==='daily') ? 'daily' : ((d.layout==='weekly'||d.layout==='day') ? 'weekly' : 'bucket');
+      S.activeDay = (typeof d.activeDay==='number' && d.activeDay>=0) ? d.activeDay : 0;
       S.takes = obj(d.takes); S.order = arr(d.order);
       S.board = (d.board && arr(d.board.days).length) ? { days: arr(d.board.days) } : { days: [] };
       S.posted = obj(d.posted); S.filmed = obj(d.filmed); IID = d.iid || IID;
