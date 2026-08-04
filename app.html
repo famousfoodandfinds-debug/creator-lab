@@ -13,7 +13,6 @@
 <title>Saxe</title>
 <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet">
 <!-- Content Planner dependencies -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
 <style>
 
@@ -652,7 +651,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
 #plannerPanel .btn:disabled{background:var(--surface3);color:var(--faint);cursor:not-allowed;}
 #plannerPanel .btn.ghost{background:transparent;border:1px solid var(--border-md);color:var(--text);font-weight:500;padding:9px 15px;font-size:13px;}
 #plannerPanel .numin{width:60px;background:var(--surface2);border:1px solid var(--border-md);color:var(--text);border-radius:9px;padding:9px;font-size:15px;font-family:inherit;text-align:center;}
-#plannerPanel .note{font-size:11px;color:var(--faint);margin-top:12px;}
+#plannerPanel .note{font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5;}
 #plannerPanel .hidden{display:none!important;}
 #plannerPanel .err{color:#e88;font-size:12px;margin-top:8px;}
 #plannerPanel .topbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px;}
@@ -961,61 +960,67 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
 <!-- ===== CONTENT PLANNER ===== -->
 <div id="plannerPanel" style="display:none;">
   <div class="pl-head">
-    <div><div class="pl-title">Content Planner</div><div class="pl-sub">Plan your week from your TikTok Shop exports</div></div>
+    <div><div class="pl-title">Content Planner</div><div class="pl-sub">Plan your week from your product library</div></div>
     <button class="btn ghost" onclick="Planner.openGuide()" style="font-size:12px;padding:8px 14px;white-space:nowrap;">Guide</button>
   </div>
 
-  <!-- UPLOAD -->
-  <div class="card" id="plUploadCard">
-    <h2>Build this week's plan</h2>
-    <p class="small muted" style="margin:4px 0 0;">Drop in your two weekly exports and Saxe ranks every product by commission per unit, then lays out what to film.</p>
-    <div style="margin-top:14px;"><div class="lbl">Where to get them</div>
-      <ol class="steps">
-        <li>Go to <a href="https://shop.tiktok.com/streamer/home" target="_blank" rel="noopener noreferrer"><b>shop.tiktok.com/streamer/home</b></a> and sign in.</li>
-        <li><b>Product file:</b> Analytics, then Product Analytics, then Export.</li>
-        <li><b>Video file:</b> Analytics, then Video Analytics, keep Last 7 days, then Export.</li>
-      </ol>
+  <!-- SETUP -->
+  <div id="plSetup">
+    <div class="card">
+      <h2>Pick your products</h2>
+      <p class="small muted" style="margin:4px 0 10px;">Assign products from your library to a bucket. Top sellers get filmed the most, focus products are this week's push, incoming samples are new tests.</p>
+      <input id="plProdSearch" class="srch" placeholder="Search your products..." style="width:100%;margin-bottom:10px;" oninput="Planner.onSearch(this.value)">
+      <div id="plProductPicker" class="list" style="max-height:340px;overflow-y:auto;"></div>
+      <div style="margin-top:10px;"><button class="btn ghost" type="button" onclick="Planner.openAddSample()">＋ Add a sample not in your library</button></div>
     </div>
-    <label class="drop" id="dropP"><div class="dn" id="dnP">Product file</div><div class="dh">the one with commission and unit sales</div><input type="file" id="fileP" accept=".xlsx,.xls,.csv"></label>
-    <label class="drop" id="dropV"><div class="dn" id="dnV">Video file</div><div class="dh">the one with views, GMV and the ID column</div><input type="file" id="fileV" accept=".xlsx,.xls,.csv"></label>
-    <div class="row" style="margin-top:16px;">
-      <div><div class="lbl" style="margin-bottom:5px;">Videos per day</div><input class="numin" id="goal" type="number" min="1" max="30" value="6"></div>
-      <div><div class="lbl" style="margin-bottom:5px;">Max per product / week</div><input class="numin" id="capIn" type="number" min="1" max="14" value="3"></div>
-      <button class="btn" id="buildBtn" disabled style="margin-left:auto;align-self:flex-end;">Build my plan</button>
+
+    <div class="card">
+      <h2>Winning videos <span class="muted small">(optional, up to 2)</span></h2>
+      <p class="small muted" style="margin:4px 0 10px;">Paste up to two links to winning videos. Their transcripts guide the structure of every script generated this week.</p>
+      <div class="row" style="gap:8px;">
+        <input id="plLink" class="srch" placeholder="Paste a TikTok link" style="flex:1;min-width:180px;">
+        <button class="btn ghost" onclick="Planner.addLink()">Add</button>
+      </div>
+      <div id="plLinkStatus" class="small" style="margin-top:6px;display:none;"></div>
+      <div id="plLinks" style="margin-top:10px;"></div>
     </div>
-    <div class="err hidden" id="err"></div>
-    <div class="note">Your files are read right here in your browser. Nothing is uploaded or stored.</div>
+
+    <div class="card">
+      <h2>How to generate</h2>
+      <div class="row" style="margin-top:10px;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+        <div>
+          <div class="lbl" style="margin-bottom:5px;">For each product</div>
+          <div class="seg" id="plIterSeg">
+            <button id="plIterFresh" class="on" onclick="Planner.setIter('fresh')">New angles</button>
+            <button id="plIterSame" onclick="Planner.setIter('same')">Same angle, fresh wording</button>
+          </div>
+        </div>
+        <div><div class="lbl" style="margin-bottom:5px;">Videos per product</div><input class="numin" id="plPerProd" type="number" min="1" max="7" value="2"></div>
+        <div><div class="lbl" style="margin-bottom:5px;">Videos per day</div><input class="numin" id="plPerDay" type="number" min="1" max="30" value="4"></div>
+      </div>
+      <div class="row" style="margin-top:16px;align-items:center;">
+        <div class="note" id="plSetupNote" style="margin:0;">Select at least one product to generate.</div>
+        <button class="btn" id="plGenBtn" style="margin-left:auto;" onclick="Planner.generate()">Generate my plan</button>
+      </div>
+      <div class="err hidden" id="plErr"></div>
+    </div>
   </div>
 
   <!-- RESULTS -->
-  <div id="results" class="hidden">
-    <div style="display:flex;justify-content:flex-end;margin-top:14px;">
-      <button class="btn ghost" onclick="Planner.reset()">↑ Upload a new week</button>
-    </div>
-    <div class="summary" id="summary"></div>
-    <div class="topbar">
-      <div class="tabs">
-        <div class="tab active" id="tabPlan" onclick="Planner.setTab('plan')">Plan</div>
-        <div class="tab" id="tabProducts" onclick="Planner.setTab('products')">Products</div>
-        <div class="tab" id="tabRecap" onclick="Planner.setTab('recap')">Recap</div>
+  <div id="plResults" class="hidden">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;gap:10px;flex-wrap:wrap;">
+      <div class="seg">
+        <button id="plLayoutBucket" class="on" onclick="Planner.setLayout('bucket')">By bucket</button>
+        <button id="plLayoutDaily" onclick="Planner.setLayout('daily')">Daily</button>
+        <button id="plLayoutWeekly" onclick="Planner.setLayout('weekly')">Weekly</button>
       </div>
-      <div class="seg" id="modeSeg" style="margin-left:auto;">
-        <button id="modePost" class="on" onclick="Planner.setMode('post')">Post</button>
-        <button id="modeFilm" onclick="Planner.setMode('film')">Film</button>
-      </div>
+      <button class="btn ghost" onclick="Planner.startOver()">↑ New plan</button>
     </div>
-
-    <div id="planView">
-      <div id="postView"><div class="days" id="board"></div>
-        <div class="bench"><div class="bh">Bench · drag any of these into a day, or park ones you pull out</div><div class="benchlist list" id="benchList"></div></div>
-        <div style="margin-top:14px;text-align:center;"><button class="btn ghost" onclick="Planner.resetPlan()">Reset to smart plan</button></div>
-      </div>
-      <div id="filmView" class="hidden"></div>
-    </div>
-    <div id="productsView" class="hidden"></div>
-    <div id="recapView" class="hidden"></div>
-
-    <div style="margin-top:22px;text-align:center;"><button class="btn ghost" onclick="Planner.reset()">Upload a new week</button></div>
+    <div class="summary" id="plSummary"></div>
+    <div id="plProductsPanel"></div>
+    <div id="plBucketView"></div>
+    <div id="plDailyView" class="hidden"></div>
+    <div id="plWeekView" class="hidden"></div>
   </div>
 
   <div id="overlay" class="overlay hidden"></div>
@@ -12149,614 +12154,687 @@ if(document.readyState!=="loading"){ updateThemeToggleLabel(); }
 else { document.addEventListener("DOMContentLoaded", updateThemeToggleLabel); }
 </script>
 
+<!-- ===== PLANNER SHARED HELPERS (additive; do NOT change Scripts-tab behavior) ===== -->
+<script>
+/* These are NEW standalone helpers used by the rebuilt Planner. They are modeled on the
+   cores of existing functions (the products query, fetchWinningAngleByLink, the batch-angle
+   focusPrompt, and regenerateOneScript) but are entirely additive — no existing Scripts-tab
+   code path is modified, so generate()/generateScriptBank() behave exactly as before. */
+
+// 1) Every product for the current user, with the fields the generator needs.
+function loadLibraryProducts(){
+  if(!currentUser||!sb) return Promise.resolve([]);
+  // Same table + same user filter as the main productSelect picker (buildSelect), so the Planner
+  // shows the exact same library. Sorted alphabetically by name to match the picker's default.
+  return sb.from("products")
+    .select("id, name, description, motivation, real_reason, surprise, authority, buyers, bank")
+    .eq("user_id", currentUser.id)
+    .then(function(r){
+      var list=(r&&!r.error&&r.data)?r.data:[];
+      list.sort(function(a,b){ return String(a.name||"").toLowerCase().localeCompare(String(b.name||"").toLowerCase()); });
+      return list;
+    }, function(){ return []; });
+}
+
+// 2) Transcribe a TikTok URL via the tokscript MCP server (key stays server-side). URL in,
+//    {handle,views,transcript,topic} out. No DOM, no cap, no side effects.
+function transcribeTikTokLink(url){
+  url=String(url||"").trim();
+  if(!url) return Promise.reject(new Error("Paste a TikTok link first."));
+  // Send tokscript a clean canonical URL — the pasted share link carries tracking params
+  // (?is_from_webapp=1&sender_device=pc&web_id=...) that can slow or trip up resolution.
+  var cleanUrl=url.split(/[?#]/)[0] || url;
+  var controller=new AbortController();
+  // Client cap sits just above the 60s Netlify function timeout so a server-side timeout
+  // surfaces as an error we can show, rather than the client aborting first.
+  var timer=setTimeout(function(){ controller.abort(); }, 75000);
+  var prompt="Use the tokscript MCP server to fetch the transcript and engagement stats for this video URL: "+cleanUrl+". Then respond with ONLY a JSON object and nothing else (no prose, no markdown fences) with these keys: handle (the creator handle), views (the view count as text), transcript (every spoken transcript segment joined into one string in order, no timestamps), topic (a short label of what product or subject the video is about). Output only that JSON object.";
+  return fetch("/api/claude",{ method:"POST", headers:claudeHeaders(), signal:controller.signal,
+      body:JSON.stringify({ useTokscript:true, model:"claude-sonnet-4-6", max_tokens:4000, messages:[{role:"user",content:prompt}] }) })
+    .then(function(r){ return r.text().then(function(raw){ return { ok:r.ok, status:r.status, raw:raw }; }); })
+    .then(function(res){
+      clearTimeout(timer);
+      var data;
+      try{ data=JSON.parse(res.raw); }
+      catch(e){ throw new Error(res.status===504||res.status===502 ? "the transcription service timed out — try again in a moment" : ("the server returned an unexpected response (HTTP "+res.status+")")); }
+      if(data && data.error){
+        var msg=(data.error.message||data.error.type||"request failed");
+        var dbg=data.tokscriptDebug;   // safe diagnostic from the proxy: key length + auth mode, never the key
+        if(dbg && typeof dbg.keyLength==="number"){
+          msg += dbg.keyLength ? (" [tokscript key present ("+dbg.keyLength+" chars), auth mode "+(dbg.authMode||"?")+"]")
+                               : " [tokscript key MISSING in this deploy — the TOKSCRIPT_API_KEY env var isn't set for this context]";
+        }
+        throw new Error(msg);
+      }
+      var text=""; if(Array.isArray(data.content)) data.content.forEach(function(b){ if(b&&b.type==="text") text+=b.text; });
+      if(!text.trim()) throw new Error("the video could not be read (it may be private, region-locked, or too new)");
+      var obj=(typeof parseWinnerJson==="function")?parseWinnerJson(text):null;
+      if(!obj) throw new Error("could not parse the transcript from the response");
+      return { handle:obj.handle!=null?String(obj.handle):"", views:obj.views!=null?String(obj.views):"",
+               transcript:obj.transcript!=null?String(obj.transcript):"", topic:obj.topic!=null?String(obj.topic):"" };
+    }, function(e){ clearTimeout(timer); if(e&&e.name==="AbortError"){ throw new Error("the transcription took too long (over 75s) — try again"); } throw e; });
+}
+
+// 3) Up to n fresh buyer-desire angles for a product (constrained to the standard desire list).
+function suggestFreshAngles(desc, motivation, n){
+  n=n||5;
+  var safe=String(desc||"").replace(/AUTHORITY:[^\n]*/gi,"").replace(/REAL REASON:[^\n]*/gi,"").trim();
+  var prompt='Respond ONLY with valid JSON. No preamble. No explanation. No markdown. Start your response with { and end with }. JSON format: {"focuses":[{"focus":"string","desire":"string","description":"string"}]} CRITICAL: The creator described their buyer as: '+(motivation||"a real buyer who genuinely wants this product")+'. Generate angles that serve THIS buyer. Do not generate feature-based angles the buyer did not mention. Task: '+n+' buyer desire angles for this product: '+safe+' Rules: desire must be one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER Social Media, Influencer, Viral. focus is 4-8 words specific to this product. BEAUTY/SKINCARE ANGLE RULES: Never generate angles referencing injectable fillers needles or medical procedures. Never use in focus titles: filler needle injectable botox without-needles needle-free filler-alternative clinical. Focus titles must describe creator experience only.'+((typeof SUPP_GUARD==="string")?SUPP_GUARD:"")+' Output JSON only. Begin with {';
+  return fetch("/api/claude",{ method:"POST", headers:claudeHeaders(),
+      body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:600, messages:[{role:"user",content:prompt}] }) })
+    .then(function(r){ if(r.status===429){ var e=new Error("rate_limit"); e.code=429; throw e; } return r.json(); })
+    .then(function(data){
+      if(data&&data.error) throw new Error(data.error.message||"request failed");
+      var t=""; (data.content||[]).forEach(function(b){ if(b.type==="text") t+=b.text; });
+      var cleaned=t.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim();
+      var arr=[]; try{ arr=JSON.parse(cleaned).focuses||[]; }catch(e){ arr=[]; }
+      return arr.slice(0,n);
+    });
+}
+
+// Compact week-level "winning videos to borrow" block, built from pasted link transcripts.
+function plannerWinnersBlock(links){
+  var arr=Array.isArray(links)?links:[];
+  var t=arr.map(function(l){ return String((l&&l.transcript)||"").trim(); }).filter(Boolean);
+  if(!t.length) return "";
+  var b=" WINNING VIDEOS TO BORROW FROM (guide STRUCTURE and PSYCHOLOGY only, never copy wording):";
+  t.forEach(function(x,i){ b+=" VIRAL FORMAT "+(i+1)+" to optionally borrow: "+x; });
+  b+=" HOW TO USE THESE: study the hook style, the beat order, the genuine-reaction and demonstration moments, and any honest-uncertainty scarcity move, then write FRESH lines in the creator's own voice that hit those same moves. Never reuse their phrases.";
+  return b;
+}
+
+// 4) Generate ONE script for a product description + a chosen desire/angle. Returns parsed JSON
+//    (caller persists). Counts against the member's cap exactly like any other generation: it
+//    POSTs to /api/claude with claudeHeaders() (the proxy increments the per-user limit) under a
+//    fresh generation_id, and the result is inserted into the same `scripts` table.
+function genOneScript(opts){
+  opts=opts||{};
+  var desc=opts.desc||"";
+  var desire=opts.desire||"the single strongest want for this product";
+  var winnersBlock=opts.winnersBlock||"";
+  var priorHook=opts.priorHook||"";
+  var voiceNote=(typeof getVoiceProfileNote==="function")?getVoiceProfileNote():"";
+  var facts=(typeof factsBlock==="function")?factsBlock(desc):"";
+  var gid=(typeof newGenerationId==="function")?newGenerationId():null;
+  var prompt="Write ONE complete TikTok Shop show-and-highlight video script to the SAXE SCRIPT STANDARD exactly."+
+    " ONE CORE DESIRE AND TARGET CATEGORY for this video, build the hook, the facts, and the close around only this single want and target: "+(desire)+"."+
+    " Say that target out loud, naturally woven into the hook or the very first line, within the first five seconds, and surface it in the on-screen text too. Keep it natural and varied, never a robotic This product opener. Only aim it at a use case the product can physically deliver."+
+    " Product details (only use real features stated here, never invent a spec): "+String(desc||"").slice(0,4000)+"."+
+    facts + winnersBlock +
+    (priorHook?(" The previous hook was: "+priorHook+". Write a fresh, stronger version to the standard, do not copy it."):"")+
+    voiceNote+
+    " Return ONLY valid JSON, no markdown: {\"hook\":str,\"body1\":str,\"preclose\":str,\"body2\":str,\"cta\":str,\"screenText\":[3 short on-screen text hook options],\"caption\":str,\"hashtags\":[5 strings, no hash symbol]}.";
+  var reqBody={ model:"claude-haiku-4-5-20251001", max_tokens:1500, system:system, messages:[{role:"user",content:prompt}] };
+  if(gid) reqBody.generation_id=gid;
+  return fetch("/api/claude",{ method:"POST", headers:claudeHeaders(), body:JSON.stringify(reqBody) })
+    .then(function(r){ if(r.status===429){ var e=new Error("rate_limit"); e.code=429; throw e; } return r.json(); })
+    .then(function(data){
+      if(data&&data.error) throw new Error(data.error.message||"request failed");
+      var text=""; (data.content||[]).forEach(function(b){ if(b.type==="text") text+=b.text; });
+      var parsed=JSON.parse(text.replace(/```json|```/g,"").trim());
+      if(typeof stripEmDashesDeep==="function") parsed=stripEmDashesDeep(parsed);
+      return parsed;
+    });
+}
+</script>
+
 <!-- ===== CONTENT PLANNER LOGIC (isolated namespace) ===== -->
 <script>
 (function(){
-const S={catalog:[],byId:{},raw:[],rawMap:{},groups:[],instances:{},board:{days:[],bench:[]},posted:{},filmed:{},goal:6,cap:3,days:7,tab:'plan',mode:'post',links:{}};
-let bufP=null,bufV=null,IID=1,GID=0,sorters=[];
-const nid=()=>'i'+(IID++);
-const money=v=>{if(v==null)return 0;const n=parseFloat(String(v).replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;};
-const intv=v=>Math.round(money(v));
-const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const shortAngle=a=>{if(!a)return'';a=a.replace(/^Replying to @\S+\s*/,'');return a.length>54?a.slice(0,54)+'…':a;};
-
-function wbRows(buf){const wb=XLSX.read(buf,{type:'array'});return XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null,raw:false});}
-function findHeaderRow(rows,must){for(let i=0;i<Math.min(rows.length,8);i++){const c=(rows[i]||[]).map(x=>String(x==null?'':x).trim().toLowerCase());if(must.some(m=>c.includes(m)))return i;}return -1;}
-function ci(h,l){return h.findIndex(c=>String(c==null?'':c).trim().toLowerCase()===l);}
-
-function parseProducts(rows){
-  const hi=findHeaderRow(rows,['unit sales','commission']);if(hi<0)throw new Error("Could not read the product file. Use the Product Analytics export.");
-  const h=rows[hi],gi=ci(h,'gross revenue'),cci=ci(h,'commission'),ui=ci(h,'unit sales'),out=[];
-  for(let r=hi+1;r<rows.length;r++){const row=rows[r];if(!row)continue;const id=String(row[0]==null?'':row[0]).trim();if(!/^\d{5,}$/.test(id))continue;
-    const units=intv(row[ui>=0?ui:4]),commission=money(row[cci>=0?cci:3]);
-    out.push({id,name:String(row[1]==null?'':row[1]).trim()||'(unnamed)',gross:money(row[gi>=0?gi:2]),commission,units,cpu:units>0?commission/units:0});}
-  return out;
-}
-function parseVideos(rows){
-  const hi=findHeaderRow(rows,['items sold','id','video name']);if(hi<0)throw new Error("Could not read the video file. Use the Video Analytics export.");
-  const h=rows[hi],ni=ci(h,'video name'),gi=ci(h,'gmv'),vi=ci(h,'views'),idi=ci(h,'id'),out=[];
-  for(let r=hi+1;r<rows.length;r++){const row=rows[r];if(!row)continue;const idCell=String(row[idi>=0?idi:row.length-1]==null?'':row[idi>=0?idi:row.length-1]);
-    const ids=idCell.split(',').map(s=>s.trim()).filter(s=>/^\d{5,}$/.test(s));if(!ids.length)continue;
-    out.push({name:String(row[ni>=0?ni:0]==null?'':row[ni>=0?ni:0]).trim(),gmv:money(row[gi>=0?gi:3]),views:intv(row[vi>=0?vi:5]),ids});}
-  return out;
-}
-
-function buildData(){
-  const products=parseProducts(wbRows(bufP)), videos=parseVideos(wbRows(bufV));
-  if(!products.length)throw new Error("No products found in that file.");
-  const agg={};products.forEach(p=>agg[p.id]={angles:[],maxViews:0,vidCount:0,vidGmv:0});
-  videos.forEach(v=>v.ids.forEach(id=>{const a=agg[id];if(!a)return;a.vidCount++;a.vidGmv+=v.gmv;if(v.views>a.maxViews)a.maxViews=v.views;if(v.name)a.angles.push({name:v.name,gmv:v.gmv});}));
-  products.forEach(p=>{const a=agg[p.id];a.angles.sort((x,y)=>y.gmv-x.gmv);p._angles=a.angles.slice();
-    const seen=new Set();p.angles=a.angles.filter(x=>{const k=x.name.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;}).map(x=>x.name);
-    p.engagement=a.maxViews;p.vidCount=a.vidCount;p.vidGmv=a.vidGmv;p.isNew=false;p.status='active';});
-  S.raw=products;S.rawMap={};products.forEach(p=>S.rawMap[p.id]=p);
-  // NOTE: S.groups is intentionally preserved here. Saved Combine groups are
-  // re-applied to the freshly uploaded products by TikTok product ID inside
-  // buildEffectiveCatalog(); members that are not present this week are skipped
-  // and any new flavor/size that is not in a saved group stays on its own.
-  buildEffectiveCatalog();
-}
-function buildEffectiveCatalog(){
-  const grouped=new Set();S.groups.forEach(g=>g.memberIds.forEach(id=>grouped.add(id)));
-  const eff=[];
-  S.groups.forEach(g=>{const mem=g.memberIds.map(id=>S.rawMap[id]).filter(Boolean);if(!mem.length)return;
-    const units=mem.reduce((s,m)=>s+m.units,0),commission=mem.reduce((s,m)=>s+m.commission,0),gross=mem.reduce((s,m)=>s+(m.gross||0),0);
-    const aObjs=[].concat.apply([],mem.map(m=>m._angles||[])).sort((a,b)=>b.gmv-a.gmv);
-    const seen=new Set();const angles=aObjs.filter(x=>{const k=x.name.toLowerCase();if(seen.has(k))return false;seen.add(k);return true;}).map(x=>x.name);
-    eff.push({id:g.id,name:g.name,units,commission,gross,cpu:units>0?commission/units:0,angles,
-      engagement:Math.max(0,...mem.map(m=>m.engagement||0)),vidCount:mem.reduce((s,m)=>s+(m.vidCount||0),0),
-      isGroup:true,members:mem,isNew:false,status:'active'});});
-  S.raw.forEach(p=>{if(!grouped.has(p.id))eff.push(p);});
-  const provenCpu=eff.filter(p=>p.units>0).map(p=>p.cpu).sort((a,b)=>a-b);
-  const cut=provenCpu.length?provenCpu[Math.floor(provenCpu.length*0.8)]:0;
-  eff.forEach(p=>{p.tier=(p.units>0&&p.cpu>=cut&&p.units>=3)?'ANCHOR':p.units>0?'BRIDGE':p.engagement>0?'TEST':'DORMANT';
-    if(p.status===undefined)p.status='active';p.priority=p.units>0?p.cpu:p.engagement/1000;});
-  S.catalog=eff;S.byId={};eff.forEach(p=>S.byId[p.id]=p);
-}
-
-function makeInstance(p,occ){const i=occ[p.id]||0;occ[p.id]=i+1;const angle=(p.angles&&p.angles.length)?p.angles[i%p.angles.length]:null;
-  const iid=nid();S.instances[iid]={iid,productId:p.id,angle};return iid;}
-
-function smartPlan(){
-  S.instances={};S.board={days:[],bench:[]};S.posted={};S.filmed={};
-  const elig=S.catalog.filter(p=>p.status==='active'&&p.tier!=='DORMANT');
-  const anchors=elig.filter(p=>p.tier==='ANCHOR').sort((a,b)=>b.priority-a.priority);
-  const bridges=elig.filter(p=>p.tier==='BRIDGE').sort((a,b)=>b.priority-a.priority);
-  const tests=elig.filter(p=>p.tier==='TEST').sort((a,b)=>b.engagement-a.engagement);
-  const fallback=elig.slice().sort((a,b)=>b.engagement-a.engagement);
-  const goal=S.goal,days=S.days,idx={a:0,b:0,t:0,f:0},week={},occ={};
-  const cap=Math.max(1,S.cap||3);
-  const testSlots=Math.max(1,Math.round(goal*0.2)),proven=goal-testSlots,anchorSlots=Math.round(proven*0.5),bridgeSlots=proven-anchorSlots;
-  function take(pool,key,count,used,cap){const out=[];let t=0;while(out.length<count&&pool.length&&t<pool.length*3){const p=pool[idx[key]%pool.length];idx[key]++;t++;if(used.has(p.id))continue;if((week[p.id]||0)>=cap)continue;out.push(p);used.add(p.id);week[p.id]=(week[p.id]||0)+1;}return out;}
-  const today=new Date();
-  for(let d=0;d<days;d++){const used=new Set();let picks=[];
-    picks=picks.concat(take(anchors,'a',anchorSlots,used,cap));
-    picks=picks.concat(take(bridges,'b',bridgeSlots,used,cap));
-    picks=picks.concat(take(tests,'t',testSlots,used,cap));
-    while(picks.length<goal){const g=take(fallback,'f',1,used,cap);if(!g.length)break;picks.push(g[0]);}
-    const date=new Date(today);date.setDate(today.getDate()+d);
-    S.board.days.push({date,items:picks.map(p=>makeInstance(p,occ))});}
-  const benchPicks=tests.slice(0,6);S.board.bench=benchPicks.map(p=>makeInstance(p,occ));
-}
-
-function fmtDate(dt){const wd=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][dt.getDay()];const mo=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][dt.getMonth()];
-  const t0=new Date();t0.setHours(0,0,0,0);const diff=Math.round((new Date(dt).setHours(0,0,0,0)-t0)/86400000);
-  return (diff===0?'Today · ':diff===1?'Tomorrow · ':'')+wd+' '+mo+' '+dt.getDate();}
-function tierBadge(t){return t==='ANCHOR'?'<span class="badge b-anchor">Anchor</span>':t==='BRIDGE'?'<span class="badge b-bridge">Bridge</span>':t==='NEW'?'<span class="badge b-new">New</span>':'<span class="badge b-test">Test</span>';}
-function instTier(inst){const p=S.byId[inst.productId];return p?(p.isNew?'NEW':p.tier):'TEST';}
-
-function build(){try{document.getElementById('err').classList.add('hidden');
-  buildData();S.goal=Math.max(1,Math.min(30,parseInt(document.getElementById('goal').value)||6));S.cap=Math.max(1,Math.min(14,parseInt(document.getElementById('capIn').value)||3));smartPlan();
-  document.getElementById('plUploadCard').classList.add('hidden');document.getElementById('results').classList.remove('hidden');
-  renderAll();window.scrollTo(0,0);
-}catch(e){const el=document.getElementById('err');el.textContent=e.message||String(e);el.classList.remove('hidden');}}
-
-function renderAll(){renderSummary();renderBoard();renderFilm();renderProducts();renderRecap();syncViews();scheduleSave();}
-
-function renderSummary(){const earners=S.catalog.filter(p=>p.units>0).length,comm=S.catalog.reduce((s,p)=>s+p.commission,0),units=S.catalog.reduce((s,p)=>s+p.units,0);
-  document.getElementById('summary').innerHTML=
-    st(S.catalog.length,'products in catalog')+st(earners,'earned this week')+st('$'+Math.round(comm).toLocaleString(),'week commission')+st(units.toLocaleString(),'units sold');}
-function st(v,k){return `<div class="stat"><div class="v">${v}</div><div class="k">${k}</div></div>`;}
-
-function cardHTML(iid,mini){const inst=S.instances[iid];const p=S.byId[inst.productId];if(!p)return'';
-  const posted=!!S.posted[iid];
-  return `<div class="cardv ${posted?'posted':''} ${mini?'mini':''}" data-iid="${iid}">
-    <div class="handle" title="drag">⠿</div>
-    <div class="cbody"><div class="cname">${tierBadge(instTier(inst))}${esc(p.name)}</div>${inst.angle?`<div class="cangle">${esc(shortAngle(inst.angle))}</div>`:''}${!mini?`<div class="cweek">${(S._weekCount&&S._weekCount[p.id])||1} this week${((S._weekCount&&S._weekCount[p.id])||1)>(S.cap||3)?' · over cap':''}</div>`:''}${!mini?`<div style="margin-top:6px;"><button class="scriptbtn ${(S.links&&S.links[p.id]&&S.links[p.id].scriptProductId)?'linked':''}" onclick="Planner.openScript('${p.id}')">${(S.links&&S.links[p.id]&&S.links[p.id].scriptProductId)?'Script ✓':'Script'}</button></div>`:''}</div>
-    <div class="cact"><div class="cbx ${posted?'on':''}" title="posted" onclick="Planner.togglePosted('${iid}')">${posted?'✓':''}</div><div class="rmv" title="remove" onclick="Planner.removeInst('${iid}')">×</div></div>
-  </div>`;}
-
-function renderBoard(){
-  sorters.forEach(s=>s.destroy());sorters=[];
-  S._weekCount={};S.board.days.forEach(day=>day.items.forEach(iid=>{const inst=S.instances[iid];if(inst)S._weekCount[inst.productId]=(S._weekCount[inst.productId]||0)+1;}));
-  const board=document.getElementById('board');board.innerHTML='';
-  S.board.days.forEach((day,di)=>{
-    const n=day.items.length,over=n>S.goal;
-    const col=document.createElement('div');col.className='daycol';
-    col.innerHTML=`<div class="dh"><span class="d">${fmtDate(day.date)}</span><span class="c ${over?'over':''}">${n} of ${S.goal}${over?' · over':''}</span></div>
-      <div class="list" data-day="${di}">${day.items.map(iid=>cardHTML(iid)).join('')}</div>
-      <button class="addbtn" onclick="Planner.openAdd(${di})">+ Add a video</button>`;
-    board.appendChild(col);
-  });
-  document.getElementById('benchList').innerHTML=S.board.bench.map(iid=>cardHTML(iid,true)).join('');
-  document.querySelectorAll('#board .list').forEach(el=>{
-    sorters.push(Sortable.create(el,{group:'planner',handle:'.handle',animation:150,ghostClass:'ghost',onEnd:syncFromDOM}));});
-  sorters.push(Sortable.create(document.getElementById('benchList'),{group:'planner',handle:'.handle',animation:150,ghostClass:'ghost',onEnd:syncFromDOM}));
-}
-
-function syncFromDOM(){
-  document.querySelectorAll('#board .list').forEach(el=>{const di=+el.getAttribute('data-day');
-    S.board.days[di].items=[...el.children].map(c=>c.getAttribute('data-iid')).filter(Boolean);});
-  S.board.bench=[...document.getElementById('benchList').children].map(c=>c.getAttribute('data-iid')).filter(Boolean);
-  document.querySelectorAll('#board .daycol').forEach((col,di)=>{const n=S.board.days[di].items.length,over=n>S.goal;
-    const c=col.querySelector('.c');c.textContent=`${n} of ${S.goal}${over?' · over':''}`;c.className='c'+(over?' over':'');});
-  renderFilm();renderSummary();scheduleSave();
-}
-
-function togglePosted(iid){S.posted[iid]=!S.posted[iid];const card=document.querySelector(`[data-iid="${iid}"]`);if(card){card.classList.toggle('posted',S.posted[iid]);const b=card.querySelector('.cbx');b.classList.toggle('on',S.posted[iid]);b.textContent=S.posted[iid]?'✓':'';}scheduleSave();}
-function newInstance(p){let occ=0;Object.values(S.instances).forEach(i=>{if(i.productId===p.id)occ++;});const angle=(p.angles&&p.angles.length)?p.angles[occ%p.angles.length]:null;const iid=nid();S.instances[iid]={iid,productId:p.id,angle};return iid;}
-function weekCountMap(){const m={};S.board.days.forEach(d=>d.items.forEach(iid=>{const i=S.instances[iid];if(i)m[i.productId]=(m[i.productId]||0)+1;}));return m;}
-function replacementsForDay(di,count){const onDay=new Set(S.board.days[di].items.map(iid=>S.instances[iid]&&S.instances[iid].productId));
-  const cap=Math.max(1,S.cap||3),wc=weekCountMap();
-  const pool=S.catalog.filter(p=>p.status==='active'&&p.tier!=='DORMANT'&&!onDay.has(p.id)&&(wc[p.id]||0)<cap)
-    .sort((a,b)=>((wc[a.id]||0)-(wc[b.id]||0))||(b.priority-a.priority)||(b.engagement-a.engagement));
-  const out=[];for(const p of pool){if(out.length>=count)break;out.push(p);wc[p.id]=(wc[p.id]||0)+1;onDay.add(p.id);}return out;}
-function removeInst(iid){
-  let day=-1,pos=-1;
-  S.board.days.forEach((d,di)=>{const i=d.items.indexOf(iid);if(i>=0){day=di;pos=i;d.items.splice(i,1);}});
-  const bi=S.board.bench.indexOf(iid);if(bi>=0)S.board.bench.splice(bi,1);
-  delete S.instances[iid];delete S.posted[iid];delete S.filmed[iid];
-  if(day>=0){const rep=replacementsForDay(day,1);if(rep.length){const niid=newInstance(rep[0]);S.board.days[day].items.splice(pos,0,niid);}}
-  renderBoard();renderFilm();renderSummary();scheduleSave();
-}
-
-function renderFilm(){
-  const groups={};
-  S.board.days.forEach(day=>day.items.forEach(iid=>{const inst=S.instances[iid];if(!inst)return;(groups[inst.productId]=groups[inst.productId]||[]).push(iid);}));
-  const ids=Object.keys(groups).sort((a,b)=>(S.byId[b]?.priority||0)-(S.byId[a]?.priority||0));
-  let html='';
-  if(!ids.length)html='<p class="muted small" style="margin-top:16px;">Nothing scheduled yet.</p>';
-  ids.forEach(pid=>{const p=S.byId[pid];const list=groups[pid];const doneCount=list.filter(i=>S.filmed[i]).length;
-    html+=`<div class="film-prod"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;"><div class="fpn">${tierBadge(p.isNew?'NEW':p.tier)}${esc(p.name)}</div><div style="display:flex;gap:6px;flex-shrink:0;"><button class="scriptbtn ${(S.links&&S.links[pid]&&S.links[pid].scriptProductId)?'linked':''}" onclick="Planner.openScript('${pid}')">${(S.links&&S.links[pid]&&S.links[pid].scriptProductId)?'Script ✓':'Script'}</button><button class="chip" onclick="Planner.declineProduct('${pid}','oos')">Sold out</button></div></div><div class="fpc">${list.length} ${list.length===1?'video':'videos'} to film this week · ${doneCount} done</div>`;
-    list.forEach((iid,k)=>{const inst=S.instances[iid];const done=!!S.filmed[iid];
-      html+=`<div class="fbox"><div class="cbx ${done?'on':''}" onclick="Planner.toggleFilmed('${iid}')">${done?'✓':''}</div><div class="fa">Take ${k+1}${inst.angle?` · <span class="ang">${esc(shortAngle(inst.angle))}</span>`:' · fresh angle'}</div></div>`;});
-    html+='</div>';});
-  document.getElementById('filmView').innerHTML=html;
-}
-function toggleFilmed(iid){S.filmed[iid]=!S.filmed[iid];renderFilm();scheduleSave();}
-
-function clusterKey(n){return String(n).toLowerCase().replace(/[^a-z0-9 ]/g,'').split(/\s+/).slice(0,2).join(' ');}
-function baseName(n){return String(n).split(/[,|]/)[0].split(' ').slice(0,3).join(' ').trim();}
-function toggleCombine(){S._combineMode=!S._combineMode;S._sel={};renderProducts();}
-function toggleSel(id){S._sel=S._sel||{};S._sel[id]=!S._sel[id];renderProducts();}
-function toggleExp(id){S._expanded=S._expanded||{};S._expanded[id]=!S._expanded[id];renderProducts();}
-function combineSelected(){
-  const ids=Object.keys(S._sel||{}).filter(k=>S._sel[k]);
-  if(ids.length<2){alert("Check at least two products to combine.");return;}
-  const memberRaw=[];ids.forEach(id=>{const p=S.byId[id];if(!p)return;if(p.isGroup)p.members.forEach(m=>memberRaw.push(m.id));else memberRaw.push(id);});
-  const uniq=[...new Set(memberRaw)];
-  const name=prompt("Name this combined product:",baseName(S.byId[ids[0]].name));if(!name)return;
-  S.groups=S.groups.filter(g=>!ids.includes(g.id));
-  S.groups.push({id:'grp_'+(++GID),name:name.trim(),memberIds:uniq});
-  S._combineMode=false;S._sel={};
-  buildEffectiveCatalog();smartPlan();renderAll();
-}
-function ungroup(gid){S.groups=S.groups.filter(g=>g.id!==gid);buildEffectiveCatalog();smartPlan();renderAll();}
-function productRow(p){
-  const exp=!!(S._expanded&&S._expanded[p.id]);
-  let h=`<div class="trow" style="${p.status!=='active'?'opacity:.45;':''}">
-      <div style="flex:1;min-width:0;"><div class="tn">${p.isGroup?`<span onclick="Planner.toggleExp('${p.id}')" style="cursor:pointer;color:var(--accent);">${exp?'▾':'▸'} </span>`:''}${esc(p.name)}${p.isGroup?` <span class="muted small">(${p.members.length} items)</span>`:''}</div><div class="tm">${p.units} units · $${Math.round(p.commission).toLocaleString()} commission${p.engagement?` · ${p.engagement.toLocaleString()} views`:''}</div></div>
-      <div class="tv"><div class="cpu">$${p.cpu.toFixed(2)}</div><div class="cl">per unit</div>
-        <div style="display:flex;gap:6px;margin-top:6px;justify-content:flex-end;">
-          <button class="chip ${p.status==='oos'?'on':''}" onclick="Planner.declineProduct('${p.id}','oos')">Sold out</button>
-          <button class="chip ${p.status==='pulled'?'on':''}" onclick="Planner.declineProduct('${p.id}','pulled')">Declining</button></div>
-      </div></div>`;
-  if(p.isGroup&&exp){h+=`<div style="margin:0 0 10px 12px;padding-left:10px;border-left:1px solid var(--border);">`;
-    p.members.forEach(m=>{h+=`<div class="tm" style="padding:4px 0;">${esc(m.name)} <span class="muted">· ${m.units} units · $${Math.round(m.commission).toLocaleString()}</span></div>`;});
-    h+=`<button class="chip" style="margin-top:6px;" onclick="Planner.ungroup('${p.id}')">Ungroup</button></div>`;}
-  return h;
-}
-function onProdSearch(v){S._prodQuery=v;renderProducts();const i=document.getElementById('prodSearch');if(i){i.focus();i.setSelectionRange(v.length,v.length);}}
-function toggleRising(){S._showRising=!S._showRising;renderProducts();}
-function combineRow(p){const on=!!(S._sel&&S._sel[p.id]);return `<div class="trow" onclick="Planner.toggleSel('${p.id}')" style="cursor:pointer;align-items:center;">
-    <div class="cbx ${on?'on':''}" style="margin-right:10px;flex-shrink:0;">${on?'✓':''}</div>
-    <div style="flex:1;min-width:0;"><div class="tn">${p.isGroup?'▦ ':''}${esc(p.name)}</div><div class="tm">${p.units} units · $${Math.round(p.commission).toLocaleString()}${p.isGroup?` · ${p.members.length} items`:''}</div></div>
-  </div>`;}
-function combineList(){const q=(S._prodQuery||'').toLowerCase().trim();let list=S.catalog.slice();if(q)list=list.filter(p=>p.name.toLowerCase().includes(q));return list.sort((a,b)=>clusterKey(a.name).localeCompare(clusterKey(b.name))||a.name.localeCompare(b.name));}
-function selectAllShown(){S._sel=S._sel||{};combineList().forEach(p=>{S._sel[p.id]=true;});renderProducts();}
-function clearSel(){S._sel={};renderProducts();}
-function renderProducts(){
-  const q=(S._prodQuery||'').toLowerCase().trim();
-  let html=`<div style="display:flex;gap:8px;align-items:center;margin:14px 0 12px;">
-    <input class="srch" id="prodSearch" placeholder="Search products" value="${esc(S._prodQuery||'')}" oninput="Planner.onProdSearch(this.value)" style="flex:1;">
-    ${!S._combineMode?`<button class="btn ghost" onclick="Planner.toggleCombine()" style="white-space:nowrap;">Combine</button>`:''}</div>`;
-  if(S._combineMode){
-    html+=`<div class="note" style="margin:0 0 10px;">Search a brand like Built Bar, tap Select all, then Combine. Or check products one by one.</div>`;
-    const selCount=Object.values(S._sel||{}).filter(Boolean).length;
-    html+=`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      <button class="btn" onclick="Planner.combineSelected()">Combine selected${selCount?` (${selCount})`:''}</button>
-      <button class="btn ghost" onclick="Planner.selectAllShown()">Select all</button>
-      ${selCount?`<button class="btn ghost" onclick="Planner.clearSel()">Clear</button>`:''}
-      <button class="btn ghost" onclick="Planner.toggleCombine()">Cancel</button></div>`;
-    const list=combineList();
-    list.slice(0,200).forEach(p=>html+=combineRow(p));
-    if(list.length>200)html+=`<div class="note">Showing first 200 of ${list.length}. Narrow your search to see and combine them all.</div>`;
-    document.getElementById('productsView').innerHTML=html;return;
-  }
-  if(q){
-    let list=S.catalog.filter(p=>p.name.toLowerCase().includes(q)).sort((a,b)=>((b.units>0?1:0)-(a.units>0?1:0))||(b.commission-a.commission)||a.name.localeCompare(b.name));
-    html+=`<div class="tier-h">Results <span class="muted small">(${list.length})</span></div>`;
-    if(!list.length)html+=`<div class="note">No products match.</div>`;
-    list.slice(0,80).forEach(p=>html+=productRow(p));
-    document.getElementById('productsView').innerHTML=html;return;
-  }
-  [['ANCHOR','Anchors'],['BRIDGE','Bridges']].forEach(([t,label])=>{const list=S.catalog.filter(p=>p.tier===t).sort((a,b)=>b.priority-a.priority);if(!list.length)return;
-    html+=`<div class="tier-h">${label} <span class="muted small">(${list.length})</span></div>`;list.forEach(p=>html+=productRow(p));});
-  const rising=S.catalog.filter(p=>p.tier==='TEST').sort((a,b)=>b.engagement-a.engagement);
-  if(rising.length){html+=`<div class="tier-h" style="cursor:pointer;" onclick="Planner.toggleRising()">Rising, no sales yet <span class="muted small">(${rising.length})</span> <span style="color:var(--accent);font-size:12px;">${S._showRising?'▾ hide':'▸ show'}</span></div>`;
-    if(S._showRising)rising.slice(0,200).forEach(p=>html+=productRow(p));}
-  const dormant=S.catalog.filter(p=>p.tier==='DORMANT').length;
-  if(dormant)html+=`<div class="note" style="margin-top:14px;">${dormant} more products had no sales or views this week. Search above to find any of them.</div>`;
-  document.getElementById('productsView').innerHTML=html;
-}
-function declineProduct(id,type){const p=S.byId[id];if(!p)return;
-  if(p.status===type){p.status='active';renderProducts();scheduleSave();return;}
-  p.status=type;
-  S.board.days.forEach((d,di)=>{let need=0;d.items=d.items.filter(iid=>{if(S.instances[iid]&&S.instances[iid].productId===id){need++;delete S.instances[iid];delete S.posted[iid];delete S.filmed[iid];return false;}return true;});
-    if(need){replacementsForDay(di,need).forEach(rp=>{d.items.push(newInstance(rp));});}});
-  S.board.bench=S.board.bench.filter(iid=>{if(S.instances[iid]&&S.instances[iid].productId===id){delete S.instances[iid];return false;}return true;});
-  renderBoard();renderFilm();renderProducts();renderSummary();scheduleSave();}
-
-function renderRecap(){
-  const rows=S.catalog.filter(p=>p.units>0||p.vidCount>0).map(p=>({name:p.name,videos:p.vidCount,units:p.units,commission:p.commission,gmv:p.gross}))
-    .sort((a,b)=>b.commission-a.commission);
-  const tc=rows.reduce((s,r)=>s+r.commission,0),tv=rows.reduce((s,r)=>s+r.videos,0),tu=rows.reduce((s,r)=>s+r.units,0);
-  let html=`<h2 style="margin-top:18px;">This week's recap</h2><div class="recap-tot">${st('$'+Math.round(tc).toLocaleString(),'commission earned')}${st(tv.toLocaleString(),'videos posted')}${st(tu.toLocaleString(),'units sold')}</div>
-    <div class="note" style="margin:0 0 6px;">Real numbers from your exports.</div>`;
-  rows.slice(0,60).forEach(r=>{html+=`<div class="trow"><div style="flex:1;min-width:0;"><div class="tn">${esc(r.name)}</div><div class="tm">${r.videos} ${r.videos===1?'video':'videos'} · ${r.units} units · $${Math.round(r.gmv).toLocaleString()} GMV</div></div>
-    <div class="tv"><div class="cpu">$${Math.round(r.commission).toLocaleString()}</div><div class="cl">commission</div></div></div>`;});
-  document.getElementById('recapView').innerHTML=html;
-}
-
-let addDay=null;
-function openAdd(di){addDay=di;
-  const ov=document.getElementById('overlay');
-  ov.innerHTML=`<div class="sheet"><h3>Add a video to ${fmtDate(S.board.days[di].date)}</h3>
-    <input class="srch" id="addSrch" placeholder="Search your products" oninput="Planner.filterAdd()">
-    <div style="margin:10px 0;"><button class="btn ghost" onclick="Planner.addNewSample()">+ Add a new product / sample</button></div>
-    <div id="pickList"></div>
-    <div style="margin-top:14px;text-align:center;"><button class="btn ghost" onclick="Planner.closeAdd()">Cancel</button></div></div>`;
-  ov.classList.remove('hidden');filterAdd();
-}
-function filterAdd(){const q=(document.getElementById('addSrch').value||'').toLowerCase();
-  const cat=S.catalog.filter(p=>p.status==='active'&&p.name.toLowerCase().includes(q)).sort((a,b)=>b.priority-a.priority).slice(0,40);
-  document.getElementById('pickList').innerHTML=cat.map(p=>`<div class="pick" onclick="Planner.addExisting('${p.id}')"><span>${tierBadge(p.isNew?'NEW':p.tier)}${esc(p.name)}</span><span class="muted small">$${p.cpu.toFixed(2)}/unit</span></div>`).join('')||'<p class="muted small">No matches.</p>';
-}
-function addExisting(pid){const p=S.byId[pid];const occ={};Object.values(S.instances).forEach(i=>{if(i.productId===pid)occ[pid]=(occ[pid]||0)+1;});
-  const iid=makeInstance(p,occ);S.board.days[addDay].items.push(iid);closeAdd();renderBoard();renderFilm();renderSummary();scheduleSave();}
-function addNewSample(){const name=prompt("Name your new product or sample:");if(!name)return;
-  const id='new_'+Date.now();const p={id,name:name.trim(),gross:0,commission:0,units:0,cpu:0,angles:[],_angles:[],engagement:0,vidCount:0,vidGmv:0,status:'active',isNew:true};
-  S.raw.push(p);S.rawMap[id]=p;buildEffectiveCatalog();
-  const iid=nid();S.instances[iid]={iid,productId:id,angle:null};S.board.days[addDay].items.push(iid);
-  closeAdd();renderBoard();renderFilm();renderProducts();renderSummary();scheduleSave();}
-function closeAdd(){document.getElementById('overlay').classList.add('hidden');document.getElementById('overlay').innerHTML='';}
-function openGuide(){
-  const ov=document.getElementById('overlay');
-  ov.innerHTML=`<div class="sheet"><h3>How the Content Planner works</h3><div class="gd">
-    <p class="gstep"><b>1. Get your two files.</b> In TikTok Shop at shop.tiktok.com/streamer/home, open Analytics. Export Product Analytics, and export Video Analytics set to Last 7 days.</p>
-    <p class="gstep"><b>2. Upload and build.</b> Drop both files in, set your videos per day and your max per product per week, then tap Build my plan.</p>
-    <p class="gstep"><b>3. Your week is ready.</b> Saxe ranks every product by commission per unit, the number that actually pays you, and lays out what to film.</p>
-    <hr class="ghr">
-    <p><b>Plan, Post view.</b> Your week, day by day. Drag a card by the ⠿ handle to move it between days or reorder it. Each card shows how many times that product posts this week. Check it off when you post. The × removes it and fills the slot with your next best product. Add a video drops in an extra, an existing product or a brand-new sample. The bench parks anything you pull out.</p>
-    <p><b>Plan, Film view.</b> The same week grouped by product, so you batch your filming. If a product posts three times, you get three boxes, each with a different proven angle. Check them off as you shoot. Filming checks are separate from posting checks.</p>
-    <p><b>Products.</b> Your sellers first, biggest earners on top. Search to find any product fast. Sold out or Declining pulls a product from the plan and refills the gaps with your next best.</p>
-    <p><b>Combining products.</b> Some products are really one video. You make a single Built Bar video and people buy different flavors, but in your file each flavor is its own product. Combining folds them into one. Tap Combine, search a brand like Built Bar, tap Select all to check every match, tap Combine, and name it. From then on that group is one product everywhere: its units and commission add up across all the flavors, so it ranks by what one video actually earns and usually moves up. It schedules once, films once, and counts once against your cap. Tap the arrow on a group to see every flavor underneath, or Ungroup to undo.</p>
-    <p><b>Recap.</b> What actually sold this week, product by product.</p>
-    <hr class="ghr">
-    <p class="gtip"><b>Good habits.</b> Combine your variants right after uploading, before you arrange the week. The cap keeps the tool from over-posting one product on its own, but you can always drag or add past it by hand. And sell something out the moment it happens, the week refills itself.</p>
-  </div><div style="margin-top:14px;text-align:center;"><button class="btn ghost" onclick="Planner.closeAdd()">Got it</button></div></div>`;
-  ov.classList.remove('hidden');
-}
-
-function resetPlan(){if(!confirm("Rebuild the smart plan? This clears any manual changes."))return;smartPlan();renderAll();}
-
-function setTab(t){S.tab=t;syncViews();}
-function setMode(m){S.mode=m;syncViews();}
-function syncViews(){
-  ['plan','products','recap'].forEach(t=>document.getElementById('tab'+t[0].toUpperCase()+t.slice(1)).classList.toggle('active',S.tab===t));
-  document.getElementById('planView').classList.toggle('hidden',S.tab!=='plan');
-  document.getElementById('productsView').classList.toggle('hidden',S.tab!=='products');
-  document.getElementById('recapView').classList.toggle('hidden',S.tab!=='recap');
-  document.getElementById('modeSeg').style.visibility=S.tab==='plan'?'visible':'hidden';
-  document.getElementById('postView').classList.toggle('hidden',S.mode!=='post');
-  document.getElementById('filmView').classList.toggle('hidden',S.mode!=='film');
-  document.getElementById('modePost').classList.toggle('on',S.mode==='post');
-  document.getElementById('modeFilm').classList.toggle('on',S.mode==='film');
-}
-
-function reset(){
-  bufP=null;bufV=null;
-  // Keep S.groups and the goal/cap settings so a re-upload re-applies the
-  // user's saved Combine groups; only the current week/plan is cleared.
-  S.catalog=[];S.byId={};S.raw=[];S.rawMap={};S.instances={};
-  S.board={days:[],bench:[]};S.posted={};S.filmed={};S.tab='plan';S.mode='post';
-  S._sel={};S._combineMode=false;S._expanded={};S._prodQuery='';S._showRising=false;S._weekCount={};
-  document.getElementById('results').classList.add('hidden');
-  document.getElementById('plUploadCard').classList.remove('hidden');
-  ['P','V'].forEach(function(L){
-    var inp=document.getElementById('file'+L);if(inp)inp.value='';
-    document.getElementById('drop'+L).classList.remove('set');
-    document.getElementById('dn'+L).textContent=(L==='P'?'Product file':'Video file');
-  });
-  closeAdd();checkReady();window.scrollTo(0,0);scheduleSave();
-}
-function checkReady(){document.getElementById('buildBtn').disabled=!(bufP&&bufV);}
-function hookFile(L){document.getElementById('file'+L).addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;const buf=await f.arrayBuffer();if(L==='P')bufP=buf;else bufV=buf;document.getElementById('drop'+L).classList.add('set');document.getElementById('dn'+L).textContent=f.name;checkReady();});}
-
-/* =====================================================================
-   LINK A PLANNER PRODUCT TO A SCRIPT-TOOL PRODUCT
-   Smart name matching (ignores case, punctuation, sizes, model numbers and
-   filler words) finds the user's existing buyer card / scripts. Confident
-   matches jump straight there; otherwise a small picker lets the user choose
-   once. The chosen link is stored by the planner product ID in S.links and
-   saved with the planner state so it never has to be matched again.
-   ===================================================================== */
-var STOP={the:1,a:1,an:1,and:1,with:1,for:1,plus:1,'new':1,set:1,kit:1,pack:1,count:1,ct:1,pc:1,pcs:1,piece:1,pieces:1,machine:1,maker:1,system:1,pro:1,max:1,mini:1,large:1,small:1,xl:1,xxl:1,size:1,servings:1,serving:1,oz:1,ml:1,qt:1,inch:1,inches:1,ft:1,cm:1,mm:1,lb:1,lbs:1,kg:1,'in':1,of:1,to:1,by:1,per:1,each:1,value:1,bundle:1,combo:1,edition:1,version:1,color:1,colors:1,black:1,white:1,blue:1,red:1,green:1,pink:1,gray:1,grey:1,gold:1,silver:1};
-function coreTokens(s){
-  return String(s||'').toLowerCase()
-    .replace(/[^a-z0-9 ]+/g,' ')
-    .split(/\s+/)
-    .filter(function(t){
-      if(!t) return false;
-      if(/\d/.test(t)) return false;   // drop numbers, sizes, model numbers (7, 7x, v2, 2l...)
-      if(STOP[t]) return false;        // drop filler / generic descriptor words
-      if(t.length<2) return false;
-      return true;
-    });
-}
-function lev(a,b){
-  var m=a.length,n=b.length,i,j,prev=[],cur=[];
-  for(j=0;j<=n;j++)prev[j]=j;
-  for(i=1;i<=m;i++){cur[0]=i;for(j=1;j<=n;j++){var cost=a.charAt(i-1)===b.charAt(j-1)?0:1;cur[j]=Math.min(prev[j]+1,cur[j-1]+1,prev[j-1]+cost);}for(j=0;j<=n;j++)prev[j]=cur[j];}
-  return prev[n];
-}
-function tokMatch(a,b){
-  if(a===b) return true;
-  var min=Math.min(a.length,b.length);
-  if(min>=4 && (a.indexOf(b)===0||b.indexOf(a)===0)) return true;  // prefix (slushi / slushie)
-  if(min>=5 && lev(a,b)<=1) return true;                            // tiny typo / plural
-  return false;
-}
-// Score every script-tool product against the planner product name.
-function rankMatches(name,list){
-  var A=coreTokens(name);
-  var out=(list||[]).map(function(p){
-    var B=coreTokens(p.name);
-    var matched=0;
-    B.forEach(function(b){ if(A.some(function(a){return tokMatch(a,b);})) matched++; });
-    var planMatched=0;
-    A.forEach(function(a){ if(B.some(function(b){return tokMatch(a,b);})) planMatched++; });
-    var ratioCand=B.length?matched/B.length:0;
-    var ratioPlan=A.length?planMatched/A.length:0;
-    return { id:p.id, name:p.name, score:matched, ratioCand:ratioCand, ratioPlan:ratioPlan };
-  });
-  out=out.filter(function(c){ return c.score>=1 && (c.ratioCand>=0.5||c.ratioPlan>=0.5); });
-  out.sort(function(a,b){ return (b.score-a.score)||(b.ratioCand-a.ratioCand)||(b.ratioPlan-a.ratioPlan); });
-  return out;
-}
-function confidentMatch(ranked){
-  if(!ranked.length) return null;
-  var top=ranked[0];
-  if(top.ratioCand<0.5 && top.ratioPlan<0.5) return null;
-  // confident only when there is a clear single leader (no close ties)
-  if(ranked.length===1 || top.score>ranked[1].score) return top;
-  return null;
-}
-function fetchProducts(cb){
-  var u=window.currentUser;
-  if(!u||!window.sb){ cb([]); return; }
-  try{
-    window.sb.from('products').select('id, name').eq('user_id',u.id)
-      .then(function(res){ cb((res&&!res.error&&res.data)?res.data:[]); }, function(){ cb([]); });
-  }catch(e){ cb([]); }
-}
-function productName(pid){var p=S.byId[pid];return p?p.name:'';}
-function setLink(pid,val){ S.links=S.links||{}; S.links[pid]=val; scheduleSave(); }
-
-function goToScripts(scriptProductId){
-  if(typeof showMainTab==='function') showMainTab('scripts');
-  if(typeof loadProductById==='function') loadProductById(scriptProductId);
-}
-function goToCreateNew(name){
-  if(typeof showMainTab==='function') showMainTab('scripts');
-  if(typeof showNew==='function') showNew();
-  var nn=document.getElementById('newProductNameInput');
-  if(nn){ nn.value=name; try{ nn.dispatchEvent(new Event('input')); }catch(e){} }
-  var pi=document.getElementById('productInput'); if(pi){ try{ pi.focus(); }catch(e){} }
-}
-
-// Entry point from the Script button on any planner card.
-function openScript(pid){
-  var name=productName(pid);
-  var link=(S.links&&S.links[pid])?S.links[pid]:null;
-  fetchProducts(function(list){
-    if(link&&link.scriptProductId){
-      if(list.some(function(p){return p.id===link.scriptProductId;})){ goToScripts(link.scriptProductId); return; }
-      // linked product was deleted — fall through and re-match
-    }
-    var ranked=rankMatches(name,list);
-    var conf=confidentMatch(ranked);
-    if(conf){ setLink(pid,{scriptProductId:conf.id}); goToScripts(conf.id); }
-    else{ showMatchPicker(pid,name,ranked); }
-  });
-}
-function showMatchPicker(pid,name,ranked){
-  var ov=document.getElementById('overlay');
-  var rows=(ranked||[]).slice(0,6).map(function(c){
-    return `<div class="pick" onclick="Planner.pickMatch('${pid}','${c.id}')"><div><div>${esc(c.name)}</div><div class="pmeta">tap to use this product's scripts</div></div><span class="muted small">match</span></div>`;
-  }).join('');
-  if(!rows) rows=`<div class="note" style="margin:4px 0 10px;">No close matches in your script library.</div>`;
-  ov.innerHTML=`<div class="sheet"><h3>Match "${esc(name)}"</h3>
-    <div class="note" style="margin:0 0 10px;">Pick this product's scripts so Saxe can take you straight there next time.</div>
-    ${rows}
-    <div class="pick pcreate" onclick="Planner.createScriptFor('${pid}')"><span>＋ Create a new one</span><span class="muted small">opens the builder</span></div>
-    <div class="pick" onclick="Planner.skipScript('${pid}')"><span class="muted">Not one of mine</span></div>
-    <div style="margin-top:14px;text-align:center;"><button class="btn ghost" onclick="Planner.closeAdd()">Cancel</button></div></div>`;
-  ov.classList.remove('hidden');
-}
-function pickMatch(pid,scriptProductId){ setLink(pid,{scriptProductId:scriptProductId}); closeAdd(); goToScripts(scriptProductId); }
-function createScriptFor(pid){ var name=productName(pid); closeAdd(); goToCreateNew(name); }
-function skipScript(pid){ setLink(pid,{skip:true}); closeAdd(); }
-
-/* =====================================================================
-   SUPABASE PERSISTENCE  (one JSONB row per user in table planner_state)
-   Uses the app's existing global Supabase client (sb) and currentUser.
-   Nothing here changes how files are read in the browser; it only mirrors
-   the planner's in-memory state to the database and restores it on open.
-   ===================================================================== */
-let saveTimer=null, restoring=false, loadedForUser=null;
-
-// Build a JSON-safe snapshot of everything worth restoring. The effective
-// catalog (and byId) is derived from raw + groups, so we only persist raw +
-// groups and rebuild on restore.
-function snapshot(){
-  return {
-    v:1,
-    goal:S.goal, cap:S.cap, days:S.days, tab:S.tab, mode:S.mode,
-    iid:IID, gid:GID,
-    groups:S.groups,
-    links:S.links||{},
-    raw:S.raw,
-    instances:S.instances,
-    board:{
-      days:(S.board.days||[]).map(function(day){
-        return { date:(day.date instanceof Date?day.date.toISOString():day.date), items:day.items||[] };
-      }),
-      bench:S.board.bench||[]
-    },
-    posted:S.posted, filmed:S.filmed,
-    hasPlan:(S.board.days&&S.board.days.length>0)
+  // ===== Rebuilt Content Planner =====================================================
+  // The creator's bucket choices ARE the plan. No computed ranking. Products are
+  // multi-selected from the library into three buckets; up to two winning-video links
+  // give week-level context; scripts are generated per product per angle via the shared
+  // helpers (genOneScript / suggestFreshAngles) and inserted into the `scripts` table so
+  // they count against the member's cap and show up in the Scripts tab. The board groups
+  // by bucket, with an optional brainless round-robin "By day" dealer supporting cross-day
+  // drag. State mirrors to planner_state (one JSONB row per user).
+  var S = {
+    lib: [], picks: {}, q: '',
+    links: [], iter: 'fresh', perProd: 2, perDay: 4,
+    takes: {}, order: [], board: { days: [] }, layout: 'bucket', activeDay: 0,
+    posted: {}, filmed: {}, generating: false, restoring: false
   };
-}
+  var IID = 1;
+  function nid(){ return 'pk_' + (IID++); }
+  function el(id){ return document.getElementById(id); }
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
-function scheduleSave(){
-  if(restoring) return;                 // don't echo a restore back to the DB
-  if(!window.currentUser||!window.sb) return;
-  clearTimeout(saveTimer);
-  saveTimer=setTimeout(saveNow, 800);
-}
-function saveNow(){
-  var u=window.currentUser;
-  if(!u||!window.sb) return;
-  try{
-    window.sb.from('planner_state')
-      .upsert({ user_id:u.id, data:snapshot(), updated_at:new Date().toISOString() }, { onConflict:'user_id' })
-      .then(function(){}, function(){});  // best-effort background save
-  }catch(e){}
-}
+  var BUCKETS = [ {key:'top', label:'Top sellers'}, {key:'focus', label:'Focus products'}, {key:'sample', label:'Incoming samples'} ];
+  function bucketLabel(k){ for(var i=0;i<BUCKETS.length;i++) if(BUCKETS[i].key===k) return BUCKETS[i].label; return ''; }
+  function bucketBadge(k){ return k==='top'?'b-anchor':k==='focus'?'b-bridge':'b-test'; }
+  function prod(id){ for(var i=0;i<S.lib.length;i++) if(S.lib[i].id===id) return S.lib[i]; return null; }
+  function selectedIds(){ return Object.keys(S.picks).filter(function(id){ return !!S.picks[id]; }); }
+  function bucketOrderIds(){ var out=[]; ['top','focus','sample'].forEach(function(bk){ selectedIds().forEach(function(id){ if(S.picks[id]===bk) out.push(id); }); }); return out; }
+  function countForProduct(pid){ var n=0; for(var iid in S.takes){ if(S.takes[iid].productId===pid) n++; } return n; }
 
-function maxIid(){var m=0;Object.keys(S.instances||{}).forEach(function(k){var n=parseInt(String(k).replace(/\D/g,''),10);if(n>m)m=n;});return m+1;}
-function maxGid(){var m=0;(S.groups||[]).forEach(function(g){var n=parseInt(String(g.id).replace(/\D/g,''),10);if(!isNaN(n)&&n>m)m=n;});return m;}
-
-function restoreFrom(d){
-  if(!d) return;
-  restoring=true;
-  try{
-    S.goal=d.goal||6; S.cap=d.cap||3; S.days=d.days||7;
-    S.tab=d.tab||'plan'; S.mode=d.mode||'post';
-    S.groups=Array.isArray(d.groups)?d.groups:[];
-    S.links=(d.links&&typeof d.links==='object')?d.links:{};
-    S.raw=Array.isArray(d.raw)?d.raw:[];
-    S.rawMap={}; S.raw.forEach(function(p){S.rawMap[p.id]=p;});
-    S.instances=d.instances||{};
-    S.posted=d.posted||{}; S.filmed=d.filmed||{};
-    var days=(d.board&&Array.isArray(d.board.days))?d.board.days.map(function(day){
-      return { date:new Date(day.date), items:Array.isArray(day.items)?day.items:[] };
-    }):[];
-    S.board={ days:days, bench:(d.board&&Array.isArray(d.board.bench))?d.board.bench:[] };
-    GID=d.gid||maxGid(); IID=d.iid||maxIid();
-    var gi=document.getElementById('goal'); if(gi)gi.value=S.goal;
-    var ci2=document.getElementById('capIn'); if(ci2)ci2.value=S.cap;
-    // Rebuild the effective catalog (tiers, byId, groups) from raw + groups.
-    if(S.raw.length) buildEffectiveCatalog();
-    var hasPlan = S.board.days.length>0 && S.catalog.length>0;
-    if(hasPlan){
-      document.getElementById('plUploadCard').classList.add('hidden');
-      document.getElementById('results').classList.remove('hidden');
-      renderAll();
-    }else{
-      document.getElementById('results').classList.add('hidden');
-      document.getElementById('plUploadCard').classList.remove('hidden');
-    }
-  }catch(e){
-    // On any restore error, fall back to the clean upload screen.
-    document.getElementById('results').classList.add('hidden');
-    document.getElementById('plUploadCard').classList.remove('hidden');
-  }finally{
-    restoring=false;
+  // ---- reuse the existing card-to-script navigation ----
+  function goToScripts(scriptProductId){
+    if(typeof showMainTab==='function') showMainTab('scripts');
+    if(typeof loadProductById==='function') loadProductById(scriptProductId);
   }
-}
+  function goToCreateNew(name){
+    if(typeof showMainTab==='function') showMainTab('scripts');
+    if(typeof showNew==='function') showNew();
+    var nn=document.getElementById('newProductNameInput');
+    if(nn){ nn.value=name; try{ nn.dispatchEvent(new Event('input')); }catch(e){} }
+    var pi=document.getElementById('productInput'); if(pi){ try{ pi.focus(); }catch(e){} }
+  }
 
-// Called when the Planner tab is opened. Loads once per signed-in user.
-function hardClear(){
-  // Full reset including groups/settings — used when a different user signs in
-  // during the same page session so no state leaks between accounts.
-  restoring=true;
-  try{
-    bufP=null;bufV=null;
-    S.catalog=[];S.byId={};S.raw=[];S.rawMap={};S.groups=[];S.links={};S.instances={};
-    S.board={days:[],bench:[]};S.posted={};S.filmed={};S.tab='plan';S.mode='post';
-    S._sel={};S._combineMode=false;S._expanded={};S._prodQuery='';S._showRising=false;S._weekCount={};
-    S.goal=6;S.cap=3;IID=1;GID=0;
-    var gi=document.getElementById('goal'); if(gi)gi.value=6;
-    var ci2=document.getElementById('capIn'); if(ci2)ci2.value=3;
-    ['P','V'].forEach(function(L){
-      var inp=document.getElementById('file'+L);if(inp)inp.value='';
-      var dr=document.getElementById('drop'+L);if(dr)dr.classList.remove('set');
-      var dn=document.getElementById('dn'+L);if(dn)dn.textContent=(L==='P'?'Product file':'Video file');
+  // ---- library + product picker ----
+  function loadLibrary(cb){
+    loadLibraryProducts().then(function(list){ S.lib = list || []; if(cb) cb(); }, function(){ S.lib=[]; if(cb) cb(); });
+  }
+  function onSearch(v){ S.q = (v || '').trim(); renderPicker(); }
+  function renderPicker(){
+    var box = el('plProductPicker'); if(!box) return;
+    box.innerHTML = '';
+    if(!S.lib.length){ box.innerHTML = '<div class="note" style="margin:6px 0;">No saved products yet. Build a product in the Scripts tab first.</div>'; syncGenBtn(); return; }
+    var q = (S.q||'').toLowerCase();
+    var shown = S.lib.filter(function(p){ return !q || String(p.name||'').toLowerCase().indexOf(q) >= 0; });
+    if(!shown.length){ box.innerHTML = '<div class="note" style="margin:6px 0;">No products match that search.</div>'; syncGenBtn(); return; }
+    shown.forEach(function(p){
+      var row = document.createElement('div'); row.className='trow';
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:0.5px solid var(--border);';
+      var name = document.createElement('div'); name.style.cssText='flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'; name.textContent = p.name||'(unnamed)';
+      var seg = document.createElement('div'); seg.className='seg';
+      BUCKETS.forEach(function(b){
+        var btn = document.createElement('button'); btn.type='button'; btn.textContent = b.label.split(' ')[0]; btn.title = b.label;
+        if(S.picks[p.id]===b.key) btn.className='on';
+        btn.addEventListener('click', function(){ S.picks[p.id] = (S.picks[p.id]===b.key) ? null : b.key; renderPicker(); syncGenBtn(); save(); });
+        seg.appendChild(btn);
+      });
+      row.appendChild(name); row.appendChild(seg); box.appendChild(row);
     });
-    checkReady();closeAdd();
-    document.getElementById('results').classList.add('hidden');
-    document.getElementById('plUploadCard').classList.remove('hidden');
-  }catch(e){}
-  restoring=false;
-}
+    syncGenBtn();
+  }
+  function syncGenBtn(){
+    // The button stays clickable so generate() can explain what's missing; it's only disabled
+    // WHILE a generation is running (to prevent double-fire).
+    var n = selectedIds().length, btn = el('plGenBtn'), note = el('plSetupNote');
+    if(btn) btn.disabled = S.generating;
+    if(note) note.textContent = n ? (n + ' product' + (n>1?'s':'') + ' selected' + (S.links.length ? (' · ' + S.links.length + ' winning video' + (S.links.length>1?'s':'')) : '')) : 'Assign at least one product to a bucket to generate.';
+  }
 
-function load(){
-  var u=window.currentUser;
-  if(!u||!window.sb) return;
-  if(loadedForUser===u.id) return;   // already restored for this user this session
-  if(loadedForUser!==null) hardClear();  // a different user signed in — start clean
-  loadedForUser=u.id;
-  try{
-    window.sb.from('planner_state').select('data').eq('user_id',u.id).maybeSingle()
-      .then(function(res){
-        if(res&&!res.error&&res.data&&res.data.data){ restoreFrom(res.data.data); }
-      }, function(){});
-  }catch(e){}
-}
+  // ---- winning-video links ----
+  function addLink(){
+    var inp = el('plLink'), st = el('plLinkStatus');
+    var url = (inp && inp.value ? inp.value : '').trim();
+    function show(c,m){ if(st){ st.style.display='block'; st.style.color=c; st.textContent=m; } }
+    if(!url){ show('var(--red)','Paste a TikTok link first.'); return; }
+    if(S.links.length >= 2){ show('var(--red)','Two winning videos is the max.'); return; }
+    show('var(--muted)','Fetching the video and its transcript... this can take a moment.');
+    transcribeTikTokLink(url).then(function(o){
+      S.links.push({ url:url, handle:o.handle, views:o.views, transcript:o.transcript, topic:o.topic });
+      if(inp) inp.value=''; if(st){ st.style.display='none'; st.textContent=''; }
+      renderLinks(); syncGenBtn(); save();
+    }).catch(function(err){ show('var(--red)','Could not fetch that video: ' + ((err && err.message) ? err.message : 'unknown error') + '.'); });
+  }
+  function removeLink(i){ S.links.splice(i,1); renderLinks(); syncGenBtn(); save(); }
+  function renderLinks(){
+    var box = el('plLinks'); if(!box) return; box.innerHTML='';
+    S.links.forEach(function(l,i){
+      var c = document.createElement('div'); c.className='cardv'; c.style.marginBottom='6px';
+      var body = document.createElement('div'); body.className='cbody';
+      body.innerHTML = '<div class="cname">' + esc(l.topic||l.handle||'Winning video') + '</div><div class="cangle">' + esc(l.handle||'') + (l.views ? (' · ' + esc(l.views) + ' views') : '') + '</div>';
+      var rm = document.createElement('button'); rm.type='button'; rm.className='rmv'; rm.textContent='✕';
+      rm.addEventListener('click', function(){ removeLink(i); });
+      c.appendChild(body); c.appendChild(rm); box.appendChild(c);
+    });
+  }
 
-// init listeners (planner DOM is present in the page from load)
-hookFile('P');hookFile('V');
-document.getElementById('buildBtn').addEventListener('click',build);
-// Persist settings changes (videos per day / max per product per week)
-['goal','capIn'].forEach(function(id){
-  var el=document.getElementById(id);
-  if(!el) return;
-  el.addEventListener('change',function(){
-    S.goal=Math.max(1,Math.min(30,parseInt(document.getElementById('goal').value)||6));
-    S.cap=Math.max(1,Math.min(14,parseInt(document.getElementById('capIn').value)||3));
-    scheduleSave();
-  });
-});
+  function setIter(m){
+    S.iter = (m==='same') ? 'same' : 'fresh';
+    var f = el('plIterFresh'), s = el('plIterSame');
+    if(f) f.classList.toggle('on', S.iter==='fresh');
+    if(s) s.classList.toggle('on', S.iter==='same');
+    save();
+  }
 
-// Expose only the handlers referenced by inline onclick/oninput attributes,
-// plus load() which the app calls when the Planner tab is opened.
-window.Planner={openGuide,setTab,setMode,resetPlan,reset,togglePosted,removeInst,
-  declineProduct,toggleFilmed,toggleExp,ungroup,toggleSel,onProdSearch,toggleCombine,
-  combineSelected,selectAllShown,clearSel,toggleRising,openAdd,filterAdd,addNewSample,
-  closeAdd,addExisting,load,
-  openScript,pickMatch,createScriptFor,skipScript};
+  // ---- generation orchestrator ----
+  function generate(){
+    var errEl = el('plErr');
+    function showErr(m){ if(errEl){ errEl.textContent = m; errEl.classList.remove('hidden'); } }
+    if(errEl) errEl.classList.add('hidden');
+    if(S.generating) return;
+    // Never fail silently: say exactly what's missing.
+    if(!currentUser || !sb){ showErr('Please sign in first, then try again.'); return; }
+    if(!S.lib.length){ showErr('No products in your library yet — add a sample below, or build a product in the Scripts tab first.'); return; }
+    var ids = bucketOrderIds();
+    if(!ids.length){ showErr('Assign at least one product to a bucket first — tap Top, Focus, or Incoming next to a product in the list above.'); return; }
+    S.perProd = Math.max(1, Math.min(7, parseInt(el('plPerProd').value) || 2));
+    S.perDay = Math.max(1, Math.min(30, parseInt(el('plPerDay').value) || 4));
+    S.generating = true; syncGenBtn();
+    var btn = el('plGenBtn');
+    // reset any prior plan
+    S.takes = {}; S.order = []; S.board = { days: [] }; S.posted = {}; S.filmed = {};
+    var winners = plannerWinnersBlock(S.links);
+    var queue = ids.slice(), done = 0, total = ids.length, stopped = false;
+    function fail(msg){
+      stopped = true; S.generating = false; if(btn) btn.textContent = 'Generate my plan'; syncGenBtn();
+      if(S.order.length){ finish(msg); } else if(errEl){ errEl.textContent = msg; errEl.classList.remove('hidden'); }
+    }
+    function nextProduct(){
+      if(stopped) return;
+      if(!queue.length){ finish(''); return; }
+      var id = queue.shift(); var p = prod(id); done++;
+      if(btn) btn.textContent = 'Generating ' + done + ' of ' + total + '...';
+      if(!p){ nextProduct(); return; }
+      var desc = (p.bank && p.bank.facts) || p.description || p.name || '';
+      var motivation = p.motivation || '';
+      buildTakesForProduct(p, desc, motivation, S.perProd, winners, nextProduct, fail);
+    }
+    function finish(msg){
+      S.generating = false; if(btn) btn.textContent = 'Generate my plan';
+      el('plSetup').classList.add('hidden'); el('plResults').classList.remove('hidden');
+      dealDays(); renderResults(); save(); window.scrollTo(0,0);
+      if(msg && errEl){ /* soft notice on the results screen */ if(typeof showToast==='function') showToast(msg); }
+    }
+    nextProduct();
+  }
+
+  function buildTakesForProduct(p, desc, motivation, perProd, winners, doneCb, failCb){
+    var bucket = S.picks[p.id];
+    function makeTake(angle, priorHook, cb){
+      genOneScript({ desc: desc, desire: angle, winnersBlock: winners, priorHook: priorHook }).then(function(parsed){
+        insertScript(p.id, angle, parsed, function(row){
+          var iid = nid();
+          S.takes[iid] = { iid: iid, productId: p.id, bucket: bucket, angle: angle, scriptId: row ? row.id : null, hook: parsed.hook || '' };
+          S.order.push(iid);
+          cb();
+        });
+      }).catch(function(e){
+        if(e && e.code === 429){ failCb('You have reached your generation limit for now. The plan so far is saved.'); return; }
+        cb(); // skip this take on other errors, keep going
+      });
+    }
+    if(S.iter === 'same'){
+      var angle = (p.bank && p.bank.desireAngle) || 'the single strongest want for this product';
+      var i = 0, prior = '';
+      (function loop(){
+        if(i >= perProd){ doneCb(); return; }
+        i++;
+        makeTake(angle, prior, function(){ var last = S.order[S.order.length-1]; prior = (S.takes[last] && S.takes[last].hook) || prior; loop(); });
+      })();
+    } else {
+      suggestFreshAngles(desc, motivation, perProd).then(function(focuses){
+        var angles = (focuses||[]).map(function(f){ return (f && f.focus) ? f.focus : (typeof f==='string' ? f : ''); }).filter(Boolean);
+        var fallback = (p.bank && p.bank.desireAngle) || 'the single strongest want for this product';
+        while(angles.length < perProd) angles.push(fallback);
+        var i = 0;
+        (function loop(){ if(i >= perProd){ doneCb(); return; } var a = angles[i]; i++; makeTake(a, '', loop); })();
+      }).catch(function(e){
+        if(e && e.code === 429){ failCb('You have reached your generation limit for now. The plan so far is saved.'); return; }
+        // angle generation failed -> fall back to same-angle takes
+        var angle = (p.bank && p.bank.desireAngle) || 'the single strongest want for this product';
+        var i = 0, prior = '';
+        (function loop(){ if(i >= perProd){ doneCb(); return; } i++; makeTake(angle, prior, function(){ var last = S.order[S.order.length-1]; prior = (S.takes[last] && S.takes[last].hook) || prior; loop(); }); })();
+      });
+    }
+  }
+
+  // Planner-generated scripts insert into the same `scripts` table as any other generation.
+  function insertScript(productId, angle, parsed, cb){
+    if(!currentUser || !sb){ cb(null); return; }
+    sb.from('scripts').insert({
+      user_id: currentUser.id, product_id: productId,
+      hook: parsed.hook || null, body1: parsed.body1 || null, body2: parsed.body2 || null,
+      cta: parsed.cta || null, preclose: parsed.preclose || null,
+      screen_text: parsed.screenText ? JSON.stringify(parsed.screenText) : null,
+      angle: angle || null, desire: angle || null,
+      caption: parsed.caption || null,
+      hashtags: parsed.hashtags ? JSON.stringify(parsed.hashtags) : null
+    }).select().single().then(function(r){ cb(r && !r.error ? r.data : null); }, function(){ cb(null); });
+  }
+
+  // ---- brainless round-robin day dealer (no ranking) ----
+  function dealDays(){
+    var days = 7, perDay = S.perDay || 4;
+    S.board = { days: [] };
+    for(var d=0; d<days; d++) S.board.days.push({ items: [] });
+    var q = S.order.slice(), di = 0, guard = 0;
+    while(q.length && guard < 100000){
+      guard++;
+      var placed = false;
+      for(var pass=0; pass<days && q.length; pass++){
+        var day = S.board.days[di % days]; di++;
+        if(day.items.length < perDay){ day.items.push(q.shift()); placed = true; break; }
+      }
+      if(!placed) break;
+    }
+    var k = 0; while(q.length){ S.board.days[k % days].items.push(q.shift()); k++; }
+  }
+
+  // ---- rendering ----
+  function st(v,k){ return '<div class="stat"><div class="v">' + v + '</div><div class="k">' + k + '</div></div>'; }
+  function renderResults(){
+    renderSummary(); renderProductsPanel();
+    el('plLayoutBucket').classList.toggle('on', S.layout==='bucket');
+    el('plLayoutDaily').classList.toggle('on', S.layout==='daily');
+    el('plLayoutWeekly').classList.toggle('on', S.layout==='weekly');
+    el('plBucketView').classList.toggle('hidden', S.layout!=='bucket');
+    el('plDailyView').classList.toggle('hidden', S.layout!=='daily');
+    el('plWeekView').classList.toggle('hidden', S.layout!=='weekly');
+    if(S.layout==='daily') renderDaily();
+    else if(S.layout==='weekly') renderDays();
+    else renderBucketView();
+  }
+  function renderSummary(){
+    var total = Object.keys(S.takes).length, prods = bucketOrderIds().filter(function(id){ return countForProduct(id)>0; }).length;
+    el('plSummary').innerHTML = st(prods,'products') + st(total,'videos to film') + st(S.links.length,'winning videos');
+  }
+  function reviewBtnFor(pid){
+    var b = document.createElement('button'); b.type='button'; b.className='btn ghost sm'; b.textContent='Review scripts';
+    b.addEventListener('click', function(){ goToScripts(pid); });
+    return b;
+  }
+  function buildBtnFor(pid){
+    var p = prod(pid);
+    var b = document.createElement('button'); b.type='button'; b.className='btn ghost sm'; b.textContent='Build new';
+    b.addEventListener('click', function(){ goToCreateNew(p ? p.name : ''); });
+    return b;
+  }
+  // Live per-product film count strip, shown in BOTH layouts so it stays visible + accurate.
+  function renderProductsPanel(){
+    var wrap = el('plProductsPanel'); if(!wrap) return; wrap.innerHTML='';
+    var ids = bucketOrderIds().filter(function(id){ return countForProduct(id) > 0; });
+    if(!ids.length) return;
+    var card = document.createElement('div'); card.className='card';
+    var h = document.createElement('h2'); h.textContent = "This week you'll film"; card.appendChild(h);
+    ids.forEach(function(pid){
+      var p = prod(pid);
+      var row = document.createElement('div'); row.className='trow';
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border);flex-wrap:wrap;';
+      var left = document.createElement('div');
+      left.innerHTML = '<span style="font-size:13px;">' + esc(p ? p.name : '(product)') + '</span> <span class="badge ' + bucketBadge(S.picks[pid]) + '">' + esc(bucketLabel(S.picks[pid])) + '</span>';
+      var right = document.createElement('div'); right.className='row'; right.style.gap='6px';
+      var cnt = document.createElement('span'); cnt.className='muted small'; cnt.setAttribute('data-count-for', pid);
+      cnt.textContent = 'filming ' + countForProduct(pid) + '× this week';
+      right.appendChild(cnt); right.appendChild(reviewBtnFor(pid)); right.appendChild(buildBtnFor(pid));
+      row.appendChild(left); row.appendChild(right); card.appendChild(row);
+    });
+    wrap.appendChild(card);
+  }
+  function refreshCounts(){
+    var wrap = el('plProductsPanel'); if(!wrap) return;
+    [].slice.call(wrap.querySelectorAll('[data-count-for]')).forEach(function(sp){
+      var pid = sp.getAttribute('data-count-for');
+      sp.textContent = 'filming ' + countForProduct(pid) + '× this week';
+    });
+  }
+
+  function takeCard(iid){
+    var t = S.takes[iid]; if(!t) return null;
+    var p = prod(t.productId);
+    var c = document.createElement('div'); c.className = 'cardv' + (S.posted[iid] ? ' posted' : ''); c.setAttribute('data-iid', iid);
+    var handle = document.createElement('div'); handle.className='handle'; handle.textContent='⠿';
+    var body = document.createElement('div'); body.className='cbody'; body.style.cursor='pointer';
+    var nm = document.createElement('div'); nm.className='cname'; nm.textContent = (p ? p.name : '(product)');
+    var ang = document.createElement('div'); ang.className='cangle'; ang.textContent = t.angle || '';
+    body.appendChild(nm); body.appendChild(ang);
+    if(t.hook){ var hk = document.createElement('div'); hk.className='small muted'; hk.style.marginTop='3px'; hk.textContent = '“' + t.hook + '”'; body.appendChild(hk); }
+    body.addEventListener('click', function(){ goToScripts(t.productId); });
+    c.appendChild(handle); c.appendChild(body);
+    return c;
+  }
+
+  function renderBucketView(){
+    var wrap = el('plBucketView'); wrap.innerHTML='';
+    BUCKETS.forEach(function(b){
+      var ids = bucketOrderIds().filter(function(id){ return S.picks[id]===b.key && countForProduct(id)>0; });
+      if(!ids.length) return;
+      var sec = document.createElement('div'); sec.className='card';
+      var h = document.createElement('h2'); h.textContent = b.label; sec.appendChild(h);
+      ids.forEach(function(pid){
+        var p = prod(pid);
+        var pr = document.createElement('div'); pr.style.cssText='margin-top:14px;';
+        var head = document.createElement('div'); head.style.cssText='display:flex;align-items:center;gap:8px;justify-content:space-between;flex-wrap:wrap;';
+        var left = document.createElement('div');
+        left.innerHTML = '<span style="font-size:14px;font-weight:500;">' + esc(p ? p.name : '(product)') + '</span> <span class="muted small">· filming ' + countForProduct(pid) + '× this week</span>';
+        var acts = document.createElement('div'); acts.className='row'; acts.style.gap='6px';
+        acts.appendChild(reviewBtnFor(pid)); acts.appendChild(buildBtnFor(pid));
+        head.appendChild(left); head.appendChild(acts);
+        var list = document.createElement('div'); list.className='list'; list.style.marginTop='8px';
+        S.order.filter(function(iid){ return S.takes[iid].productId===pid; }).forEach(function(iid){ var c = takeCard(iid); if(c) list.appendChild(c); });
+        pr.appendChild(head); pr.appendChild(list); sec.appendChild(pr);
+      });
+      wrap.appendChild(sec);
+    });
+    if(!wrap.children.length){ wrap.innerHTML = '<div class="note" style="margin:12px 0;">No scripts generated yet.</div>'; }
+  }
+
+  function dayLabel(i){
+    var wd = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var t = new Date(); t.setDate(t.getDate()+i);
+    return wd[t.getDay()] + ' ' + (t.getMonth()+1) + '/' + t.getDate();
+  }
+  var sorters = [];
+  // DAILY view: one day at a time, with a prev/next stepper. Good for "what do I film today".
+  function renderDaily(){
+    var wrap = el('plDailyView'); wrap.innerHTML='';
+    ensureBoard();
+    if(!Object.keys(S.takes).length){ wrap.innerHTML = '<div class="note" style="margin:12px 0;">No scripts yet — generate a plan first, then come back to see each day.</div>'; return; }
+    var days = S.board.days.length || 7;
+    if(S.activeDay==null || S.activeDay<0) S.activeDay=0;
+    if(S.activeDay>=days) S.activeDay=days-1;
+    var day = S.board.days[S.activeDay] || { items: [] };
+    var nav = document.createElement('div');
+    nav.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:16px;';
+    var prev = document.createElement('button'); prev.type='button'; prev.className='btn ghost sm'; prev.textContent='‹ Prev';
+    prev.disabled = (S.activeDay<=0);
+    prev.addEventListener('click', function(){ if(S.activeDay>0){ S.activeDay--; renderDaily(); save(); } });
+    var title = document.createElement('div'); title.style.cssText='text-align:center;flex:1;';
+    title.innerHTML = '<div style="font-family:\'Marcellus\',serif;font-size:16px;letter-spacing:0.04em;color:var(--text);">' + esc(dayLabel(S.activeDay)) + '</div>' +
+      '<div class="small" style="color:var(--muted);margin-top:2px;">' + day.items.length + ' to film' + (day.items.length>S.perDay?' · over your daily target':'') + '</div>';
+    var next = document.createElement('button'); next.type='button'; next.className='btn ghost sm'; next.textContent='Next ›';
+    next.disabled = (S.activeDay>=days-1);
+    next.addEventListener('click', function(){ if(S.activeDay<days-1){ S.activeDay++; renderDaily(); save(); } });
+    nav.appendChild(prev); nav.appendChild(title); nav.appendChild(next); wrap.appendChild(nav);
+    var card = document.createElement('div'); card.className='card';
+    if(!day.items.length){ card.innerHTML = '<div class="note" style="margin:6px 0;">Nothing set for this day. On the Weekly view you can drag scripts onto any day.</div>'; }
+    else {
+      var list = document.createElement('div'); list.className='list';
+      day.items.forEach(function(iid){ var c = takeCard(iid); if(c) list.appendChild(c); });
+      card.appendChild(list);
+    }
+    wrap.appendChild(card);
+  }
+
+  // WEEKLY view: all 7 days as columns, drag cards between days.
+  function renderDays(){
+    var wrap = el('plWeekView'); wrap.innerHTML='';
+    ensureBoard();
+    if(!Object.keys(S.takes).length){ wrap.innerHTML = '<div class="note" style="margin:12px 0;">No scripts yet — generate a plan first, then switch here to spread them across the week.</div>'; return; }
+    var bar = document.createElement('div');
+    bar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:14px;';
+    var hint = document.createElement('div'); hint.className='note'; hint.style.margin='0';
+    hint.textContent = 'Your week — drag any card between days to plan when you film it.';
+    var resp = document.createElement('button'); resp.type='button'; resp.className='btn ghost sm'; resp.textContent='Re-spread evenly';
+    resp.addEventListener('click', function(){ respread(); });
+    bar.appendChild(hint); bar.appendChild(resp); wrap.appendChild(bar);
+    var board = document.createElement('div'); board.className='days';
+    S.board.days.forEach(function(day,di){
+      var col = document.createElement('div'); col.className='daycol';
+      var dh = document.createElement('div'); dh.className='dh';
+      var d = document.createElement('span'); d.className='d'; d.textContent = dayLabel(di);
+      var c = document.createElement('span'); c.className='c' + (day.items.length>S.perDay?' over':''); c.textContent = day.items.length;
+      dh.appendChild(d); dh.appendChild(c);
+      var list = document.createElement('div'); list.className='list'; list.setAttribute('data-di', di); list.style.minHeight='40px';
+      day.items.forEach(function(iid){ var card = takeCard(iid); if(card) list.appendChild(card); });
+      col.appendChild(dh); col.appendChild(list); board.appendChild(col);
+    });
+    wrap.appendChild(board);
+    wireSortable(wrap);
+  }
+  function wireSortable(wrap){
+    sorters.forEach(function(s){ try{ s.destroy(); }catch(e){} }); sorters = [];
+    if(typeof Sortable === 'undefined') return;
+    [].slice.call(wrap.querySelectorAll('.list')).forEach(function(list){
+      sorters.push(Sortable.create(list, { group: 'plannerdays', handle: '.handle', animation: 150, ghostClass: 'ghost', onEnd: syncDaysFromDOM }));
+    });
+  }
+  // Cross-day drag: rebuild each day's item list from the DOM, then persist.
+  function syncDaysFromDOM(){
+    var wrap = el('plWeekView');
+    S.board.days.forEach(function(day,di){
+      var list = wrap.querySelector('.list[data-di="' + di + '"]');
+      day.items = list ? [].slice.call(list.querySelectorAll('.cardv')).map(function(c){ return c.getAttribute('data-iid'); }) : [];
+    });
+    // per-day counters
+    [].slice.call(wrap.querySelectorAll('.daycol')).forEach(function(col,di){
+      var c = col.querySelector('.c'); if(c && S.board.days[di]){ var n = S.board.days[di].items.length; c.textContent = n; c.className = 'c' + (n>S.perDay?' over':''); }
+    });
+    refreshCounts(); // per-product totals are drag-invariant, but keep them provably in sync
+    save();
+  }
+
+  function setLayout(l){
+    if(l==='day') l='weekly';   // legacy value
+    S.layout = (l==='daily' || l==='weekly') ? l : 'bucket';
+    if(S.layout!=='bucket') ensureBoard();   // daily + weekly both read the dealt board
+    renderResults(); save();
+  }
+  // Keep the weekly board in sync with the current takes: (re)deal if missing, drop stale
+  // ids, and place any take that isn't on the board yet. Guarantees the weekly view is never
+  // blank when takes exist.
+  function ensureBoard(){
+    if(!S.board || !Array.isArray(S.board.days) || !S.board.days.length){ dealDays(); return; }
+    var onBoard = {};
+    S.board.days.forEach(function(d){ (d.items||[]).forEach(function(iid){ onBoard[iid]=1; }); });
+    S.board.days.forEach(function(d){ d.items = (d.items||[]).filter(function(iid){ return S.takes[iid]; }); });
+    var missing = S.order.filter(function(iid){ return S.takes[iid] && !onBoard[iid]; });
+    if(missing.length){ var k=0; missing.forEach(function(iid){ S.board.days[k % S.board.days.length].items.push(iid); k++; }); }
+  }
+  function respread(){ dealDays(); renderDays(); save(); }
+  function startOver(){
+    el('plResults').classList.add('hidden'); el('plSetup').classList.remove('hidden');
+    renderPicker(); renderLinks(); syncGenBtn(); window.scrollTo(0,0);
+  }
+  function openGuide(){
+    var ov = el('overlay'); if(!ov) return;
+    ov.innerHTML = '<div class="sheet"><h3 style="margin:0 0 12px;">How the Planner works</h3>' +
+      '<ol style="margin:0 0 16px;padding-left:22px;font-size:14px;line-height:1.7;color:var(--text);">' +
+        '<li><b>Pick products.</b> Assign products from your library to a bucket — top sellers, focus products, or incoming samples.</li>' +
+        '<li style="margin-top:6px;"><b>Add winning videos (optional).</b> Paste up to two links; their transcripts guide the structure of every script.</li>' +
+        '<li style="margin-top:6px;"><b>Choose how to generate.</b> New angles, or Same angle / fresh wording — and how many videos per product.</li>' +
+        '<li style="margin-top:6px;"><b>Generate.</b> Saxe writes the scripts, saves them to your library, and groups them by bucket.</li>' +
+        '<li style="margin-top:6px;"><b>Plan your week.</b> Switch to <b>Daily</b> to see one day at a time, or <b>Weekly</b> to see the whole week and drag cards between days.</li>' +
+      '</ol>' +
+      '<div style="text-align:center;"><button class="btn ghost" type="button" onclick="document.getElementById(\'overlay\').classList.add(\'hidden\')">Close</button></div></div>';
+    ov.classList.remove('hidden');
+  }
+
+  // ---- add an incoming sample (creates a real library product, flagged incoming) ----
+  function openAddSample(){
+    var ov = el('overlay'); if(!ov) return;
+    ov.innerHTML = '<div class="sheet"><h3>Add a sample</h3>' +
+      '<div class="note" style="margin:0 0 12px;">This creates a new product in your library, flags it as an incoming sample, and drops it into the Incoming samples bucket. It works in the Scripts tab too.</div>' +
+      '<div class="lbl" style="margin-bottom:4px;">Product name</div>' +
+      '<input id="plSampleName" class="srch" placeholder="e.g. Ceramic pour-over kettle" style="width:100%;margin-bottom:10px;">' +
+      '<div class="lbl" style="margin-bottom:4px;">Product details</div>' +
+      '<textarea id="plSampleDesc" class="srch" placeholder="Paste the product description / spec" style="width:100%;min-height:96px;resize:vertical;"></textarea>' +
+      '<div class="err hidden" id="plSampleErr" style="margin-top:8px;"></div>' +
+      '<div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px;">' +
+        '<button class="btn ghost" type="button" onclick="document.getElementById(\'overlay\').classList.add(\'hidden\')">Cancel</button>' +
+        '<button class="btn" type="button" id="plSampleSave" onclick="Planner.saveSample()">Add to samples</button>' +
+      '</div></div>';
+    ov.classList.remove('hidden');
+    var nm = el('plSampleName'); if(nm){ try{ nm.focus(); }catch(e){} }
+  }
+  function saveSample(){
+    var nm = el('plSampleName'), ds = el('plSampleDesc'), er = el('plSampleErr'), sv = el('plSampleSave');
+    var name = (nm && nm.value ? nm.value : '').trim();
+    var desc = (ds && ds.value ? ds.value : '').trim();
+    function showErr(m){ if(er){ er.textContent = m; er.classList.remove('hidden'); } }
+    if(er) er.classList.add('hidden');
+    if(!name){ showErr('Give the sample a name.'); return; }
+    if(!currentUser || !sb){ showErr('Please sign in first.'); return; }
+    if(sv){ sv.disabled = true; sv.textContent = 'Adding...'; }
+    sb.from('products').insert({ user_id: currentUser.id, name: name, description: desc || null, bank: { incoming: true } }).select().single().then(function(r){
+      if(!r || r.error || !r.data){ if(sv){ sv.disabled = false; sv.textContent = 'Add to samples'; } showErr('Could not add that sample, please try again.'); return; }
+      var p = r.data;
+      S.lib = S.lib.filter(function(x){ return x.id !== p.id; });
+      S.lib.push(p);
+      S.lib.sort(function(a,b){ return String(a.name||'').toLowerCase().localeCompare(String(b.name||'').toLowerCase()); });
+      S.picks[p.id] = 'sample';
+      var ov = el('overlay'); if(ov) ov.classList.add('hidden');
+      S.q = ''; var srch = el('plProdSearch'); if(srch) srch.value = '';
+      renderPicker(); syncGenBtn(); save();
+      if(typeof buildSelect === 'function'){ try{ buildSelect(); }catch(e){} }  // keep the main app picker in sync
+    }, function(){ if(sv){ sv.disabled = false; sv.textContent = 'Add to samples'; } showErr('Could not add that sample, please try again.'); });
+  }
+
+  // ---- persistence (Supabase planner_state, one JSONB row per user) ----
+  function snapshot(){
+    return {
+      v: 2, picks: S.picks, links: S.links, iter: S.iter, perProd: S.perProd, perDay: S.perDay, layout: S.layout, activeDay: S.activeDay,
+      takes: S.takes, order: S.order,
+      board: { days: (S.board.days||[]).map(function(d){ return { items: d.items || [] }; }) },
+      posted: S.posted, filmed: S.filmed, iid: IID
+    };
+  }
+  var saveTimer = null;
+  function save(){ if(S.restoring) return; if(!currentUser || !sb) return; clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 800); }
+  function saveNow(){
+    if(!currentUser || !sb) return;
+    try{ sb.from('planner_state').upsert({ user_id: currentUser.id, data: snapshot(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' }).then(function(){}, function(){}); }catch(e){}
+  }
+  function resetAll(){
+    S.picks = {}; S.links = []; S.iter = 'fresh'; S.perProd = 2; S.perDay = 4;
+    S.takes = {}; S.order = []; S.board = { days: [] }; S.layout = 'bucket'; S.activeDay = 0;
+    S.posted = {}; S.filmed = {}; S.q = ''; IID = 1;
+  }
+  function restoreFrom(d){
+    S.restoring = true;
+    try{
+      // v2 planner state. Old v1 (export-era) rows have a different shape (e.g. links was an
+      // OBJECT map, and there were no picks/takes/order), so coerce every field by type — never
+      // trust a stale row to have the right container type.
+      function obj(x){ return (x && typeof x==='object' && !Array.isArray(x)) ? x : {}; }
+      function arr(x){ return Array.isArray(x) ? x : []; }
+      S.picks = obj(d.picks); S.links = arr(d.links); S.iter = (d.iter==='same'?'same':'fresh');
+      S.perProd = d.perProd || 2; S.perDay = d.perDay || 4;
+      S.layout = (d.layout==='daily') ? 'daily' : ((d.layout==='weekly'||d.layout==='day') ? 'weekly' : 'bucket');
+      S.activeDay = (typeof d.activeDay==='number' && d.activeDay>=0) ? d.activeDay : 0;
+      S.takes = obj(d.takes); S.order = arr(d.order);
+      S.board = (d.board && arr(d.board.days).length) ? { days: arr(d.board.days) } : { days: [] };
+      S.posted = obj(d.posted); S.filmed = obj(d.filmed); IID = d.iid || IID;
+      setIter(S.iter);
+      var perP = el('plPerProd'); if(perP) perP.value = S.perProd;
+      var perD = el('plPerDay'); if(perD) perD.value = S.perDay;
+      if(S.order.length){
+        el('plSetup').classList.add('hidden'); el('plResults').classList.remove('hidden');
+        if(!S.board.days.length) dealDays();
+        renderResults();
+      } else {
+        el('plResults').classList.add('hidden'); el('plSetup').classList.remove('hidden');
+        renderPicker(); renderLinks(); syncGenBtn();
+      }
+    }catch(e){}
+    S.restoring = false;
+  }
+
+  var loadedForUser = null;
+  function load(){
+    if(!currentUser || !sb) return;
+    var firstForUser = (loadedForUser !== currentUser.id);
+    if(loadedForUser !== null && loadedForUser !== currentUser.id) resetAll();  // a different user signed in
+    loadedForUser = currentUser.id;
+    // Always refresh the library list on open so it matches the rest of the app (products added in
+    // the Scripts tab show up here immediately). Restore the saved plan state only once per user.
+    loadLibrary(function(){
+      renderPicker(); renderLinks();
+      if(!firstForUser) return;
+      try{
+        sb.from('planner_state').select('data').eq('user_id', currentUser.id).maybeSingle().then(function(res){
+          if(res && !res.error && res.data && res.data.data){ restoreFrom(res.data.data); }
+          else { el('plResults').classList.add('hidden'); el('plSetup').classList.remove('hidden'); syncGenBtn(); }
+        }, function(){});
+      }catch(e){}
+    });
+  }
+
+  window.Planner = { load: load, openGuide: openGuide, onSearch: onSearch, addLink: addLink, setIter: setIter, generate: generate, setLayout: setLayout, startOver: startOver, openAddSample: openAddSample, saveSample: saveSample };
 })();
 </script>
 
