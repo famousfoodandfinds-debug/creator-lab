@@ -6052,6 +6052,19 @@ function requestPains(cfg, cb){
   cfg = cfg || {};
   var product = String(cfg.productText || currentProduct || "").slice(0, 900);
   var buyer = String(cfg.buyerIntent || "").slice(0, 200);
+  // AUTO-DERIVE GROUNDING (input simplification): make the prefilled/regenerated pains specific by
+  // grounding them in the creator's real inputs -- review complaints first (actual buyer hesitations),
+  // then the buyer insight; the description is already in `product`. Both optional and empty when
+  // absent, so a product with no reviews still derives from buyer insight + description, and one with
+  // neither still prefills from the description alone -- never a blank page. This only enriches the
+  // pain-suggestion think-call; it does not touch the generation prompt.
+  var _revComplaints = (currentReviews && allData && Array.isArray(allData.reviews))
+    ? allData.reviews.map(function(r){ return (r && r.complaint) ? String(r.complaint).trim() : ""; }).filter(Boolean).join("; ").slice(0, 600)
+    : "";
+  var _buyerInsight = (typeof getBuyerMotivation === "function") ? String(getBuyerMotivation() || "").slice(0, 400) : "";
+  var _painGrounding = "";
+  if (_revComplaints) _painGrounding += " GROUND THESE IN REAL CUSTOMER REVIEWS -- these are actual complaints and hesitations real buyers of THIS product raised; prefer them as the source of the pains, kept in the buyer's own framing: " + _revComplaints + ".";
+  if (_buyerInsight) _painGrounding += " BUYER INSIGHT -- who is buying and the situation or frustration they live with: " + _buyerInsight + ". Draw the pains from this buyer's real life.";
   var typeMenu = PAIN_TYPES.map(function(t){ return t.id + " (" + t.label + ")"; }).join("; ");
   var instruction;
   if (cfg.assignedTypes && cfg.assignedTypes.length) {
@@ -6089,7 +6102,7 @@ function requestPains(cfg, cb){
       voiceLine +
       (buyer ? " Aim every line at this exact buyer: " + buyer + "." : "") +
       " Each line is ONE short spoken sentence. Never an empty adjective (pretty, gorgeous, cute, amazing) alone -- back a feeling with a concrete image or a specific moment. Do NOT mention the product name, any brand, or any price. No em dashes." +
-      " Product: " + product + ". Output JSON only.";
+      " Product: " + product + _painGrounding + ". Output JSON only.";
   } else if (_driverMode) {
     var dlines = _dvIds.map(function(id, i){ var t = painTypeById(id) || {}; var a = driverAxisById(t.axis) || {}; return " " + (i + 1) + ". " + (t.label || id) + " -- " + (a.opener || ""); }).join("");
     p = "Respond ONLY with JSON, no markdown: {\"pains\":[{\"type\":\"<label>\",\"text\":\"<one spoken sentence>\"}]}." +
@@ -6098,7 +6111,7 @@ function requestPains(cfg, cb){
       " Write exactly " + _dvIds.length + " driver lines, one for EACH of these in this order, in the shape each one calls for:" + dlines + "." +
       (buyer ? " Aim every line at this exact buyer: " + buyer + "." : "") +
       " Each line is ONE short spoken sentence. Back any claim with a concrete visual or a specific sensory detail, never an adjective alone. Do NOT mention the product name, any brand, or any price. No em dashes." +
-      " Product: " + product + ". Output JSON only.";
+      " Product: " + product + _painGrounding + ". Output JSON only.";
   } else {
     p = "Respond ONLY with JSON, no markdown: {\"pains\":[{\"type\":\"<type id>\",\"text\":\"<one spoken sentence>\"}]}." +
       " You name the real pains a shopper already feels, to build the structure of a TikTok Shop video." +
@@ -6106,7 +6119,7 @@ function requestPains(cfg, cb){
       instruction +
       (buyer ? " Aim every pain at this exact buyer: " + buyer + "." : "") +
       " Each pain text is ONE short spoken sentence naming a frustration the buyer already lives with, in plain everyday words they would nod at. Do NOT mention the product, any brand, or any price. No em dashes." +
-      " Product: " + product + ". Output JSON only.";
+      " Product: " + product + _painGrounding + ". Output JSON only.";
   }
   fetch("/api/claude", {
     method: "POST",
@@ -6133,8 +6146,12 @@ function getPainStackNote(){
   // Lead card's axis chooses the opener shape. Pain-family or legacy (no axis) => the
   // exact pre-driver note, so every existing category is byte-identical to today.
   var leadAxis = driverAxisOfCard(currentPains[0]);
-  if (isPainFamilyAxis(leadAxis)) return _painStackNoteLegacy();
-  return _driverNoteForAxis(leadAxis);
+  var _note = isPainFamilyAxis(leadAxis) ? _painStackNoteLegacy() : _driverNoteForAxis(leadAxis);
+  // Pre-close coordination: when reviews are present the pre-close belongs to the review
+  // objection-defuse (see PRECLOSE_OVERRIDE / review-driven rules). The pain stack owns the hook
+  // stack, the in-order body resolution, and the CTA callback -- never the pre-close. This keeps the
+  // pre-close from having "three masters" (framework default + reviews + pain callback all at once).
+  return _note + (currentReviews ? " PRE-CLOSE COORDINATION -- customer reviews are present: the pre-close belongs to the review objection-defuse (name the buyer's real hesitation and defuse it concretely). This pain stack owns the hook stack, the in-order body resolution, and the CTA callback; do NOT also place a pain callback in the pre-close. Structure comes from the pains, the objection defuse comes from the reviews." : "");
 }
 function _painStackNoteLegacy(){
   var p = currentPains;
