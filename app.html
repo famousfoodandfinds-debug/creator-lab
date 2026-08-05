@@ -863,7 +863,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
         </div>
         <div id="reviewSetupRow" style="margin-top:12px;">
           <input type="file" id="reviewFileInput" accept="image/*" multiple style="display:none;" onchange="handleReviewUpload(event)">
-          <button type="button" onclick="openReviewPicker()" style="width:100%;background:transparent;border:1px dashed rgba(144,144,240,0.3);border-radius:10px;color:rgba(144,144,240,0.85);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:11px;cursor:pointer;">＋ Add customer reviews <span style="opacity:0.65;font-weight:400;">(optional, up to 3 screenshots)</span></button>
+          <button type="button" onclick="openReviewInput()" style="width:100%;background:transparent;border:1px dashed rgba(144,144,240,0.3);border-radius:10px;color:rgba(144,144,240,0.85);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:11px;cursor:pointer;">＋ Add customer reviews <span style="opacity:0.65;font-weight:400;">(optional, paste or up to 3 screenshots)</span></button>
           <div id="reviewStatus" style="font-size:12px;color:var(--muted);margin-top:6px;display:none;line-height:1.5;"></div>
         </div>
         <button id="generateBuyersBtn" onclick="generateBuyerCards()" style="width:100%;margin-top:12px;background:var(--purple);border:none;border-radius:var(--radius-sm);color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:700;padding:13px;cursor:pointer;">Find my buyers ✶</button>
@@ -3103,8 +3103,8 @@ function renderProductHub() {
       var addReviewsBtn = document.createElement("button");
       addReviewsBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:11px;cursor:pointer;padding:0;text-decoration:underline;";
       addReviewsBtn.textContent = currentProductHasReviews() ? ("Reviews ✓ (" + allData.reviews.length + ")") : "Add reviews";
-      addReviewsBtn.title = "Add up to 3 customer-review screenshots -- Saxe uses them for buyers, the pre-close objection, and the hook.";
-      addReviewsBtn.addEventListener("click", function() { openReviewPicker(); });
+      addReviewsBtn.title = "Add up to 3 customer-review screenshots (paste or choose files) -- Saxe uses them for buyers, the pre-close objection, and the hook.";
+      addReviewsBtn.addEventListener("click", function() { openReviewInput(); });
       buyerWrap.appendChild(addReviewsBtn);
       wrap.appendChild(buyerWrap);
     } else {
@@ -3874,25 +3874,131 @@ function handleReviewUpload(event){
       if(loaded === total){
         imgs = imgs.filter(Boolean);
         setReviewStatus("Reading " + imgs.length + " review screenshot" + (imgs.length>1?"s":"") + "...");
-        processReviewImages(imgs, function(arr, err){
-          if(err || !arr){ setReviewStatus("Could not read those reviews: " + ((err && err.message) || "please try again") + ".", "var(--red)"); return; }
-          if(!arr.length){ setReviewStatus("No review text was found in those screenshots.", "var(--red)"); return; }
-          if(typeof allData !== "object" || !allData) allData = {};
-          allData.reviews = arr;
-          refreshCurrentReviews();
-          setReviewStatus(arr.length + " review" + (arr.length!==1?"s":"") + " saved -- Saxe will use them for your buyers, the pre-close objection, and the hook.", "#2DC98A");
-          // Persist immediately for an already-saved product (bank round-trips reviews). New products
-          // persist reviews when the product is first saved (saveProduct spreads allData).
-          if(currentProductId && sb){ sb.from("products").update({ bank: allData }).eq("id", currentProductId).then(function(){}, function(){}); }
-          if(document.body.classList.contains("hub-mode") && typeof renderProductHub === "function"){ try{ renderProductHub(); }catch(e){} }
-        });
+        processReviewImages(imgs, _onReviewsExtracted);
       }
     };
     reader.onerror = function(){ loaded++; };
     reader.readAsDataURL(file);
   });
 }
+// Shared post-extraction handler for BOTH the file-picker path (handleReviewUpload) and the
+// paste/drop modal (openReviewInput). Stores the reviews and persists them exactly as before.
+function _onReviewsExtracted(arr, err){
+  if(err || !arr){ setReviewStatus("Could not read those reviews: " + ((err && err.message) || "please try again") + ".", "var(--red)"); return; }
+  if(!arr.length){ setReviewStatus("No review text was found in those screenshots.", "var(--red)"); return; }
+  if(typeof allData !== "object" || !allData) allData = {};
+  allData.reviews = arr;
+  refreshCurrentReviews();
+  setReviewStatus(arr.length + " review" + (arr.length!==1?"s":"") + " saved -- Saxe will use them for your buyers, the pre-close objection, and the hook.", "#2DC98A");
+  // Persist immediately for an already-saved product (bank round-trips reviews). New products
+  // persist reviews when the product is first saved (saveProduct spreads allData).
+  if(currentProductId && sb){ sb.from("products").update({ bank: allData }).eq("id", currentProductId).then(function(){}, function(){}); }
+  if(document.body.classList.contains("hub-mode") && typeof renderProductHub === "function"){ try{ renderProductHub(); }catch(e){} }
+}
 function openReviewPicker(){ var i = document.getElementById("reviewFileInput"); if(i) i.click(); }
+
+// Review-input modal: paste (Cmd/Ctrl+V), drag-drop, or choose files. Collects up to 3 review
+// screenshots, then runs the same OCR pipeline (processReviewImages) as the file-picker path.
+// While it is open, window._reviewModalOpen suppresses the product-screenshot paste handler so a
+// pasted review lands here, not in the product description.
+var _reviewModalOpen = false;
+function openReviewInput(){
+  var pending = []; // [{b64,type,dataUrl}], max 3
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  var modal = document.createElement('div');
+  modal.setAttribute('tabindex','-1');
+  modal.style.cssText = 'background:var(--bg);border-radius:16px 16px 0 0;padding:20px 16px 32px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;outline:none;';
+
+  var title = document.createElement('div');
+  title.style.cssText = 'font-size:15px;font-weight:700;color:var(--white);margin-bottom:4px;';
+  title.textContent = 'Add customer reviews';
+  var sub = document.createElement('div');
+  sub.style.cssText = 'font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;';
+  sub.textContent = 'Up to 3 screenshots. Paste them (Cmd / Ctrl + V), drag them in, or choose files. Creator-supplied only -- no scraping.';
+  modal.appendChild(title); modal.appendChild(sub);
+
+  var picker = document.createElement('input');
+  picker.type = 'file'; picker.accept = 'image/*'; picker.multiple = true; picker.style.display = 'none';
+
+  var zone = document.createElement('div');
+  zone.style.cssText = 'border:1px dashed rgba(144,144,240,0.4);border-radius:12px;padding:22px 14px;text-align:center;cursor:pointer;color:rgba(144,144,240,0.85);font-size:13px;font-weight:600;margin-bottom:12px;';
+  zone.textContent = 'Paste a screenshot, or tap to choose files';
+  zone.addEventListener('click', function(){ picker.click(); });
+
+  var thumbs = document.createElement('div');
+  thumbs.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;';
+  var countEl = document.createElement('div');
+  countEl.style.cssText = 'font-size:11px;color:var(--muted);margin-bottom:12px;min-height:14px;';
+
+  var readBtn = document.createElement('button');
+  readBtn.style.cssText = 'width:100%;background:var(--purple);border:none;border-radius:10px;color:var(--surface);font-family:\'Instrument Sans\',sans-serif;font-size:14px;font-weight:700;padding:13px;cursor:pointer;margin-top:4px;';
+  readBtn.textContent = 'Read these reviews';
+  var cancelBtn = document.createElement('button');
+  cancelBtn.style.cssText = 'width:100%;background:none;border:none;color:var(--muted);font-family:\'Instrument Sans\',sans-serif;font-size:12px;padding:10px;cursor:pointer;';
+  cancelBtn.textContent = 'Cancel';
+
+  function renderThumbs(){
+    thumbs.innerHTML = '';
+    pending.forEach(function(p, idx){
+      var t = document.createElement('div');
+      t.style.cssText = 'position:relative;width:64px;height:64px;border-radius:8px;overflow:hidden;border:1px solid var(--border);';
+      var im = document.createElement('img');
+      im.src = p.dataUrl; im.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+      var x = document.createElement('div');
+      x.textContent = '×';
+      x.style.cssText = 'position:absolute;top:2px;right:2px;width:18px;height:18px;line-height:18px;text-align:center;background:rgba(0,0,0,0.6);color:#fff;border-radius:50%;font-size:13px;cursor:pointer;';
+      x.addEventListener('click', function(e){ e.stopPropagation(); pending.splice(idx,1); renderThumbs(); });
+      t.appendChild(im); t.appendChild(x); thumbs.appendChild(t);
+    });
+    countEl.textContent = pending.length ? (pending.length + ' of 3 selected') : '';
+    readBtn.disabled = !pending.length; readBtn.style.opacity = pending.length ? '1' : '0.5';
+    zone.style.display = pending.length >= 3 ? 'none' : 'block';
+  }
+  function addBlobs(blobs){
+    Array.prototype.slice.call(blobs).forEach(function(blob){
+      if(pending.length >= 3) return;
+      if(!blob || (blob.type && blob.type.indexOf('image/') !== 0)) return;
+      var reader = new FileReader();
+      reader.onload = function(e){
+        if(pending.length >= 3) return;
+        var dataUrl = e.target.result, b64 = dataUrl.split(',')[1], mt = 'image/jpeg';
+        if(dataUrl.indexOf('image/png') > -1) mt = 'image/png'; else if(dataUrl.indexOf('image/webp') > -1) mt = 'image/webp';
+        pending.push({ b64: b64, type: mt, dataUrl: dataUrl }); renderThumbs();
+      };
+      reader.readAsDataURL(blob);
+    });
+  }
+  picker.addEventListener('change', function(){ addBlobs(this.files); this.value = ''; });
+  zone.addEventListener('dragover', function(e){ e.preventDefault(); });
+  zone.addEventListener('drop', function(e){ e.preventDefault(); if(e.dataTransfer && e.dataTransfer.files) addBlobs(e.dataTransfer.files); });
+  function onPaste(e){
+    var items = e.clipboardData && e.clipboardData.items; if(!items) return;
+    var imgs = [];
+    for(var i=0;i<items.length;i++){ if(items[i].type && items[i].type.indexOf('image/') === 0){ var f = items[i].getAsFile(); if(f) imgs.push(f); } }
+    if(imgs.length){ e.preventDefault(); e.stopImmediatePropagation(); addBlobs(imgs); }
+  }
+  document.addEventListener('paste', onPaste, true); // capture phase: beat the global product handler
+
+  function close(){ document.removeEventListener('paste', onPaste, true); _reviewModalOpen = false; window._reviewModalOpen = false; if(overlay.parentNode) document.body.removeChild(overlay); }
+  readBtn.addEventListener('click', function(){
+    if(!pending.length) return;
+    var imgs = pending.map(function(p){ return { b64: p.b64, type: p.type }; }).slice(0, 3);
+    close();
+    setReviewStatus('Reading ' + imgs.length + ' review screenshot' + (imgs.length>1?'s':'') + '...');
+    processReviewImages(imgs, _onReviewsExtracted);
+  });
+  cancelBtn.addEventListener('click', close);
+  overlay.addEventListener('click', function(e){ if(e.target === overlay) close(); });
+
+  modal.appendChild(zone); modal.appendChild(thumbs); modal.appendChild(countEl);
+  modal.appendChild(readBtn); modal.appendChild(cancelBtn); modal.appendChild(picker);
+  overlay.appendChild(modal);
+  _reviewModalOpen = true; window._reviewModalOpen = true;
+  document.body.appendChild(overlay);
+  renderThumbs();
+  setTimeout(function(){ try{ modal.focus(); }catch(e){} }, 0);
+}
 
 function processBlob(blob, name) {
   var reader = new FileReader();
@@ -12247,8 +12353,9 @@ function showPriceModal(onSelected) {
 
 function showToast(msg){var t=document.getElementById("toast");t.textContent=msg||"Done";t.classList.add("show");setTimeout(function(){t.classList.remove("show");},2000);}
 
-// Cmd+V paste on desktop
-document.addEventListener("paste",function(e){var items=e.clipboardData&&e.clipboardData.items;if(!items)return;for(var i=0;i<items.length;i++){if(items[i].type.startsWith("image/")){e.preventDefault();var blob=items[i].getAsFile();if(blob)processBlob(blob,"pasted-image.png");return;}}});
+// Cmd+V paste on desktop -> product screenshot OCR. Suppressed while the review-input modal is open,
+// so a paste there is captured as a review (see openReviewInput) instead of the product description.
+document.addEventListener("paste",function(e){if(window._reviewModalOpen)return;var items=e.clipboardData&&e.clipboardData.items;if(!items)return;for(var i=0;i<items.length;i++){if(items[i].type.startsWith("image/")){e.preventDefault();var blob=items[i].getAsFile();if(blob)processBlob(blob,"pasted-image.png");return;}}});
 
 </script>
 <script>
