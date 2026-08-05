@@ -4382,7 +4382,16 @@ function fetchWinningAngleByLink(inputEl, btnEl, statusEl, container) {
   .then(function(raw) {
     clearTimeout(timer);
     var data = JSON.parse(raw);
-    if (data.error) throw new Error(data.error.message || "request failed");
+    if (data.error) {
+      // The backend attaches a SAFE tokscript diagnostic (auth mode + key LENGTH only, never the
+      // key). Surface it on auth failures so a missing key (keyLength 0 -- not set for this deploy
+      // context) is distinguishable from a rejected key (keyLength > 0 -- wrong value or auth mode).
+      var dbg = data.tokscriptDebug;
+      var suffix = (dbg && typeof dbg.keyLength === "number")
+        ? " [tokscript: mode=" + dbg.authMode + ", keyLength=" + dbg.keyLength + "]"
+        : "";
+      throw new Error((data.error.message || "request failed") + suffix);
+    }
     var text = "";
     if (Array.isArray(data.content)) data.content.forEach(function(b) { if (b && b.type === "text") text += b.text; });
     var obj = parseWinnerJson(text);
