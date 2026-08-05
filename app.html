@@ -3394,16 +3394,18 @@ function renderProductHub() {
     // Secondary option: upload a screenshot instead. Same storage and review list.
     var winOrLabel = document.createElement("div");
     winOrLabel.style.cssText = "font-size:12px;color:var(--white-dim);margin-bottom:6px;";
-    winOrLabel.textContent = "Or upload a screenshot";
+    winOrLabel.textContent = "Or paste / upload a screenshot";
     var winBtn = document.createElement("button");
     winBtn.className = "next-btn";
     winBtn.style.cssText = "background:transparent;border:1px solid var(--border-md);color:var(--white);font-size:13px;";
-    winBtn.textContent = "Upload a screenshot of a script";
+    winBtn.textContent = "Paste or upload a screenshot of a script";
     var winInput = document.createElement("input");
     winInput.type = "file"; winInput.accept = "image/*"; winInput.style.display = "none";
     var winResults = document.createElement("div");
     winResults.id = "winnersReview";
-    winBtn.addEventListener("click", function(){ winInput.click(); });
+    // Opens a small panel that accepts a pasted screenshot (right-click Paste, the Paste button,
+    // or Cmd/Ctrl+V), a drag-drop, or the file picker -- then runs the same screenshot OCR path.
+    winBtn.addEventListener("click", function(){ openWinnerShotInput(winResults); });
     winInput.addEventListener("change", function(e){ handleWinningAnglesUpload(e, winResults); });
     waWrap.appendChild(winOrLabel);
     waWrap.appendChild(winBtn);
@@ -4191,6 +4193,137 @@ function sendWinningAnglesToModel(b64, mediaType, container) {
   });
 }
 
+// Script-screenshot input panel: paste (right-click Paste / Cmd-Ctrl+V / the Paste button),
+// drag-drop, or choose a file. Takes one screenshot, then runs the same OCR path
+// (sendWinningAnglesToModel) as the file picker. While open, window._winnerModalOpen suppresses
+// the global product-screenshot paste handler so a paste here is captured as a script screenshot.
+var _winnerModalOpen = false;
+function openWinnerShotInput(container){
+  var winnersCount = (allData && Array.isArray(allData.winnersRaw)) ? allData.winnersRaw.length : 0;
+  if(winnersCount >= 3){ try{ showToast("You already have 3 winning angles. Remove one to add another."); }catch(e){} return; }
+  var pending = null; // {b64,type,dataUrl}
+  var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+  var overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:flex-end;justify-content:center;';
+  var modal = document.createElement('div');
+  modal.setAttribute('tabindex','-1');
+  modal.style.cssText = 'background:var(--bg);border-radius:16px 16px 0 0;padding:20px 16px 32px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;outline:none;';
+
+  var title = document.createElement('div');
+  title.style.cssText = 'font-size:15px;font-weight:700;color:var(--white);margin-bottom:4px;';
+  title.textContent = 'Add a script screenshot';
+  var sub = document.createElement('div');
+  sub.style.cssText = 'font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;';
+  sub.textContent = isTouch
+    ? 'A screenshot of a TikTok script. Tap to choose from your photos, or long-press and paste into the box below.'
+    : 'A screenshot of a TikTok script. Right-click the box below and choose Paste, press Cmd / Ctrl + V, use the Paste button, drag it in, or choose a file.';
+  modal.appendChild(title); modal.appendChild(sub);
+
+  var picker = document.createElement('input');
+  picker.type = 'file'; picker.accept = 'image/*'; picker.style.display = 'none';
+
+  var ZONE_LABEL = isTouch ? 'Tap to choose a file, or paste here' : 'Right-click here and Paste, or press Cmd / Ctrl + V';
+  var zone = document.createElement('div');
+  zone.style.cssText = 'border:1px dashed rgba(144,144,240,0.4);border-radius:12px;padding:22px 14px;text-align:center;cursor:pointer;color:rgba(144,144,240,0.85);font-size:13px;font-weight:600;margin-bottom:10px;outline:none;-webkit-user-select:text;user-select:text;';
+  zone.textContent = ZONE_LABEL;
+  zone.setAttribute('contenteditable', 'true');
+  zone.setAttribute('role', 'button');
+  zone.addEventListener('click', function(){ picker.click(); });
+  zone.addEventListener('keydown', function(e){ if(e.key !== 'Meta' && e.key !== 'Control' && e.key !== 'v' && e.key !== 'V') e.preventDefault(); });
+  zone.addEventListener('input', function(){ if(zone.textContent !== ZONE_LABEL) zone.textContent = ZONE_LABEL; });
+
+  var pasteBtn = document.createElement('button');
+  pasteBtn.type = 'button';
+  pasteBtn.style.cssText = 'width:100%;background:rgba(144,144,240,0.10);border:1px solid rgba(144,144,240,0.35);border-radius:10px;color:rgba(144,144,240,0.95);font-family:\'Instrument Sans\',sans-serif;font-size:13px;font-weight:600;padding:10px;cursor:pointer;margin-bottom:12px;';
+  pasteBtn.textContent = '📋 Paste screenshot from clipboard';
+
+  var preview = document.createElement('div');
+  preview.style.cssText = 'margin-bottom:6px;';
+  var hintEl = document.createElement('div');
+  hintEl.style.cssText = 'font-size:11px;color:var(--muted);margin-bottom:12px;min-height:14px;';
+  function setHint(msg){ hintEl.textContent = msg || ''; }
+
+  var readBtn = document.createElement('button');
+  readBtn.style.cssText = 'width:100%;background:var(--purple);border:none;border-radius:10px;color:var(--surface);font-family:\'Instrument Sans\',sans-serif;font-size:14px;font-weight:700;padding:13px;cursor:pointer;margin-top:4px;';
+  readBtn.textContent = 'Read this screenshot';
+  var cancelBtn = document.createElement('button');
+  cancelBtn.style.cssText = 'width:100%;background:none;border:none;color:var(--muted);font-family:\'Instrument Sans\',sans-serif;font-size:12px;padding:10px;cursor:pointer;';
+  cancelBtn.textContent = 'Cancel';
+
+  function render(){
+    preview.innerHTML = '';
+    if(pending){
+      var t = document.createElement('div');
+      t.style.cssText = 'position:relative;width:96px;height:96px;border-radius:8px;overflow:hidden;border:1px solid var(--border);';
+      var im = document.createElement('img');
+      im.src = pending.dataUrl; im.style.cssText = 'width:100%;height:100%;object-fit:cover;display:block;';
+      var x = document.createElement('div');
+      x.textContent = '×';
+      x.style.cssText = 'position:absolute;top:2px;right:2px;width:18px;height:18px;line-height:18px;text-align:center;background:rgba(0,0,0,0.6);color:#fff;border-radius:50%;font-size:13px;cursor:pointer;';
+      x.addEventListener('click', function(e){ e.stopPropagation(); pending = null; render(); });
+      t.appendChild(im); t.appendChild(x); preview.appendChild(t);
+    }
+    readBtn.disabled = !pending; readBtn.style.opacity = pending ? '1' : '0.5';
+    zone.style.display = pending ? 'none' : 'block';
+    pasteBtn.style.display = pending ? 'none' : 'block';
+  }
+  function addImage(blob){
+    if(!blob || (blob.type && blob.type.indexOf('image/') !== 0)) return;
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var dataUrl = e.target.result, b64 = dataUrl.split(',')[1], mt = 'image/jpeg';
+      if(dataUrl.indexOf('image/png') > -1) mt = 'image/png'; else if(dataUrl.indexOf('image/webp') > -1) mt = 'image/webp';
+      pending = { b64: b64, type: mt, dataUrl: dataUrl }; setHint(''); render();
+    };
+    reader.readAsDataURL(blob);
+  }
+  picker.addEventListener('change', function(){ if(this.files && this.files[0]) addImage(this.files[0]); this.value = ''; });
+  zone.addEventListener('dragover', function(e){ e.preventDefault(); });
+  zone.addEventListener('drop', function(e){ e.preventDefault(); if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]) addImage(e.dataTransfer.files[0]); });
+  function onPaste(e){
+    var items = e.clipboardData && e.clipboardData.items; if(!items) return;
+    var img = null;
+    for(var i=0;i<items.length;i++){ if(items[i].type && items[i].type.indexOf('image/') === 0){ img = items[i].getAsFile(); break; } }
+    e.preventDefault(); e.stopImmediatePropagation();
+    if(img) addImage(img); else setHint('That paste had no image. Copy a screenshot first, then paste again.');
+  }
+  document.addEventListener('paste', onPaste, true);
+  function pasteFromClipboard(){
+    if(!(navigator.clipboard && navigator.clipboard.read)){
+      setHint('This browser can\'t read the clipboard on click -- right-click the box and Paste, or press Cmd / Ctrl + V.');
+      return;
+    }
+    navigator.clipboard.read().then(function(clipItems){
+      for(var j=0;j<clipItems.length;j++){
+        var item = clipItems[j], t = null;
+        for(var i=0;i<item.types.length;i++){ if(item.types[i].indexOf('image/') === 0){ t = item.types[i]; break; } }
+        if(t){ item.getType(t).then(function(blob){ addImage(blob); }); setHint(''); return; }
+      }
+      setHint('No image on the clipboard. Copy a screenshot first, then tap Paste.');
+    }).catch(function(err){
+      setHint('Couldn\'t read the clipboard (' + ((err && err.name) || 'blocked') + '). Right-click the box and Paste, or press Cmd / Ctrl + V.');
+    });
+  }
+  pasteBtn.addEventListener('click', pasteFromClipboard);
+
+  function close(){ document.removeEventListener('paste', onPaste, true); _winnerModalOpen = false; window._winnerModalOpen = false; if(overlay.parentNode) document.body.removeChild(overlay); }
+  readBtn.addEventListener('click', function(){
+    if(!pending) return;
+    var img = pending; close();
+    sendWinningAnglesToModel(img.b64, img.type, container);
+  });
+  cancelBtn.addEventListener('click', close);
+  overlay.addEventListener('click', function(e){ if(e.target === overlay) close(); });
+
+  modal.appendChild(zone); modal.appendChild(pasteBtn); modal.appendChild(preview);
+  modal.appendChild(hintEl); modal.appendChild(readBtn); modal.appendChild(cancelBtn); modal.appendChild(picker);
+  overlay.appendChild(modal);
+  _winnerModalOpen = true; window._winnerModalOpen = true;
+  document.body.appendChild(overlay);
+  render();
+  setTimeout(function(){ try{ modal.focus(); }catch(e){} }, 0);
+}
+
 // Pull a single JSON object out of a model response. Strip any stray markdown
 // fences first; if that still is not valid JSON, fall back to the substring from
 // the first { to the last }.
@@ -4278,7 +4411,16 @@ function fetchWinningAngleByLink(inputEl, btnEl, statusEl, container) {
   })
   .catch(function(err) {
     clearTimeout(timer);
-    showStatus("var(--red)", "That took too long or failed, please try again");
+    // Surface the real reason instead of a generic message. A true timeout comes through as an
+    // AbortError; anything else (e.g. "Authentication error while communicating with MCP server",
+    // a tokscript/backend issue) carries its own message and should be shown so it can be diagnosed.
+    var msg;
+    if (err && err.name === "AbortError") {
+      msg = "That took too long (over 90s) and was stopped. TikTok links can be slow -- try again, or use the screenshot option below.";
+    } else {
+      msg = "Could not fetch that video: " + ((err && err.message) ? err.message : "unknown error") + ". You can also use the screenshot option below.";
+    }
+    showStatus("var(--red)", msg);
     if (btnEl) btnEl.disabled = false;
   });
 }
@@ -12440,9 +12582,10 @@ function showPriceModal(onSelected) {
 
 function showToast(msg){var t=document.getElementById("toast");t.textContent=msg||"Done";t.classList.add("show");setTimeout(function(){t.classList.remove("show");},2000);}
 
-// Cmd+V paste on desktop -> product screenshot OCR. Suppressed while the review-input modal is open,
-// so a paste there is captured as a review (see openReviewInput) instead of the product description.
-document.addEventListener("paste",function(e){if(window._reviewModalOpen)return;var items=e.clipboardData&&e.clipboardData.items;if(!items)return;for(var i=0;i<items.length;i++){if(items[i].type.startsWith("image/")){e.preventDefault();var blob=items[i].getAsFile();if(blob)processBlob(blob,"pasted-image.png");return;}}});
+// Cmd+V paste on desktop -> product screenshot OCR. Suppressed while the review-input modal
+// (openReviewInput) OR the script-screenshot panel (openWinnerShotInput) is open, so a paste there
+// is captured by that panel instead of being routed into the product description.
+document.addEventListener("paste",function(e){if(window._reviewModalOpen||window._winnerModalOpen)return;var items=e.clipboardData&&e.clipboardData.items;if(!items)return;for(var i=0;i<items.length;i++){if(items[i].type.startsWith("image/")){e.preventDefault();var blob=items[i].getAsFile();if(blob)processBlob(blob,"pasted-image.png");return;}}});
 
 </script>
 <script>
