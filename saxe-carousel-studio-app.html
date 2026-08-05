@@ -1470,6 +1470,9 @@
 
   function photoCount(){return state.slides.filter(s=>s.photo).length;}
 
+  // Verbatim copy of the main app's FRAMEWORK_RULES. This standalone carousel file must stay in sync
+  // with app.html's #carouselTpl copy and app.html's top-level FRAMEWORK_RULES.
+  const FRAMEWORK_RULES = " PERSUASION FRAMEWORK -- these are the levers a persuasive script can pull, and they are a MENU, not a checklist. Do NOT pull all of them; using every lever at once kills the script. For EACH script choose the 2 to 3 levers that fit THIS product type (pain and problem-relief vs desire and identity) and THIS angle, and build the body and the close around only those. The lever menu: (1) PERSONAL TESTIMONIAL is ONE optional lever, never the automatic close. Do NOT default the pre-close or the closing line to the fixed I assumed X then I realized Y template, or any I-used-to-think formula. Use a personal testimonial only when it is genuinely the strongest close for this product and angle, and vary its shape every time. (2) OBJECTION HANDLING, the priority close for considered or higher-priced purchases: say the buyer's real hesitation out loud, then defuse it with a concrete, specific counter, never a vague reassurance. (3) WORSE ALTERNATIVES: contrast the product against the clearly inferior option the buyer would otherwise settle for, so the better choice becomes obvious. (4) RELATABILITY and CUSTOMER JOURNEY: first person that voices a SHARED feeling the viewer instantly sees themselves in, a universal moment that lands as that is me, never the creator's private life story. (5) RISK REVERSAL, SOCIAL PROOF, AUTHORITY: use ONLY when it is truthfully available in the brief or the description, and NEVER invent ratings, review counts, numbers, endorsements, or credentials; if it is not given to you, do not imply it exists. (6) TWIST THE KNIFE: deepen the pain one beat before the relief, on PAIN and PROBLEM products ONLY, never on desire or identity products. (7) PRICE ANCHOR: anchor value against the cost of the inferior alternative or the several things this one product replaces, and NEVER state a dollar figure or any specific price in the script. (8) FEATURE then BENEFIT then USE CASE: never state a raw spec on its own, translate every spec into the benefit it gives this buyer, and where it helps land it in a concrete use-case scene the buyer recognizes. ALWAYS ON, on top of the 2 to 3 chosen levers: anchor on the EARNED BENEFIT, the real differentiator the cheaper version lacks; translate every spec into plain everyday language; and never stack pain on a desire or identity product.";
   function sys(targetN, matchOn, angle){
     return `You write text overlays for TikTok Shop shoppable photo carousels. The creator films solo and her audience is women 35 and older, top segment 45 to 54. Design a swipeable carousel that sells.
 
@@ -1502,6 +1505,7 @@ HARD RULES:
 - Hook and cta lines must be speakable and scroll stopping.
 - Keep lines short for a phone. Caps lines are 1 to 4 words.
 - Only claim what the product's own label supports. Do not invent safety or health claims.
+${FRAMEWORK_RULES}
 
 Return ONLY valid JSON, no markdown, exactly:
 {"desire":"...","slides":[{"layout":"hook","kicker":"...","headline":"...","script":"...","sub":"..."}]}`;
