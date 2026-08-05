@@ -3161,16 +3161,17 @@ function renderProductHub() {
     pigHeader.style.cssText = "font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--purple);margin-bottom:4px;";
     pigHeader.textContent = "Product info";
     productInfoGroup.appendChild(pigHeader);
+    // Top actions slot -- the regenerate buttons mount here, right under the
+    // header and ABOVE every input, so the input fields (buyers, reviews,
+    // description, winning angles) stay contiguous below.
+    var pigActions = document.createElement("div");
+    pigActions.style.cssText = "margin:8px 0 14px;";
+    productInfoGroup.appendChild(pigActions);
+    // The claim sits directly above the inputs it describes, below the actions.
     var pigSub = document.createElement("div");
     pigSub.style.cssText = "font-size:12px;color:var(--white-dim);line-height:1.4;margin-bottom:14px;";
     pigSub.textContent = "Everything Saxe uses to write your scripts. Fill in what you can — the more you add, the stronger the hooks.";
     productInfoGroup.appendChild(pigSub);
-    // Top actions slot -- the regenerate buttons mount here, ABOVE every input,
-    // so the input fields (buyers, reviews, description, winning angles) stay
-    // contiguous below instead of being split by the regenerate actions.
-    var pigActions = document.createElement("div");
-    pigActions.style.cssText = "margin-bottom:6px;";
-    productInfoGroup.appendChild(pigActions);
     wrap.appendChild(productInfoGroup);
 
     // Buyer tags -- show selected buyers or prompt to set up
