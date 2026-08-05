@@ -3100,12 +3100,6 @@ function renderProductHub() {
       editBuyersBtn.textContent = "Edit buyers";
       editBuyersBtn.addEventListener("click", function() { showEditBuyersModal(); });
       buyerWrap.appendChild(editBuyersBtn);
-      var addReviewsBtn = document.createElement("button");
-      addReviewsBtn.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:11px;cursor:pointer;padding:0;text-decoration:underline;";
-      addReviewsBtn.textContent = currentProductHasReviews() ? ("Reviews ✓ (" + allData.reviews.length + ")") : "Add reviews";
-      addReviewsBtn.title = "Add up to 3 customer-review screenshots (paste or choose files) -- Saxe uses them for buyers, the pre-close objection, and the hook.";
-      addReviewsBtn.addEventListener("click", function() { openReviewInput(); });
-      buyerWrap.appendChild(addReviewsBtn);
       wrap.appendChild(buyerWrap);
     } else {
       // Existing product with no buyers -- gentle prompt
@@ -3114,6 +3108,27 @@ function renderProductHub() {
       buyerPrompt.innerHTML = "<div style='font-size:12px;color:var(--white-dim);line-height:1.4;'>Tell us who you are talking to for stronger scripts.</div><button onclick='showEditBuyersModal()' style='background:var(--purple);border:none;border-radius:6px;color:var(--surface);font-family:\"Instrument Sans\",sans-serif;font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer;white-space:nowrap;'>Set up buyers</button>";
       wrap.appendChild(buyerPrompt);
     }
+
+    // ── Customer reviews -- ALWAYS available on an existing product, independent of whether buyers
+    // are set. Previously this lived inside the buyer block, so a product with no buyers had NO way
+    // to add reviews, and even with buyers it was a tiny link that was easy to miss. Now it is a
+    // dedicated full-width row that is always visible.
+    var reviewsRow = document.createElement("div");
+    reviewsRow.style.cssText = "margin-bottom:12px;";
+    var reviewsBtn = document.createElement("button");
+    reviewsBtn.type = "button";
+    var _hasReviews = currentProductHasReviews();
+    reviewsBtn.textContent = _hasReviews
+      ? ("★ Customer reviews added (" + allData.reviews.length + ") -- tap to view, edit, or add more")
+      : "＋ Add customer reviews (optional -- paste or up to 3 screenshots)";
+    reviewsBtn.title = "Saxe uses your review screenshots for the buyers, the pre-close objection, and the hook.";
+    reviewsBtn.style.cssText = "width:100%;text-align:center;border-radius:10px;padding:11px;font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer;" +
+      (_hasReviews
+        ? "background:rgba(45,201,138,0.08);border:1px solid rgba(45,201,138,0.35);color:#2DC98A;"
+        : "background:transparent;border:1px dashed rgba(144,144,240,0.35);color:rgba(144,144,240,0.9);");
+    reviewsBtn.addEventListener("click", function() { openReviewInput(); });
+    reviewsRow.appendChild(reviewsBtn);
+    wrap.appendChild(reviewsRow);
 
     // Authority indicator
     if (currentAuthority) {
