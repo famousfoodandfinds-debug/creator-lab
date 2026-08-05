@@ -3906,9 +3906,22 @@ function _onReviewsExtracted(arr, err){
   if(err || !arr){ setReviewStatus("Could not read those reviews: " + ((err && err.message) || "please try again") + ".", "var(--red)"); return; }
   if(!arr.length){ setReviewStatus("No review text was found in those screenshots.", "var(--red)"); return; }
   if(typeof allData !== "object" || !allData) allData = {};
-  allData.reviews = arr;
+  // APPEND to any reviews already saved (adding a screenshot must not wipe the earlier ones).
+  // Bounded by a generous cap; the generation summary is length-capped separately.
+  var _existingReviews = Array.isArray(allData.reviews) ? allData.reviews : [];
+  var REVIEW_CAP = 12;
+  var _combinedReviews = _existingReviews.concat(arr);
+  var _skippedReviews = 0;
+  if(_combinedReviews.length > REVIEW_CAP){ _skippedReviews = _combinedReviews.length - REVIEW_CAP; _combinedReviews = _combinedReviews.slice(0, REVIEW_CAP); }
+  var _addedReviews = arr.length - _skippedReviews;
+  allData.reviews = _combinedReviews;
   refreshCurrentReviews();
-  setReviewStatus(arr.length + " review" + (arr.length!==1?"s":"") + " saved -- Saxe will use them for your buyers, the pre-close objection, and the hook.", "#2DC98A");
+  var _totalReviews = _combinedReviews.length;
+  setReviewStatus(
+    (_existingReviews.length ? ("Added " + _addedReviews + " -- " + _totalReviews + " total") : (_totalReviews + " review" + (_totalReviews!==1?"s":"") + " saved"))
+      + (_skippedReviews ? " (" + _skippedReviews + " over the limit skipped)" : "")
+      + " -- Saxe will use them for your buyers, the pre-close objection, and the hook.",
+    "#2DC98A");
   // Persist immediately for an already-saved product (bank round-trips reviews). New products
   // persist reviews when the product is first saved (saveProduct spreads allData).
   if(currentProductId && sb){ sb.from("products").update({ bank: allData }).eq("id", currentProductId).then(function(){}, function(){}); }
