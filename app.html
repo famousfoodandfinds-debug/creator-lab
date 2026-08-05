@@ -3817,9 +3817,10 @@ function reviewsSummaryString(arr){
     if(r && r.reviewer) parts.push("buyer: "+r.reviewer);
     if(r && r.praise)   parts.push("most praises: "+r.praise);
     if(r && r.complaint)parts.push("complaint/hesitation: "+r.complaint);
-    if(r && r.quote)    parts.push('quote: "'+r.quote+'"');
+    if(r && r.full)     parts.push('full review: "'+r.full+'"');
+    else if(r && r.quote) parts.push('quote: "'+r.quote+'"');
     return "Review "+(i+1)+" -- "+parts.join("; ");
-  }).join("  |  ").slice(0, 2600);
+  }).join("  |  ").slice(0, 3200);
 }
 function refreshCurrentReviews(){ currentReviews = reviewsSummaryString(allData && allData.reviews); }
 function currentProductHasReviews(){ return !!(allData && Array.isArray(allData.reviews) && allData.reviews.length); }
@@ -3833,11 +3834,11 @@ function processReviewImages(images, cb){
   var msgContent = images.map(function(im){
     return { type: "image", source: { type: "base64", media_type: im.type || "image/jpeg", data: im.b64 } };
   });
-  msgContent.push({ type: "text", text: "These are customer REVIEW screenshots for one product. Read every review shown. For EACH distinct review, return an object with: reviewer (a short phrase describing who they are or their use-case if the review states it, else empty string), praise (the single benefit this reviewer is most happy about, a short phrase in their own words), complaint (the main complaint, objection, disappointment, or hesitation this reviewer raises, a short phrase, empty string if none), quote (one short verbatim sentence from the review). Transcribe faithfully in the reviewer's own words. Do NOT invent, do NOT infer beyond what is written, and ignore star-rating widgets, reviewer avatars, dates, and UI chrome. Return ONLY a JSON array of these objects and nothing else." });
+  msgContent.push({ type: "text", text: "These are customer REVIEW screenshots for one product. Read every review shown. For EACH distinct review, return an object with: reviewer (a short phrase describing who they are or their use-case if the review states it, else empty string), full (the COMPLETE review text transcribed verbatim, every sentence, word for word exactly as written -- this is the whole review, not a summary), praise (the single benefit this reviewer is most happy about, a short phrase in their own words), complaint (the main complaint, objection, disappointment, or hesitation this reviewer raises, a short phrase, empty string if none), quote (one short verbatim sentence from the review that best captures it). Transcribe faithfully in the reviewer's own words. Do NOT invent, do NOT infer beyond what is written, do NOT shorten the full field, and ignore star-rating widgets, reviewer avatars, dates, and UI chrome. Return ONLY a JSON array of these objects and nothing else." });
   fetch("/api/claude", {
     method: "POST",
     headers: claudeHeaders(),
-    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 2000, messages: [{ role: "user", content: msgContent }] })
+    body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 3000, messages: [{ role: "user", content: msgContent }] })
   })
   .then(function(r){ return r.text(); })
   .then(function(raw){
@@ -3852,9 +3853,10 @@ function processReviewImages(images, cb){
     } catch(e) {}
     if(!Array.isArray(arr)) arr = [];
     arr = arr.slice(0, 12).map(function(r){
-      return { reviewer:String((r && r.reviewer)||""), praise:String((r && r.praise)||""),
-               complaint:String((r && r.complaint)||""), quote:String((r && r.quote)||"") };
-    }).filter(function(r){ return r.praise || r.complaint || r.quote; });
+      return { reviewer:String((r && r.reviewer)||""), full:String((r && r.full)||""),
+               praise:String((r && r.praise)||""), complaint:String((r && r.complaint)||""),
+               quote:String((r && r.quote)||"") };
+    }).filter(function(r){ return r.full || r.praise || r.complaint || r.quote; });
     cb(arr, null);
   })
   .catch(function(err){ cb(null, err); });
@@ -3939,8 +3941,9 @@ function openReviewInput(){
       if(r && r.reviewer) line(r.reviewer, 'font-size:11px;color:var(--muted);margin-bottom:4px;');
       if(r && r.praise) line('🟢 ' + r.praise, 'font-size:12px;color:var(--white);line-height:1.4;margin-bottom:2px;');
       if(r && r.complaint) line('🔴 ' + r.complaint, 'font-size:12px;color:var(--white);line-height:1.4;margin-bottom:2px;');
-      if(r && r.quote) line('“' + r.quote + '”', 'font-size:11px;color:var(--muted);font-style:italic;line-height:1.4;');
-      if(!(r && (r.reviewer || r.praise || r.complaint || r.quote))) line('(no text extracted)', 'font-size:12px;color:var(--muted);');
+      var body = (r && r.full) ? r.full : (r && r.quote ? r.quote : '');
+      if(body) line('“' + body + '”', 'font-size:11px;color:var(--muted);font-style:italic;line-height:1.5;margin-top:4px;');
+      if(!(r && (r.reviewer || r.praise || r.complaint || r.full || r.quote))) line('(no text extracted)', 'font-size:12px;color:var(--muted);');
       var rm = document.createElement('div');
       rm.textContent = '×'; rm.title = 'Remove this review';
       rm.style.cssText = 'position:absolute;top:6px;right:8px;color:var(--muted);font-size:16px;cursor:pointer;line-height:1;';
