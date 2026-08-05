@@ -3910,9 +3910,10 @@ function openReviewInput(){
   modal.setAttribute('tabindex','-1');
   modal.style.cssText = 'background:var(--bg);border-radius:16px 16px 0 0;padding:20px 16px 32px;width:100%;max-width:480px;max-height:80vh;overflow-y:auto;outline:none;';
 
+  var existingReviews = (allData && Array.isArray(allData.reviews)) ? allData.reviews : [];
   var title = document.createElement('div');
   title.style.cssText = 'font-size:15px;font-weight:700;color:var(--white);margin-bottom:4px;';
-  title.textContent = 'Add customer reviews';
+  title.textContent = existingReviews.length ? 'Customer reviews' : 'Add customer reviews';
   var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
   var sub = document.createElement('div');
   sub.style.cssText = 'font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;';
@@ -3920,6 +3921,43 @@ function openReviewInput(){
     ? 'Up to 3 screenshots. Tap to choose from your photos, or long-press and paste into the box below. Creator-supplied only -- no scraping.'
     : 'Up to 3 screenshots. Right-click the box below and choose Paste, press Cmd / Ctrl + V, use the Paste button, drag them in, or choose files. Creator-supplied only -- no scraping.';
   modal.appendChild(title); modal.appendChild(sub);
+
+  // Show what was already extracted so the creator can verify exactly what Saxe captured and will
+  // feed into generation (the most-praised benefit anchors a hook; the complaint is answered in a
+  // pre-close / Body 2). Read-only, with a per-item remove. Built with textContent (no escaping).
+  if(existingReviews.length){
+    var seenWrap = document.createElement('div');
+    seenWrap.style.cssText = 'margin-bottom:16px;';
+    var seenHead = document.createElement('div');
+    seenHead.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px;';
+    seenHead.textContent = 'Saved reviews (' + existingReviews.length + ') -- what Saxe will use';
+    seenWrap.appendChild(seenHead);
+    existingReviews.forEach(function(r, idx){
+      var card = document.createElement('div');
+      card.style.cssText = 'position:relative;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 30px 10px 12px;margin-bottom:8px;';
+      function line(text, css){ var d = document.createElement('div'); d.style.cssText = css; d.textContent = text; card.appendChild(d); }
+      if(r && r.reviewer) line(r.reviewer, 'font-size:11px;color:var(--muted);margin-bottom:4px;');
+      if(r && r.praise) line('🟢 ' + r.praise, 'font-size:12px;color:var(--white);line-height:1.4;margin-bottom:2px;');
+      if(r && r.complaint) line('🔴 ' + r.complaint, 'font-size:12px;color:var(--white);line-height:1.4;margin-bottom:2px;');
+      if(r && r.quote) line('“' + r.quote + '”', 'font-size:11px;color:var(--muted);font-style:italic;line-height:1.4;');
+      if(!(r && (r.reviewer || r.praise || r.complaint || r.quote))) line('(no text extracted)', 'font-size:12px;color:var(--muted);');
+      var rm = document.createElement('div');
+      rm.textContent = '×'; rm.title = 'Remove this review';
+      rm.style.cssText = 'position:absolute;top:6px;right:8px;color:var(--muted);font-size:16px;cursor:pointer;line-height:1;';
+      rm.addEventListener('click', function(){
+        if(Array.isArray(allData.reviews)){
+          allData.reviews.splice(idx, 1);
+          refreshCurrentReviews();
+          if(currentProductId && sb){ sb.from("products").update({ bank: allData }).eq("id", currentProductId).then(function(){}, function(){}); }
+          if(document.body.classList.contains("hub-mode") && typeof renderProductHub === "function"){ try{ renderProductHub(); }catch(e){} }
+        }
+        close(); openReviewInput(); // re-render the panel with the updated list
+      });
+      card.appendChild(rm);
+      seenWrap.appendChild(card);
+    });
+    modal.appendChild(seenWrap);
+  }
 
   var picker = document.createElement('input');
   picker.type = 'file'; picker.accept = 'image/*'; picker.multiple = true; picker.style.display = 'none';
