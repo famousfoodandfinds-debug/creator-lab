@@ -3147,6 +3147,33 @@ function renderProductHub() {
     heading.textContent = currentProductName || currentProduct.slice(0, 60);
     wrap.appendChild(heading);
 
+    // ── PRODUCT INFO GROUP ──────────────────────────────────────────────
+    // Everything the user can tell Saxe about this product lives in ONE
+    // clearly-labeled card, positioned BEFORE the price selector. Previously
+    // these inputs were scattered above AND below the price picker (buyers +
+    // reviews on top; description, regenerate, and winning angles below), which
+    // made it unclear where product information went. All input blocks below are
+    // appended to `productInfoGroup` instead of `wrap`, so they render together
+    // here regardless of the order the code builds them in.
+    var productInfoGroup = document.createElement("div");
+    productInfoGroup.style.cssText = "margin-bottom:20px;padding:16px;background:rgba(144,144,240,0.04);border:1px solid rgba(144,144,240,0.22);border-radius:12px;";
+    var pigHeader = document.createElement("div");
+    pigHeader.style.cssText = "font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:var(--purple);margin-bottom:4px;";
+    pigHeader.textContent = "Product info";
+    productInfoGroup.appendChild(pigHeader);
+    // Top actions slot -- the regenerate buttons mount here, right under the
+    // header and ABOVE every input, so the input fields (buyers, reviews,
+    // description, winning angles) stay contiguous below.
+    var pigActions = document.createElement("div");
+    pigActions.style.cssText = "margin:8px 0 14px;";
+    productInfoGroup.appendChild(pigActions);
+    // The claim sits directly above the inputs it describes, below the actions.
+    var pigSub = document.createElement("div");
+    pigSub.style.cssText = "font-size:12px;color:var(--white-dim);line-height:1.4;margin-bottom:14px;";
+    pigSub.textContent = "Everything Saxe uses to write your scripts. Fill in what you can — the more you add, the stronger the hooks.";
+    productInfoGroup.appendChild(pigSub);
+    wrap.appendChild(productInfoGroup);
+
     // Buyer tags -- show selected buyers or prompt to set up
     if (currentBuyers && currentBuyers.length > 0) {
       var buyerWrap = document.createElement("div");
@@ -3162,13 +3189,13 @@ function renderProductHub() {
       editBuyersBtn.textContent = "Edit buyers";
       editBuyersBtn.addEventListener("click", function() { showEditBuyersModal(); });
       buyerWrap.appendChild(editBuyersBtn);
-      wrap.appendChild(buyerWrap);
+      productInfoGroup.appendChild(buyerWrap);
     } else {
       // Existing product with no buyers -- gentle prompt
       var buyerPrompt = document.createElement("div");
       buyerPrompt.style.cssText = "background:rgba(144,144,240,0.08);border:1px solid rgba(144,144,240,0.25);border-radius:8px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:10px;";
       buyerPrompt.innerHTML = "<div style='font-size:12px;color:var(--white-dim);line-height:1.4;'>Tell us who you are talking to for stronger scripts.</div><button onclick='showEditBuyersModal()' style='background:var(--purple);border:none;border-radius:6px;color:var(--surface);font-family:\"Instrument Sans\",sans-serif;font-size:11px;font-weight:700;padding:6px 10px;cursor:pointer;white-space:nowrap;'>Set up buyers</button>";
-      wrap.appendChild(buyerPrompt);
+      productInfoGroup.appendChild(buyerPrompt);
     }
 
     // ── Customer reviews -- ALWAYS available on an existing product, independent of whether buyers
@@ -3190,14 +3217,14 @@ function renderProductHub() {
         : "background:transparent;border:1px dashed rgba(144,144,240,0.35);color:rgba(144,144,240,0.9);");
     reviewsBtn.addEventListener("click", function() { openReviewInput(); });
     reviewsRow.appendChild(reviewsBtn);
-    wrap.appendChild(reviewsRow);
+    productInfoGroup.appendChild(reviewsRow);
 
     // Authority indicator
     if (currentAuthority) {
       var authBadge = document.createElement("div");
       authBadge.style.cssText = "font-size:11px;color:var(--purple);background:rgba(144,144,240,0.1);border:1px solid rgba(144,144,240,0.2);border-radius:999px;padding:3px 10px;display:inline-block;margin-bottom:10px;";
       authBadge.textContent = "✓ Authority: " + currentAuthority.slice(0, 50) + (currentAuthority.length > 50 ? "..." : "");
-      wrap.appendChild(authBadge);
+      productInfoGroup.appendChild(authBadge);
     }
 
     // ── Price picker -- first thing, always required ──
@@ -3269,11 +3296,11 @@ function renderProductHub() {
     hubPriceTopWrap.appendChild(hubPriceTopGrid);
     wrap.appendChild(hubPriceTopWrap);
 
-    // Product info section -- right under the product name
+    // Description & regenerate -- sub-divider inside the product-info group.
     var productInfoLblTop = document.createElement("div");
-    productInfoLblTop.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);padding:8px 0 8px;";
-    productInfoLblTop.textContent = "Product info";
-    wrap.appendChild(productInfoLblTop);
+    productInfoLblTop.style.cssText = "font-size:9px;font-weight:600;letter-spacing:0.12em;text-transform:uppercase;color:var(--muted);padding:14px 0 8px;border-top:1px solid rgba(255,255,255,0.06);margin-top:12px;";
+    productInfoLblTop.textContent = "Description & details";
+    productInfoGroup.appendChild(productInfoLblTop);
 
     var editDescBtnTop = document.createElement("button");
     editDescBtnTop.className = "next-btn";
@@ -3380,7 +3407,7 @@ function renderProductHub() {
         }).catch(function(){ tryLoad(currentProduct, currentBuyerInsight, currentRealReason, currentSurprise, currentAuthority); });
       } catch(e){ tryLoad(currentProduct, currentBuyerInsight, currentRealReason, currentSurprise, currentAuthority); }
     });
-    wrap.appendChild(editDescBtnTop);
+    productInfoGroup.appendChild(editDescBtnTop);
 
     // Regenerate only THIS product's scripts (cheaper, scoped default)
     var regenProductBtn = document.createElement("button");
@@ -3388,7 +3415,7 @@ function renderProductHub() {
     regenProductBtn.style.cssText = "background:linear-gradient(135deg,#CE9A80,#E6CDBC);color:#080808;font-weight:600;border:none;font-size:13px;margin-top:8px;";
     regenProductBtn.textContent = "↻ Regenerate this product to the new standard";
     regenProductBtn.addEventListener("click", function(){ regenerateProductScripts(currentProductId); });
-    wrap.appendChild(regenProductBtn);
+    pigActions.appendChild(regenProductBtn);
 
     // PART 3 -- rewrite every saved script (across all products) to the new standard
     var regenAllBtn = document.createElement("button");
@@ -3396,7 +3423,7 @@ function renderProductHub() {
     regenAllBtn.style.cssText = "background:transparent;border:1px solid rgba(206,154,128,0.4);color:var(--gold);font-size:13px;margin-top:8px;";
     regenAllBtn.textContent = "↻ Regenerate ALL products (uses more) ";
     regenAllBtn.addEventListener("click", function(){ regenerateAllScripts(); });
-    wrap.appendChild(regenAllBtn);
+    pigActions.appendChild(regenAllBtn);
 
     // ===== "Add a winning angle" -- one section with two entry points that both
     // feed the SAME winnersRaw storage and the SAME review list (winResults). =====
@@ -3488,7 +3515,7 @@ function renderProductHub() {
 
     // Shared review list for both entry points.
     waWrap.appendChild(winResults);
-    wrap.appendChild(waWrap);
+    productInfoGroup.appendChild(waWrap);
 
     // Wire the link button now that winResults exists.
     lnkBtn.addEventListener("click", function(){ fetchWinningAngleByLink(lnkInput, lnkBtn, lnkStatus, winResults); });
