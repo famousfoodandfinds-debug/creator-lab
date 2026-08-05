@@ -12101,7 +12101,7 @@ function buildCarousel() {
   var prod = (typeof currentProduct === "string") ? currentProduct : "";
   frame.srcdoc = "<script>window.__SAXE_USER_ID__=" + JSON.stringify(uid) + ";window.__SAXE_TOKEN__=" + JSON.stringify(tok) + ";window.__SAXE_PRODUCT__=" + JSON.stringify(prod) + ";<\/script>" + tpl.innerHTML;
   // Push the product once the iframe has loaded (covers the first open).
-  frame.addEventListener("load", pushCarouselProduct, { once: true });
+  frame.addEventListener("load", function() { pushCarouselProduct(); pushCarouselProducts(); }, { once: true });
   carouselBuilt = true;
 }
 
@@ -12113,6 +12113,24 @@ function pushCarouselProduct() {
   if (!cf || !cf.contentWindow) return;
   var prod = (typeof currentProduct === "string") ? currentProduct : "";
   try { cf.contentWindow.postMessage({ type: "saxe-product", value: prod }, "*"); } catch (e) {}
+}
+
+// Push the user's product library into the carousel iframe so its "Load from library" picker can
+// fill the brief without pasting. Fetched fresh on each open so newly-added products show up.
+function pushCarouselProducts() {
+  var cf = document.getElementById("carouselFrame");
+  if (!cf || !cf.contentWindow || !currentUser || !currentUser.id) return;
+  sb.from("products").select("id, name, description").eq("user_id", currentUser.id).then(function(result) {
+    if (result.error || !result.data) return;
+    var list = result.data.map(function(p) {
+      return {
+        id: p.id,
+        name: p.name || "Untitled product",
+        brief: (p.description && String(p.description).trim()) ? p.description : (p.name || "")
+      };
+    }).sort(function(a, b) { return String(a.name).localeCompare(String(b.name)); });
+    try { cf.contentWindow.postMessage({ type: "saxe-products", value: list }, "*"); } catch (e) {}
+  });
 }
 
 function showMainTab(tab) {
@@ -12148,6 +12166,7 @@ function showMainTab(tab) {
     if (carouselPanel) carouselPanel.style.display = "block";
     buildCarousel();
     pushCarouselProduct();
+    pushCarouselProducts();
     return;
   }
   if (tab === "scripts") {
@@ -13807,6 +13826,12 @@ function genOneScript(opts){
     <div class="rail">
       <div class="card">
         <h2>Product brief</h2>
+        <div id="libRow" style="display:none;margin-bottom:10px">
+          <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Load from your product library</label>
+          <select id="libSelect" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;color:var(--ink);background:#fff;box-sizing:border-box">
+            <option value="">Choose a product…</option>
+          </select>
+        </div>
         <textarea id="brief" class="brief" placeholder="Paste the product description here."></textarea>
         <div class="shots" id="shots"></div>
         <div class="drop" id="shotdrop">+ Add screenshots of the description<br><span style="font-size:11px">paste with Ctrl/Cmd + V or tap to upload</span></div>
@@ -15429,10 +15454,33 @@ function genOneScript(opts){
   document.addEventListener('paste',e=>{if(document.activeElement===briefEl)return;handlePaste(e);});
   // Prefill from a product description supplied by the host app (set on window before this runs).
   try{ if(briefEl && !briefEl.value){ const pd=window.__SAXE_PRODUCT__||window.parent&&window.parent.__SAXE_PRODUCT__; if(pd) briefEl.value=String(pd); } }catch(e){}
+  // ---------- product library picker ----------
+  // Only the main app posts {type:'saxe-products', value:[{id,name,brief}]}; the standalone studio
+  // has no host, so the picker stays hidden there. Choosing a product fills the brief with its
+  // description so the creator does not have to paste it by hand.
+  const libRow=document.getElementById('libRow'), libSelect=document.getElementById('libSelect');
+  let libProducts=[];
+  function populateLibrary(list){
+    if(!libSelect||!libRow) return;
+    libProducts=Array.isArray(list)?list.filter(p=>p&&p.id):[];
+    while(libSelect.options.length>1) libSelect.remove(1);
+    libProducts.forEach(p=>{ const o=document.createElement('option'); o.value=String(p.id); o.textContent=p.name||'Untitled product'; libSelect.appendChild(o); });
+    libRow.style.display=libProducts.length?'block':'none';
+  }
+  if(libSelect){
+    libSelect.addEventListener('change',function(){
+      const p=libProducts.find(x=>String(x.id)===libSelect.value);
+      if(!p) return;
+      const brief=String(p.brief||'').trim();
+      if(brief){ briefEl.value=brief; if(typeof updateGenLabel==='function') updateGenLabel(); if(typeof phBriefSync==='function') phBriefSync(); }
+    });
+  }
   // The host app can also push the current product in any time (e.g. each time the Carousel tab opens).
   window.addEventListener('message',ev=>{
     try{
-      const d=ev.data; if(!d||d.type!=='saxe-product')return;
+      const d=ev.data; if(!d) return;
+      if(d.type==='saxe-products'){ populateLibrary(d.value); return; }
+      if(d.type!=='saxe-product')return;
       if(briefEl && !briefEl.value.trim() && d.value){ briefEl.value=String(d.value); }
     }catch(e){}
   });
