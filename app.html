@@ -802,9 +802,10 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
     </div>
   </div>
   <div class="product-bar">
-    <div class="product-select-wrap">
-      <input id="productSelectSearch" type="text" placeholder="Search products..." oninput="filterProductSelect(this.value)" style="width:100%;box-sizing:border-box;margin-bottom:8px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:9px 12px;outline:none;-webkit-user-select:text;user-select:text;">
-      <select id="productSelect" onchange="loadProductById(this.value)" onclick="if(this.value && this.value===document.getElementById('productSelect').dataset.last){loadProductById(this.value);} document.getElementById('productSelect').dataset.last=this.value;">
+    <div class="product-select-wrap" style="position:relative;">
+      <input id="productSearchInput" type="text" placeholder="Search or select a product..." autocomplete="off" oninput="renderProductResults(this.value)" onfocus="renderProductResults(this.value)" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:10px 12px;outline:none;-webkit-user-select:text;user-select:text;">
+      <div id="productResults" style="display:none;position:absolute;left:0;right:0;top:100%;z-index:60;max-height:300px;overflow-y:auto;background:var(--surface);border:1px solid var(--border-md);border-radius:8px;margin-top:4px;box-shadow:0 10px 28px rgba(0,0,0,0.45);"></div>
+      <select id="productSelect" style="display:none;" onchange="loadProductById(this.value)">
         <option value="">-- Select a saved product --</option>
       </select>
       <div id="manageList" style="display:none;max-height:200px;overflow-y:auto;"></div>
@@ -2426,16 +2427,46 @@ function productNameMatch(name, q) {
   if (!terms.length) return true;
   return terms.every(function(t) { return n.indexOf(t) >= 0; });
 }
-// Filter the main product <select>'s options by the any-word match (matches the FULL name stored on
-// opt.dataset.name, not the truncated label).
-function filterProductSelect(q) {
+// Searchable product picker (combobox). One field: typing filters a clickable results list by the
+// any-word match. The native <select id="productSelect"> is kept hidden only so its existing wiring
+// (buildSelect populates it; load/sort/reset read it) keeps working; the combobox reads its options.
+function renderProductResults(q) {
   var sel = document.getElementById("productSelect");
-  if (!sel) return;
+  var box = document.getElementById("productResults");
+  if (!sel || !box) return;
+  var html = "", any = false;
   Array.prototype.forEach.call(sel.options, function(opt) {
-    if (!opt.value) return; // always keep the placeholder
-    opt.hidden = !productNameMatch(opt.dataset.name || opt.textContent, q);
+    if (!opt.value) return; // skip the placeholder
+    if (!productNameMatch(opt.dataset.name || opt.textContent, q)) return;
+    any = true;
+    var nm = String(opt.dataset.name || opt.textContent).replace(/</g, "&lt;");
+    html += "<div class='product-result' data-id='" + opt.value + "' style='padding:11px 12px;cursor:pointer;font-size:13px;color:var(--white);border-bottom:1px solid var(--border);'>" + nm + "</div>";
+  });
+  if (!any) html = "<div style='padding:11px 12px;font-size:12px;color:var(--muted);'>No matching products</div>";
+  box.innerHTML = html;
+  box.style.display = "block";
+  Array.prototype.forEach.call(box.querySelectorAll(".product-result"), function(r) {
+    r.addEventListener("click", function() { pickProduct(this.getAttribute("data-id")); });
   });
 }
+function pickProduct(id) {
+  var sel = document.getElementById("productSelect");
+  var box = document.getElementById("productResults");
+  var inp = document.getElementById("productSearchInput");
+  var opt = sel ? sel.querySelector('option[value="' + id + '"]') : null;
+  if (sel) { sel.value = id; sel.dataset.last = id; }
+  if (inp && opt) inp.value = (opt.dataset.name || opt.textContent);
+  if (box) box.style.display = "none";
+  if (typeof loadProductById === "function") loadProductById(id);
+}
+// Hide the results when clicking away from the picker.
+document.addEventListener("click", function(e) {
+  var box = document.getElementById("productResults");
+  var inp = document.getElementById("productSearchInput");
+  if (!box || box.style.display === "none") return;
+  if (e.target === inp || box.contains(e.target)) return;
+  box.style.display = "none";
+});
 
 function buildSelect() {
   if (!currentUser) return;
@@ -2462,9 +2493,9 @@ function buildSelect() {
       }
       sel.appendChild(opt);
     });
-    // Keep any active search applied after a rebuild (e.g. after sorting).
-    var _ss = document.getElementById("productSelectSearch");
-    if (_ss && _ss.value) filterProductSelect(_ss.value);
+    // Reflect the currently-loaded product's name in the search box.
+    var _inp = document.getElementById("productSearchInput");
+    if (_inp && currentProductId) { var _o = sel.querySelector('option[value="' + currentProductId + '"]'); if (_o) _inp.value = (_o.dataset.name || _o.textContent); }
     // If a product is already loaded, show its hub
     if (currentProductId && !document.body.classList.contains("hub-mode")) {
       // Only auto-render if we have product data already loaded
@@ -4672,6 +4703,7 @@ function showNew() {
   var _rs = document.getElementById("reviewStatus"); if(_rs){ _rs.style.display = "none"; _rs.textContent = ""; }
   resetPicks();
   document.getElementById("productSelect").value = "";
+  var _psi = document.getElementById("productSearchInput"); if (_psi) _psi.value = "";
   document.body.classList.remove("hub-mode");
   document.getElementById("productInput").value = "";
   var cc = document.getElementById("charCount"); if (cc) cc.textContent = "0"; var pdc = document.getElementById("productDescCount"); if (pdc) pdc.textContent = "0";
