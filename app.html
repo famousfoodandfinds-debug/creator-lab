@@ -3913,23 +3913,44 @@ function openReviewInput(){
   var title = document.createElement('div');
   title.style.cssText = 'font-size:15px;font-weight:700;color:var(--white);margin-bottom:4px;';
   title.textContent = 'Add customer reviews';
+  var isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
   var sub = document.createElement('div');
   sub.style.cssText = 'font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;';
-  sub.textContent = 'Up to 3 screenshots. Paste them (Cmd / Ctrl + V), drag them in, or choose files. Creator-supplied only -- no scraping.';
+  sub.textContent = isTouch
+    ? 'Up to 3 screenshots. Tap to choose from your photos, or long-press and paste into the box below. Creator-supplied only -- no scraping.'
+    : 'Up to 3 screenshots. Right-click the box below and choose Paste, press Cmd / Ctrl + V, use the Paste button, drag them in, or choose files. Creator-supplied only -- no scraping.';
   modal.appendChild(title); modal.appendChild(sub);
 
   var picker = document.createElement('input');
   picker.type = 'file'; picker.accept = 'image/*'; picker.multiple = true; picker.style.display = 'none';
 
+  // The zone is made contenteditable so browsers expose a real "Paste" item on right-click and
+  // dispatch a paste event we can capture. We never keep what lands in it -- onPaste preventDefaults
+  // and we reset the label on any input, so it behaves as a paste target, not a text field.
+  var ZONE_LABEL = isTouch ? 'Tap to choose files, or paste here' : 'Right-click here and Paste, or press Cmd / Ctrl + V';
   var zone = document.createElement('div');
-  zone.style.cssText = 'border:1px dashed rgba(144,144,240,0.4);border-radius:12px;padding:22px 14px;text-align:center;cursor:pointer;color:rgba(144,144,240,0.85);font-size:13px;font-weight:600;margin-bottom:12px;';
-  zone.textContent = 'Paste a screenshot, or tap to choose files';
+  zone.style.cssText = 'border:1px dashed rgba(144,144,240,0.4);border-radius:12px;padding:22px 14px;text-align:center;cursor:pointer;color:rgba(144,144,240,0.85);font-size:13px;font-weight:600;margin-bottom:10px;outline:none;-webkit-user-select:text;user-select:text;';
+  zone.textContent = ZONE_LABEL;
+  zone.setAttribute('contenteditable', 'true');
+  zone.setAttribute('role', 'button');
+  zone.setAttribute('aria-label', 'Paste or choose review screenshots');
   zone.addEventListener('click', function(){ picker.click(); });
+  zone.addEventListener('keydown', function(e){ if(e.key !== 'Meta' && e.key !== 'Control' && e.key !== 'v' && e.key !== 'V') e.preventDefault(); });
+  zone.addEventListener('input', function(){ if(zone.textContent !== ZONE_LABEL) zone.textContent = ZONE_LABEL; });
+
+  // One-click clipboard read -- the most reliable "paste" on desktop (no right-click needed).
+  var pasteBtn = document.createElement('button');
+  pasteBtn.type = 'button';
+  pasteBtn.style.cssText = 'width:100%;background:rgba(144,144,240,0.10);border:1px solid rgba(144,144,240,0.35);border-radius:10px;color:rgba(144,144,240,0.95);font-family:\'Instrument Sans\',sans-serif;font-size:13px;font-weight:600;padding:10px;cursor:pointer;margin-bottom:12px;';
+  pasteBtn.textContent = '📋 Paste image from clipboard';
 
   var thumbs = document.createElement('div');
   thumbs.style.cssText = 'display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px;';
   var countEl = document.createElement('div');
-  countEl.style.cssText = 'font-size:11px;color:var(--muted);margin-bottom:12px;min-height:14px;';
+  countEl.style.cssText = 'font-size:11px;color:var(--muted);margin-bottom:4px;min-height:14px;';
+  var hintEl = document.createElement('div');
+  hintEl.style.cssText = 'font-size:11px;color:var(--muted);margin-bottom:12px;min-height:14px;';
+  function setHint(msg){ hintEl.textContent = msg || ''; }
 
   var readBtn = document.createElement('button');
   readBtn.style.cssText = 'width:100%;background:var(--purple);border:none;border-radius:10px;color:var(--surface);font-family:\'Instrument Sans\',sans-serif;font-size:14px;font-weight:700;padding:13px;cursor:pointer;margin-top:4px;';
@@ -3969,16 +3990,40 @@ function openReviewInput(){
       reader.readAsDataURL(blob);
     });
   }
-  picker.addEventListener('change', function(){ addBlobs(this.files); this.value = ''; });
+  picker.addEventListener('change', function(){ addBlobs(this.files); this.value = ''; setHint(''); });
   zone.addEventListener('dragover', function(e){ e.preventDefault(); });
   zone.addEventListener('drop', function(e){ e.preventDefault(); if(e.dataTransfer && e.dataTransfer.files) addBlobs(e.dataTransfer.files); });
   function onPaste(e){
     var items = e.clipboardData && e.clipboardData.items; if(!items) return;
     var imgs = [];
     for(var i=0;i<items.length;i++){ if(items[i].type && items[i].type.indexOf('image/') === 0){ var f = items[i].getAsFile(); if(f) imgs.push(f); } }
-    if(imgs.length){ e.preventDefault(); e.stopImmediatePropagation(); addBlobs(imgs); }
+    // Always block default while the modal is open: keeps pasted images/text out of the editable zone
+    // and out of the product-screenshot handler.
+    e.preventDefault(); e.stopImmediatePropagation();
+    if(imgs.length){ setHint(''); addBlobs(imgs); }
+    else setHint('That paste had no image. Copy a screenshot first, then paste again.');
   }
   document.addEventListener('paste', onPaste, true); // capture phase: beat the global product handler
+  // Left-click "Paste" button: read the clipboard directly via the async Clipboard API.
+  function pasteFromClipboard(){
+    if(!(navigator.clipboard && navigator.clipboard.read)){
+      setHint('This browser can\'t read the clipboard on click -- right-click the box and Paste, or press Cmd / Ctrl + V.');
+      return;
+    }
+    navigator.clipboard.read().then(function(clipItems){
+      var reads = [], found = 0;
+      clipItems.forEach(function(item){
+        var t = null;
+        for(var i=0;i<item.types.length;i++){ if(item.types[i].indexOf('image/') === 0){ t = item.types[i]; break; } }
+        if(t){ found++; reads.push(item.getType(t).then(function(blob){ addBlobs([blob]); })); }
+      });
+      if(!found) setHint('No image on the clipboard. Copy a screenshot first, then tap Paste.');
+      else setHint('');
+    }).catch(function(err){
+      setHint('Couldn\'t read the clipboard (' + ((err && err.name) || 'blocked') + '). Right-click the box and Paste, or press Cmd / Ctrl + V.');
+    });
+  }
+  pasteBtn.addEventListener('click', pasteFromClipboard);
 
   function close(){ document.removeEventListener('paste', onPaste, true); _reviewModalOpen = false; window._reviewModalOpen = false; if(overlay.parentNode) document.body.removeChild(overlay); }
   readBtn.addEventListener('click', function(){
@@ -3991,7 +4036,8 @@ function openReviewInput(){
   cancelBtn.addEventListener('click', close);
   overlay.addEventListener('click', function(e){ if(e.target === overlay) close(); });
 
-  modal.appendChild(zone); modal.appendChild(thumbs); modal.appendChild(countEl);
+  modal.appendChild(zone); modal.appendChild(pasteBtn); modal.appendChild(thumbs);
+  modal.appendChild(countEl); modal.appendChild(hintEl);
   modal.appendChild(readBtn); modal.appendChild(cancelBtn); modal.appendChild(picker);
   overlay.appendChild(modal);
   _reviewModalOpen = true; window._reviewModalOpen = true;
