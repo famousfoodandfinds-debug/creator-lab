@@ -3165,6 +3165,12 @@ function renderProductHub() {
     pigSub.style.cssText = "font-size:12px;color:var(--white-dim);line-height:1.4;margin-bottom:14px;";
     pigSub.textContent = "Everything Saxe uses to write your scripts. Fill in what you can — the more you add, the stronger the hooks.";
     productInfoGroup.appendChild(pigSub);
+    // Top actions slot -- the regenerate buttons mount here, ABOVE every input,
+    // so the input fields (buyers, reviews, description, winning angles) stay
+    // contiguous below instead of being split by the regenerate actions.
+    var pigActions = document.createElement("div");
+    pigActions.style.cssText = "margin-bottom:6px;";
+    productInfoGroup.appendChild(pigActions);
     wrap.appendChild(productInfoGroup);
 
     // Buyer tags -- show selected buyers or prompt to set up
@@ -3408,7 +3414,7 @@ function renderProductHub() {
     regenProductBtn.style.cssText = "background:linear-gradient(135deg,#CE9A80,#E6CDBC);color:#080808;font-weight:600;border:none;font-size:13px;margin-top:8px;";
     regenProductBtn.textContent = "↻ Regenerate this product to the new standard";
     regenProductBtn.addEventListener("click", function(){ regenerateProductScripts(currentProductId); });
-    productInfoGroup.appendChild(regenProductBtn);
+    pigActions.appendChild(regenProductBtn);
 
     // PART 3 -- rewrite every saved script (across all products) to the new standard
     var regenAllBtn = document.createElement("button");
@@ -3416,7 +3422,7 @@ function renderProductHub() {
     regenAllBtn.style.cssText = "background:transparent;border:1px solid rgba(206,154,128,0.4);color:var(--gold);font-size:13px;margin-top:8px;";
     regenAllBtn.textContent = "↻ Regenerate ALL products (uses more) ";
     regenAllBtn.addEventListener("click", function(){ regenerateAllScripts(); });
-    productInfoGroup.appendChild(regenAllBtn);
+    pigActions.appendChild(regenAllBtn);
 
     // ===== "Add a winning angle" -- one section with two entry points that both
     // feed the SAME winnersRaw storage and the SAME review list (winResults). =====
