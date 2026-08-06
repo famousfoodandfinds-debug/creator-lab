@@ -992,7 +992,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
       <p class="small muted" style="margin:4px 0 10px;">Add products from your library, then set how many times to post each one this week. You can add more anytime.</p>
       <input id="plProdSearch" class="srch" placeholder="Search your products..." style="width:100%;margin-bottom:10px;" oninput="Planner.onSearch(this.value)">
       <div id="plProductPicker" class="list" style="max-height:260px;overflow-y:auto;"></div>
-      <div style="margin-top:10px;"><button class="btn ghost" type="button" onclick="Planner.openAddSample()">＋ Add a sample not in your library</button></div>
+      <div style="margin-top:12px;"><button class="btn" type="button" onclick="Planner.openAddSample()" style="width:100%;">＋ New product</button></div>
       <div id="plWorkingList" style="margin-top:14px;"></div>
     </div>
 
@@ -13436,11 +13436,11 @@ function genOneScript(opts){
     ov.classList.remove('hidden');
   }
 
-  // ---- add an incoming sample (creates a real library product, flagged incoming) ----
+  // ---- add a new product (creates a real library product, adds it to this week) ----
   function openAddSample(){
     var ov = el('overlay'); if(!ov) return;
-    ov.innerHTML = '<div class="sheet"><h3>Add a sample</h3>' +
-      '<div class="note" style="margin:0 0 12px;">This creates a new product in your library and adds it to this week\'s products. It shows up in the Scripts tab too.</div>' +
+    ov.innerHTML = '<div class="sheet"><h3>New product</h3>' +
+      '<div class="note" style="margin:0 0 12px;">Creates a new product in your library and adds it to this week. It shows up in the Scripts tab too, where you can add buyer notes, reviews, and angles later.</div>' +
       '<div class="lbl" style="margin-bottom:4px;">Product name</div>' +
       '<input id="plSampleName" class="srch" placeholder="e.g. Ceramic pour-over kettle" style="width:100%;margin-bottom:10px;">' +
       '<div class="lbl" style="margin-bottom:4px;">Product details</div>' +
@@ -13448,7 +13448,7 @@ function genOneScript(opts){
       '<div class="err hidden" id="plSampleErr" style="margin-top:8px;"></div>' +
       '<div class="row" style="justify-content:flex-end;gap:8px;margin-top:14px;">' +
         '<button class="btn ghost" type="button" onclick="document.getElementById(\'overlay\').classList.add(\'hidden\')">Cancel</button>' +
-        '<button class="btn" type="button" id="plSampleSave" onclick="Planner.saveSample()">Add to samples</button>' +
+        '<button class="btn" type="button" id="plSampleSave" onclick="Planner.saveSample()">Add product</button>' +
       '</div></div>';
     ov.classList.remove('hidden');
     var nm = el('plSampleName'); if(nm){ try{ nm.focus(); }catch(e){} }
@@ -13459,20 +13459,20 @@ function genOneScript(opts){
     var desc = (ds && ds.value ? ds.value : '').trim();
     function showErr(m){ if(er){ er.textContent = m; er.classList.remove('hidden'); } }
     if(er) er.classList.add('hidden');
-    if(!name){ showErr('Give the sample a name.'); return; }
+    if(!name){ showErr('Give the product a name.'); return; }
     if(!currentUser || !sb){ showErr('Please sign in first.'); return; }
     if(sv){ sv.disabled = true; sv.textContent = 'Adding...'; }
-    sb.from('products').insert({ user_id: currentUser.id, name: name, description: desc || null, bank: { incoming: true } }).select().single().then(function(r){
-      if(!r || r.error || !r.data){ if(sv){ sv.disabled = false; sv.textContent = 'Add to samples'; } showErr('Could not add that sample, please try again.'); return; }
+    sb.from('products').insert({ user_id: currentUser.id, name: name, description: desc || null, bank: {} }).select().single().then(function(r){
+      if(!r || r.error || !r.data){ if(sv){ sv.disabled = false; sv.textContent = 'Add product'; } showErr('Could not add that product, please try again.'); return; }
       var p = r.data;
       S.lib = S.lib.filter(function(x){ return x.id !== p.id; });
       S.lib.push(p);
       S.lib.sort(function(a,b){ return String(a.name||'').toLowerCase().localeCompare(String(b.name||'').toLowerCase()); });
       var ov = el('overlay'); if(ov) ov.classList.add('hidden');
       S.q = ''; var srch = el('plProdSearch'); if(srch) srch.value = '';
-      addProduct(p.id);   // add the new sample straight into this week's working list (re-renders + saves)
+      addProduct(p.id);   // add the new product straight into this week's working list (re-renders + saves)
       if(typeof buildSelect === 'function'){ try{ buildSelect(); }catch(e){} }  // keep the main app picker in sync
-    }, function(){ if(sv){ sv.disabled = false; sv.textContent = 'Add to samples'; } showErr('Could not add that sample, please try again.'); });
+    }, function(){ if(sv){ sv.disabled = false; sv.textContent = 'Add product'; } showErr('Could not add that product, please try again.'); });
   }
 
   // ---- persistence (Supabase planner_state, one JSONB row per user) ----
