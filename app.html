@@ -997,30 +997,11 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
     </div>
 
     <div class="card">
-      <h2>Winning videos <span class="muted small">(optional, up to 2)</span></h2>
-      <p class="small muted" style="margin:4px 0 10px;">Paste up to two links to winning videos. Their transcripts guide the structure of every script generated this week.</p>
-      <div class="row" style="gap:8px;">
-        <input id="plLink" class="srch" placeholder="Paste a TikTok link" style="flex:1;min-width:180px;">
-        <button class="btn ghost" onclick="Planner.addLink()">Add</button>
+      <div class="row" style="align-items:center;">
+        <div class="note" id="plSetupNote" style="margin:0;">Add at least one product to plan your week.</div>
+        <button class="btn" id="plGenBtn" style="margin-left:auto;" onclick="Planner.buildWeek()">Plan my week</button>
       </div>
-      <div id="plLinkStatus" class="small" style="margin-top:6px;display:none;"></div>
-      <div id="plLinks" style="margin-top:10px;"></div>
-    </div>
-
-    <div class="card">
-      <h2>How to generate</h2>
-      <div style="margin-top:10px;">
-        <div class="lbl" style="margin-bottom:5px;">For each product</div>
-        <div class="seg" id="plIterSeg">
-          <button id="plIterFresh" class="on" onclick="Planner.setIter('fresh')">New angles</button>
-          <button id="plIterSame" onclick="Planner.setIter('same')">Same angle, fresh wording</button>
-        </div>
-      </div>
-      <div class="row" style="margin-top:16px;align-items:center;">
-        <div class="note" id="plSetupNote" style="margin:0;">Add at least one product to generate.</div>
-        <button class="btn" id="plGenBtn" style="margin-left:auto;" onclick="Planner.generate()">Generate my plan</button>
-      </div>
-      <div class="err hidden" id="plErr"></div>
+      <div class="err hidden" id="plErr" style="margin-top:8px;"></div>
     </div>
   </div>
 
@@ -12938,21 +12919,19 @@ function genOneScript(opts){
 <script>
 (function(){
   // ===== Content Planner (v3: cadence + working list) ================================
-  // The creator sets a daily cadence (perDay × 7 = a weekly target), then adds products
-  // from the library into a flat working LIST, each with a per-product weekly post COUNT.
-  // A running total warns when it exceeds the target but never blocks. No product roles or
-  // ranking. On generate, each product yields `count` scripts per angle via the shared
-  // helpers (genOneScript / suggestFreshAngles), inserted into the `scripts` table so they
-  // count against the member's cap and show in the Scripts tab, then auto-spread across the
-  // 7 days — a product's repeats land on DIFFERENT days by default — with cross-day drag.
+  // A planning surface only — it does NOT generate scripts. The creator sets a daily cadence
+  // (perDay × 7 = a weekly target), then adds products from the library into a flat working
+  // LIST, each with a per-product weekly post COUNT. A running total warns when it exceeds the
+  // target but never blocks. "Plan my week" turns each planned post into a lightweight SLOT and
+  // auto-spreads them across the 7 days — a product's repeats land on DIFFERENT days by default —
+  // with cross-day drag. Every slot/product links straight over to that product's Scripts tab,
+  // where the actual script writing (and winning-angle work) happens. No product roles or ranking.
   // State mirrors to planner_state (one JSONB row per user, v3 shape).
-  // v3 state: no product roles/buckets. Products go into a flat working LIST, each with a
-  // per-product weekly post COUNT. perDay x 7 is the weekly target the running total measures against.
   var S = {
     lib: [], list: [], counts: {}, q: '',
-    links: [], iter: 'fresh', perDay: 3,
+    perDay: 3,
     takes: {}, order: [], board: { days: [] }, layout: 'weekly', activeDay: 0,
-    posted: {}, filmed: {}, generating: false, restoring: false
+    posted: {}, filmed: {}, restoring: false
   };
   var DAYS = 7;
   var IID = 1;
@@ -13066,131 +13045,30 @@ function genOneScript(opts){
   // Render the whole setup screen from state (used on load, restore, and start-over).
   function renderSetup(){
     var perD = el('plPerDay'); if(perD) perD.value = S.perDay;
-    updateCadence(); renderPicker(); renderWorkingList(); renderLinks(); renderTotalBar(); syncGenBtn();
+    updateCadence(); renderPicker(); renderWorkingList(); renderTotalBar(); syncGenBtn();
   }
   function syncGenBtn(){
-    // The button stays clickable so generate() can explain what's missing; it's only disabled
-    // WHILE a generation is running (to prevent double-fire).
     var n = S.list.length, tot = plannedTotal(), btn = el('plGenBtn'), note = el('plSetupNote');
-    if(btn) btn.disabled = S.generating;
+    if(btn) btn.disabled = false;
     if(note) note.textContent = n
-      ? (tot + ' video' + (tot>1?'s':'') + ' across ' + n + ' product' + (n>1?'s':'') + (S.links.length ? (' · ' + S.links.length + ' winning video' + (S.links.length>1?'s':'')) : ''))
-      : 'Add at least one product to generate.';
+      ? (tot + ' video' + (tot>1?'s':'') + ' across ' + n + ' product' + (n>1?'s':''))
+      : 'Add at least one product to plan your week.';
   }
 
-  // ---- winning-video links ----
-  function addLink(){
-    var inp = el('plLink'), st = el('plLinkStatus');
-    var url = (inp && inp.value ? inp.value : '').trim();
-    function show(c,m){ if(st){ st.style.display='block'; st.style.color=c; st.textContent=m; } }
-    if(!url){ show('var(--red)','Paste a TikTok link first.'); return; }
-    if(S.links.length >= 2){ show('var(--red)','Two winning videos is the max.'); return; }
-    show('var(--muted)','Fetching the video and its transcript... this can take a moment.');
-    transcribeTikTokLink(url).then(function(o){
-      S.links.push({ url:url, handle:o.handle, views:o.views, transcript:o.transcript, topic:o.topic });
-      if(inp) inp.value=''; if(st){ st.style.display='none'; st.textContent=''; }
-      renderLinks(); syncGenBtn(); save();
-    }).catch(function(err){ show('var(--red)','Could not fetch that video: ' + ((err && err.message) ? err.message : 'unknown error') + '.'); });
-  }
-  function removeLink(i){ S.links.splice(i,1); renderLinks(); syncGenBtn(); save(); }
-  function renderLinks(){
-    var box = el('plLinks'); if(!box) return; box.innerHTML='';
-    S.links.forEach(function(l,i){
-      var c = document.createElement('div'); c.className='cardv'; c.style.marginBottom='6px';
-      var body = document.createElement('div'); body.className='cbody';
-      body.innerHTML = '<div class="cname">' + esc(l.topic||l.handle||'Winning video') + '</div><div class="cangle">' + esc(l.handle||'') + (l.views ? (' · ' + esc(l.views) + ' views') : '') + '</div>';
-      var rm = document.createElement('button'); rm.type='button'; rm.className='rmv'; rm.textContent='✕';
-      rm.addEventListener('click', function(){ removeLink(i); });
-      c.appendChild(body); c.appendChild(rm); box.appendChild(c);
-    });
-  }
-
-  function setIter(m){
-    S.iter = (m==='same') ? 'same' : 'fresh';
-    var f = el('plIterFresh'), s = el('plIterSame');
-    if(f) f.classList.toggle('on', S.iter==='fresh');
-    if(s) s.classList.toggle('on', S.iter==='same');
-    save();
-  }
-
-  // ---- generation orchestrator ----
-  function generate(){
+  // ---- build the week (no generation: just spread product slots across the days) ----
+  function buildWeek(){
     var errEl = el('plErr');
     function showErr(m){ if(errEl){ errEl.textContent = m; errEl.classList.remove('hidden'); } }
     if(errEl) errEl.classList.add('hidden');
-    if(S.generating) return;
-    // Never fail silently: say exactly what's missing.
-    if(!currentUser || !sb){ showErr('Please sign in first, then try again.'); return; }
-    if(!S.lib.length){ showErr('No products in your library yet — add a sample below, or build a product in the Scripts tab first.'); return; }
     var ids = S.list.slice().filter(function(id){ return prod(id); });
     if(!ids.length){ showErr('Add at least one product to this week first — tap “+ Add” next to a product in the list above.'); return; }
     S.perDay = Math.max(1, Math.min(30, parseInt(el('plPerDay').value) || S.perDay || 3));
-    S.generating = true; syncGenBtn();
-    var btn = el('plGenBtn');
-    // reset any prior plan
+    // One slot per planned post (product × its weekly count). Nothing is generated here — each slot
+    // just links over to that product's Scripts tab, where the actual script writing happens.
     S.takes = {}; S.order = []; S.board = { days: [] }; S.posted = {}; S.filmed = {};
-    var winners = plannerWinnersBlock(S.links);
-    var queue = ids.slice(), done = 0, total = ids.length, stopped = false;
-    function fail(msg){
-      stopped = true; S.generating = false; if(btn) btn.textContent = 'Generate my plan'; syncGenBtn();
-      if(S.order.length){ finish(msg); } else if(errEl){ errEl.textContent = msg; errEl.classList.remove('hidden'); }
-    }
-    function nextProduct(){
-      if(stopped) return;
-      if(!queue.length){ finish(''); return; }
-      var id = queue.shift(); var p = prod(id); done++;
-      if(btn) btn.textContent = 'Generating ' + done + ' of ' + total + '...';
-      if(!p){ nextProduct(); return; }
-      var desc = (p.bank && p.bank.facts) || p.description || p.name || '';
-      var motivation = p.motivation || '';
-      buildTakesForProduct(p, desc, motivation, countOf(id), winners, nextProduct, fail);
-    }
-    function finish(msg){
-      S.generating = false; if(btn) btn.textContent = 'Generate my plan';
-      el('plSetup').classList.add('hidden'); el('plResults').classList.remove('hidden');
-      dealDays(); renderResults(); save(); window.scrollTo(0,0);
-      if(msg && errEl){ /* soft notice on the results screen */ if(typeof showToast==='function') showToast(msg); }
-    }
-    nextProduct();
-  }
-
-  function buildTakesForProduct(p, desc, motivation, perProd, winners, doneCb, failCb){
-    function makeTake(angle, priorHook, cb){
-      genOneScript({ desc: desc, desire: angle, winnersBlock: winners, priorHook: priorHook }).then(function(parsed){
-        insertScript(p.id, angle, parsed, function(row){
-          var iid = nid();
-          S.takes[iid] = { iid: iid, productId: p.id, angle: angle, scriptId: row ? row.id : null, hook: parsed.hook || '' };
-          S.order.push(iid);
-          cb();
-        });
-      }).catch(function(e){
-        if(e && e.code === 429){ failCb('You have reached your generation limit for now. The plan so far is saved.'); return; }
-        cb(); // skip this take on other errors, keep going
-      });
-    }
-    if(S.iter === 'same'){
-      var angle = (p.bank && p.bank.desireAngle) || 'the single strongest want for this product';
-      var i = 0, prior = '';
-      (function loop(){
-        if(i >= perProd){ doneCb(); return; }
-        i++;
-        makeTake(angle, prior, function(){ var last = S.order[S.order.length-1]; prior = (S.takes[last] && S.takes[last].hook) || prior; loop(); });
-      })();
-    } else {
-      suggestFreshAngles(desc, motivation, perProd).then(function(focuses){
-        var angles = (focuses||[]).map(function(f){ return (f && f.focus) ? f.focus : (typeof f==='string' ? f : ''); }).filter(Boolean);
-        var fallback = (p.bank && p.bank.desireAngle) || 'the single strongest want for this product';
-        while(angles.length < perProd) angles.push(fallback);
-        var i = 0;
-        (function loop(){ if(i >= perProd){ doneCb(); return; } var a = angles[i]; i++; makeTake(a, '', loop); })();
-      }).catch(function(e){
-        if(e && e.code === 429){ failCb('You have reached your generation limit for now. The plan so far is saved.'); return; }
-        // angle generation failed -> fall back to same-angle takes
-        var angle = (p.bank && p.bank.desireAngle) || 'the single strongest want for this product';
-        var i = 0, prior = '';
-        (function loop(){ if(i >= perProd){ doneCb(); return; } i++; makeTake(angle, prior, function(){ var last = S.order[S.order.length-1]; prior = (S.takes[last] && S.takes[last].hook) || prior; loop(); }); })();
-      });
-    }
+    ids.forEach(function(id){ var n = countOf(id); for(var k=0;k<n;k++){ var iid = nid(); S.takes[iid] = { iid: iid, productId: id }; S.order.push(iid); } });
+    el('plSetup').classList.add('hidden'); el('plResults').classList.remove('hidden');
+    dealDays(); renderResults(); save(); window.scrollTo(0,0);
   }
 
   // Planner-generated scripts insert into the same `scripts` table as any other generation.
@@ -13259,7 +13137,7 @@ function genOneScript(opts){
   }
   function renderSummary(){
     var total = Object.keys(S.takes).length, prods = plannedProductIds().length;
-    el('plSummary').innerHTML = st(prods,'products') + st(total,'videos to film') + st(S.links.length,'winning videos');
+    el('plSummary').innerHTML = st(prods,'products') + st(total,'videos to film') + st(weeklyTarget(),'weekly target');
   }
   function reviewBtnFor(pid){
     var b = document.createElement('button'); b.type='button'; b.className='btn ghost sm'; b.textContent='Review scripts';
@@ -13308,9 +13186,8 @@ function genOneScript(opts){
     var handle = document.createElement('div'); handle.className='handle'; handle.textContent='⠿';
     var body = document.createElement('div'); body.className='cbody'; body.style.cursor='pointer';
     var nm = document.createElement('div'); nm.className='cname'; nm.textContent = (p ? p.name : '(product)');
-    var ang = document.createElement('div'); ang.className='cangle'; ang.textContent = t.angle || '';
-    body.appendChild(nm); body.appendChild(ang);
-    if(t.hook){ var hk = document.createElement('div'); hk.className='small muted'; hk.style.marginTop='3px'; hk.textContent = '“' + t.hook + '”'; body.appendChild(hk); }
+    var go = document.createElement('div'); go.className='cangle'; go.textContent = 'Open in Scripts →';
+    body.appendChild(nm); body.appendChild(go);
     body.addEventListener('click', function(){ goToScripts(t.productId); });
     c.appendChild(handle); c.appendChild(body);
     return c;
@@ -13428,9 +13305,8 @@ function genOneScript(opts){
       '<ol style="margin:0 0 16px;padding-left:22px;font-size:14px;line-height:1.7;color:var(--text);">' +
         '<li><b>Set your cadence.</b> How many videos per day — we multiply across the week to set your target.</li>' +
         '<li style="margin-top:6px;"><b>Add products.</b> Add products from your library, then set how many times to post each one this week. The running total warns if you go over target, but never blocks.</li>' +
-        '<li style="margin-top:6px;"><b>Add winning videos (optional).</b> Paste up to two links; their transcripts guide the structure of every script.</li>' +
-        '<li style="margin-top:6px;"><b>Generate.</b> Saxe writes the scripts, saves them to your library, and auto-spreads them across the week — the same product\'s repeats land on different days.</li>' +
-        '<li style="margin-top:6px;"><b>Plan your week.</b> Switch to <b>Daily</b> to see one day at a time, or <b>Weekly</b> to see the whole week and drag cards between days.</li>' +
+        '<li style="margin-top:6px;"><b>Plan your week.</b> We spread each product across the 7 days — a product\'s repeats land on different days. Switch between <b>Weekly</b> and <b>Daily</b>, and drag cards between days.</li>' +
+        '<li style="margin-top:6px;"><b>Write in Scripts.</b> Tap any product to jump straight to it in the Scripts tab, where you write the script and work your winning angles.</li>' +
       '</ol>' +
       '<div style="text-align:center;"><button class="btn ghost" type="button" onclick="document.getElementById(\'overlay\').classList.add(\'hidden\')">Close</button></div></div>';
     ov.classList.remove('hidden');
@@ -13478,7 +13354,7 @@ function genOneScript(opts){
   // ---- persistence (Supabase planner_state, one JSONB row per user) ----
   function snapshot(){
     return {
-      v: 3, list: S.list, counts: S.counts, links: S.links, iter: S.iter, perDay: S.perDay, layout: S.layout, activeDay: S.activeDay,
+      v: 3, list: S.list, counts: S.counts, perDay: S.perDay, layout: S.layout, activeDay: S.activeDay,
       takes: S.takes, order: S.order,
       board: { days: (S.board.days||[]).map(function(d){ return { items: d.items || [] }; }) },
       posted: S.posted, filmed: S.filmed, iid: IID
@@ -13491,7 +13367,7 @@ function genOneScript(opts){
     try{ sb.from('planner_state').upsert({ user_id: currentUser.id, data: snapshot(), updated_at: new Date().toISOString() }, { onConflict: 'user_id' }).then(function(){}, function(){}); }catch(e){}
   }
   function resetAll(){
-    S.list = []; S.counts = {}; S.links = []; S.iter = 'fresh'; S.perDay = 3;
+    S.list = []; S.counts = {}; S.perDay = 3;
     S.takes = {}; S.order = []; S.board = { days: [] }; S.layout = 'weekly'; S.activeDay = 0;
     S.posted = {}; S.filmed = {}; S.q = ''; IID = 1;
   }
@@ -13509,14 +13385,13 @@ function genOneScript(opts){
       }
       function obj(x){ return (x && typeof x==='object' && !Array.isArray(x)) ? x : {}; }
       function arr(x){ return Array.isArray(x) ? x : []; }
-      S.list = arr(d.list); S.counts = obj(d.counts); S.links = arr(d.links); S.iter = (d.iter==='same'?'same':'fresh');
+      S.list = arr(d.list); S.counts = obj(d.counts);
       S.perDay = d.perDay || 3;
       S.layout = (d.layout==='daily') ? 'daily' : 'weekly';
       S.activeDay = (typeof d.activeDay==='number' && d.activeDay>=0) ? d.activeDay : 0;
       S.takes = obj(d.takes); S.order = arr(d.order);
       S.board = (d.board && arr(d.board.days).length) ? { days: arr(d.board.days) } : { days: [] };
       S.posted = obj(d.posted); S.filmed = obj(d.filmed); IID = d.iid || IID;
-      setIter(S.iter);
       if(S.order.length){
         el('plSetup').classList.add('hidden'); el('plResults').classList.remove('hidden');
         if(!S.board.days.length) dealDays();
@@ -13549,7 +13424,7 @@ function genOneScript(opts){
     });
   }
 
-  window.Planner = { load: load, openGuide: openGuide, onSearch: onSearch, onPerDay: onPerDay, addLink: addLink, setIter: setIter, generate: generate, setLayout: setLayout, startOver: startOver, openAddSample: openAddSample, saveSample: saveSample };
+  window.Planner = { load: load, openGuide: openGuide, onSearch: onSearch, onPerDay: onPerDay, buildWeek: buildWeek, setLayout: setLayout, startOver: startOver, openAddSample: openAddSample, saveSample: saveSample };
 })();
 </script>
 
