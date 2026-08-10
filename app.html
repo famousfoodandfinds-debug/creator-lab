@@ -1381,6 +1381,12 @@ function handleAuth() {
   msg.textContent = "";
   var promise;
   if (authMode === "signup") {
+    // signup-webhook stores paid_users emails trimmed + lowercased, and the paid_users lookup is
+    // case-sensitive, so normalize the typed email the same way. Without this, any uppercase letter
+    // (including phone autocapitalization) fails the paid check and a real buyer is wrongly told
+    // they have no active subscription. Scoped to Create Account only -- the signup branch returns
+    // below, so the sign-in path is unaffected.
+    email = email.toLowerCase();
     // Paywall check -- verify email is in paid_users before creating account
     btn.textContent = "Checking access...";
     sb.from("paid_users").select("email, active").eq("email", email).eq("active", true).maybeSingle().then(function(check) {
