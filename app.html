@@ -1354,10 +1354,10 @@ function handleForgotPassword() {
     msg.className = "auth-msg error";
     return;
   }
-  // Enforce the same paywall as Create Account before sending a login link. Without this the
-  // magic-link path had no paid check and no shouldCreateUser:false, so any email could request a
-  // link and be handed a brand-new account, bypassing the paywall entirely. Now: only an active
-  // paid_users email gets a link, and shouldCreateUser:false means the link can never create an account.
+  // Enforce the same paywall as Create Account before sending a password-reset email: only an
+  // active paid_users email may reset. The reset email uses Supabase recovery, which is handled on
+  // load by the PASSWORD_RECOVERY flow (Set New Password form -> updateUser -> onSignedIn). Trim +
+  // lowercase matches how signup-webhook stores paid_users, so a capitalized email still matches.
   msg.textContent = "Checking access...";
   msg.className = "auth-msg";
   sb.from("paid_users").select("email, active").eq("email", email).eq("active", true).maybeSingle().then(function(check) {
@@ -1366,17 +1366,14 @@ function handleForgotPassword() {
       msg.className = "auth-msg error";
       return;
     }
-    msg.textContent = "Sending login link...";
+    msg.textContent = "Sending reset link...";
     msg.className = "auth-msg";
-    sb.auth.signInWithOtp({
-      email: email,
-      options: { emailRedirectTo: "https://saxe.app/app.html", shouldCreateUser: false }
-    }).then(function(result) {
+    sb.auth.resetPasswordForEmail(email, { redirectTo: "https://saxe.app/app.html" }).then(function(result) {
       if (result.error) {
         msg.textContent = result.error.message;
         msg.className = "auth-msg error";
       } else {
-        msg.textContent = "Login link sent -- check your email. Tap the link to get in.";
+        msg.textContent = "Password reset email sent -- check your inbox to set a new password.";
         msg.className = "auth-msg success";
       }
     });
