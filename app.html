@@ -1489,9 +1489,10 @@ function onSignedIn() {
   }
 }
 
-function showSetPasswordPopup(onDone) {
+function showSetPasswordPopup(onDone, hideSkip) {
   // onDone (optional) runs after the popup closes, on either save or skip. The password-recovery
-  // screen passes it to reveal the app; the post-sign-in callers omit it (they're already in).
+  // screen passes it to reveal the app, and passes hideSkip=true so a reset always sets a password.
+  // The post-sign-in callers omit both (they're already in, so skipping is fine).
   var existing = document.getElementById("setPasswordPopup");
   if (existing) return;
 
@@ -1556,7 +1557,7 @@ function showSetPasswordPopup(onDone) {
   card.appendChild(input);
   card.appendChild(saveBtn);
   card.appendChild(msg);
-  card.appendChild(skipBtn);
+  if (!hideSkip) card.appendChild(skipBtn);
   overlay.appendChild(card);
   document.body.appendChild(overlay);
 }
@@ -2183,7 +2184,7 @@ sb.auth.onAuthStateChange(function(event, session) {
         if (r.data.session) { currentUser = r.data.session.user; currentAccessToken = r.data.session.access_token; }
         onSignedIn();
       });
-    });
+    }, true);
     return;
   }
   if (event === "SIGNED_IN" && session && !currentUser) {
