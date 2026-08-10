@@ -1368,7 +1368,7 @@ function handleForgotPassword() {
     }
     msg.textContent = "Sending reset link...";
     msg.className = "auth-msg";
-    sb.auth.resetPasswordForEmail(email, { redirectTo: "https://saxe.app/app.html" }).then(function(result) {
+    sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/app.html" }).then(function(result) {
       if (result.error) {
         msg.textContent = result.error.message;
         msg.className = "auth-msg error";
