@@ -1347,26 +1347,42 @@ function setAuthTab(mode) {
 }
 
 function handleForgotPassword() {
-  var email = document.getElementById("authEmail").value.trim();
+  var email = document.getElementById("authEmail").value.trim().toLowerCase();
   var msg = document.getElementById("authMsg");
   if (!email) {
     msg.textContent = "Enter your email address above first";
     msg.className = "auth-msg error";
     return;
   }
-  msg.textContent = "Sending login link...";
+  // Enforce the same paywall as Create Account before sending a login link. Without this the
+  // magic-link path had no paid check and no shouldCreateUser:false, so any email could request a
+  // link and be handed a brand-new account, bypassing the paywall entirely. Now: only an active
+  // paid_users email gets a link, and shouldCreateUser:false means the link can never create an account.
+  msg.textContent = "Checking access...";
   msg.className = "auth-msg";
-  sb.auth.signInWithOtp({
-    email: email,
-    options: { emailRedirectTo: "https://saxe.app/app.html" }
-  }).then(function(result) {
-    if (result.error) {
-      msg.textContent = result.error.message;
+  sb.from("paid_users").select("email, active").eq("email", email).eq("active", true).maybeSingle().then(function(check) {
+    if (!check.data) {
+      msg.innerHTML = "This email isn't associated with an active Saxe subscription.<br><br><a href='https://stan.store/famousfoodandfinds/p/psych-lab' target='_blank' style='color:var(--gold);text-decoration:underline;font-weight:600;'>Get access at Stan.store →</a>";
       msg.className = "auth-msg error";
-    } else {
-      msg.textContent = "Login link sent -- check your email. Tap the link to get in.";
-      msg.className = "auth-msg success";
+      return;
     }
+    msg.textContent = "Sending login link...";
+    msg.className = "auth-msg";
+    sb.auth.signInWithOtp({
+      email: email,
+      options: { emailRedirectTo: "https://saxe.app/app.html", shouldCreateUser: false }
+    }).then(function(result) {
+      if (result.error) {
+        msg.textContent = result.error.message;
+        msg.className = "auth-msg error";
+      } else {
+        msg.textContent = "Login link sent -- check your email. Tap the link to get in.";
+        msg.className = "auth-msg success";
+      }
+    });
+  }).catch(function() {
+    msg.textContent = "Could not verify access -- please try again.";
+    msg.className = "auth-msg error";
   });
 }
 
