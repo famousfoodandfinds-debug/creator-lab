@@ -1354,10 +1354,10 @@ function handleForgotPassword() {
     msg.className = "auth-msg error";
     return;
   }
-  // Enforce the same paywall as Create Account before sending a login link. Without this the
-  // magic-link path had no paid check and no shouldCreateUser:false, so any email could request a
-  // link and be handed a brand-new account, bypassing the paywall entirely. Now: only an active
-  // paid_users email gets a link, and shouldCreateUser:false means the link can never create an account.
+  // Enforce the same paywall as Create Account before sending a password-reset email: only an
+  // active paid_users email may reset. The reset email uses Supabase recovery, which is handled on
+  // load by the PASSWORD_RECOVERY flow (Set New Password form -> updateUser -> onSignedIn). Trim +
+  // lowercase matches how signup-webhook stores paid_users, so a capitalized email still matches.
   msg.textContent = "Checking access...";
   msg.className = "auth-msg";
   sb.from("paid_users").select("email, active").eq("email", email).eq("active", true).maybeSingle().then(function(check) {
@@ -1366,17 +1366,14 @@ function handleForgotPassword() {
       msg.className = "auth-msg error";
       return;
     }
-    msg.textContent = "Sending login link...";
+    msg.textContent = "Sending reset link...";
     msg.className = "auth-msg";
-    sb.auth.signInWithOtp({
-      email: email,
-      options: { emailRedirectTo: "https://saxe.app/app.html", shouldCreateUser: false }
-    }).then(function(result) {
+    sb.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin + "/app.html" }).then(function(result) {
       if (result.error) {
         msg.textContent = result.error.message;
         msg.className = "auth-msg error";
       } else {
-        msg.textContent = "Login link sent -- check your email. Tap the link to get in.";
+        msg.textContent = "Password reset email sent -- check your inbox to set a new password.";
         msg.className = "auth-msg success";
       }
     });
@@ -1492,7 +1489,10 @@ function onSignedIn() {
   }
 }
 
-function showSetPasswordPopup() {
+function showSetPasswordPopup(onDone, hideSkip) {
+  // onDone (optional) runs after the popup closes, on either save or skip. The password-recovery
+  // screen passes it to reveal the app, and passes hideSkip=true so a reset always sets a password.
+  // The post-sign-in callers omit both (they're already in, so skipping is fine).
   var existing = document.getElementById("setPasswordPopup");
   if (existing) return;
 
@@ -1545,19 +1545,19 @@ function showSetPasswordPopup() {
       } else {
         msg.style.color = "var(--green)";
         msg.textContent = "Password saved!";
-        setTimeout(function() { overlay.remove(); }, 1200);
+        setTimeout(function() { overlay.remove(); if (typeof onDone === "function") onDone(); }, 1200);
       }
     });
   });
 
-  skipBtn.addEventListener("click", function() { overlay.remove(); });
+  skipBtn.addEventListener("click", function() { overlay.remove(); if (typeof onDone === "function") onDone(); });
 
   card.appendChild(heading);
   card.appendChild(sub);
   card.appendChild(input);
   card.appendChild(saveBtn);
   card.appendChild(msg);
-  card.appendChild(skipBtn);
+  if (!hideSkip) card.appendChild(skipBtn);
   overlay.appendChild(card);
   document.body.appendChild(overlay);
 }
@@ -2071,7 +2071,7 @@ function showProfile() {
   pwHeading.textContent = "Set a password";
   var pwSub = document.createElement("div");
   pwSub.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;";
-  pwSub.textContent = "Create a password so you can sign in directly without needing a login link.";
+  pwSub.textContent = "Create a password so you can sign in directly with your email and password.";
   card.appendChild(pwHeading);
   card.appendChild(pwSub);
 
@@ -2177,24 +2177,14 @@ sb.auth.onAuthStateChange(function(event, session) {
   // Keep the cached JWT current across sign-in, token refresh, and sign-out.
   currentAccessToken = session ? session.access_token : null;
   if (event === "PASSWORD_RECOVERY") {
-    // Show password reset form instead of logging in
-    var overlay = document.getElementById("authOverlay");
-    if (overlay) {
-      overlay.style.display = "flex";
-      var card = overlay.querySelector(".auth-card");
-      if (card) {
-        card.innerHTML =
-          "<img class='auth-logo' src='data:image/png;base64,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' alt='Saxe' style='width:64px;height:auto;'>" +
-          "<div class='auth-title'>Set New <em>Password</em></div>" +
-          "<div class='auth-sub'>Enter your new password below</div>" +
-          "<div id='authForm'>" +
-          "<div class='auth-field'><label class='auth-label'>New Password</label>" +
-          "<input class='auth-input' id='newPassword' type='password' placeholder='Enter new password' autocomplete='new-password'></div>" +
-          "<button class='auth-btn' id='resetBtn' onclick='handlePasswordUpdate()'>Update Password</button>" +
-          "<div class='auth-msg' id='authMsg'></div>" +
-          "</div>";
-      }
-    }
+    // Reuse the existing Set-a-password popup (it calls updateUser) instead of a bespoke form.
+    // On save or skip, refresh the recovery session and reveal the app.
+    showSetPasswordPopup(function() {
+      sb.auth.getSession().then(function(r) {
+        if (r.data.session) { currentUser = r.data.session.user; currentAccessToken = r.data.session.access_token; }
+        onSignedIn();
+      });
+    }, true);
     return;
   }
   if (event === "SIGNED_IN" && session && !currentUser) {
@@ -2202,34 +2192,6 @@ sb.auth.onAuthStateChange(function(event, session) {
     onSignedIn();
   }
 });
-
-function handlePasswordUpdate() {
-  var newPw = document.getElementById("newPassword").value;
-  var msg = document.getElementById("authMsg");
-  if (!newPw || newPw.length < 6) {
-    msg.textContent = "Password must be at least 6 characters";
-    msg.className = "auth-msg error";
-    return;
-  }
-  var btn = document.getElementById("resetBtn");
-  btn.disabled = true;
-  btn.textContent = "Updating...";
-  sb.auth.updateUser({ password: newPw }).then(function(result) {
-    if (result.error) {
-      msg.textContent = result.error.message;
-      msg.className = "auth-msg error";
-      btn.disabled = false;
-      btn.textContent = "Update Password";
-    } else {
-      msg.textContent = "Password updated -- signing you in";
-      msg.className = "auth-msg success";
-      setTimeout(function() {
-        currentUser = result.data.user;
-        onSignedIn();
-      }, 1200);
-    }
-  });
-}
 
 // Enter key on auth form
 document.addEventListener("keydown", function(e) {
