@@ -866,6 +866,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
       <div style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Customer reviews</div>
         <div id="psReviewCount" style="font-size:13px;color:var(--muted);margin-bottom:8px;">No reviews yet.</div>
+        <div id="psReviewList" style="max-height:260px;overflow-y:auto;margin-bottom:8px;"></div>
         <div id="psReviewAddArea" style="display:none;margin-bottom:8px;">
           <div class="field-hints-line" style="margin-bottom:8px;">Paste new reviews only. These are added to your set, not replacing it. Separate reviews with a blank line.</div>
           <textarea id="psReviewNew" maxlength="20000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste new customer reviews here. Separate each review with a blank line."></textarea>
@@ -13760,15 +13761,59 @@ function genOneScript(opts){
     if (btn) btn.style.display = show ? "none" : "";
     if (show){ var t = el("psReviewNew"); if (t){ t.value = ""; try{ t.focus(); }catch(e){} } }
   }
+  // Split pasted review text into individual reviews. Strategy, most reliable first:
+  // (1) Amazon star-rating lines ("5.0 out of 5 stars" or star glyphs), one per review, split before each;
+  // (2) blank-line separation (clean / manual pastes);
+  // (3) "Reviewed in ... on DATE" lines (Amazon), one per review, split before each.
+  // Honest limits: reliable for standard Amazon "out of 5 stars" copy; other formats can mis-split,
+  // which is exactly why the list below lets you verify and remove. Derivation re-parses for the final count.
+  function splitReviews(text){
+    var t = String(text || "").replace(/\r/g, "").trim();
+    if (!t) return [];
+    // Split BEFORE each marker line; any leading text before the first marker (e.g. the reviewer's
+    // name on Amazon) belongs to the first review, so merge it in rather than counting it separately.
+    function splitBefore(src){
+      var parts = t.split(new RegExp("(?=" + src + ")", "gim"));
+      var head = new RegExp(src, "im");
+      if (parts.length >= 2 && !head.test(parts[0])){ parts[1] = parts[0] + "\n" + parts[1]; parts.shift(); }
+      return parts.map(function(b){ return b.trim(); }).filter(Boolean);
+    }
+    var starSrc = "^[ \\t]*(?:[\u2605\u2b50]{1,5}|\\d(?:\\.\\d)?\\s*out of\\s*\\d\\s*stars\\b)";
+    if ((t.match(new RegExp(starSrc, "gim")) || []).length >= 2){ var a = splitBefore(starSrc); if (a.length >= 2) return a; }
+    var byBlank = t.split(/\n\s*\n+/).map(function(b){ return b.trim(); }).filter(Boolean);
+    if (byBlank.length >= 2) return byBlank;
+    var revSrc = "Reviewed in .{0,40}? on ";
+    if ((t.match(new RegExp(revSrc, "g")) || []).length >= 2){ var b = splitBefore(revSrc); if (b.length >= 2) return b; }
+    return [t];
+  }
+
+  // Collapsed list of stored reviews, each with a remove control. Click a row to expand/collapse.
+  function renderReviewList(){
+    var box = el("psReviewList"); if (!box) return; box.innerHTML = "";
+    raw.reviews.forEach(function(rv, i){
+      var full = String(rv.full || "").trim();
+      var short = full.length > 90 ? full.slice(0, 90) + "\u2026" : full;
+      var row = document.createElement("div"); row.style.cssText = "background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin-bottom:6px;display:flex;align-items:flex-start;gap:8px;";
+      var txt = document.createElement("div"); txt.style.cssText = "flex:1;min-width:0;font-size:12px;color:var(--white-dim);line-height:1.45;cursor:pointer;white-space:pre-wrap;word-break:break-word;";
+      var expanded = false;
+      function paint(){ txt.textContent = (i+1) + ". " + (expanded ? full : short); }
+      paint();
+      txt.addEventListener("click", function(){ expanded = !expanded; paint(); });
+      var rm = document.createElement("button"); rm.type = "button"; rm.textContent = "\u2715"; rm.title = "Remove this review";
+      rm.style.cssText = "background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px;line-height:1;flex-shrink:0;";
+      rm.addEventListener("click", function(){ raw.reviews.splice(i, 1); renderReviewList(); renderReviewCount(); scheduleSave(); });
+      row.appendChild(txt); row.appendChild(rm); box.appendChild(row);
+    });
+  }
+
   function addReviewsFromBox(){
     var text = val("psReviewNew").trim();
     if (!text){ reviewMsg("Paste at least one review first.", "var(--red)"); return; }
-    var blocks = text.split(/\n\s*\n/).map(function(b){ return b.trim(); }).filter(Boolean);
-    var res = SB.addReviews(raw, blocks.map(function(b){ return { full: b, source: "paste" }; }));
+    var res = SB.addReviews(raw, splitReviews(text).map(function(b){ return { full: b, source: "paste" }; }));
     raw = res.raw;
     toggleReviewAdd(false);
-    renderReviewCount();
-    var msg = "Added " + res.added + " review" + (res.added===1?"":"s") + ". " + raw.reviews.length + " total.";
+    renderReviewList(); renderReviewCount();
+    var msg = "Added " + res.added + " review" + (res.added===1?"":"s") + ". " + raw.reviews.length + " total. Check the list and remove any that split wrong.";
     if (res.rejected > 0) msg += " " + res.rejected + " not added (100 max reached, remove some first).";
     reviewMsg(msg, res.rejected > 0 ? "var(--red)" : "var(--green)");
     scheduleSave();
@@ -13795,7 +13840,7 @@ function genOneScript(opts){
     if (el("psCompetitorText")) el("psCompetitorText").value = raw.competitorComments;
     if (el("psAuthority"))      el("psAuthority").value      = raw.authorityRaw;
     ["psAngleLink","psAngleText"].forEach(function(id){ if (el(id)) el(id).value = ""; });
-    renderAngles(); renderReviewCount(); reviewMsg(""); toggleReviewAdd(false);
+    renderAngles(); renderReviewList(); renderReviewCount(); reviewMsg(""); toggleReviewAdd(false);
   }
 
   // Toggle between the input form (#textPanel) and the quiet "pick a product" landing (#homeLanding).
