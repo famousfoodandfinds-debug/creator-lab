@@ -861,14 +861,25 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
         <textarea id="productInput" maxlength="8000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste the full listing: brand, materials, sizes, every real feature."></textarea>
       </div>
 
-      <!-- Customer reviews: paste + screenshots (no 3-cap) -->
+      <!-- Customer reviews: a growing SET. Reviews are added, never replaced. The box for new
+           reviews is always empty so it is never ambiguous whether you are editing or adding. -->
       <div style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Customer reviews</div>
-        <div class="field-hints-line" style="margin-bottom:8px;">Paste as many reviews as you have, and/or upload screenshots. More reviews sharpen the brief.</div>
-        <textarea id="psReviewsText" maxlength="20000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste customer reviews here. One after another is fine."></textarea>
-        <input type="file" id="psReviewFiles" accept="image/*" multiple style="display:none;">
-        <button type="button" id="psReviewUpload" style="width:100%;margin-top:8px;background:transparent;border:1px dashed rgba(144,144,240,0.3);border-radius:10px;color:rgba(144,144,240,0.85);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:11px;cursor:pointer;">＋ Upload review screenshots</button>
-        <div id="psReviewStatus" style="font-size:12px;color:var(--muted);margin-top:6px;display:none;line-height:1.5;"></div>
+        <div id="psReviewCount" style="font-size:13px;color:var(--muted);margin-bottom:8px;">No reviews yet.</div>
+        <div id="psReviewAddArea" style="display:none;margin-bottom:8px;">
+          <div class="field-hints-line" style="margin-bottom:8px;">Paste new reviews only. These are added to your set, not replacing it. Separate reviews with a blank line.</div>
+          <textarea id="psReviewNew" maxlength="20000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste new customer reviews here. Separate each review with a blank line."></textarea>
+          <div style="display:flex;gap:8px;margin-top:8px;">
+            <button type="button" id="psReviewAddConfirm" style="flex:1;background:var(--purple);border:none;border-radius:10px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:700;padding:11px;cursor:pointer;">Add these reviews</button>
+            <button type="button" id="psReviewAddCancel" style="background:transparent;border:1px solid var(--border-md);border-radius:10px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:11px 14px;cursor:pointer;">Cancel</button>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button type="button" id="psReviewAddBtn" style="flex:1;background:transparent;border:1px dashed rgba(144,144,240,0.3);border-radius:10px;color:rgba(144,144,240,0.85);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:11px;cursor:pointer;">＋ Add reviews</button>
+          <input type="file" id="psReviewFiles" accept="image/*" multiple style="display:none;">
+          <button type="button" id="psReviewUpload" style="flex:1;background:transparent;border:1px dashed rgba(144,144,240,0.3);border-radius:10px;color:rgba(144,144,240,0.85);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:11px;cursor:pointer;">＋ Upload screenshots</button>
+        </div>
+        <div id="psReviewStatus" style="font-size:12px;color:var(--muted);margin-top:8px;display:none;line-height:1.5;"></div>
       </div>
 
       <!-- Competitor / viral comments (separate from winning angles; buyer language) -->
@@ -13724,17 +13735,43 @@ function genOneScript(opts){
 
   function collect(){
     raw.description        = val("productInput");
-    raw.reviewsText        = val("psReviewsText");
     raw.competitorComments = val("psCompetitorText");
     raw.authorityRaw       = val("psAuthority");
-    // reviewShots and winningAngles are maintained by their own handlers below.
+    // reviews (raw.reviews), reviewShots and winningAngles are maintained by their own handlers.
   }
 
   function renderReviewCount(){
-    var s = el("psReviewStatus"), n = raw.reviewShots.length;
-    if (!s) return;
-    if (n){ s.style.display = "block"; s.textContent = n + " review screenshot" + (n>1?"s":"") + " attached (read when your brief is built)."; }
-    else  { s.style.display = "none"; s.textContent = ""; }
+    var s = el("psReviewCount"); if (!s) return;
+    var n = raw.reviews.length, m = raw.reviewShots.length, parts = [];
+    if (n) parts.push(n + " review" + (n>1?"s":"") + " saved");
+    if (m) parts.push(m + " screenshot" + (m>1?"s":""));
+    s.textContent = parts.length ? parts.join(" · ") : "No reviews yet.";
+  }
+  function reviewMsg(msg, color){
+    var s = el("psReviewStatus"); if (!s) return;
+    if (msg){ s.style.display = "block"; s.style.color = color || "var(--muted)"; s.textContent = msg; }
+    else { s.style.display = "none"; s.textContent = ""; }
+  }
+  // Explicit add: opens an EMPTY box. Pasted text is split on blank lines into individual reviews
+  // and APPENDED to the set (never replacing it), capped at 100 with no silent drop.
+  function toggleReviewAdd(show){
+    var area = el("psReviewAddArea"), btn = el("psReviewAddBtn");
+    if (area) area.style.display = show ? "block" : "none";
+    if (btn) btn.style.display = show ? "none" : "";
+    if (show){ var t = el("psReviewNew"); if (t){ t.value = ""; try{ t.focus(); }catch(e){} } }
+  }
+  function addReviewsFromBox(){
+    var text = val("psReviewNew").trim();
+    if (!text){ reviewMsg("Paste at least one review first.", "var(--red)"); return; }
+    var blocks = text.split(/\n\s*\n/).map(function(b){ return b.trim(); }).filter(Boolean);
+    var res = SB.addReviews(raw, blocks.map(function(b){ return { full: b, source: "paste" }; }));
+    raw = res.raw;
+    toggleReviewAdd(false);
+    renderReviewCount();
+    var msg = "Added " + res.added + " review" + (res.added===1?"":"s") + ". " + raw.reviews.length + " total.";
+    if (res.rejected > 0) msg += " " + res.rejected + " not added (100 max reached, remove some first).";
+    reviewMsg(msg, res.rejected > 0 ? "var(--red)" : "var(--green)");
+    scheduleSave();
   }
 
   function renderAngles(){
@@ -13755,11 +13792,10 @@ function genOneScript(opts){
   function renderInputs(){
     if (el("newProductNameInput")) el("newProductNameInput").value = (typeof currentProductName === "string" ? currentProductName : "");
     if (el("productInput"))     el("productInput").value     = raw.description;
-    if (el("psReviewsText"))    el("psReviewsText").value    = raw.reviewsText;
     if (el("psCompetitorText")) el("psCompetitorText").value = raw.competitorComments;
     if (el("psAuthority"))      el("psAuthority").value      = raw.authorityRaw;
     ["psAngleLink","psAngleText"].forEach(function(id){ if (el(id)) el(id).value = ""; });
-    renderAngles(); renderReviewCount();
+    renderAngles(); renderReviewCount(); reviewMsg(""); toggleReviewAdd(false);
   }
 
   // Toggle between the input form (#textPanel) and the quiet "pick a product" landing (#homeLanding).
@@ -13852,17 +13888,20 @@ function genOneScript(opts){
     var url = val("psAngleLink").trim(), s = el("psAngleStatus");
     function show(m,c){ if (s){ s.style.display = "block"; s.style.color = c || "var(--muted)"; s.textContent = m; } }
     if (!url){ show("Paste a TikTok link first, or use the paste box below.", "var(--red)"); return; }
-    if (typeof transcribeTikTokLink !== "function"){ show("Fetch unavailable — paste the transcript instead.", "var(--red)"); return; }
-    show("Fetching…");
+    if (typeof transcribeTikTokLink !== "function"){ show("Fetch is not available. Paste the transcript in the box below instead.", "var(--red)"); return; }
+    show("Fetching from the transcript service...");
     transcribeTikTokLink(url).then(function(o){
       raw.winningAngles.push({ url: url, handle: o.handle, views: o.views, transcript: o.transcript, topic: o.topic, source: "fetch", role: "winner" });
       if (el("psAngleLink")) el("psAngleLink").value = ""; if (s) s.style.display = "none";
       renderAngles(); scheduleSave();
-    }, function(err){ show("Could not fetch that video: " + ((err && err.message) ? err.message : "unknown") + ". Paste the transcript instead.", "var(--red)"); });
+    }, function(err){ show("Fetch failed (" + ((err && err.message) ? err.message : "the transcript service did not respond") + "). Fetch is optional. Paste the transcript below and press Add winning angle.", "var(--red)"); });
   }
 
   function init(){
-    ["newProductNameInput","productInput","psReviewsText","psCompetitorText","psAuthority"].forEach(function(id){ var e = el(id); if (e) e.addEventListener("input", scheduleSave); });
+    ["newProductNameInput","productInput","psCompetitorText","psAuthority"].forEach(function(id){ var e = el(id); if (e) e.addEventListener("input", scheduleSave); });
+    if (el("psReviewAddBtn"))     el("psReviewAddBtn").addEventListener("click", function(){ toggleReviewAdd(true); });
+    if (el("psReviewAddCancel"))  el("psReviewAddCancel").addEventListener("click", function(){ toggleReviewAdd(false); reviewMsg(""); });
+    if (el("psReviewAddConfirm")) el("psReviewAddConfirm").addEventListener("click", addReviewsFromBox);
     var up = el("psReviewUpload"), fi = el("psReviewFiles");
     if (up && fi){ up.addEventListener("click", function(){ fi.click(); }); fi.addEventListener("change", function(){ onFiles(fi.files); fi.value = ""; }); }
     if (el("psAngleFetch")) el("psAngleFetch").addEventListener("click", fetchAngle);
