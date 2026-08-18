@@ -13811,9 +13811,14 @@ function genOneScript(opts){
     collect();
     var name = val("newProductNameInput").trim();
     var payload = { user_id: currentUser.id, name: name || "Untitled product", raw: raw, updated_at: new Date().toISOString() };
-    var q = currentProductId
-      ? sb.from("products").update(payload).eq("id", currentProductId).select("id").single()
-      : sb.from("products").insert(payload).select("id").single();
+    var q;
+    if (currentProductId){
+      q = sb.from("products").update(payload).eq("id", currentProductId).select("id").single();
+    } else {
+      // `bank` is a legacy NOT-NULL column with no default; satisfy it with an empty object on
+      // insert (matching how the rest of the app creates products). Dropped in Phase 5.
+      q = sb.from("products").insert(Object.assign({ bank: {} }, payload)).select("id").single();
+    }
     function after(){ saving = false; if (savePending){ savePending = false; clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 200); } }
     q.then(function(r){
       if (r && !r.error && r.data){ currentProductId = r.data.id; lastSavedAt = new Date(); setSaved("saved"); if (typeof buildSelect === "function"){ try{ buildSelect(); }catch(e){} } }
