@@ -13466,8 +13466,9 @@ function genOneScript(opts){
 
 <!-- ===== Product Brief data model (Phase 1: storage + merge helpers, no UI) ===== -->
 <!-- Pure, DOM-free, namespaced under window.SaxeBrief. NOTHING calls this yet; it is dormant
-     scaffolding for the Product Brief rebuild. The brief is stored per product at bank.brief so
-     Phase 1 needs no DB migration and cannot disturb the existing bank keys the live app reads. -->
+     scaffolding for the Product Brief rebuild. Stored in two dedicated JSONB columns: `brief`
+     (derived, light -- loaded on every product open) and `raw` (source material, heavy -- loaded
+     lazily only to edit inputs or re-derive), so product loads stay light. -->
 <script>
 (function(){
   "use strict";
@@ -13521,39 +13522,30 @@ function genOneScript(opts){
     return l;
   }
 
+  // The DERIVED brief -- lightweight, loaded on every product open. Holds NO raw source text: just
+  // the structured lines (each with its evidence words + counts), features, and meta.
   function emptyBrief(){
-    var b = {
-      v: BRIEF_V,
-      // RAW MATERIAL -- kept permanently so the brief can be rebuilt from source without re-pasting.
-      raw: {
-        description: "",         // pasted listing description
-        reviews: [],             // structured reviews {reviewer,full,praise,complaint,quote,source}
-        reviewShots: [],         // screenshot references (kept with the product)
-        competitorComments: "",  // pasted competitor / viral-video comments (buyer language + objections)
-        winningAngles: [],       // product-level winning angles {url,handle,views,transcript,topic,role,source}
-        authorityRaw: ""         // OPTIONAL creator-supplied credibility; if empty, authority is derived
-      },
-      // DERIVED BRIEF -- structured, each line carrying its evidence.
-      lines: {},
-      // Features -> benefits, a distinct section derived from the description.
-      features: [],              // [{feature, benefit, edited}]
-      meta: { reviewCount: 0, lastDerivedAt: null, promptVersion: "" }
-    };
+    var b = { v: BRIEF_V, lines: {}, features: [], meta: { reviewCount: 0, lastDerivedAt: null, promptVersion: "" } };
     LINE_KEYS.forEach(function(k){ b.lines[k.key] = k.list ? [] : line(""); });
     return b;
+  }
+  // The RAW material -- heavier, stored in its own column and loaded lazily (only to edit inputs or
+  // re-derive), so product loads stay light. The brief can always be rebuilt from this.
+  function emptyRaw(){
+    return {
+      description: "",         // pasted listing description
+      reviews: [],             // structured reviews {reviewer,full,praise,complaint,quote,source}
+      reviewShots: [],         // screenshot references (kept with the product)
+      competitorComments: "",  // pasted competitor / viral-video comments (buyer language + objections)
+      winningAngles: [],       // product-level winning angles {url,handle,views,transcript,topic,role,source}
+      authorityRaw: ""         // OPTIONAL creator-supplied credibility; if empty, authority is derived
+    };
   }
 
   // Defensive load: coerce any stored/partial object into a valid brief shape.
   function normalizeBrief(x){
     if (!x || typeof x !== "object") return emptyBrief();
     var b = emptyBrief();
-    var raw = obj(x.raw);
-    b.raw.description        = str(raw.description);
-    b.raw.reviews            = arr(raw.reviews).map(normReview);
-    b.raw.reviewShots        = arr(raw.reviewShots);
-    b.raw.competitorComments = str(raw.competitorComments);
-    b.raw.winningAngles      = arr(raw.winningAngles).map(obj);
-    b.raw.authorityRaw       = str(raw.authorityRaw);
     var lines = obj(x.lines);
     LINE_KEYS.forEach(function(k){
       if (k.list) b.lines[k.key] = arr(lines[k.key]).map(normLine);
@@ -13565,6 +13557,17 @@ function genOneScript(opts){
     b.meta.lastDerivedAt = meta.lastDerivedAt || null;
     b.meta.promptVersion = str(meta.promptVersion);
     return b;
+  }
+  function normalizeRaw(x){
+    x = obj(x);
+    var r = emptyRaw();
+    r.description        = str(x.description);
+    r.reviews            = arr(x.reviews).map(normReview);
+    r.reviewShots        = arr(x.reviewShots);
+    r.competitorComments = str(x.competitorComments);
+    r.winningAngles      = arr(x.winningAngles).map(obj);
+    r.authorityRaw       = str(x.authorityRaw);
+    return r;
   }
 
   function normReview(r){
@@ -13579,33 +13582,26 @@ function genOneScript(opts){
     };
   }
 
-  // ---- storage glue (additive; writes only bank.brief) ------------------------------------------
-  function getBrief(product){
-    var bank = product && product.bank ? product.bank : {};
-    return normalizeBrief(bank.brief);
-  }
-  // Returns a NEW bank object with brief attached; does not mutate other keys.
-  function attach(bank, brief){
-    var out = obj(bank);
-    out = Object.assign({}, out);
-    out.brief = brief;
-    return out;
-  }
+  // ---- storage glue -----------------------------------------------------------------------------
+  // Two dedicated JSONB columns: `brief` (derived, light -- selected on every product load) and
+  // `raw` (source material, heavy -- selected lazily only when editing inputs or re-deriving).
+  function getBrief(product){ return normalizeBrief(product && product.brief); }
+  function getRaw(product){ return normalizeRaw(product && product.raw); }
 
-  // ---- reviews ----------------------------------------------------------------------------------
-  function reviewCount(brief){ return arr(brief && brief.raw && brief.raw.reviews).length; }
+  // ---- reviews (live in the raw column) ---------------------------------------------------------
+  function reviewCount(raw){ return arr(raw && raw.reviews).length; }
 
   // Append reviews up to the cap. NEVER silently drops: returns how many were added vs rejected and
   // whether the product is now at the cap, so the UI can tell the creator to remove some first.
-  function addReviews(brief, incoming, cap){
+  function addReviews(raw, incoming, cap){
     cap = cap || STORED_REVIEW_CAP;
-    var b = normalizeBrief(brief);
-    var room = Math.max(0, cap - b.raw.reviews.length);
+    var r = normalizeRaw(raw);
+    var room = Math.max(0, cap - r.reviews.length);
     var toAdd = arr(incoming).map(normReview);
     var added = toAdd.slice(0, room);
     var rejected = toAdd.length - added.length;
-    b.raw.reviews = b.raw.reviews.concat(added);
-    return { brief: b, added: added.length, rejected: rejected, atCap: b.raw.reviews.length >= cap };
+    r.reviews = r.reviews.concat(added);
+    return { raw: r, added: added.length, rejected: rejected, atCap: r.reviews.length >= cap };
   }
 
   // Split reviews into chunks for derivation so a single big paste is not one oversized model call.
@@ -13649,7 +13645,7 @@ function genOneScript(opts){
     opts = obj(opts);
     var dLines = obj(derived.lines);
     var changes = [];
-    var total = (derived.meta && derived.meta.reviewCount != null) ? (derived.meta.reviewCount|0) : reviewCount(b);
+    var total = (derived.meta && derived.meta.reviewCount != null) ? (derived.meta.reviewCount|0) : (b.meta.reviewCount|0);
 
     LINE_KEYS.forEach(function(k){
       var key = k.key;
@@ -13691,12 +13687,13 @@ function genOneScript(opts){
   }
 
   // ---- read helpers for later phases ------------------------------------------------------------
-  // Honest evidence: mentions are always stated against reviews ACTUALLY stored now.
-  function evidence(brief, ln){ return { count: (ln && ln.count)|0, total: reviewCount(normalizeBrief(brief)) }; }
+  // Honest evidence: mentions stated against the review total measured at derivation (line.total),
+  // which is exactly what the count was computed against; falls back to the brief's derivation count.
+  function evidence(brief, ln){ var b = normalizeBrief(brief); return { count: (ln && ln.count)|0, total: (ln && ln.total) || (b.meta.reviewCount|0) }; }
   function safeWords(ln){ return arr(ln && ln.words).map(str); }   // reusable buyer language
   function claims(ln){ return arr(ln && ln.claims).map(str); }     // NOT reusable as assertions
   function mustHaveKeys(){ return LINE_KEYS.filter(function(k){ return k.must; }).map(function(k){ return k.key; }); }
-  function isThin(brief){ return reviewCount(normalizeBrief(brief)) < 5; }   // "based on N reviews, add more"
+  function isThin(brief){ return (normalizeBrief(brief).meta.reviewCount|0) < 5; }   // "based on N reviews, add more"
 
   window.SaxeBrief = {
     VERSION: BRIEF_V,
@@ -13704,9 +13701,11 @@ function genOneScript(opts){
     DERIVE_CHUNK: DERIVE_CHUNK,
     LINE_KEYS: LINE_KEYS,
     emptyBrief: emptyBrief,
+    emptyRaw: emptyRaw,
     normalizeBrief: normalizeBrief,
+    normalizeRaw: normalizeRaw,
     getBrief: getBrief,
-    attach: attach,
+    getRaw: getRaw,
     reviewCount: reviewCount,
     addReviews: addReviews,
     chunkReviews: chunkReviews,
