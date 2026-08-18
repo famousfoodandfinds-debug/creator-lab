@@ -833,10 +833,20 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
     <button class="opt-btn" id="optUpload" onclick="setMode('upload')">&#128247; Upload</button>
     <input type="file" id="imageFileInput" accept="image/*" multiple onchange="handleUpload(event)">
   </div>
+  <div id="homeLanding" style="display:none;max-width:760px;margin:0 auto;">
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px;">
+      <div style="font-size:15px;color:var(--white);margin-bottom:4px;">Pick a product to work on</div>
+      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Choose a recent product below, or use the product picker at the top. Selecting one loads its scripts.</div>
+      <div id="homeRecent"></div>
+      <button type="button" onclick="showNew()" style="width:100%;margin-top:6px;background:transparent;border:1px dashed var(--border-md);border-radius:10px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:11px;cursor:pointer;">+ New product</button>
+    </div>
+  </div>
   <div id="textPanel">
 
     <!-- ===== ONE SCREEN: product inputs (Phase 2). Derived brief renders below in Phase 3. ===== -->
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;">
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;max-width:760px;margin:0 auto;">
+
+      <div id="psSavedChip" style="font-size:11px;color:var(--muted);text-align:right;margin-bottom:10px;min-height:14px;">Saved automatically as you type.</div>
 
       <!-- Product name -->
       <div style="margin-bottom:16px;">
@@ -848,14 +858,14 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
       <div style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Listing description</div>
         <div class="field-hints-line" style="margin-bottom:8px;">Paste the full product listing. We keep the raw text and build your brief from it.</div>
-        <textarea id="productInput" maxlength="8000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste the full listing -- brand, materials, sizes, every real feature."></textarea>
+        <textarea id="productInput" maxlength="8000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste the full listing: brand, materials, sizes, every real feature."></textarea>
       </div>
 
       <!-- Customer reviews: paste + screenshots (no 3-cap) -->
       <div style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Customer reviews</div>
         <div class="field-hints-line" style="margin-bottom:8px;">Paste as many reviews as you have, and/or upload screenshots. More reviews sharpen the brief.</div>
-        <textarea id="psReviewsText" maxlength="20000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste customer reviews here -- one after another is fine."></textarea>
+        <textarea id="psReviewsText" maxlength="20000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste customer reviews here. One after another is fine."></textarea>
         <input type="file" id="psReviewFiles" accept="image/*" multiple style="display:none;">
         <button type="button" id="psReviewUpload" style="width:100%;margin-top:8px;background:transparent;border:1px dashed rgba(144,144,240,0.3);border-radius:10px;color:rgba(144,144,240,0.85);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:11px;cursor:pointer;">＋ Upload review screenshots</button>
         <div id="psReviewStatus" style="font-size:12px;color:var(--muted);margin-top:6px;display:none;line-height:1.5;"></div>
@@ -864,19 +874,19 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
       <!-- Competitor / viral comments (separate from winning angles; buyer language) -->
       <div style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Competitor &amp; viral video comments <span style="font-size:11px;font-weight:400;color:var(--muted);">optional</span></div>
-        <div class="field-hints-line" style="margin-bottom:8px;">Paste comments from competitor or viral videos. This is buyer language for objections and positioning -- keep product listings out of here.</div>
+        <div class="field-hints-line" style="margin-bottom:8px;">Paste comments from competitor or viral videos. This is buyer language for objections and positioning. Keep product listings out of here.</div>
         <textarea id="psCompetitorText" maxlength="20000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste the comments people left on similar or viral videos."></textarea>
       </div>
 
       <!-- Winning angles: product-level, paste + fetch, editable -->
       <div style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Winning angles <span style="font-size:11px;font-weight:400;color:var(--muted);">optional</span></div>
-        <div class="field-hints-line" style="margin-bottom:8px;">Videos whose structure worked. Paste a transcript or fetch one from a TikTok link. Fetch is a convenience -- if it fails, paste still works and nothing is blocked.</div>
+        <div class="field-hints-line" style="margin-bottom:8px;">Videos whose structure worked. Paste a transcript or fetch one from a TikTok link. Fetch is a convenience. If it fails, paste still works and nothing is blocked.</div>
         <div style="display:flex;gap:8px;">
           <input type="text" id="psAngleLink" placeholder="Paste a TikTok link to fetch" style="flex:1;min-width:120px;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:9px 12px;outline:none;box-sizing:border-box;">
           <button type="button" id="psAngleFetch" style="background:transparent;border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:9px 14px;cursor:pointer;white-space:nowrap;">Fetch</button>
         </div>
-        <textarea id="psAngleText" maxlength="8000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;margin-top:8px;" placeholder="...or paste the transcript / notes for a winning video here."></textarea>
+        <textarea id="psAngleText" maxlength="8000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;margin-top:8px;" placeholder="Or paste the transcript or notes for a winning video here."></textarea>
         <button type="button" id="psAngleAdd" style="width:100%;margin-top:8px;background:transparent;border:1px dashed var(--border-md);border-radius:10px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:10px;cursor:pointer;">Add winning angle</button>
         <div id="psAngleList" style="margin-top:8px;"></div>
         <div id="psAngleStatus" style="font-size:12px;color:var(--muted);margin-top:6px;display:none;line-height:1.5;"></div>
@@ -893,7 +903,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
     </div>
 
     <!-- Derived brief renders here in Phase 3. -->
-    <div id="briefBelow" style="margin-top:16px;"></div>
+    <div id="briefBelow" style="margin-top:16px;max-width:760px;margin-left:auto;margin-right:auto;"></div>
 
   </div>
   <div id="imgPreviewWrap" style="display:none;">
@@ -1438,6 +1448,9 @@ function onSignedIn() {
   }
   // Show full UI for all users immediately
   document.body.classList.remove("hub-mode");
+
+  // Landing: quiet product picker when the library is non-empty; blank new-product form when empty.
+  if (window.ProductScreen && ProductScreen.renderHome) ProductScreen.renderHome();
 
   // If signed in via magic link show set password popup
   // Detect by checking if user has no password (magic link users have no password)
@@ -13695,10 +13708,19 @@ function genOneScript(opts){
   "use strict";
   var SB = window.SaxeBrief;
   var raw = SB.emptyRaw();
-  var saveTimer = null;
+  var saveTimer = null, saving = false, savePending = false, lastSavedAt = null;
   function el(id){ return document.getElementById(id); }
   function val(id){ var e = el(id); return e ? e.value : ""; }
-  function status(msg){ var s = el("psSaveStatus"); if (s) s.textContent = msg; }
+  function status(msg){ ["psSaveStatus","psSavedChip"].forEach(function(id){ var e = el(id); if (e){ e.textContent = msg; e.style.color = "var(--muted)"; } }); }
+  function fmtTime(d){ try { return d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }); } catch(e){ return ""; } }
+  // Quiet, visible save state shown at the top of the screen and at the bottom. kind: saving|saved|error.
+  function setSaved(kind, extra){
+    var txt, col;
+    if (kind === "saving"){ txt = "Saving..."; col = "var(--muted)"; }
+    else if (kind === "saved"){ txt = "Saved" + (lastSavedAt ? " at " + fmtTime(lastSavedAt) : ""); col = "var(--green)"; }
+    else { txt = "Not saved" + (extra ? " (" + extra + ")" : ""); col = "var(--red)"; }
+    ["psSavedChip","psSaveStatus"].forEach(function(id){ var e = el(id); if (e){ e.textContent = txt; e.style.color = col; } });
+  }
 
   function collect(){
     raw.description        = val("productInput");
@@ -13740,31 +13762,66 @@ function genOneScript(opts){
     renderAngles(); renderReviewCount();
   }
 
+  // Toggle between the input form (#textPanel) and the quiet "pick a product" landing (#homeLanding).
+  function showForm(yes){
+    var tp = el("textPanel"); if (tp) tp.style.display = yes ? "" : "none";
+    var hl = el("homeLanding"); if (hl) hl.style.display = yes ? "none" : "";
+  }
   function renderBlank(){
     raw = SB.emptyRaw();
     currentProductId = null; currentProductName = "";
-    renderInputs(); status("New product. Saved automatically as you type.");
+    lastSavedAt = null; showForm(true); renderInputs(); status("New product. Saved automatically as you type.");
   }
   function fill(product){
     raw = SB.getRaw(product);
     currentProductId = product.id;
     currentProductName = product.name || "";
-    renderInputs(); status("Saved.");
+    lastSavedAt = product.updated_at ? new Date(product.updated_at) : null;
+    showForm(true); renderInputs(); setSaved("saved");
+  }
+  // Landing shown on sign-in when the library is non-empty: a short line, up to 5 most-recent
+  // products as quick picks, and a New button. The full list stays in the top picker/dropdown.
+  function renderHome(){
+    if (typeof currentUser === "undefined" || !currentUser || typeof sb === "undefined" || !sb){ showForm(true); renderBlank(); return; }
+    sb.from("products").select("id, name, updated_at").eq("user_id", currentUser.id).order("updated_at", { ascending: false }).then(function(r){
+      var rows = (r && !r.error && r.data) ? r.data : [];
+      if (!rows.length){ showForm(true); renderBlank(); return; }
+      var box = el("homeRecent");
+      if (box){
+        box.innerHTML = "";
+        rows.slice(0, 5).forEach(function(p){
+          var b = document.createElement("button"); b.type = "button";
+          b.style.cssText = "display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border-md);border-radius:10px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;";
+          b.textContent = p.name || "Untitled product";
+          b.addEventListener("click", function(){ if (typeof loadProductById === "function") loadProductById(p.id); });
+          box.appendChild(b);
+        });
+      }
+      showForm(false);
+    }, function(){ showForm(true); renderBlank(); });
   }
 
-  function scheduleSave(){ status("Saving…"); clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 800); }
+  function scheduleSave(){ setSaved("saving"); clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 800); }
   function saveNow(){
-    if (typeof currentUser === "undefined" || !currentUser || typeof sb === "undefined" || !sb){ status("Sign in to save."); return; }
+    if (typeof currentUser === "undefined" || !currentUser || typeof sb === "undefined" || !sb){ setSaved("error", "sign in to save"); return; }
+    // Guard against a second insert firing before the first returns (which would duplicate the row
+    // because currentProductId is not set yet). Coalesce: mark pending, run again once this finishes.
+    if (saving){ savePending = true; return; }
+    saving = true;
     collect();
     var name = val("newProductNameInput").trim();
     var payload = { user_id: currentUser.id, name: name || "Untitled product", raw: raw, updated_at: new Date().toISOString() };
     var q = currentProductId
       ? sb.from("products").update(payload).eq("id", currentProductId).select("id").single()
       : sb.from("products").insert(payload).select("id").single();
+    function after(){ saving = false; if (savePending){ savePending = false; clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 200); } }
     q.then(function(r){
-      if (r && !r.error && r.data){ currentProductId = r.data.id; status("Saved."); if (typeof buildSelect === "function"){ try{ buildSelect(); }catch(e){} } }
-      else { status("Could not save — will retry as you keep typing."); }
-    }, function(){ status("Could not save — will retry as you keep typing."); });
+      if (r && !r.error && r.data){ currentProductId = r.data.id; lastSavedAt = new Date(); setSaved("saved"); if (typeof buildSelect === "function"){ try{ buildSelect(); }catch(e){} } }
+      // Surface the REAL error (e.g. "column raw does not exist" if the ALTER TABLE has not run) so a
+      // silent failure is impossible to miss.
+      else { setSaved("error", (r && r.error && r.error.message) ? r.error.message : "unknown error"); }
+      after();
+    }, function(err){ setSaved("error", (err && err.message) ? err.message : "network error"); after(); });
   }
 
   // Screenshots -> data URLs stored in raw.reviewShots (heavy; lives in the lazily-loaded raw column).
@@ -13808,7 +13865,7 @@ function genOneScript(opts){
   }
   if (document.readyState !== "loading") init(); else document.addEventListener("DOMContentLoaded", init);
 
-  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill };
+  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome };
 })();
 </script>
 
