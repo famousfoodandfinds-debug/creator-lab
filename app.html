@@ -13677,6 +13677,49 @@ function genOneScript(opts){
     return { brief: b, changes: changes };
   }
 
+  // ---- multi-chunk merge ------------------------------------------------------------------------
+  // A big review set is derived in chunks (chunkReviews), so one paste is never one oversized model
+  // call. Each chunk returns its OWN derivation over only the reviews in that chunk, with counts =
+  // mentions within that chunk. This folds the chunks into ONE derived object whose counts are the
+  // sum across all chunks and whose `total` is the reviews actually stored -- so evidence stays honest
+  // ("mentioned in N of M reviews") no matter how many chunks it took. Pure; feeds applyDerivation.
+  function mergeChunkDerivations(chunks, total){
+    total = total|0;
+    var out = { lines: {}, features: [], meta: { reviewCount: total } };
+    // group findings by normalized value, summing counts and unioning words/claims
+    function fold(findings){
+      var order = [], by = {};
+      arr(findings).forEach(function(f){
+        f = normLine(f);
+        if (!f.value) return;
+        var k = norm(f.value);
+        if (!by[k]){ by[k] = { value:f.value, words:[], claims:[], count:0, total:total }; order.push(k); }
+        var g = by[k];
+        g.count += (f.count|0);
+        f.words.forEach(function(w){ if (w && g.words.indexOf(w) < 0) g.words.push(w); });
+        f.claims.forEach(function(c){ if (c && g.claims.indexOf(c) < 0) g.claims.push(c); });
+      });
+      return order.map(function(k){ return by[k]; }).sort(function(a,b){ return b.count - a.count; });
+    }
+    LINE_KEYS.forEach(function(k){
+      var findings = [];
+      arr(chunks).forEach(function(ch){ var l = obj(ch).lines ? obj(ch).lines[k.key] : null;
+        if (k.list) arr(l).forEach(function(x){ findings.push(x); });
+        else if (l) findings.push(l);
+      });
+      var folded = fold(findings);
+      out.lines[k.key] = k.list ? folded : (folded[0] || line(""));
+    });
+    // features -> benefits: dedupe by normalized feature, first benefit wins
+    var seenF = {}, feats = [];
+    arr(chunks).forEach(function(ch){ arr(obj(ch).features).forEach(function(f){ f = obj(f);
+      var name = str(f.feature); if (!name) return; var fk = norm(name);
+      if (!seenF[fk]){ seenF[fk] = true; feats.push({ feature:name, benefit:str(f.benefit) }); }
+    }); });
+    out.features = feats;
+    return out;
+  }
+
   // ---- read helpers for later phases ------------------------------------------------------------
   // Honest evidence: mentions stated against the review total measured at derivation (line.total),
   // which is exactly what the count was computed against; falls back to the brief's derivation count.
@@ -13702,6 +13745,7 @@ function genOneScript(opts){
     chunkReviews: chunkReviews,
     markEdited: markEdited,
     editLine: editLine,
+    mergeChunkDerivations: mergeChunkDerivations,
     applyDerivation: applyDerivation,
     evidence: evidence,
     safeWords: safeWords,
@@ -13720,6 +13764,9 @@ function genOneScript(opts){
   "use strict";
   var SB = window.SaxeBrief;
   var raw = SB.emptyRaw();
+  var brief = SB.emptyBrief();          // derived, light column; loaded on open, rebuilt by deriveBrief
+  var deriving = false;                 // guards the derive button against double-fire
+  var DERIVE_PROMPT_V = "brief-derive-1";
   var saveTimer = null, saving = false, savePending = false, lastSavedAt = null;
   function el(id){ return document.getElementById(id); }
   function val(id){ var e = el(id); return e ? e.value : ""; }
@@ -13841,6 +13888,7 @@ function genOneScript(opts){
     if (el("psAuthority"))      el("psAuthority").value      = raw.authorityRaw;
     ["psAngleLink","psAngleText"].forEach(function(id){ if (el(id)) el(id).value = ""; });
     renderAngles(); renderReviewList(); renderReviewCount(); reviewMsg(""); toggleReviewAdd(false);
+    renderBrief();
   }
 
   // Toggle between the input form (#textPanel) and the quiet "pick a product" landing (#homeLanding).
@@ -13850,11 +13898,13 @@ function genOneScript(opts){
   }
   function renderBlank(){
     raw = SB.emptyRaw();
+    brief = SB.emptyBrief();
     currentProductId = null; currentProductName = "";
     lastSavedAt = null; showForm(true); renderInputs(); status("New product. Saved automatically as you type.");
   }
   function fill(product){
     raw = SB.getRaw(product);
+    brief = SB.getBrief(product);
     currentProductId = product.id;
     currentProductName = product.name || "";
     lastSavedAt = product.updated_at ? new Date(product.updated_at) : null;
@@ -13940,6 +13990,245 @@ function genOneScript(opts){
       if (el("psAngleLink")) el("psAngleLink").value = ""; if (s) s.style.display = "none";
       renderAngles(); scheduleSave();
     }, function(err){ show("Fetch failed (" + ((err && err.message) ? err.message : "the transcript service did not respond") + "). Fetch is optional. Paste the transcript below and press Add winning angle.", "var(--red)"); });
+  }
+
+  // ===== Phase 3: brief derivation ==============================================================
+  // Reads the RAW material and derives the light `brief` (Evolution Pro 11-line checklist with
+  // per-line evidence). Screenshots are OCR'd into visible review text first (so counts include
+  // them and you can see/remove them). Big review sets are derived in chunks and the counts summed,
+  // so evidence stays honest. Hand-edited lines are preserved by SaxeBrief.applyDerivation.
+  function deriveStatus(msg, color){
+    var s = el("briefStatus"); if (!s) return;
+    if (msg){ s.style.display = "block"; s.style.color = color || "var(--muted)"; s.textContent = msg; }
+    else { s.style.display = "none"; s.textContent = ""; }
+  }
+  // Tolerant JSON extraction from a model reply (strips code fences, slices to the outer bracket).
+  function parseJson(text, open, close){
+    var c = String(text || "").replace(/```json|```/g, "").trim();
+    var a = c.indexOf(open), z = c.lastIndexOf(close);
+    if (a >= 0 && z > a) c = c.slice(a, z + 1);
+    try { return JSON.parse(c); } catch(e){ return null; }
+  }
+  function claudeCall(body, cb){
+    fetch("/api/claude", { method: "POST", headers: claudeHeaders(), body: JSON.stringify(body) })
+      .then(function(r){ return r.text(); })
+      .then(function(rawText){
+        var d = JSON.parse(rawText);
+        if (d && d.error) throw new Error((d.error && d.error.message) || "request failed");
+        var text = ""; ((d && d.content) || []).forEach(function(b){ if (b.type === "text") text += b.text; });
+        cb(text, null);
+      })
+      .catch(function(err){ cb(null, err); });
+  }
+  // OCR any review screenshots into structured reviews (same prompt the rest of the app uses).
+  function ocrShots(shots, cb){
+    var content = shots.map(function(s){
+      var du = String(s.dataUrl || ""), b64 = du.split(",")[1] || "", mt = "image/jpeg";
+      if (du.indexOf("image/png") > -1) mt = "image/png"; else if (du.indexOf("image/webp") > -1) mt = "image/webp";
+      return { type: "image", source: { type: "base64", media_type: mt, data: b64 } };
+    });
+    content.push({ type: "text", text: "These are customer REVIEW screenshots for one product. Read every review shown. For EACH distinct review, return an object with: reviewer (a short phrase describing who they are or their use-case if stated, else empty string), full (the COMPLETE review text transcribed verbatim, word for word), praise (the single benefit this reviewer is most happy about, in their own words), complaint (the main complaint, objection, or hesitation, empty string if none), quote (one short verbatim sentence that best captures it). Transcribe faithfully. Do NOT invent or infer beyond what is written, do NOT shorten the full field, and ignore star widgets, avatars, dates, and UI chrome. Return ONLY a JSON array and nothing else." });
+    claudeCall({ model: "claude-haiku-4-5-20251001", max_tokens: 3000, messages: [{ role: "user", content: content }] }, function(text, err){
+      if (err){ cb(null, err); return; }
+      var arr = parseJson(text, "[", "]"); if (!Array.isArray(arr)) arr = [];
+      cb(arr.map(function(r){ r = r || {}; return { reviewer: String(r.reviewer||""), full: String(r.full||""), praise: String(r.praise||""), complaint: String(r.complaint||""), quote: String(r.quote||""), source: "ocr" }; }).filter(function(r){ return r.full || r.quote; }), null);
+    });
+  }
+  function derivePrompt(reviewsChunk){
+    var revs = reviewsChunk.map(function(r, i){
+      var body = String(r.full || r.quote || "").trim();
+      return "Review " + (i+1) + ": " + body;
+    }).join("\n");
+    var ctx = [];
+    if (raw.description) ctx.push("PRODUCT LISTING (what the seller says):\n" + raw.description);
+    if (raw.authorityRaw) ctx.push("CREATOR AUTHORITY (only if given):\n" + raw.authorityRaw);
+    if (raw.competitorComments) ctx.push("COMPETITOR / VIRAL-VIDEO COMMENTS (buyer language and objections from similar products):\n" + raw.competitorComments);
+    return [
+      "You are building a conversion brief for a TikTok Shop product. Analyse the material below and return a strict JSON object with the buyer's psychology in THEIR words.",
+      "",
+      ctx.join("\n\n"),
+      "",
+      (revs ? ("CUSTOMER REVIEWS FOR THIS BATCH (" + reviewsChunk.length + " reviews):\n" + revs) : "There are no customer reviews yet; derive what you can from the listing and comments, and set every count to 0."),
+      "",
+      "Return ONLY this JSON object, nothing else:",
+      '{"lines":{',
+      '"who":{"value":"who this is really for, one sentence","words":[],"claims":[],"count":0},',
+      '"emotion":{"value":"the dominant emotion driving the purchase","words":[],"claims":[],"count":0},',
+      '"desire":{"value":"the outcome they actually want","words":[],"claims":[],"count":0},',
+      '"pains":[{"value":"a specific pain in their words","words":[],"claims":[],"count":0}],',
+      '"problem":{"value":"the core problem the product solves","words":[],"claims":[],"count":0},',
+      '"objections":[{"value":"a hesitation or question buyers raise","words":[],"claims":[],"count":0}],',
+      '"scarcity":{"value":"any real scarcity or urgency, else empty","words":[],"claims":[],"count":0},',
+      '"authority":{"value":"why to trust this (creator authority or social proof), else empty","words":[],"claims":[],"count":0},',
+      '"socialProof":{"value":"proof others love it, in their words","words":[],"claims":[],"count":0},',
+      '"priceAnchor":{"value":"how buyers frame the value vs price, else empty","words":[],"claims":[],"count":0},',
+      '"positioning":{"value":"what makes this different from alternatives","words":[],"claims":[],"count":0}},',
+      '"features":[{"feature":"a concrete product feature","benefit":"what it does for the buyer"}]}',
+      "",
+      "RULES:",
+      "- count = how many of the reviews IN THIS BATCH mention that point (0 to " + reviewsChunk.length + "). Base counts ONLY on the reviews in this batch, not the listing.",
+      "- words = the buyer's own emotional or identity phrases, quoted short and verbatim, SAFE to reuse in marketing.",
+      "- claims = performance or result claims a buyer makes (e.g. 'cured my back pain'). Keep these SEPARATE from words. They are the buyer's claim, NOT a fact to assert.",
+      "- pains and objections are arrays; return several distinct items each when the reviews support them, most-mentioned first.",
+      "- Leave value empty ('') for anything the material does not support. Do not invent.",
+      "- Do not use em dashes anywhere. Use plain sentences."
+    ].join("\n");
+  }
+  function deriveChunk(reviewsChunk, cb){
+    claudeCall({ model: "claude-sonnet-4-6", max_tokens: 2000, messages: [{ role: "user", content: derivePrompt(reviewsChunk) }] }, function(text, err){
+      if (err){ cb(null, err); return; }
+      cb(parseJson(text, "{", "}"), null);
+    });
+  }
+  function saveBrief(cb){
+    if (!currentProductId || typeof currentUser === "undefined" || !currentUser || typeof sb === "undefined" || !sb){ cb(false); return; }
+    sb.from("products").update({ brief: brief, updated_at: new Date().toISOString() }).eq("id", currentProductId).select("id").single()
+      .then(function(r){ if (r && !r.error){ lastSavedAt = new Date(); } cb(!!(r && !r.error)); }, function(){ cb(false); });
+  }
+  function deriveBrief(){
+    if (deriving) return;
+    if (!currentProductId){ deriveStatus("Add some material first (it saves as you type), then build the brief.", "var(--red)"); scheduleSave(); return; }
+    deriving = true; renderBrief();
+    function proceed(){
+      var chunks = SB.chunkReviews(raw.reviews, SB.DERIVE_CHUNK);
+      if (!chunks.length) chunks = [[]];              // no reviews: still derive once from listing + comments
+      var results = [], i = 0;
+      (function next(){
+        if (i >= chunks.length){ finish(results); return; }
+        deriveStatus(chunks.length > 1 ? ("Building brief... part " + (i+1) + " of " + chunks.length) : "Building brief...");
+        deriveChunk(chunks[i], function(obj, err){ if (obj) results.push(obj); i++; next(); });
+      })();
+    }
+    function finish(results){
+      if (!results.length){ deriving = false; renderBrief(); deriveStatus("Could not build the brief. Check your connection and try again.", "var(--red)"); return; }
+      var merged = SB.mergeChunkDerivations(results, raw.reviews.length);
+      var applied = SB.applyDerivation(brief, merged, { now: new Date().toISOString(), promptVersion: DERIVE_PROMPT_V });
+      brief = applied.brief;
+      saveBrief(function(okSave){
+        deriving = false; renderBrief(applied.changes);
+        deriveStatus(okSave ? "Brief updated." : "Brief built but not saved (try again).", okSave ? "var(--green)" : "var(--red)");
+      });
+    }
+    // Step 1: turn any screenshots into visible review text before deriving.
+    if (raw.reviewShots.length){
+      deriveStatus("Reading " + raw.reviewShots.length + " screenshot" + (raw.reviewShots.length>1?"s":"") + "...");
+      ocrShots(raw.reviewShots.slice(), function(arr, err){
+        if (arr && arr.length){ var res = SB.addReviews(raw, arr); raw = res.raw; }
+        raw.reviewShots = [];                          // consumed into review text (visible + removable)
+        renderReviewList(); renderReviewCount();
+        saveNow();
+        proceed();
+      });
+    } else { proceed(); }
+  }
+
+  // ---- brief display ---------------------------------------------------------------------------
+  function briefChip(text, kind){
+    var s = document.createElement("span"); s.textContent = text;
+    s.style.cssText = "display:inline-block;font-size:11px;padding:3px 8px;border-radius:999px;margin:2px 4px 2px 0;line-height:1.3;" +
+      (kind === "claim" ? "background:rgba(240,90,90,.12);color:var(--red);border:1px solid rgba(240,90,90,.3);"
+                        : "background:var(--surface);color:var(--white-dim);border:1px solid var(--border-md);");
+    return s;
+  }
+  function evidenceLine(ln){
+    var ev = SB.evidence(brief, ln); if (!(ln && ln.count > 0)) return null;
+    var e = document.createElement("div"); e.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;";
+    e.textContent = "Mentioned in " + ev.count + " of " + ev.total + " review" + (ev.total === 1 ? "" : "s"); return e;
+  }
+  function wordsAndClaims(ln){
+    var frag = document.createDocumentFragment();
+    var words = SB.safeWords(ln), claims = SB.claims(ln);
+    if (words.length){ var wc = document.createElement("div"); wc.style.marginTop = "4px"; words.forEach(function(w){ wc.appendChild(briefChip(w, "word")); }); frag.appendChild(wc); }
+    if (claims.length){
+      var cl = document.createElement("div"); cl.style.marginTop = "5px";
+      var lbl = document.createElement("div"); lbl.style.cssText = "font-size:10px;color:var(--red);margin-bottom:2px;"; lbl.textContent = "Buyer claims (not for you to assert)"; cl.appendChild(lbl);
+      claims.forEach(function(c){ cl.appendChild(briefChip(c, "claim")); }); frag.appendChild(cl);
+    }
+    return frag;
+  }
+  function singleBlock(label, ln){
+    var wrap = document.createElement("div"); wrap.style.cssText = "margin-bottom:14px;";
+    var h = document.createElement("div"); h.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px;"; h.textContent = label; wrap.appendChild(h);
+    var v = document.createElement("div"); v.style.cssText = "font-size:14px;line-height:1.5;color:" + (ln.value ? "var(--white)" : "var(--muted)") + ";"; v.textContent = ln.value || "Not found yet."; wrap.appendChild(v);
+    var e = evidenceLine(ln); if (e) wrap.appendChild(e);
+    wrap.appendChild(wordsAndClaims(ln));
+    return wrap;
+  }
+  function listBlock(label, items){
+    var wrap = document.createElement("div"); wrap.style.cssText = "margin-bottom:14px;";
+    var h = document.createElement("div"); h.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px;"; h.textContent = label; wrap.appendChild(h);
+    if (!items.length){ var n = document.createElement("div"); n.style.cssText = "font-size:14px;color:var(--muted);"; n.textContent = "Not found yet."; wrap.appendChild(n); return wrap; }
+    items.forEach(function(it){
+      var row = document.createElement("div"); row.style.cssText = "margin-bottom:8px;";
+      var v = document.createElement("div"); v.style.cssText = "font-size:14px;line-height:1.5;color:var(--white);"; v.textContent = "• " + (it.value || ""); row.appendChild(v);
+      var e = evidenceLine(it); if (e) row.appendChild(e);
+      row.appendChild(wordsAndClaims(it));
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+  function renderBrief(changes){
+    var host = el("briefBelow"); if (!host) return; host.innerHTML = "";
+    var derived = !!brief.meta.lastDerivedAt;
+
+    var card = document.createElement("div");
+    card.style.cssText = "background:var(--panel,var(--surface));border:1px solid var(--border-md);border-radius:14px;padding:18px 18px 16px;";
+
+    // header: title + action button
+    var head = document.createElement("div"); head.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px;";
+    var titleWrap = document.createElement("div");
+    var title = document.createElement("div"); title.style.cssText = "font-size:16px;font-weight:600;color:var(--white);"; title.textContent = "Conversion brief"; titleWrap.appendChild(title);
+    var sub = document.createElement("div"); sub.style.cssText = "font-size:12px;color:var(--muted);margin-top:2px;";
+    var n = brief.meta.reviewCount | 0;
+    if (!derived) sub.textContent = "Saxe reads your reviews and material, then writes the brief that feeds every script.";
+    else if (SB.isThin(brief)) sub.textContent = "Based on only " + n + " review" + (n===1?"":"s") + ". Add more for stronger evidence.";
+    else sub.textContent = "Based on " + n + " review" + (n===1?"":"s") + ".";
+    titleWrap.appendChild(sub);
+    head.appendChild(titleWrap);
+
+    var btn = document.createElement("button"); btn.type = "button";
+    btn.textContent = deriving ? "Working..." : (derived ? "Update brief" : "Build brief");
+    btn.disabled = deriving;
+    btn.style.cssText = "flex-shrink:0;background:" + (deriving ? "var(--surface)" : "var(--accent,#6C5CE7)") + ";border:none;border-radius:10px;color:#fff;font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:10px 16px;cursor:" + (deriving ? "default" : "pointer") + ";opacity:" + (deriving ? ".6" : "1") + ";";
+    btn.addEventListener("click", deriveBrief);
+    head.appendChild(btn);
+    card.appendChild(head);
+
+    var stat = document.createElement("div"); stat.id = "briefStatus"; stat.style.cssText = "font-size:12px;color:var(--muted);margin-top:8px;display:none;line-height:1.5;"; card.appendChild(stat);
+
+    if (derived){
+      // change summary from the last derivation
+      if (changes && changes.length){
+        var chg = document.createElement("div"); chg.style.cssText = "font-size:12px;color:var(--white-dim);margin-top:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;";
+        chg.textContent = "Updated " + changes.length + " line" + (changes.length===1?"":"s") + ". Lines you edited by hand were kept.";
+        card.appendChild(chg);
+      }
+      var body = document.createElement("div"); body.style.cssText = "margin-top:14px;";
+      var mustKeys = SB.mustHaveKeys();
+      SB.LINE_KEYS.forEach(function(k){
+        if (mustKeys.indexOf(k.key) < 0) return;
+        body.appendChild(k.list ? listBlock(k.label, brief.lines[k.key]) : singleBlock(k.label, brief.lines[k.key]));
+      });
+      card.appendChild(body);
+
+      // the rest behind an expander
+      var rest = document.createElement("div"); rest.style.cssText = "margin-top:6px;display:none;";
+      SB.LINE_KEYS.forEach(function(k){
+        if (mustKeys.indexOf(k.key) >= 0) return;
+        rest.appendChild(k.list ? listBlock(k.label, brief.lines[k.key]) : singleBlock(k.label, brief.lines[k.key]));
+      });
+      if (brief.features && brief.features.length){
+        var fh = document.createElement("div"); fh.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:4px 0 3px;"; fh.textContent = "Features to benefits"; rest.appendChild(fh);
+        brief.features.forEach(function(f){ var row = document.createElement("div"); row.style.cssText = "font-size:14px;line-height:1.5;color:var(--white);margin-bottom:4px;"; row.textContent = "• " + f.feature + (f.benefit ? " → " + f.benefit : ""); rest.appendChild(row); });
+      }
+      var toggle = document.createElement("button"); toggle.type = "button"; toggle.textContent = "Show all 11 lines";
+      toggle.style.cssText = "margin-top:10px;background:transparent;border:1px solid var(--border-md);border-radius:8px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 12px;cursor:pointer;";
+      toggle.addEventListener("click", function(){ var open = rest.style.display !== "none"; rest.style.display = open ? "none" : "block"; toggle.textContent = open ? "Show all 11 lines" : "Show fewer"; });
+      card.appendChild(toggle);
+      card.appendChild(rest);
+    }
+
+    host.appendChild(card);
   }
 
   function init(){
