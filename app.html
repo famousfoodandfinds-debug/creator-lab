@@ -13464,6 +13464,264 @@ function genOneScript(opts){
 })();
 </script>
 
+<!-- ===== Product Brief data model (Phase 1: storage + merge helpers, no UI) ===== -->
+<!-- Pure, DOM-free, namespaced under window.SaxeBrief. NOTHING calls this yet; it is dormant
+     scaffolding for the Product Brief rebuild. The brief is stored per product at bank.brief so
+     Phase 1 needs no DB migration and cannot disturb the existing bank keys the live app reads. -->
+<script>
+(function(){
+  "use strict";
+  var BRIEF_V = 1;
+  var STORED_REVIEW_CAP = 100;   // stored reviews per product (raised from the legacy 12)
+  var DERIVE_CHUNK = 25;         // reviews per derivation chunk, so one big paste is not one huge model call
+
+  // The Evolution Pro checklist. `must` = shown up front; the rest go behind an expander.
+  // `list:true` lines hold SEVERAL findings (the focus-statement picker and hook rotation need
+  // multiple pains and multiple objections); `list:false` lines hold one finding.
+  var LINE_KEYS = [
+    { key:"who",         label:"Who this is for",                   must:true,  list:false },
+    { key:"emotion",     label:"Emotion",                           must:true,  list:false },
+    { key:"desire",      label:"Desire / desired outcome",          must:true,  list:false },
+    { key:"pains",       label:"Pain",                              must:true,  list:true  },
+    { key:"problem",     label:"Problem",                           must:true,  list:false },
+    { key:"objections",  label:"Objections and questions",          must:false, list:true  },
+    { key:"scarcity",    label:"Scarcity and urgency",              must:false, list:false },
+    { key:"authority",   label:"Authority and trust",               must:false, list:false },
+    { key:"socialProof", label:"Social proof",                      must:false, list:false },
+    { key:"priceAnchor", label:"Price anchoring",                   must:false, list:false },
+    { key:"positioning", label:"Unique positioning and competition",must:false, list:false }
+  ];
+  var LIST_KEYS = {}; LINE_KEYS.forEach(function(k){ LIST_KEYS[k.key] = !!k.list; });
+
+  function str(x){ return (x==null) ? "" : String(x); }
+  function arr(x){ return Array.isArray(x) ? x : []; }
+  function obj(x){ return (x && typeof x==="object" && !Array.isArray(x)) ? x : {}; }
+  function norm(s){ return str(s).trim().toLowerCase(); }
+
+  // ---- one derived line -------------------------------------------------------------------------
+  // COMPLIANCE (guard #1): `words` are the buyer's emotional/identity language, SAFE to reuse in
+  // scripts. `claims` are buyer performance claims, NOT safe to assert (a review claiming a result
+  // is not the listing claiming it) -- stored separately and labelled so generation can keep them out
+  // of assertion positions. `count`/`total` are the evidence: mentions out of reviews actually stored.
+  function line(value, words, claims, count, total){
+    return {
+      value: str(value),
+      words: arr(words).map(str),
+      claims: arr(claims).map(str),
+      count: count|0,
+      total: total|0,
+      edited: false
+    };
+  }
+  function normLine(x){
+    x = obj(x);
+    var l = line(x.value, x.words, x.claims, x.count, x.total);
+    l.edited = !!x.edited;
+    if (x.id) l.id = str(x.id);
+    return l;
+  }
+
+  function emptyBrief(){
+    var b = {
+      v: BRIEF_V,
+      // RAW MATERIAL -- kept permanently so the brief can be rebuilt from source without re-pasting.
+      raw: {
+        description: "",         // pasted listing description
+        reviews: [],             // structured reviews {reviewer,full,praise,complaint,quote,source}
+        reviewShots: [],         // screenshot references (kept with the product)
+        competitorComments: "",  // pasted competitor / viral-video comments (buyer language + objections)
+        winningAngles: [],       // product-level winning angles {url,handle,views,transcript,topic,role,source}
+        authorityRaw: ""         // OPTIONAL creator-supplied credibility; if empty, authority is derived
+      },
+      // DERIVED BRIEF -- structured, each line carrying its evidence.
+      lines: {},
+      // Features -> benefits, a distinct section derived from the description.
+      features: [],              // [{feature, benefit, edited}]
+      meta: { reviewCount: 0, lastDerivedAt: null, promptVersion: "" }
+    };
+    LINE_KEYS.forEach(function(k){ b.lines[k.key] = k.list ? [] : line(""); });
+    return b;
+  }
+
+  // Defensive load: coerce any stored/partial object into a valid brief shape.
+  function normalizeBrief(x){
+    if (!x || typeof x !== "object") return emptyBrief();
+    var b = emptyBrief();
+    var raw = obj(x.raw);
+    b.raw.description        = str(raw.description);
+    b.raw.reviews            = arr(raw.reviews).map(normReview);
+    b.raw.reviewShots        = arr(raw.reviewShots);
+    b.raw.competitorComments = str(raw.competitorComments);
+    b.raw.winningAngles      = arr(raw.winningAngles).map(obj);
+    b.raw.authorityRaw       = str(raw.authorityRaw);
+    var lines = obj(x.lines);
+    LINE_KEYS.forEach(function(k){
+      if (k.list) b.lines[k.key] = arr(lines[k.key]).map(normLine);
+      else        b.lines[k.key] = normLine(lines[k.key] || {});
+    });
+    b.features = arr(x.features).map(function(f){ f=obj(f); return { feature:str(f.feature), benefit:str(f.benefit), edited:!!f.edited }; });
+    var meta = obj(x.meta);
+    b.meta.reviewCount   = meta.reviewCount|0;
+    b.meta.lastDerivedAt = meta.lastDerivedAt || null;
+    b.meta.promptVersion = str(meta.promptVersion);
+    return b;
+  }
+
+  function normReview(r){
+    r = obj(r);
+    return {
+      reviewer:  str(r.reviewer),
+      full:      str(r.full),
+      praise:    str(r.praise),
+      complaint: str(r.complaint),
+      quote:     str(r.quote),
+      source:    str(r.source || "paste")   // "paste" | "ocr" | "competitor"
+    };
+  }
+
+  // ---- storage glue (additive; writes only bank.brief) ------------------------------------------
+  function getBrief(product){
+    var bank = product && product.bank ? product.bank : {};
+    return normalizeBrief(bank.brief);
+  }
+  // Returns a NEW bank object with brief attached; does not mutate other keys.
+  function attach(bank, brief){
+    var out = obj(bank);
+    out = Object.assign({}, out);
+    out.brief = brief;
+    return out;
+  }
+
+  // ---- reviews ----------------------------------------------------------------------------------
+  function reviewCount(brief){ return arr(brief && brief.raw && brief.raw.reviews).length; }
+
+  // Append reviews up to the cap. NEVER silently drops: returns how many were added vs rejected and
+  // whether the product is now at the cap, so the UI can tell the creator to remove some first.
+  function addReviews(brief, incoming, cap){
+    cap = cap || STORED_REVIEW_CAP;
+    var b = normalizeBrief(brief);
+    var room = Math.max(0, cap - b.raw.reviews.length);
+    var toAdd = arr(incoming).map(normReview);
+    var added = toAdd.slice(0, room);
+    var rejected = toAdd.length - added.length;
+    b.raw.reviews = b.raw.reviews.concat(added);
+    return { brief: b, added: added.length, rejected: rejected, atCap: b.raw.reviews.length >= cap };
+  }
+
+  // Split reviews into chunks for derivation so a single big paste is not one oversized model call.
+  function chunkReviews(reviews, size){
+    size = size || DERIVE_CHUNK;
+    var out = [], list = arr(reviews);
+    for (var i=0; i<list.length; i+=size) out.push(list.slice(i, i+size));
+    return out;
+  }
+
+  // ---- edits (hand-edited lines are never overwritten by re-derivation) -------------------------
+  function markEdited(brief, key, index){
+    var b = normalizeBrief(brief);
+    if (LIST_KEYS[key]) { if (b.lines[key][index]) b.lines[key][index].edited = true; }
+    else if (b.lines[key]) b.lines[key].edited = true;
+    return b;
+  }
+  function editLine(brief, key, patch, index){
+    var b = normalizeBrief(brief);
+    patch = obj(patch);
+    function apply(l){
+      if ("value" in patch) l.value = str(patch.value);
+      if ("words" in patch)  l.words = arr(patch.words).map(str);
+      if ("claims" in patch) l.claims = arr(patch.claims).map(str);
+      l.edited = true;            // any hand-edit locks the line
+      return l;
+    }
+    if (LIST_KEYS[key]) { if (b.lines[key][index]) apply(b.lines[key][index]); }
+    else if (b.lines[key]) apply(b.lines[key]);
+    return b;
+  }
+
+  // ---- the merge rule ---------------------------------------------------------------------------
+  // Apply a fresh derivation onto the stored brief. Hand-edited lines are preserved untouched.
+  // For list lines, edited items are kept and derived items are added (skipping duplicates of a kept
+  // item). Counts/totals come from the derivation, whose `total` is reviews actually stored. Returns
+  // the merged brief plus a `changes` log so the UI can show what changed instead of silently replacing.
+  function applyDerivation(brief, derived, opts){
+    var b = normalizeBrief(brief);
+    derived = obj(derived);
+    opts = obj(opts);
+    var dLines = obj(derived.lines);
+    var changes = [];
+    var total = (derived.meta && derived.meta.reviewCount != null) ? (derived.meta.reviewCount|0) : reviewCount(b);
+
+    LINE_KEYS.forEach(function(k){
+      var key = k.key;
+      if (k.list){
+        var existing = arr(b.lines[key]);
+        var kept = existing.filter(function(l){ return l.edited; });
+        var keptVals = {}; kept.forEach(function(l){ keptVals[norm(l.value)] = true; });
+        var incoming = arr(dLines[key]).map(normLine).filter(function(l){ return l.value && !keptVals[norm(l.value)]; });
+        incoming.forEach(function(l){ l.total = l.total || total; });
+        var before = existing.length, next = kept.concat(incoming);
+        b.lines[key] = next;
+        if (before !== next.length || incoming.length) changes.push({ key:key, kind:"list", kept:kept.length, added:incoming.length });
+      } else {
+        var cur = normLine(b.lines[key]);
+        if (cur.edited){ b.lines[key] = cur; return; }   // preserve hand-edit
+        var d = dLines[key];
+        if (d == null) { b.lines[key] = cur; return; }
+        var nl = normLine(d); nl.edited = false; nl.total = nl.total || total;
+        if (norm(nl.value) !== norm(cur.value) || nl.count !== cur.count){
+          changes.push({ key:key, kind:"line", from:cur.value, to:nl.value, count:nl.count, total:nl.total });
+        }
+        b.lines[key] = nl;
+      }
+    });
+
+    // Features -> benefits: keep edited pairs, replace the rest from the derivation.
+    if (Array.isArray(derived.features)){
+      var keptF = arr(b.features).filter(function(f){ return f.edited; });
+      var keptFeat = {}; keptF.forEach(function(f){ keptFeat[norm(f.feature)] = true; });
+      var newF = derived.features.map(function(f){ f=obj(f); return { feature:str(f.feature), benefit:str(f.benefit), edited:false }; })
+                                 .filter(function(f){ return f.feature && !keptFeat[norm(f.feature)]; });
+      b.features = keptF.concat(newF);
+    }
+
+    b.meta.reviewCount = total;
+    b.meta.lastDerivedAt = opts.now || null;   // caller passes a timestamp; kept null-safe for tests
+    if (opts.promptVersion) b.meta.promptVersion = str(opts.promptVersion);
+    return { brief: b, changes: changes };
+  }
+
+  // ---- read helpers for later phases ------------------------------------------------------------
+  // Honest evidence: mentions are always stated against reviews ACTUALLY stored now.
+  function evidence(brief, ln){ return { count: (ln && ln.count)|0, total: reviewCount(normalizeBrief(brief)) }; }
+  function safeWords(ln){ return arr(ln && ln.words).map(str); }   // reusable buyer language
+  function claims(ln){ return arr(ln && ln.claims).map(str); }     // NOT reusable as assertions
+  function mustHaveKeys(){ return LINE_KEYS.filter(function(k){ return k.must; }).map(function(k){ return k.key; }); }
+  function isThin(brief){ return reviewCount(normalizeBrief(brief)) < 5; }   // "based on N reviews, add more"
+
+  window.SaxeBrief = {
+    VERSION: BRIEF_V,
+    STORED_REVIEW_CAP: STORED_REVIEW_CAP,
+    DERIVE_CHUNK: DERIVE_CHUNK,
+    LINE_KEYS: LINE_KEYS,
+    emptyBrief: emptyBrief,
+    normalizeBrief: normalizeBrief,
+    getBrief: getBrief,
+    attach: attach,
+    reviewCount: reviewCount,
+    addReviews: addReviews,
+    chunkReviews: chunkReviews,
+    markEdited: markEdited,
+    editLine: editLine,
+    applyDerivation: applyDerivation,
+    evidence: evidence,
+    safeWords: safeWords,
+    claims: claims,
+    mustHaveKeys: mustHaveKeys,
+    isThin: isThin
+  };
+})();
+</script>
+
 <!-- ===== Carousel Studio (embedded) ===== -->
 <!-- The full carousel (markup + CSS + JS) lives in this inert template and is rendered
      into an isolated, same-origin iframe (#carouselFrame) so it cannot collide with the app. -->
