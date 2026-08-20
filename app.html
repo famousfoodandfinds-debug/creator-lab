@@ -13611,6 +13611,76 @@ function genOneScript(opts){
     return out;
   }
 
+  // ---- split a paste into individual reviews ----------------------------------------------------
+  // Amazon copy/paste arrives in two very different shapes, and the count feeds every "of M reviews"
+  // denominator (which then FREEZES into the brief), so getting it right matters:
+  //   PLAIN text   -- each review starts with an "N out of 5 stars" line (or star glyphs).
+  //   MARKDOWN     -- each review starts with "* [Name](url)" and the star line is "[N out of 5 stars
+  //                   TITLE](url)"; bodies run for thousands of words with many internal blank lines.
+  // We anchor on whichever PER-REVIEW marker is actually present (reviewer line > star line > "Reviewed
+  // in ... on"), splitting at the START of each review; blank-line separation is only a last resort for
+  // hand pastes because real bodies are full of blank lines. Then Amazon chrome is stripped and markdown
+  // links unwrapped. Honest limits: reliable for the two Amazon shapes seen here and clean manual pastes;
+  // exotic formats can still mis-split, which is why suspectMergedCount() flags a failed split downstream.
+  var STAR_TXT_RE   = /\d(?:\.\d)?\s*out of\s*\d\s*stars/i;
+  var STAR_GLYPH_RE = /^\s*(?:[★☆⭐]️?){1,5}/;
+  var REVIEWED_RE   = /reviewed in\b.{0,60}?\bon\b/i;
+  var MDNAME_RE     = /^\s*\*\s+\[[^\]]+\]\(https?:\/\//i;
+  function isStarLine(l){ return STAR_TXT_RE.test(l) || STAR_GLYPH_RE.test(l); }
+  function splitByAnchor(lines, isAnchor){
+    var blocks = [], cur = [], started = false;
+    lines.forEach(function(ln){
+      if (isAnchor(ln)){ if (started){ blocks.push(cur); cur = []; } started = true; }
+      cur.push(ln);
+    });
+    if (cur.length) blocks.push(cur);
+    return blocks;
+  }
+  function cleanReviewBlock(lines){
+    return arr(lines).map(function(ln){
+      return str(ln).replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/^\s*\*\s+/, "");   // unwrap [t](url), drop bullet
+    }).filter(function(ln){
+      var s = ln.trim();
+      if (/^\d+\s+(?:people|person)\s+found this helpful/i.test(s)) return false;
+      if (/^Helpful$/i.test(s)) return false;
+      if (/^Report$/i.test(s)) return false;
+      if (/^Translate\b/i.test(s)) return false;
+      if (/^Color:.*Verified Purchase\s*$/i.test(s)) return false;
+      return true;
+    }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+  function splitReviews(text){
+    var t = str(text).replace(/\r/g, "").trim();
+    if (!t) return [];
+    var lines = t.split("\n");
+    var nName = lines.filter(function(l){ return MDNAME_RE.test(l); }).length;
+    var nStar = lines.filter(isStarLine).length;
+    var nRevd = lines.filter(function(l){ return REVIEWED_RE.test(l); }).length;
+    var anchor = null;
+    if (nName >= 2)      anchor = function(l){ return MDNAME_RE.test(l); };   // markdown: review starts at the name
+    else if (nStar >= 2) anchor = isStarLine;                                // plain: review starts at the star line
+    else if (nRevd >= 2) anchor = function(l){ return REVIEWED_RE.test(l); };
+    if (anchor){
+      var out = splitByAnchor(lines, anchor).map(cleanReviewBlock).filter(Boolean);
+      if (out.length >= 2) return out;
+    }
+    var byBlank = t.split(/\n\s*\n+/).map(function(b){ return cleanReviewBlock(b.split("\n")); }).filter(Boolean);
+    if (byBlank.length >= 2) return byBlank;
+    var one = cleanReviewBlock(lines);
+    return one ? [one] : [];
+  }
+
+  // A single stored review that CONTAINS a second review's header (two "Reviewed in ... on" lines, or
+  // two star ratings) is the unmistakable signature of a FAILED split -- length alone cannot say this,
+  // because a genuine review can run thousands of words. Used to warn at paste time and BLOCK a build,
+  // so a bad split can never silently freeze a wrong denominator into the brief.
+  function reviewLooksMerged(full){
+    var s = str(full);
+    return (s.match(/reviewed in\b.{0,60}?\bon\b/gi) || []).length >= 2 ||
+           (s.match(/\d(?:\.\d)?\s*out of\s*\d\s*stars/gi) || []).length >= 2;
+  }
+  function suspectMergedCount(reviews){ return arr(reviews).filter(function(r){ return reviewLooksMerged(obj(r).full); }).length; }
+
   // ---- edits (hand-edited lines are never overwritten by re-derivation) -------------------------
   function markEdited(brief, key, index){
     var b = normalizeBrief(brief);
@@ -13873,6 +13943,8 @@ function genOneScript(opts){
     newReviews: newReviews,
     markReviewsDerived: markReviewsDerived,
     chunkReviews: chunkReviews,
+    splitReviews: splitReviews,
+    suspectMergedCount: suspectMergedCount,
     markEdited: markEdited,
     editLine: editLine,
     mergeChunkDerivations: mergeChunkDerivations,
@@ -13945,31 +14017,8 @@ function genOneScript(opts){
     if (btn) btn.style.display = show ? "none" : "";
     if (show){ var t = el("psReviewNew"); if (t){ t.value = ""; try{ t.focus(); }catch(e){} } }
   }
-  // Split pasted review text into individual reviews. Strategy, most reliable first:
-  // (1) Amazon star-rating lines ("5.0 out of 5 stars" or star glyphs), one per review, split before each;
-  // (2) blank-line separation (clean / manual pastes);
-  // (3) "Reviewed in ... on DATE" lines (Amazon), one per review, split before each.
-  // Honest limits: reliable for standard Amazon "out of 5 stars" copy; other formats can mis-split,
-  // which is exactly why the list below lets you verify and remove. Derivation re-parses for the final count.
-  function splitReviews(text){
-    var t = String(text || "").replace(/\r/g, "").trim();
-    if (!t) return [];
-    // Split BEFORE each marker line; any leading text before the first marker (e.g. the reviewer's
-    // name on Amazon) belongs to the first review, so merge it in rather than counting it separately.
-    function splitBefore(src){
-      var parts = t.split(new RegExp("(?=" + src + ")", "gim"));
-      var head = new RegExp(src, "im");
-      if (parts.length >= 2 && !head.test(parts[0])){ parts[1] = parts[0] + "\n" + parts[1]; parts.shift(); }
-      return parts.map(function(b){ return b.trim(); }).filter(Boolean);
-    }
-    var starSrc = "^[ \\t]*(?:[\u2605\u2b50]{1,5}|\\d(?:\\.\\d)?\\s*out of\\s*\\d\\s*stars\\b)";
-    if ((t.match(new RegExp(starSrc, "gim")) || []).length >= 2){ var a = splitBefore(starSrc); if (a.length >= 2) return a; }
-    var byBlank = t.split(/\n\s*\n+/).map(function(b){ return b.trim(); }).filter(Boolean);
-    if (byBlank.length >= 2) return byBlank;
-    var revSrc = "Reviewed in .{0,40}? on ";
-    if ((t.match(new RegExp(revSrc, "g")) || []).length >= 2){ var b = splitBefore(revSrc); if (b.length >= 2) return b; }
-    return [t];
-  }
+  // Review splitting lives in SaxeBrief (SB.splitReviews) so it is pure and unit-tested against real
+  // Amazon pastes. This screen just calls it and warns when a split looks merged.
 
   // Collapsed list of stored reviews, each with a remove control. Click a row to expand/collapse.
   function renderReviewList(){
@@ -13993,13 +14042,18 @@ function genOneScript(opts){
   function addReviewsFromBox(){
     var text = val("psReviewNew").trim();
     if (!text){ reviewMsg("Paste at least one review first.", "var(--red)"); return; }
-    var res = SB.addReviews(raw, splitReviews(text).map(function(b){ return { full: b, source: "paste" }; }));
+    var res = SB.addReviews(raw, SB.splitReviews(text).map(function(b){ return { full: b, source: "paste" }; }));
     raw = res.raw;
     toggleReviewAdd(false);
     renderReviewList(); renderReviewCount();
-    var msg = "Added " + res.added + " review" + (res.added===1?"":"s") + ". " + raw.reviews.length + " total. Check the list and remove any that split wrong.";
+    var msg = "Added " + res.added + " review" + (res.added===1?"":"s") + ". " + raw.reviews.length + " total.";
+    var suspect = SB.suspectMergedCount(raw.reviews);
     if (res.rejected > 0) msg += " " + res.rejected + " not added (100 max reached, remove some first).";
-    reviewMsg(msg, res.rejected > 0 ? "var(--red)" : "var(--green)");
+    // A merged split is the dangerous case: it silently shrinks the denominator every count is stated
+    // against. Warn loudly and point at the exact rows so they can be removed before a brief is built.
+    if (suspect > 0) msg += " Warning: " + suspect + " stored review" + (suspect===1?" looks":"s look") + " like several merged together (contains multiple review headers). Remove and re-paste " + (suspect===1?"it":"them") + " before building the brief.";
+    else msg += " Check the list and remove any that split wrong.";
+    reviewMsg(msg, (res.rejected > 0 || suspect > 0) ? "var(--red)" : "var(--green)");
     scheduleSave();
   }
 
@@ -14280,6 +14334,10 @@ function genOneScript(opts){
   function deriveBrief(){
     if (deriving) return;
     if (!currentProductId){ deriveStatus("Add some material first (it saves as you type), then build the brief.", "var(--red)"); scheduleSave(); return; }
+    // Guard the denominator: a review that contains several reviews' headers means the split failed, and
+    // building would freeze the wrong "of M reviews" into the brief. Block until it is fixed.
+    var suspect = SB.suspectMergedCount(raw.reviews);
+    if (suspect > 0){ deriveStatus(suspect + " stored review" + (suspect===1?" looks":"s look") + " like several reviews merged into one, so the review count is wrong. Open the list, remove the merged " + (suspect===1?"one":"ones") + ", and re-paste before building, otherwise the counts will be permanently wrong.", "var(--red)"); return; }
     deriving = true; renderBrief();
     function fail(where, err){
       deriving = false; renderBrief();

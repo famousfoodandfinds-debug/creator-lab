@@ -1,0 +1,211 @@
+const fs = require('fs');
+const html = fs.readFileSync(__dirname + '/../app.html', 'utf8');
+const blocks = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
+const code = blocks.find(b => b.includes('window.SaxeBrief ='));
+if (!code) { console.error('SaxeBrief block not found'); process.exit(1); }
+const win = {};
+new Function('window', code)(win);
+const B = win.SaxeBrief;
+
+let pass = 0, fail = 0;
+function ok(c, m){ if(c) pass++; else { fail++; console.log('  ✗ ' + m); } }
+
+// 1. derived brief is LIGHT (no raw); raw is a separate structure
+const e = B.emptyBrief();
+ok(e.v === 1 && !('raw' in e), 'derived brief holds no raw material');
+ok(B.LINE_KEYS.length === 11, '11 checklist lines');
+ok(Array.isArray(e.lines.pains) && Array.isArray(e.lines.objections), 'list lines are arrays');
+ok(e.lines.who && e.lines.who.edited === false && Array.isArray(e.lines.who.words), 'single line shape');
+const raw0 = B.emptyRaw();
+ok(raw0.reviews.length === 0 && raw0.authorityRaw === '' && 'competitorComments' in raw0 && 'winningAngles' in raw0, 'raw material shape');
+ok(JSON.stringify(B.mustHaveKeys()) === JSON.stringify(['who','emotion','desire','pains','problem']), 'must-have keys');
+
+// 2. addReviews operates on RAW; no silent drop
+let r = B.addReviews(B.emptyRaw(), [{full:'a'},{full:'b'},{full:'c'}], 2);
+ok(r.added === 2 && r.rejected === 1 && r.atCap === true, 'cap: added 2, rejected 1, atCap (no silent drop)');
+ok(r.added + r.rejected === 3, 'cap: nothing vanishes silently');
+ok(B.reviewCount(r.raw) === 2, 'reviewCount reads raw');
+let big = []; for(let i=0;i<120;i++) big.push({full:'r'+i});
+let r2 = B.addReviews(B.emptyRaw(), big);
+ok(r2.added === 100 && r2.rejected === 20, 'default cap 100');
+
+// 3. chunkReviews
+let ch = B.chunkReviews(big.slice(0,60), 25);
+ok(ch.length === 3 && ch[0].length === 25 && ch[2].length === 10, 'chunk 60/25 -> 25,25,10');
+
+// 4. edits lock a line
+let b1 = B.editLine(e, 'who', { value: 'my hand-edited who' });
+ok(b1.lines.who.value === 'my hand-edited who' && b1.lines.who.edited === true, 'editLine sets value + edited');
+ok(Array.isArray(B.markEdited(e, 'pains', 0).lines.pains), 'markEdited on empty list is safe');
+
+// 5. applyDerivation merge (derived brief only; total from derivation)
+let d1 = { lines: { who: { value:'people cooking for a crowd', words:['counter space','feeding six'], count:9 },
+                    emotion: { value:'overwhelmed at dinner', count:4 } },
+           meta: { reviewCount: 34 } };
+let m1 = B.applyDerivation(e, d1);
+ok(m1.brief.lines.who.value === 'people cooking for a crowd', 'derivation fills who');
+ok(m1.brief.lines.who.count === 9 && m1.brief.lines.who.total === 34, 'who count 9 of 34');
+ok(m1.changes.some(c => c.key === 'who'), 'change logged for who');
+ok(m1.brief.meta.reviewCount === 34, 'meta.reviewCount = derivation total');
+
+// 5b. edited line preserved
+let edited = B.editLine(e, 'who', { value: 'KEEP ME' });
+let m2 = B.applyDerivation(edited, d1);
+ok(m2.brief.lines.who.value === 'KEEP ME' && m2.brief.lines.who.edited === true, 'edited line never overwritten');
+ok(!m2.changes.some(c => c.key === 'who'), 'no change logged for preserved edited line');
+
+// 5c. list line merge: kept edited + added new, dup-of-kept skipped, non-edited replaced
+let base = B.emptyBrief();
+base.lines.pains = [ { value:'wont fit my oven', words:[], claims:[], count:2, total:10, edited:true },
+                     { value:'old auto-derived pain', words:[], claims:[], count:1, total:10, edited:false } ];
+let dPains = { lines: { pains: [ { value:'wont fit my oven', count:9 },
+                                  { value:'too heavy to lift', count:5 } ] }, meta: { reviewCount: 34 } };
+let m3 = B.applyDerivation(base, dPains);
+let pv = m3.brief.lines.pains.map(p => p.value);
+ok(pv.includes('wont fit my oven') && pv.includes('too heavy to lift'), 'list: kept edited + added new');
+ok(!pv.includes('old auto-derived pain'), 'list: non-edited old item replaced');
+ok(pv.filter(v => v === 'wont fit my oven').length === 1, 'list: no duplicate of kept item');
+ok(m3.brief.lines.pains.find(p=>p.value==='too heavy to lift').total === 34, 'list: added item total set');
+
+// 6. evidence honesty: denominator = the total the count was measured against (line.total)
+let hb = B.emptyBrief(); hb.meta.reviewCount = 34;
+hb.lines.who = { value:'x', words:[], claims:[], count:9, total:34, edited:false };
+ok(B.evidence(hb, hb.lines.who).total === 34, 'evidence total = derivation total (34), not a live raw count');
+let hb2 = B.emptyBrief(); hb2.meta.reviewCount = 20;
+ok(B.evidence(hb2, { count:3 }).total === 20, 'evidence falls back to meta.reviewCount');
+
+// 7. compliance separation
+let clx = { value:'v', words:['cozy','feels like home'], claims:['cured my back pain'], count:1, total:1 };
+ok(JSON.stringify(B.safeWords(clx)) === JSON.stringify(['cozy','feels like home']), 'safeWords = buyer language');
+ok(JSON.stringify(B.claims(clx)) === JSON.stringify(['cured my back pain']), 'claims separated');
+
+// 8. isThin uses derivation review count
+ok(B.isThin(hb) === false, '34 reviews not thin');
+ok(B.isThin(B.emptyBrief()) === true, '0 reviews thin');
+
+// 9. normalize coerces junk (brief + raw)
+let junkB = B.normalizeBrief({ lines: { who: 'nope', pains: 'nope' }, features: 7 });
+ok(junkB.lines.who.value === '' && Array.isArray(junkB.lines.pains) && Array.isArray(junkB.features), 'normalizeBrief coerces bad shapes');
+let junkR = B.normalizeRaw({ reviews: 'nope', winningAngles: null, description: 42 });
+ok(Array.isArray(junkR.reviews) && Array.isArray(junkR.winningAngles) && junkR.description === '42', 'normalizeRaw coerces bad shapes');
+
+// 9b. mergeChunkDerivations: counts sum across chunks; total = stored reviews
+let c1 = { lines: { who: { value:'busy parents', words:['no time'], count:5 },
+                    pains: [ { value:'too loud', words:['wakes baby'], count:3 },
+                             { value:'hard to clean', count:2 } ] },
+           features: [ { feature:'timer', benefit:'walk away' } ] };
+let c2 = { lines: { who: { value:'Busy Parents', words:['juggling kids'], count:4 },
+                    pains: [ { value:'too loud', claims:['broke in a week'], count:6 },
+                             { value:'too big', count:1 } ] },
+           features: [ { feature:'timer', benefit:'ignored dup' }, { feature:'quiet mode', benefit:'sleeps' } ] };
+let mc = B.mergeChunkDerivations([c1, c2], 50);
+ok(mc.lines.who.value === 'busy parents' && mc.lines.who.count === 9, 'merge: single line sums count across chunks (5+4=9)');
+ok(mc.lines.who.total === 50 && mc.meta.reviewCount === 50, 'merge: total = stored review count');
+ok(mc.lines.who.words.length === 2, 'merge: single line unions words');
+let loud = mc.lines.pains.find(p => p.value === 'too loud');
+ok(loud && loud.count === 9, 'merge: list finding dedupes + sums (3+6=9)');
+ok(loud.words.includes('wakes baby') && loud.claims.includes('broke in a week'), 'merge: list finding unions words+claims');
+ok(mc.lines.pains[0].value === 'too loud', 'merge: list sorted by count desc');
+ok(mc.lines.pains.length === 3, 'merge: distinct list findings kept (loud, clean, big)');
+ok(mc.features.length === 2 && mc.features[0].benefit === 'walk away', 'merge: features dedupe by name, first benefit wins');
+let mcEmpty = B.mergeChunkDerivations([], 0);
+ok(mcEmpty.lines.who.value === '' && Array.isArray(mcEmpty.lines.pains), 'merge: empty input -> empty derived shape');
+// merged object feeds applyDerivation cleanly
+let am = B.applyDerivation(B.emptyBrief(), mc);
+ok(am.brief.lines.who.count === 9 && am.brief.lines.who.total === 50, 'merge -> applyDerivation carries counts');
+
+// 9c. applyClusters: semantic merge sums member counts (capped at total), drops non-members, keeps forgotten
+let clItems = [
+  { value:'dull knives', count:3, words:['blunt'] },
+  { value:'knives get dull fast', count:3, words:['dull fast'] },
+  { value:'blades go blunt', count:2, claims:['ruined my knife'] },
+  { value:'not enough counter space', count:4 },
+  { value:'takes counter room', count:1 },
+  { value:'intrigued me enough to try', count:1 }   // positive, will be dropped
+];
+let clSpec = { groups: [ { value:'knives go dull', members:[0,1,2] }, { value:'takes up counter space', members:[3,4] } ], dropped:[5] };
+let clr = B.applyClusters(clItems, clSpec, 22);
+let dull = clr.find(x => x.value === 'knives go dull');
+ok(dull && dull.count === 8, 'clusters: dull-knife variants summed 3+3+2=8');
+ok(dull.words.includes('blunt') && dull.words.includes('dull fast') && dull.claims.includes('ruined my knife'), 'clusters: words+claims unioned');
+ok(dull.total === 22, 'clusters: total carried');
+let csx = clr.find(x => x.value === 'takes up counter space');
+ok(csx && csx.count === 5, 'clusters: counter-space variants summed 4+1=5');
+ok(!clr.some(x => x.value === 'intrigued me enough to try'), 'clusters: dropped positive removed');
+ok(clr[0].value === 'knives go dull', 'clusters: sorted by count desc');
+ok(clr.length === 2, 'clusters: two consolidated findings');
+// cap at total + keep-forgotten safety
+let capItems = [ {value:'a', count:15}, {value:'b', count:15}, {value:'c', count:2} ];
+let capSpec = { groups:[ {value:'ab', members:[0,1]} ], dropped:[] };  // index 2 forgotten
+let capped = B.applyClusters(capItems, capSpec, 20);
+ok(capped.find(x=>x.value==='ab').count === 20, 'clusters: summed count capped at total (30->20)');
+ok(capped.some(x=>x.value==='c'), 'clusters: forgotten item kept, never lost');
+
+// 9d. countInReviews: deterministic, whole-word, case/punct-insensitive, stable
+let revs = [ {full:'My knives went DULL fast!'}, {full:'the blades are blunt now'}, {full:'great product, love it'},
+             {full:'not enough counter space in my kitchen'}, {full:'dull within a week'} ];
+ok(B.countInReviews(['dull','blunt'], revs) === 3, 'count: dull|blunt found in 3 reviews');
+ok(B.countInReviews(['dull'], revs) === 2, 'count: dull in 2');
+ok(B.countInReviews(['space'], [{full:'aerospace parts'}]) === 0, 'count: whole-word, aerospace != space');
+ok(B.countInReviews(['space'], [{full:'more space please'}]) === 1, 'count: whole-word space matches');
+ok(B.countInReviews([], revs) === 0, 'count: no phrases -> 0');
+ok(B.countInReviews(['a','of'], revs) === 0, 'count: sub-3-char phrases ignored');
+ok(B.countInReviews(['dull fast'], revs) === 1, 'count: multiword phrase matches consecutively');
+ok(B.countInReviews(['dull'], ['My knives went dull','all good']) === 1, 'count: accepts plain strings too');
+// stable + overwrites model estimate
+let mergedD = { lines: { emotion: { value:'frustrated', words:['dull'], count:99 },
+                         pains: [ { value:'knives go dull', words:['dull','blunt'], count:5 } ] } };
+let rc1 = B.recountFindings(JSON.parse(JSON.stringify(mergedD)), revs);
+let rc2 = B.recountFindings(JSON.parse(JSON.stringify(mergedD)), revs);
+ok(rc1.lines.pains[0].count === 3 && rc1.lines.pains[0].total === 5, 'recount: pain count from reviews (3 of 5), model estimate discarded');
+ok(rc1.lines.emotion.count === 2, 'recount: single line recounted (dull in 2)');
+ok(rc1.lines.pains[0].count === rc2.lines.pains[0].count, 'recount: stable across runs');
+ok(rc1.meta.reviewCount === 5, 'recount: meta total = review count');
+
+// 9e. incremental: newReviews / markReviewsDerived
+let rawInc = B.emptyRaw();
+rawInc.reviews = [ {full:'a', derived:true}, {full:'b'}, {full:'c', derived:true}, {full:'d'} ];
+ok(B.newReviews(rawInc).length === 2, 'incremental: newReviews = undived only (b,d)');
+let markedRaw = B.markReviewsDerived(rawInc);
+ok(B.newReviews(markedRaw).length === 0, 'incremental: markReviewsDerived flags all');
+ok(B.normalizeRaw(rawInc).reviews[0].derived === true && B.normalizeRaw(rawInc).reviews[1].derived === false, 'incremental: derived flag persists through normalizeRaw');
+
+// 9f. mergeIncremental keeps existing values, unions phrases, appends new list findings, preserves edits
+let baseB = B.emptyBrief();
+baseB.lines.who = { value:'busy parents', words:['no time'], claims:[], count:5, total:20, edited:false };
+baseB.lines.emotion = { value:'KEEP EDIT', words:[], claims:[], count:0, total:20, edited:true };
+baseB.lines.pains = [ { value:'too loud', words:['loud'], claims:[], count:3, total:20, edited:false } ];
+let newDer = { lines: { who: { value:'different who', words:['juggling'], count:9 },
+                        emotion: { value:'overwritten?', words:['x'], count:9 },
+                        pains: [ { value:'too loud', words:['noisy'], count:2 }, { value:'hard to clean', words:['messy'], count:1 } ] } };
+let mi = B.mergeIncremental(baseB, newDer, { now: '2026-08-20T00:00:00Z' });
+ok(mi.lines.who.value === 'busy parents', 'incremental: existing single value kept (stability)');
+ok(mi.lines.who.words.indexOf('juggling') >= 0 && mi.lines.who.words.indexOf('no time') >= 0, 'incremental: new phrases unioned into kept line');
+ok(mi.lines.emotion.value === 'KEEP EDIT' && mi.lines.emotion.edited === true, 'incremental: hand-edited line untouched');
+let miPainVals = mi.lines.pains.map(p => p.value);
+ok(miPainVals.indexOf('too loud') >= 0 && miPainVals.indexOf('hard to clean') >= 0, 'incremental: existing kept + new pain appended');
+ok(mi.lines.pains.filter(p => p.value === 'too loud').length === 1, 'incremental: exact-dup pain folded, not duplicated');
+ok(mi.lines.pains.find(p => p.value === 'too loud').words.indexOf('noisy') >= 0, 'incremental: dup pain unions phrases');
+ok(mi.meta.lastDerivedAt === '2026-08-20T00:00:00Z', 'incremental: lastDerivedAt set');
+// empty single line gets filled
+let baseB2 = B.emptyBrief();
+let mi2 = B.mergeIncremental(baseB2, { lines: { who: { value:'new who', words:['w'] } } });
+ok(mi2.lines.who.value === 'new who', 'incremental: empty single line filled by new derivation');
+
+// 9g. recount verifies phrases: no chip survives that is not in the reviews; count 0 => no phrases
+let vReviews = [ {full:'my knives went dull fast'}, {full:'blades are blunt'} ];
+let vMerged = { lines: { pains: [ { value:'knives go dull', words:['dull','unicorn glitter'], claims:['ruined my life'] } ],
+                         who: { value:'x', words:['nonexistent phrase'], claims:[] } } };
+B.recountFindings(vMerged, vReviews);
+ok(vMerged.lines.pains[0].words.indexOf('dull') >= 0 && vMerged.lines.pains[0].words.indexOf('unicorn glitter') < 0, 'recount: unverified phrase pruned, real one kept');
+ok(vMerged.lines.pains[0].claims.length === 0, 'recount: unverified claim pruned');
+ok(vMerged.lines.pains[0].count === 1, 'recount: count = reviews with a verified phrase');
+ok(vMerged.lines.who.words.length === 0 && vMerged.lines.who.count === 0, 'recount: line with no real phrase => 0 count, no chips (no self-contradiction)');
+
+// 10. storage glue reads dedicated columns
+let prod = { brief: m3.brief, raw: r.raw };
+ok(B.getBrief(prod).lines.pains.length === m3.brief.lines.pains.length, 'getBrief reads .brief column');
+ok(B.reviewCount(B.getRaw(prod)) === 2, 'getRaw reads .raw column');
+
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);
