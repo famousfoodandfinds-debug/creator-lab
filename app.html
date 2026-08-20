@@ -4716,7 +4716,14 @@ function showNew() {
   if (typeof resetPicks === "function") resetPicks();
   var _ps = document.getElementById("productSelect"); if (_ps) _ps.value = "";
   var _psi = document.getElementById("productSearchInput"); if (_psi) _psi.value = "";
+  // Clear EVERY full-screen mode, not just hub-mode: planner-mode and carousel-mode also hide
+  // #inputSection (and with it #briefBelow), which would leave a new product with no visible screen.
   document.body.classList.remove("hub-mode");
+  document.body.classList.remove("planner-mode");
+  document.body.classList.remove("carousel-mode");
+  var _plP = document.getElementById("plannerPanel"); if (_plP) _plP.style.display = "none";
+  var _caP = document.getElementById("carouselPanel"); if (_caP) _caP.style.display = "none";
+  var _is = document.getElementById("inputSection"); if (_is) _is.style.display = "";
   currentMotivation = ""; currentBuyerInsight = ""; currentRealReason = ""; currentSurprise = "";
   if (typeof setBuyerMotivation === "function") setBuyerMotivation("");
   var mc = document.getElementById("mainContent"); if (mc) mc.innerHTML = "";
@@ -14524,7 +14531,18 @@ function genOneScript(opts){
     return wrap;
   }
   function renderBrief(changes){
-    var host = el("briefBelow"); if (!host) return; host.innerHTML = "";
+    var host = el("briefBelow");
+    // If the host is missing (some navigation path cleared or never included it), recreate it inside the
+    // input panel so the Build button always has a home. A missing node is the only way the card could
+    // fail to appear, since the card itself is built and attached below with no dependency on the brief.
+    if (!host){
+      var parent = el("textPanel") || el("inputSection") || document.body;
+      if (!parent) return;
+      host = document.createElement("div"); host.id = "briefBelow";
+      host.style.cssText = "margin-top:16px;max-width:760px;margin-left:auto;margin-right:auto;";
+      parent.appendChild(host);
+    }
+    host.innerHTML = "";
 
     // The card and its Build button are built and attached FIRST, using ONLY the local `deriving` flag
     // -- no brief access -- so a null/odd brief or any body error below can never remove the primary
