@@ -13767,6 +13767,9 @@ function genOneScript(opts){
   var brief = SB.emptyBrief();          // derived, light column; loaded on open, rebuilt by deriveBrief
   var deriving = false;                 // guards the derive button against double-fire
   var DERIVE_PROMPT_V = "brief-derive-1";
+  var DERIVE_BATCH = 15;                // reviews per derivation call -- kept small so each call
+  var DERIVE_REVIEW_CHARS = 600;        // returns well inside Netlify's ~26s sync gateway limit
+  var DERIVE_MODEL = "claude-haiku-4-5-20251001"; // fast enough not to hit the gateway 504
   var saveTimer = null, saving = false, savePending = false, lastSavedAt = null;
   function el(id){ return document.getElementById(id); }
   function val(id){ var e = el(id); return e ? e.value : ""; }
@@ -14044,6 +14047,7 @@ function genOneScript(opts){
   function derivePrompt(reviewsChunk){
     var revs = reviewsChunk.map(function(r, i){
       var body = String(r.full || r.quote || "").trim();
+      if (body.length > DERIVE_REVIEW_CHARS) body = body.slice(0, DERIVE_REVIEW_CHARS) + "...";
       return "Review " + (i+1) + ": " + body;
     }).join("\n");
     var ctx = [];
@@ -14082,7 +14086,7 @@ function genOneScript(opts){
     ].join("\n");
   }
   function deriveChunk(reviewsChunk, cb){
-    claudeCall({ model: "claude-sonnet-4-6", max_tokens: 2000, messages: [{ role: "user", content: derivePrompt(reviewsChunk) }] }, function(text, err){
+    claudeCall({ model: DERIVE_MODEL, max_tokens: 1500, messages: [{ role: "user", content: derivePrompt(reviewsChunk) }] }, function(text, err){
       if (err){ cb(null, err); return; }
       cb(parseJson(text, "{", "}"), null);
     });
@@ -14107,7 +14111,7 @@ function genOneScript(opts){
       deriveStatus(where + " failed (" + code + ": " + msg + "). Nothing was saved; your existing brief and reviews are untouched. Try again.", "var(--red)");
     }
     function runChunks(){
-      var chunks = SB.chunkReviews(raw.reviews, SB.DERIVE_CHUNK);
+      var chunks = SB.chunkReviews(raw.reviews, DERIVE_BATCH);
       if (!chunks.length) chunks = [[]];              // no reviews: still derive once from listing + comments
       var results = [], i = 0;
       (function next(){
