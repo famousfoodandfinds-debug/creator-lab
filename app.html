@@ -14544,11 +14544,11 @@ function genOneScript(opts){
   // that review ACTUALLY expresses (with matching sentiment), and record the review's id in each
   // finding's `hits`. Counts then come from hits (SB.recountFindings), and are frozen + deterministic.
   function flatFindings(b){
-    var flat = [];
+    var flat = [];   // the ACTUAL finding objects, so hits attach by reference (no fragile value re-match)
     SB.LINE_KEYS.forEach(function(k){
       var v = b.lines[k.key];
-      if (k.list){ (Array.isArray(v) ? v : []).forEach(function(it){ if (it && it.value) flat.push({ key: k.key, value: it.value }); }); }
-      else if (v && v.value){ flat.push({ key: k.key, value: v.value }); }
+      if (k.list){ (Array.isArray(v) ? v : []).forEach(function(it){ if (it && it.value) flat.push(it); }); }
+      else if (v && v.value){ flat.push(v); }
     });
     return flat;
   }
@@ -14565,27 +14565,24 @@ function genOneScript(opts){
       "Return ONLY a JSON object mapping each review to the finding numbers it genuinely expresses, e.g. {\"R0\":[1,4],\"R1\":[]}. Use [] when a review expresses none. Do not invent finding numbers."
     ].join("\n");
   }
-  // Classify all reviews against the final findings; returns a spec for SB.applyHits (hits per finding).
+  // Classify all reviews against the final findings and attach the matching review ids DIRECTLY to each
+  // finding object's `hits` (no value re-matching), then flip meta.classified. cb(true) on success,
+  // cb(false, err) on failure (caller then falls back to keyword counting rather than empty hits).
   function classifyReviews(b, reviews, cb){
     var flat = flatFindings(b);
-    if (!flat.length || !reviews.length){ cb({}, null); return; }
-    var hitIds = flat.map(function(){ return []; });              // finding index -> [reviewId]
+    if (!flat.length || !reviews.length){ cb(false); return; }
+    var hitIds = flat.map(function(){ return []; });              // flat index -> [reviewId]
     var batches = SB.chunkReviews(reviews, DERIVE_BATCH), bi = 0;
     (function next(){
       if (bi >= batches.length){
-        // group hits back into a spec keyed by line, matched by finding value
-        var spec = {};
-        SB.LINE_KEYS.forEach(function(k){ spec[k.key] = k.list ? [] : { hits: [] }; });
-        flat.forEach(function(f, i){
-          if (k_is_list(f.key)) spec[f.key].push({ value: f.value, hits: hitIds[i] });
-          else spec[f.key] = { hits: hitIds[i] };
-        });
-        cb(spec, null); return;
+        flat.forEach(function(f, i){ f.hits = hitIds[i]; });      // attach by reference
+        b.meta = b.meta || {}; b.meta.classified = true;
+        cb(true); return;
       }
-      var batch = batches[bi], base = bi * DERIVE_BATCH;
+      var batch = batches[bi];
       deriveStatus("Checking which reviews back each point... batch " + (bi+1) + " of " + batches.length);
       claudeCall({ model: DERIVE_MODEL, max_tokens: 1500, messages: [{ role: "user", content: classifyPrompt(flat, batch) }] }, function(text, err){
-        if (err){ cb(null, err); return; }
+        if (err){ cb(false, err); return; }
         var map = parseJson(text, "{", "}") || {};
         batch.forEach(function(rv, j){
           var nums = map["R" + j]; if (!Array.isArray(nums)) return;
@@ -14595,7 +14592,6 @@ function genOneScript(opts){
       });
     })();
   }
-  function k_is_list(key){ for (var i=0;i<SB.LINE_KEYS.length;i++) if (SB.LINE_KEYS[i].key === key) return !!SB.LINE_KEYS[i].list; return false; }
   // Persist BOTH columns in one write: the derived brief AND raw (whose review `derived` flags are what
   // make the next rebuild incremental). If this does not land, the flags do not stick and the caller
   // rolls back, so a review is never marked derived without its brief being saved.
@@ -14641,10 +14637,11 @@ function genOneScript(opts){
           if (spec.clusters){ var u = SB.applyUnifiedClusters(mergedBrief.lines.pains, mergedBrief.lines.objections, spec, total); mergedBrief.lines.pains = u.pains; mergedBrief.lines.objections = u.objections; }
           if (spec.features){ mergedBrief.features = applyFeatureClusters(mergedBrief.features, spec.features); }
         }
-        // Sentiment-aware counting: classify reviews against the FINAL findings, record hits, count from
-        // them. Best-effort -- if it fails, meta.classified stays false and counts fall back to keywords.
-        classifyReviews(mergedBrief, raw.reviews, function(hitSpec, cErr){
-          if (hitSpec && !cErr) SB.applyHits(mergedBrief, hitSpec);
+        // Sentiment-aware counting: classify reviews against the FINAL findings; hits attach by reference.
+        // If classification fails, force meta.classified false so counts fall back to keyword matching
+        // rather than counting the empty hits that consolidation left behind.
+        classifyReviews(mergedBrief, raw.reviews, function(ok, cErr){
+          if (!ok) mergedBrief.meta.classified = false;
           SB.recountFindings(mergedBrief, raw.reviews);
           commit(mergedBrief, changed);
         });
@@ -14716,11 +14713,17 @@ function genOneScript(opts){
   function evidenceLine(ln){
     if (!ln || !ln.value) return null;
     var ev = SB.evidence(brief, ln);
-    var e = document.createElement("div"); e.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;";
-    e.textContent = (ln.count > 0)
-      ? ("Found in " + ev.count + " of " + ev.total + " review" + (ev.total === 1 ? "" : "s"))
-      : "Not quoted in the reviews";
-    return e;
+    if (ln.count > 0){
+      var e = document.createElement("div"); e.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;";
+      e.textContent = "Found in " + ev.count + " of " + ev.total + " review" + (ev.total === 1 ? "" : "s");
+      return e;
+    }
+    // count 0: only say "Not quoted" when there is genuinely no buyer language shown -- never contradict
+    // visible chips by claiming the finding is unquoted while quoting it.
+    if ((SB.safeWords(ln).length + SB.claims(ln).length) > 0) return null;
+    var n = document.createElement("div"); n.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;";
+    n.textContent = "Not quoted in the reviews";
+    return n;
   }
   function wordsAndClaims(ln){
     var frag = document.createDocumentFragment();
