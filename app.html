@@ -13754,6 +13754,36 @@ function genOneScript(opts){
     return out;
   }
 
+  // ---- deterministic counting -------------------------------------------------------------------
+  // The model ESTIMATES counts, so they drift run to run. Counting is deterministic work: recount in
+  // code by scanning the stored reviews for the finding's own buyer phrases. Whole-word, case- and
+  // punctuation-insensitive. This is a true FLOOR -- a review that expresses the point in different
+  // words than the extracted phrase is not counted -- so the UI labels it "Found in", not "Mentioned
+  // in". Stable: the same reviews always yield the same number.
+  function matchText(s){ return " " + str(s).toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim() + " "; }
+  function countInReviews(phrases, reviews){
+    var ps = arr(phrases).map(function(p){ return matchText(p).trim(); }).filter(function(p){ return p.length >= 3; });
+    if (!ps.length) return 0;
+    var texts = arr(reviews).map(function(r){ return (typeof r === "string") ? matchText(r) : matchText(obj(r).full || obj(r).quote || ""); });
+    var c = 0;
+    texts.forEach(function(hay){ for (var i = 0; i < ps.length; i++){ if (hay.indexOf(" " + ps[i] + " ") >= 0){ c++; return; } } });
+    return c;
+  }
+  // Overwrite every line's count with the deterministic review-scan count. Words are the search terms
+  // (unioned across variants by consolidation), so a merged "knives go dull" catches "blunt" too.
+  function recountFindings(merged, reviews){
+    merged = obj(merged);
+    var total = arr(reviews).length;
+    var lines = obj(merged.lines);
+    LINE_KEYS.forEach(function(k){
+      var v = lines[k.key];
+      if (k.list){ arr(v).forEach(function(it){ it.count = countInReviews(it.words, reviews); it.total = total; }); }
+      else if (v && typeof v === "object"){ v.count = countInReviews(v.words, reviews); v.total = total; }
+    });
+    merged.meta = obj(merged.meta); merged.meta.reviewCount = total;
+    return merged;
+  }
+
   // ---- read helpers for later phases ------------------------------------------------------------
   // Honest evidence: mentions stated against the review total measured at derivation (line.total),
   // which is exactly what the count was computed against; falls back to the brief's derivation count.
@@ -13781,6 +13811,8 @@ function genOneScript(opts){
     editLine: editLine,
     mergeChunkDerivations: mergeChunkDerivations,
     applyClusters: applyClusters,
+    countInReviews: countInReviews,
+    recountFindings: recountFindings,
     applyDerivation: applyDerivation,
     evidence: evidence,
     safeWords: safeWords,
@@ -14150,7 +14182,7 @@ function genOneScript(opts){
       '{"pains":{"groups":[{"value":"clearest label in buyer language","members":[0,2]}],"dropped":[]},"objections":{"groups":[{"value":"...","members":[1]}],"dropped":[]}}',
       "",
       "RULES:",
-      "- Group items that MEAN THE SAME THING (e.g. 'dull knives', 'knives get blunt', 'blades go dull' are ONE group). members are the item numbers from that list.",
+      "- Group items that MEAN THE SAME THING (e.g. 'dull knives', 'knives get blunt', 'blades go dull' are ONE group). members are the item numbers from that list. Do this for BOTH lists equally -- objections fragment just as easily as pains (e.g. two doubts about the built-in sharpener are ONE objection).",
       "- value = the clearest phrasing of the group in the buyer's own language, under 12 words.",
       "- Every item number must appear in exactly one group OR in dropped. Do not invent numbers.",
       "- dropped = items that do NOT belong in that list: for OBJECTIONS drop anything positive, satisfied, or a reason they DID buy (only genuine hesitations, doubts, or risks are objections); for PAINS drop anything that is not a real complaint.",
@@ -14217,6 +14249,9 @@ function genOneScript(opts){
           if (spec.pains) merged.lines.pains = SB.applyClusters(merged.lines.pains, spec.pains, total);
           if (spec.objections) merged.lines.objections = SB.applyClusters(merged.lines.objections, spec.objections, total);
         }
+        // Discard the model's estimated counts and recount deterministically against the real reviews,
+        // AFTER consolidation so each finding's unioned phrase variants are all used as search terms.
+        SB.recountFindings(merged, raw.reviews);
         saveMerged(merged);
       });
     }
@@ -14243,10 +14278,16 @@ function genOneScript(opts){
                         : "background:var(--surface);color:var(--white-dim);border:1px solid var(--border-md);");
     return s;
   }
+  // Evidence is a deterministic text-scan of the reviews (a floor), so it reads "Found in", and a
+  // finding with no literal match reads "Not quoted in the reviews" rather than showing nothing.
   function evidenceLine(ln){
-    var ev = SB.evidence(brief, ln); if (!(ln && ln.count > 0)) return null;
+    if (!ln || !ln.value) return null;
+    var ev = SB.evidence(brief, ln);
     var e = document.createElement("div"); e.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;";
-    e.textContent = "Mentioned in " + ev.count + " of " + ev.total + " review" + (ev.total === 1 ? "" : "s"); return e;
+    e.textContent = (ln.count > 0)
+      ? ("Found in " + ev.count + " of " + ev.total + " review" + (ev.total === 1 ? "" : "s"))
+      : "Not quoted in the reviews";
+    return e;
   }
   function wordsAndClaims(ln){
     var frag = document.createDocumentFragment();
