@@ -13908,10 +13908,10 @@ function genOneScript(opts){
         f = normLine(f);
         if (!f.value) return;
         var k = norm(f.value);
-        if (!by[k]){ by[k] = { value:f.value, words:[], claims:[], terms:[], count:0, total:total }; order.push(k); }
+        if (!by[k]){ by[k] = { value:f.value, words:[], claims:[], terms:[], hits:[], count:0, total:total }; order.push(k); }
         var g = by[k];
         g.count += (f.count|0);
-        unionInto(g.words, f.words); unionInto(g.claims, f.claims); unionInto(g.terms, f.terms);
+        unionInto(g.words, f.words); unionInto(g.claims, f.claims); unionInto(g.terms, f.terms); unionInto(g.hits, f.hits);
       });
       return order.map(function(k){ return by[k]; }).sort(function(a,b){ return b.count - a.count; });
     }
@@ -13952,16 +13952,16 @@ function genOneScript(opts){
       g = obj(g);
       var mem = arr(g.members).map(function(i){ return i|0; }).filter(function(i){ return items[i] && !used[i]; });
       if (!mem.length) return;
-      var count = 0, words = [], claims = [], terms = [];
+      var count = 0, words = [], claims = [], terms = [], hits = [];
       mem.forEach(function(i){ used[i] = true; var it = items[i]; count += (it.count|0);
-        unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms);
+        unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits);
       });
       if (total > 0) count = Math.min(count, total);
-      out.push({ value: str(g.value) || items[mem[0]].value, words: words, claims: claims, terms: terms, count: count, total: total, edited: false });
+      out.push({ value: str(g.value) || items[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, count: count, total: total, edited: false });
     });
     // keep anything the model neither grouped nor explicitly dropped -- never silently lose a finding
     items.forEach(function(it, i){ if (used[i] || dropped[i]) return;
-      out.push({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, edited: false });
+      out.push({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, edited: false });
     });
     out.sort(function(a,b){ return b.count - a.count; });
     return out;
@@ -13977,11 +13977,11 @@ function genOneScript(opts){
     var dropped = {}; arr(spec.dropped).forEach(function(i){ dropped[i|0] = true; });
     var used = {}, outP = [], outO = [];
     function build(g, mem){
-      var count = 0, words = [], claims = [], terms = [];
+      var count = 0, words = [], claims = [], terms = [], hits = [];
       mem.forEach(function(i){ used[i] = true; var it = combined[i]; count += (it.count|0);
-        unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); });
+        unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits); });
       if (total > 0) count = Math.min(count, total);
-      return { value: str(g.value) || combined[mem[0]].value, words: words, claims: claims, terms: terms, count: count, total: total, edited: false };
+      return { value: str(g.value) || combined[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, count: count, total: total, edited: false };
     }
     arr(spec.clusters).forEach(function(g){
       g = obj(g);
@@ -13991,7 +13991,7 @@ function genOneScript(opts){
       (cat.indexOf("objection") >= 0 ? outO : outP).push(f);
     });
     combined.forEach(function(it, i){ if (used[i] || dropped[i]) return;   // keep forgotten in its origin list
-      var f = { value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, edited: false };
+      var f = { value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, edited: false };
       (i < A.length ? outP : outO).push(f);
     });
     return { pains: outP, objections: outO };
@@ -14629,19 +14629,18 @@ function genOneScript(opts){
     }
     function consolidateAndCommit(mergedBrief, changed){
       var total = raw.reviews.length;
-      deriveStatus("Merging similar findings...");
-      // Consolidate the COMBINED list (existing + new) so a new finding folds into an existing one, a
-      // concept lands in only pains OR objections, and duplicated features collapse.
-      consolidateFindings(mergedBrief.lines.pains, mergedBrief.lines.objections, mergedBrief.features, function(spec, err){
-        if (spec && !err){
-          if (spec.clusters){ var u = SB.applyUnifiedClusters(mergedBrief.lines.pains, mergedBrief.lines.objections, spec, total); mergedBrief.lines.pains = u.pains; mergedBrief.lines.objections = u.objections; }
-          if (spec.features){ mergedBrief.features = applyFeatureClusters(mergedBrief.features, spec.features); }
-        }
-        // Sentiment-aware counting: classify reviews against the FINAL findings; hits attach by reference.
-        // If classification fails, force meta.classified false so counts fall back to keyword matching
-        // rather than counting the empty hits that consolidation left behind.
-        classifyReviews(mergedBrief, raw.reviews, function(ok, cErr){
-          if (!ok) mergedBrief.meta.classified = false;
+      // Classify FIRST, against the granular findings -- the model matches reviews far more reliably to
+      // narrow, specific findings than to a broad merged one. THEN consolidate: the merge unions each
+      // cluster's hit sets onto the surviving finding, so the big merged pain carries all its members'
+      // hits instead of coming back empty. If classification fails, fall back to keyword counting.
+      classifyReviews(mergedBrief, raw.reviews, function(ok, cErr){
+        if (!ok) mergedBrief.meta.classified = false;
+        deriveStatus("Merging similar findings...");
+        consolidateFindings(mergedBrief.lines.pains, mergedBrief.lines.objections, mergedBrief.features, function(spec, err){
+          if (spec && !err){
+            if (spec.clusters){ var u = SB.applyUnifiedClusters(mergedBrief.lines.pains, mergedBrief.lines.objections, spec, total); mergedBrief.lines.pains = u.pains; mergedBrief.lines.objections = u.objections; }
+            if (spec.features){ mergedBrief.features = applyFeatureClusters(mergedBrief.features, spec.features); }
+          }
           SB.recountFindings(mergedBrief, raw.reviews);
           commit(mergedBrief, changed);
         });
@@ -14710,23 +14709,20 @@ function genOneScript(opts){
   }
   // Evidence is a deterministic text-scan of the reviews (a floor), so it reads "Found in", and a
   // finding with no literal match reads "Not quoted in the reviews" rather than showing nothing.
+  // Always show an explicit evidence line. When the count is real, chips of buyer language appear too
+  // (see wordsAndClaims); when it is zero, no chips render, so the line never contradicts visible quotes.
   function evidenceLine(ln){
     if (!ln || !ln.value) return null;
     var ev = SB.evidence(brief, ln);
-    if (ln.count > 0){
-      var e = document.createElement("div"); e.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;";
-      e.textContent = "Found in " + ev.count + " of " + ev.total + " review" + (ev.total === 1 ? "" : "s");
-      return e;
-    }
-    // count 0: only say "Not quoted" when there is genuinely no buyer language shown -- never contradict
-    // visible chips by claiming the finding is unquoted while quoting it.
-    if ((SB.safeWords(ln).length + SB.claims(ln).length) > 0) return null;
-    var n = document.createElement("div"); n.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;";
-    n.textContent = "Not quoted in the reviews";
-    return n;
+    var e = document.createElement("div"); e.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;";
+    e.textContent = (ln.count > 0)
+      ? ("Found in " + ev.count + " of " + ev.total + " review" + (ev.total === 1 ? "" : "s"))
+      : "Not counted in the reviews";
+    return e;
   }
   function wordsAndClaims(ln){
     var frag = document.createDocumentFragment();
+    if (!ln || (ln.count | 0) === 0) return frag;   // no real count -> no chips, so nothing contradicts "Not counted"
     var words = SB.safeWords(ln), claims = SB.claims(ln);
     if (words.length){ var wc = document.createElement("div"); wc.style.marginTop = "4px"; words.forEach(function(w){ wc.appendChild(briefChip(w, "word")); }); frag.appendChild(wc); }
     if (claims.length){

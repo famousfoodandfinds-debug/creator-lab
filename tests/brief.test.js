@@ -280,6 +280,28 @@ ok(ahBrief.meta.classified === true, 'applyHits: flips meta.classified');
 let rt = B.normalizeBrief(JSON.parse(JSON.stringify(ahBrief)));
 ok(rt.meta.classified === true && rt.lines.pains[0].hits.length === 2, 'normalizeBrief: hits + classified round-trip');
 
+// 9l. consolidation carries hits through the merge (the broad merged pain must not come back empty)
+let hcPains = [
+  { value:'knives lose sharpness quickly', words:[], claims:[], terms:[], hits:['ra','rb','rc'], count:0, total:0, edited:false },
+  { value:'blades go dull fast',            words:[], claims:[], terms:[], hits:['rc','rd'],      count:0, total:0, edited:false },
+  { value:'block feels cheap',              words:[], claims:[], terms:[], hits:['re'],           count:0, total:0, edited:false }
+];
+// cluster the two dullness findings (indices 0,1) into one; leave 2 alone
+let hcSpec = { clusters: [ { value:'knives lose sharpness quickly', category:'pain', members:[0,1] }, { value:'block feels cheap', category:'pain', members:[2] } ], dropped:[] };
+let hcU = B.applyUnifiedClusters(hcPains, [], hcSpec, 22);
+let hcDull = hcU.pains.find(p => p.value === 'knives lose sharpness quickly');
+ok(hcDull, 'merge-hits: merged dullness pain present');
+ok(hcDull.hits.slice().sort().join(',') === 'ra,rb,rc,rd', 'merge-hits: merged finding has the UNION of member hits (ra,rb,rc,rd), deduped');
+// and once classified, its count reflects the unioned hits
+let hcBrief = B.emptyBrief(); hcBrief.lines.pains = hcU.pains; hcBrief.meta.classified = true;
+let hcReviews = ['ra','rb','rc','rd','re','rf'].map(function(id){ return { id:id, full:'x' }; });
+B.recountFindings(hcBrief, hcReviews);
+ok(hcBrief.lines.pains.find(p=>p.value==='knives lose sharpness quickly').count === 4, 'merge-hits: merged pain counts 4 from unioned hits, not 0');
+// applyClusters (single-list) also unions hits
+let acItems = [ {value:'a', hits:['r1','r2']}, {value:'b', hits:['r2','r3']} ];
+let acOut = B.applyClusters(acItems, { groups:[{value:'ab', members:[0,1]}], dropped:[] }, 10);
+ok(acOut[0].hits.slice().sort().join(',') === 'r1,r2,r3', 'applyClusters: unions member hits');
+
 // 10. storage glue reads dedicated columns
 let prod = { brief: m3.brief, raw: r.raw };
 ok(B.getBrief(prod).lines.pains.length === m3.brief.lines.pains.length, 'getBrief reads .brief column');
