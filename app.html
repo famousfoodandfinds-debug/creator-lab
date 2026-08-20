@@ -14009,16 +14009,23 @@ function genOneScript(opts){
     if (a >= 0 && z > a) c = c.slice(a, z + 1);
     try { return JSON.parse(c); } catch(e){ return null; }
   }
+  // Surfaces the REAL failure: the HTTP status AND the response body from /api/claude, so a missing
+  // key (proxy returns 500 {"error":"API key not configured"}), a 429 cap, or an auth 401 are visible
+  // instead of a generic "could not build". cb(null, {status, message}) on any non-2xx or error body.
   function claudeCall(body, cb){
+    var st = 0;
     fetch("/api/claude", { method: "POST", headers: claudeHeaders(), body: JSON.stringify(body) })
-      .then(function(r){ return r.text(); })
+      .then(function(r){ st = r.status; return r.text(); })
       .then(function(rawText){
-        var d = JSON.parse(rawText);
-        if (d && d.error) throw new Error((d.error && d.error.message) || "request failed");
+        var d = null; try { d = JSON.parse(rawText); } catch(e){}
+        if (st < 200 || st >= 300 || (d && d.error)){
+          var m = (d && d.error && (d.error.message || d.error)) || (rawText ? String(rawText).slice(0, 300) : "empty response body");
+          cb(null, { status: st, message: String(m) }); return;
+        }
         var text = ""; ((d && d.content) || []).forEach(function(b){ if (b.type === "text") text += b.text; });
         cb(text, null);
       })
-      .catch(function(err){ cb(null, err); });
+      .catch(function(err){ cb(null, { status: st, message: (err && err.message) ? err.message : "network error" }); });
   }
   // OCR any review screenshots into structured reviews (same prompt the rest of the app uses).
   function ocrShots(shots, cb){
@@ -14085,41 +14092,57 @@ function genOneScript(opts){
     sb.from("products").update({ brief: brief, updated_at: new Date().toISOString() }).eq("id", currentProductId).select("id").single()
       .then(function(r){ if (r && !r.error){ lastSavedAt = new Date(); } cb(!!(r && !r.error)); }, function(){ cb(false); });
   }
+  // ALL-OR-NOTHING: a chunked run either fully succeeds and is saved, or ANY failed batch aborts the
+  // whole run WITHOUT saving. Your existing brief is never overwritten by a half-counted result, and
+  // review screenshots are only consumed once they have successfully become text. On failure you keep
+  // everything you had; you re-run to try again (the completed batches are re-derived on retry).
   function deriveBrief(){
     if (deriving) return;
     if (!currentProductId){ deriveStatus("Add some material first (it saves as you type), then build the brief.", "var(--red)"); scheduleSave(); return; }
     deriving = true; renderBrief();
-    function proceed(){
+    function fail(where, err){
+      deriving = false; renderBrief();
+      var code = (err && err.status) ? ("HTTP " + err.status) : "no response";
+      var msg = (err && err.message) ? err.message : "unknown error";
+      deriveStatus(where + " failed (" + code + ": " + msg + "). Nothing was saved; your existing brief and reviews are untouched. Try again.", "var(--red)");
+    }
+    function runChunks(){
       var chunks = SB.chunkReviews(raw.reviews, SB.DERIVE_CHUNK);
       if (!chunks.length) chunks = [[]];              // no reviews: still derive once from listing + comments
       var results = [], i = 0;
       (function next(){
         if (i >= chunks.length){ finish(results); return; }
-        deriveStatus(chunks.length > 1 ? ("Building brief... part " + (i+1) + " of " + chunks.length) : "Building brief...");
-        deriveChunk(chunks[i], function(obj, err){ if (obj) results.push(obj); i++; next(); });
+        deriveStatus(chunks.length > 1 ? ("Building brief... batch " + (i+1) + " of " + chunks.length) : "Building brief...");
+        deriveChunk(chunks[i], function(obj, err){
+          if (err || !obj){ fail("Building the brief (batch " + (i+1) + " of " + chunks.length + ")", err); return; }
+          results.push(obj); i++; next();
+        });
       })();
     }
     function finish(results){
-      if (!results.length){ deriving = false; renderBrief(); deriveStatus("Could not build the brief. Check your connection and try again.", "var(--red)"); return; }
       var merged = SB.mergeChunkDerivations(results, raw.reviews.length);
       var applied = SB.applyDerivation(brief, merged, { now: new Date().toISOString(), promptVersion: DERIVE_PROMPT_V });
+      var prevBrief = brief;
       brief = applied.brief;
       saveBrief(function(okSave){
+        if (!okSave){ brief = prevBrief; deriving = false; renderBrief(); deriveStatus("Brief built but could not be saved. Your previous brief is kept. Try again.", "var(--red)"); return; }
         deriving = false; renderBrief(applied.changes);
-        deriveStatus(okSave ? "Brief updated." : "Brief built but not saved (try again).", okSave ? "var(--green)" : "var(--red)");
+        deriveStatus("Brief updated.", "var(--green)");
       });
     }
-    // Step 1: turn any screenshots into visible review text before deriving.
+    // Step 1: turn any screenshots into visible review text before deriving. On OCR failure the
+    // screenshots are KEPT (not cleared) so they are never lost, and the run aborts.
     if (raw.reviewShots.length){
       deriveStatus("Reading " + raw.reviewShots.length + " screenshot" + (raw.reviewShots.length>1?"s":"") + "...");
       ocrShots(raw.reviewShots.slice(), function(arr, err){
+        if (err){ fail("Reading the review screenshots", err); return; }
         if (arr && arr.length){ var res = SB.addReviews(raw, arr); raw = res.raw; }
         raw.reviewShots = [];                          // consumed into review text (visible + removable)
         renderReviewList(); renderReviewCount();
         saveNow();
-        proceed();
+        runChunks();
       });
-    } else { proceed(); }
+    } else { runChunks(); }
   }
 
   // ---- brief display ---------------------------------------------------------------------------
