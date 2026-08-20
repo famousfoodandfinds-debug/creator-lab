@@ -833,17 +833,35 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
     <button class="opt-btn" id="optUpload" onclick="setMode('upload')">&#128247; Upload</button>
     <input type="file" id="imageFileInput" accept="image/*" multiple onchange="handleUpload(event)">
   </div>
-  <div id="homeLanding" style="display:none;max-width:760px;margin:0 auto;">
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px;">
-      <div style="font-size:15px;color:var(--white);margin-bottom:4px;">Pick a product to work on</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Choose a recent product below, or use the product picker at the top. Selecting one loads its scripts.</div>
-      <div id="homeRecent"></div>
-      <button type="button" onclick="showNew()" style="width:100%;margin-top:6px;background:transparent;border:1px dashed var(--border-md);border-radius:10px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:11px;cursor:pointer;">+ New product</button>
+  <div id="homeLanding" style="display:none;max-width:460px;margin:36px auto 0;">
+    <div style="font-size:19px;font-weight:600;color:var(--white);margin-bottom:4px;text-align:center;">What do you want to do?</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:22px;text-align:center;">Start something new, or open a product you are already working on.</div>
+    <div style="display:grid;gap:10px;">
+      <button type="button" onclick="showNew()" style="width:100%;background:var(--accent,#6C5CE7);border:none;border-radius:12px;color:#fff;font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">New product</button>
+      <button type="button" onclick="if(window.ProductScreen)ProductScreen.openPicker()" style="width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">My products</button>
+      <button type="button" onclick="if(typeof showMainTab==='function')showMainTab('planner')" style="width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">Planner</button>
+      <button type="button" onclick="if(typeof showMainTab==='function')showMainTab('carousel')" style="width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">Carousels</button>
+    </div>
+    <!-- My products opens this inline picker (single search + rename/delete). Hidden until requested. -->
+    <div id="homePicker" style="display:none;margin-top:18px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;">
+      <input id="homePickerSearch" type="text" placeholder="Search your products..." autocomplete="off" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:9px 12px;outline:none;margin-bottom:10px;">
+      <div id="homePickerList" style="max-height:320px;overflow-y:auto;"></div>
     </div>
   </div>
   <div id="textPanel">
 
-    <!-- ===== ONE SCREEN: product inputs (Phase 2). Derived brief renders below in Phase 3. ===== -->
+    <!-- The brief LEADS (the daily artifact). Generated scripts will render above it in Phase 5. -->
+    <div id="briefBelow" style="margin-top:16px;max-width:760px;margin-left:auto;margin-right:auto;"></div>
+
+    <!-- Product setup is collapsible: expanded for a new product, collapsed once a brief exists. -->
+    <div style="max-width:760px;margin:14px auto 0;">
+      <button type="button" id="setupToggle" style="width:100%;text-align:left;background:transparent;border:1px solid var(--border-md);border-radius:10px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:11px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box;">
+        <span>Product setup</span><span id="setupCaret" style="color:var(--muted);">&#9662;</span>
+      </button>
+    </div>
+    <div id="setupWrap" style="margin-top:10px;">
+
+    <!-- ===== Product inputs: name, listing, reviews, competitor comments, winning angles, authority ===== -->
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;max-width:760px;margin:0 auto;">
 
       <div id="psSavedChip" style="font-size:11px;color:var(--muted);text-align:right;margin-bottom:10px;min-height:14px;">Saved automatically as you type.</div>
@@ -914,8 +932,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
       <div id="psSaveStatus" style="font-size:12px;color:var(--muted);margin-top:14px;">Saved automatically as you type.</div>
     </div>
 
-    <!-- Derived brief renders here in Phase 3. -->
-    <div id="briefBelow" style="margin-top:16px;max-width:760px;margin-left:auto;margin-right:auto;"></div>
+    </div><!-- /#setupWrap -->
 
   </div>
   <div id="imgPreviewWrap" style="display:none;">
@@ -2242,7 +2259,8 @@ function filterManageList(q) {
 function buildManageList() {
   var ml = document.getElementById("manageList");
   if(!ml || !currentUser) return;
-  ml.innerHTML = "<input id='manageSearch' type='text' placeholder='Search products...' oninput='filterManageList(this.value)' style='width:100%;box-sizing:border-box;margin-bottom:8px;background:var(--surface);border:1px solid var(--border-md);border-radius:8px;color:var(--white);font-size:13px;padding:8px 12px;outline:none;'><div style='padding:8px 0;font-size:12px;color:var(--muted);'>Tap a product to select for deletion. Tap Rename to edit its name.</div>";
+  // No own search box here: the one product search at the top filters this list (see renderProductResults).
+  ml.innerHTML = "<div style='padding:2px 0 8px;font-size:12px;color:var(--muted);'>Tap a product to select for deletion. Tap Rename to edit its name. Use the search above to filter.</div>";
   sb.from("products").select("id, name").eq("user_id", currentUser.id).then(function(result) {
     if(!result.data) return;
     var products = result.data;
@@ -2360,16 +2378,6 @@ function buildManageList() {
   });
 }
 
-function toggleDeleteSelect(id) {
-  selectedForDelete[id] = !selectedForDelete[id];
-  buildSelect();
-  var bar = document.getElementById("deleteBar");
-  var count = Object.values(selectedForDelete).filter(Boolean).length;
-  if(bar) {
-    bar.querySelector(".delete-count").textContent = count + " selected";
-    bar.querySelector(".delete-confirm-btn").disabled = count === 0;
-  }
-}
 
 function deleteSelected() {
   var ids = Object.keys(selectedForDelete).filter(function(id){ return selectedForDelete[id]; });
@@ -2412,6 +2420,8 @@ function productNameMatch(name, q) {
 // any-word match. The native <select id="productSelect"> is kept hidden only so its existing wiring
 // (buildSelect populates it; load/sort/reset read it) keeps working; the combobox reads its options.
 function renderProductResults(q) {
+  // In Manage mode the same search filters the manage list instead of showing the picker dropdown.
+  if (typeof manageMode !== "undefined" && manageMode){ if (typeof filterManageList === "function") filterManageList(q); var _pr = document.getElementById("productResults"); if (_pr) _pr.style.display = "none"; return; }
   var sel = document.getElementById("productSelect");
   var box = document.getElementById("productResults");
   if (!sel || !box) return;
@@ -14151,16 +14161,27 @@ function genOneScript(opts){
     renderBrief();
   }
 
-  // Toggle between the input form (#textPanel) and the quiet "pick a product" landing (#homeLanding).
+  // Collapsible product setup: the brief leads, setup tucks below. Expanded for a new/undrived product,
+  // collapsed once a brief exists (setup is a once-in-a-while job; the brief is the daily one).
+  function setSetupOpen(open){
+    var w = el("setupWrap"), c = el("setupCaret");
+    if (w) w.style.display = open ? "" : "none";
+    if (c) c.textContent = open ? "▴" : "▾";
+  }
+
+  // Toggle the product screen (#textPanel) vs the quiet landing (#homeLanding); the product toolbar
+  // (search / sort / manage / new) only shows while a product screen is open, so the landing stays clean.
   function showForm(yes){
     var tp = el("textPanel"); if (tp) tp.style.display = yes ? "" : "none";
     var hl = el("homeLanding"); if (hl) hl.style.display = yes ? "none" : "";
+    var pb = document.querySelector(".product-bar"); if (pb) pb.style.display = yes ? "" : "none";
+    if (!yes){ var hp = el("homePicker"); if (hp) hp.style.display = "none"; }
   }
   function renderBlank(){
     raw = SB.emptyRaw();
     brief = SB.emptyBrief();
     currentProductId = null; currentProductName = "";
-    lastSavedAt = null; showForm(true); renderInputs(); status("New product. Saved automatically as you type.");
+    lastSavedAt = null; showForm(true); renderInputs(); setSetupOpen(true); status("New product. Saved automatically as you type.");
   }
   function fill(product){
     raw = SB.getRaw(product);
@@ -14168,28 +14189,61 @@ function genOneScript(opts){
     currentProductId = product.id;
     currentProductName = product.name || "";
     lastSavedAt = product.updated_at ? new Date(product.updated_at) : null;
-    showForm(true); renderInputs(); setSaved("saved");
+    showForm(true); renderInputs(); setSetupOpen(!brief.meta.lastDerivedAt); setSaved("saved");
   }
-  // Landing shown on sign-in when the library is non-empty: a short line, up to 5 most-recent
-  // products as quick picks, and a New button. The full list stays in the top picker/dropdown.
+  // Sign-in landing: quiet page with New product / My products / Planner / Carousels. If the library is
+  // empty, drop straight into a blank new-product screen instead.
   function renderHome(){
     if (typeof currentUser === "undefined" || !currentUser || typeof sb === "undefined" || !sb){ showForm(true); renderBlank(); return; }
-    sb.from("products").select("id, name, updated_at").eq("user_id", currentUser.id).order("updated_at", { ascending: false }).then(function(r){
+    sb.from("products").select("id").eq("user_id", currentUser.id).limit(1).then(function(r){
       var rows = (r && !r.error && r.data) ? r.data : [];
       if (!rows.length){ showForm(true); renderBlank(); return; }
-      var box = el("homeRecent");
-      if (box){
-        box.innerHTML = "";
-        rows.slice(0, 5).forEach(function(p){
-          var b = document.createElement("button"); b.type = "button";
-          b.style.cssText = "display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border-md);border-radius:10px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;";
-          b.textContent = p.name || "Untitled product";
-          b.addEventListener("click", function(){ if (typeof loadProductById === "function") loadProductById(p.id); });
-          box.appendChild(b);
-        });
-      }
       showForm(false);
     }, function(){ showForm(true); renderBlank(); });
+  }
+
+  // "My products": one inline picker with search + open + rename + delete (folds in Manage). Single path.
+  function openPicker(){
+    var hp = el("homePicker"); if (hp) hp.style.display = "";
+    renderHomePicker("");
+    var s = el("homePickerSearch"); if (s){ s.value = ""; try { s.focus(); } catch(e){} }
+  }
+  function renderHomePicker(filter){
+    var box = el("homePickerList"); if (!box) return;
+    if (typeof currentUser === "undefined" || !currentUser || typeof sb === "undefined" || !sb){ box.innerHTML = ""; return; }
+    box.innerHTML = "<div style='font-size:12px;color:var(--muted);padding:6px 2px;'>Loading...</div>";
+    sb.from("products").select("id, name, updated_at").eq("user_id", currentUser.id).order("updated_at", { ascending: false }).then(function(r){
+      var rows = (r && !r.error && r.data) ? r.data : [];
+      var q = String(filter || "").trim().toLowerCase();
+      if (q) rows = rows.filter(function(p){ return String(p.name || "").toLowerCase().indexOf(q) >= 0; });
+      box.innerHTML = "";
+      if (!rows.length){ var n = document.createElement("div"); n.style.cssText = "font-size:13px;color:var(--muted);padding:8px 2px;"; n.textContent = q ? "No products match that search." : "No products yet. Start with New product."; box.appendChild(n); return; }
+      rows.forEach(function(p){ box.appendChild(homePickerRow(p)); });
+    }, function(){ box.innerHTML = "<div style='font-size:13px;color:var(--red);padding:8px 2px;'>Could not load products.</div>"; });
+  }
+  function homePickerRow(p){
+    var row = document.createElement("div"); row.style.cssText = "display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:0.5px solid var(--border);";
+    var name = document.createElement("button"); name.type = "button";
+    name.style.cssText = "flex:1;min-width:0;text-align:left;background:none;border:none;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:2px 0;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+    name.textContent = p.name || "Untitled product";
+    name.addEventListener("click", function(){ if (typeof loadProductById === "function") loadProductById(p.id); });
+    var ren = document.createElement("button"); ren.type = "button"; ren.textContent = "Rename";
+    ren.style.cssText = "flex-shrink:0;background:none;border:1px solid var(--border-md);border-radius:7px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:11px;padding:5px 9px;cursor:pointer;";
+    ren.addEventListener("click", function(){
+      var nn = window.prompt("Rename product", p.name || "");
+      if (nn == null) return; nn = String(nn).trim(); if (!nn) return;
+      sb.from("products").update({ name: nn }).eq("id", p.id).then(function(){ p.name = nn; renderHomePicker(val("homePickerSearch")); if (typeof buildSelect === "function"){ try { buildSelect(); } catch(e){} } });
+    });
+    var del = document.createElement("button"); del.type = "button"; del.textContent = "✕"; del.title = "Delete product";
+    del.style.cssText = "flex-shrink:0;background:none;border:none;color:var(--muted);font-size:14px;line-height:1;cursor:pointer;";
+    del.addEventListener("click", function(){
+      if (!window.confirm("Delete \"" + (p.name || "this product") + "\" and its scripts? This cannot be undone.")) return;
+      sb.from("scripts").delete().eq("product_id", p.id).then(function(){
+        sb.from("products").delete().eq("id", p.id).then(function(){ renderHomePicker(val("homePickerSearch")); if (typeof buildSelect === "function"){ try { buildSelect(); } catch(e){} } });
+      });
+    });
+    row.appendChild(name); row.appendChild(ren); row.appendChild(del);
+    return row;
   }
 
   function scheduleSave(){ setSaved("saving"); clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 800); }
@@ -14630,10 +14684,12 @@ function genOneScript(opts){
     if (up && fi){ up.addEventListener("click", function(){ fi.click(); }); fi.addEventListener("change", function(){ onFiles(fi.files); fi.value = ""; }); }
     if (el("psAngleFetch")) el("psAngleFetch").addEventListener("click", fetchAngle);
     if (el("psAngleAdd"))   el("psAngleAdd").addEventListener("click", addAngleFromText);
+    if (el("setupToggle"))  el("setupToggle").addEventListener("click", function(){ setSetupOpen(el("setupWrap") && el("setupWrap").style.display === "none"); });
+    if (el("homePickerSearch")) el("homePickerSearch").addEventListener("input", function(){ renderHomePicker(this.value); });
   }
   if (document.readyState !== "loading") init(); else document.addEventListener("DOMContentLoaded", init);
 
-  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome };
+  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome, openPicker: openPicker };
 })();
 </script>
 
