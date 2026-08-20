@@ -13720,6 +13720,40 @@ function genOneScript(opts){
     return out;
   }
 
+  // ---- semantic consolidation -------------------------------------------------------------------
+  // Exact-string folding leaves "dull knives" / "knives get blunt" / "blades go dull" as three weak
+  // findings. A model pass decides which findings MEAN the same thing and returns a clustering spec
+  // { groups:[{value, members:[i...]}], dropped:[i...] }; this pure helper applies it so the COUNT
+  // ARITHMETIC stays in code (trustworthy), not in the model: member counts are summed and capped at
+  // the review total (overlap can never push a pain past the number of reviews), words/claims are
+  // unioned, `dropped` items (e.g. a positive mistaken for an objection) are removed, and any finding
+  // the model forgot to place is KEPT as its own group so a real pain is never silently lost.
+  function applyClusters(items, spec, total){
+    items = arr(items).map(normLine);
+    total = total|0;
+    spec = obj(spec);
+    var dropped = {}; arr(spec.dropped).forEach(function(i){ dropped[i|0] = true; });
+    var used = {}, out = [];
+    arr(spec.groups).forEach(function(g){
+      g = obj(g);
+      var mem = arr(g.members).map(function(i){ return i|0; }).filter(function(i){ return items[i] && !used[i]; });
+      if (!mem.length) return;
+      var count = 0, words = [], claims = [];
+      mem.forEach(function(i){ used[i] = true; var it = items[i]; count += (it.count|0);
+        it.words.forEach(function(w){ if (w && words.indexOf(w) < 0) words.push(w); });
+        it.claims.forEach(function(c){ if (c && claims.indexOf(c) < 0) claims.push(c); });
+      });
+      if (total > 0) count = Math.min(count, total);
+      out.push({ value: str(g.value) || items[mem[0]].value, words: words, claims: claims, count: count, total: total, edited: false });
+    });
+    // keep anything the model neither grouped nor explicitly dropped -- never silently lose a finding
+    items.forEach(function(it, i){ if (used[i] || dropped[i]) return;
+      out.push({ value: it.value, words: it.words, claims: it.claims, count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, edited: false });
+    });
+    out.sort(function(a,b){ return b.count - a.count; });
+    return out;
+  }
+
   // ---- read helpers for later phases ------------------------------------------------------------
   // Honest evidence: mentions stated against the review total measured at derivation (line.total),
   // which is exactly what the count was computed against; falls back to the brief's derivation count.
@@ -13746,6 +13780,7 @@ function genOneScript(opts){
     markEdited: markEdited,
     editLine: editLine,
     mergeChunkDerivations: mergeChunkDerivations,
+    applyClusters: applyClusters,
     applyDerivation: applyDerivation,
     evidence: evidence,
     safeWords: safeWords,
@@ -13766,7 +13801,7 @@ function genOneScript(opts){
   var raw = SB.emptyRaw();
   var brief = SB.emptyBrief();          // derived, light column; loaded on open, rebuilt by deriveBrief
   var deriving = false;                 // guards the derive button against double-fire
-  var DERIVE_PROMPT_V = "brief-derive-1";
+  var DERIVE_PROMPT_V = "brief-derive-2";
   var DERIVE_BATCH = 15;                // reviews per derivation call -- kept small so each call
   var DERIVE_REVIEW_CHARS = 600;        // returns well inside Netlify's ~26s sync gateway limit
   var DERIVE_MODEL = "claude-haiku-4-5-20251001"; // fast enough not to hit the gateway 504
@@ -14082,6 +14117,7 @@ function genOneScript(opts){
       "- count = how many of the reviews IN THIS BATCH mention that point (0 to " + reviewsChunk.length + "). Base counts ONLY on the reviews in this batch, not the listing.",
       "- words = the buyer's own emotional or identity phrases, quoted short and verbatim, SAFE to reuse in marketing. At most 3 per line.",
       "- claims = performance or result claims a buyer makes (e.g. 'cured my back pain'). Keep these SEPARATE from words. They are the buyer's claim, NOT a fact to assert. At most 3 per line.",
+      "- pains = genuine complaints or frustrations. objections = hesitations, doubts, risks, or reasons NOT to buy. A positive or satisfied statement, or a reason they DID buy, is NOT an objection; never put it there.",
       "- pains and objections are arrays; return AT MOST 4 distinct items each, most-mentioned first.",
       "- Keep every value under 15 words. Return AT MOST 5 features.",
       "- Leave value empty ('') for anything the material does not support. Do not invent.",
@@ -14097,6 +14133,35 @@ function genOneScript(opts){
       // misleading "no response" -- include the actual reply so the cause is visible.
       if (!obj){ cb(null, { status: 200, message: "the model reply could not be read as JSON (likely cut off). Reply started: " + String(text || "").replace(/\s+/g, " ").slice(0, 200) }); return; }
       cb(obj, null);
+    });
+  }
+  // Semantic cleanup pass: exact folding leaves synonyms as separate weak findings, and a positive can
+  // land in objections. One model call decides which items MEAN the same (returns member indices) and
+  // which do not belong (dropped). The count arithmetic stays in SaxeBrief.applyClusters, not here.
+  function consolidatePrompt(pains, objections){
+    function listText(items){ return items.length ? items.map(function(it, i){ return i + ". " + it.value + " (mentioned " + (it.count|0) + ")"; }).join("\n") : "(none)"; }
+    return [
+      "You are cleaning up findings pulled from customer reviews of ONE product. Two numbered lists.",
+      "",
+      "PAINS (genuine complaints or frustrations):", listText(pains),
+      "", "OBJECTIONS (hesitations, doubts, risks, or reasons NOT to buy):", listText(objections),
+      "",
+      "Return ONLY this JSON:",
+      '{"pains":{"groups":[{"value":"clearest label in buyer language","members":[0,2]}],"dropped":[]},"objections":{"groups":[{"value":"...","members":[1]}],"dropped":[]}}',
+      "",
+      "RULES:",
+      "- Group items that MEAN THE SAME THING (e.g. 'dull knives', 'knives get blunt', 'blades go dull' are ONE group). members are the item numbers from that list.",
+      "- value = the clearest phrasing of the group in the buyer's own language, under 12 words.",
+      "- Every item number must appear in exactly one group OR in dropped. Do not invent numbers.",
+      "- dropped = items that do NOT belong in that list: for OBJECTIONS drop anything positive, satisfied, or a reason they DID buy (only genuine hesitations, doubts, or risks are objections); for PAINS drop anything that is not a real complaint.",
+      "- No em dashes. Return only the JSON."
+    ].join("\n");
+  }
+  function consolidateFindings(pains, objections, cb){
+    if ((pains.length + objections.length) < 2){ cb(null, null); return; }   // nothing to consolidate
+    claudeCall({ model: DERIVE_MODEL, max_tokens: 1200, messages: [{ role: "user", content: consolidatePrompt(pains, objections) }] }, function(text, err){
+      if (err){ cb(null, err); return; }
+      cb(parseJson(text, "{", "}"), null);
     });
   }
   function saveBrief(cb){
@@ -14131,8 +14196,7 @@ function genOneScript(opts){
         });
       })();
     }
-    function finish(results){
-      var merged = SB.mergeChunkDerivations(results, raw.reviews.length);
+    function saveMerged(merged){
       var applied = SB.applyDerivation(brief, merged, { now: new Date().toISOString(), promptVersion: DERIVE_PROMPT_V });
       var prevBrief = brief;
       brief = applied.brief;
@@ -14140,6 +14204,20 @@ function genOneScript(opts){
         if (!okSave){ brief = prevBrief; deriving = false; renderBrief(); deriveStatus("Brief built but could not be saved. Your previous brief is kept. Try again.", "var(--red)"); return; }
         deriving = false; renderBrief(applied.changes);
         deriveStatus("Brief updated.", "var(--green)");
+      });
+    }
+    function finish(results){
+      var merged = SB.mergeChunkDerivations(results, raw.reviews.length);
+      var total = raw.reviews.length;
+      // Best-effort semantic consolidation of the list findings. If it fails, keep the exact-merged
+      // lists (still a valid brief) rather than aborting -- a cleanup call is not worth losing the build.
+      deriveStatus("Merging similar findings...");
+      consolidateFindings(merged.lines.pains, merged.lines.objections, function(spec, err){
+        if (spec && !err){
+          if (spec.pains) merged.lines.pains = SB.applyClusters(merged.lines.pains, spec.pains, total);
+          if (spec.objections) merged.lines.objections = SB.applyClusters(merged.lines.objections, spec.objections, total);
+        }
+        saveMerged(merged);
       });
     }
     // Step 1: turn any screenshots into visible review text before deriving. On OCR failure the
