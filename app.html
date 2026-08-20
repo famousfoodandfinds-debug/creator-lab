@@ -12195,6 +12195,10 @@ function showMainTab(tab) {
   // Scripts with no product open is nothing to show, so it means Home. Other tabs leave Home.
   if (tab === "scripts" && !(typeof currentProductId !== "undefined" && currentProductId)) { goHome(); return; }
   document.body.classList.remove("home-landing");
+  // The product workspace (#inputSection: the brief + setup) is the Scripts tab's content. Every OTHER
+  // tab must hide it, or the brief bleeds through on top of Favorites/History (planner/carousel already
+  // hide it via their mode classes, but set it explicitly so nothing leaks).
+  var _isec = document.getElementById("inputSection"); if (_isec) _isec.style.display = (tab === "scripts") ? "" : "none";
   ["scripts","favorites","history","planner","carousel"].forEach(function(t) {
     var btn = document.getElementById("mainTab" + t.charAt(0).toUpperCase() + t.slice(1));
     if (btn) btn.classList.toggle("active", t === tab);
