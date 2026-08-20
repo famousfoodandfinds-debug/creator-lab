@@ -869,7 +869,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
         <div id="psReviewList" style="max-height:260px;overflow-y:auto;margin-bottom:8px;"></div>
         <div id="psReviewAddArea" style="display:none;margin-bottom:8px;">
           <div class="field-hints-line" style="margin-bottom:8px;">Paste new reviews only. These are added to your set, not replacing it. Separate reviews with a blank line.</div>
-          <textarea id="psReviewNew" maxlength="20000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste new customer reviews here. Separate each review with a blank line."></textarea>
+          <textarea id="psReviewNew" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste new customer reviews here. Separate each review with a blank line."></textarea>
           <div style="display:flex;gap:8px;margin-top:8px;">
             <button type="button" id="psReviewAddConfirm" style="flex:1;background:var(--purple);border:none;border-radius:10px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:700;padding:11px;cursor:pointer;">Add these reviews</button>
             <button type="button" id="psReviewAddCancel" style="background:transparent;border:1px solid var(--border-md);border-radius:10px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:11px 14px;cursor:pointer;">Cancel</button>
@@ -14039,9 +14039,13 @@ function genOneScript(opts){
     });
   }
 
+  var MAX_PASTE_CHARS = 600000;   // generous; a big multi-review paste with long bodies fits easily
   function addReviewsFromBox(){
     var text = val("psReviewNew").trim();
     if (!text){ reviewMsg("Paste at least one review first.", "var(--red)"); return; }
+    // Never silently drop: if a paste is enormous, refuse and ask for smaller batches (the add flow
+    // appends, so batching loses nothing) rather than truncating and freezing a wrong count.
+    if (text.length > MAX_PASTE_CHARS){ reviewMsg("That paste is very large (" + text.length.toLocaleString() + " characters). Add it in two or three smaller batches so none of it is dropped.", "var(--red)"); return; }
     var res = SB.addReviews(raw, SB.splitReviews(text).map(function(b){ return { full: b, source: "paste" }; }));
     raw = res.raw;
     toggleReviewAdd(false);
