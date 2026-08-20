@@ -14040,7 +14040,9 @@ function genOneScript(opts){
     content.push({ type: "text", text: "These are customer REVIEW screenshots for one product. Read every review shown. For EACH distinct review, return an object with: reviewer (a short phrase describing who they are or their use-case if stated, else empty string), full (the COMPLETE review text transcribed verbatim, word for word), praise (the single benefit this reviewer is most happy about, in their own words), complaint (the main complaint, objection, or hesitation, empty string if none), quote (one short verbatim sentence that best captures it). Transcribe faithfully. Do NOT invent or infer beyond what is written, do NOT shorten the full field, and ignore star widgets, avatars, dates, and UI chrome. Return ONLY a JSON array and nothing else." });
     claudeCall({ model: "claude-haiku-4-5-20251001", max_tokens: 3000, messages: [{ role: "user", content: content }] }, function(text, err){
       if (err){ cb(null, err); return; }
-      var arr = parseJson(text, "[", "]"); if (!Array.isArray(arr)) arr = [];
+      var arr = parseJson(text, "[", "]");
+      // Do not silently treat an unparseable reply as "no reviews" -- that would clear the screenshots.
+      if (!Array.isArray(arr)){ cb(null, { status: 200, message: "the screenshot text could not be read as JSON. Reply started: " + String(text || "").replace(/\s+/g, " ").slice(0, 160) }); return; }
       cb(arr.map(function(r){ r = r || {}; return { reviewer: String(r.reviewer||""), full: String(r.full||""), praise: String(r.praise||""), complaint: String(r.complaint||""), quote: String(r.quote||""), source: "ocr" }; }).filter(function(r){ return r.full || r.quote; }), null);
     });
   }
@@ -14078,17 +14080,23 @@ function genOneScript(opts){
       "",
       "RULES:",
       "- count = how many of the reviews IN THIS BATCH mention that point (0 to " + reviewsChunk.length + "). Base counts ONLY on the reviews in this batch, not the listing.",
-      "- words = the buyer's own emotional or identity phrases, quoted short and verbatim, SAFE to reuse in marketing.",
-      "- claims = performance or result claims a buyer makes (e.g. 'cured my back pain'). Keep these SEPARATE from words. They are the buyer's claim, NOT a fact to assert.",
-      "- pains and objections are arrays; return several distinct items each when the reviews support them, most-mentioned first.",
+      "- words = the buyer's own emotional or identity phrases, quoted short and verbatim, SAFE to reuse in marketing. At most 3 per line.",
+      "- claims = performance or result claims a buyer makes (e.g. 'cured my back pain'). Keep these SEPARATE from words. They are the buyer's claim, NOT a fact to assert. At most 3 per line.",
+      "- pains and objections are arrays; return AT MOST 4 distinct items each, most-mentioned first.",
+      "- Keep every value under 15 words. Return AT MOST 5 features.",
       "- Leave value empty ('') for anything the material does not support. Do not invent.",
-      "- Do not use em dashes anywhere. Use plain sentences."
+      "- Do not use em dashes anywhere. Use plain sentences.",
+      "- Return ONLY the JSON object. No preamble, no explanation, no markdown fences."
     ].join("\n");
   }
   function deriveChunk(reviewsChunk, cb){
-    claudeCall({ model: DERIVE_MODEL, max_tokens: 1500, messages: [{ role: "user", content: derivePrompt(reviewsChunk) }] }, function(text, err){
+    claudeCall({ model: DERIVE_MODEL, max_tokens: 3000, messages: [{ role: "user", content: derivePrompt(reviewsChunk) }] }, function(text, err){
       if (err){ cb(null, err); return; }
-      cb(parseJson(text, "{", "}"), null);
+      var obj = parseJson(text, "{", "}");
+      // A 200 with unparseable text (usually a cut-off JSON) must surface as a real error, not a
+      // misleading "no response" -- include the actual reply so the cause is visible.
+      if (!obj){ cb(null, { status: 200, message: "the model reply could not be read as JSON (likely cut off). Reply started: " + String(text || "").replace(/\s+/g, " ").slice(0, 200) }); return; }
+      cb(obj, null);
     });
   }
   function saveBrief(cb){
