@@ -230,6 +230,23 @@ ok(u.pains.length === 2 && u.objections.length === 1, 'unified: nothing duplicat
 let u2 = B.applyUnifiedClusters([{value:'a',terms:['a']}], [{value:'b',terms:['b']}], { clusters:[], dropped:[] }, 10);
 ok(u2.pains.length===1 && u2.objections.length===1, 'unified: forgotten items kept in their original list');
 
+// 9j. a product WITH reviews but NO brief yet must yield a fully valid, renderable empty brief
+// (every prior test assumed a brief exists; this is the new-product empty state that was blank).
+let noBriefProduct = { id:'p1', raw:{ reviews:[{full:'battery dies fast'},{full:'filter clogs'}] }, brief:null };
+let nb = B.getBrief(noBriefProduct);
+ok(nb && nb.meta, 'empty state: getBrief on a no-brief product returns a brief with meta (no throw on brief.meta)');
+ok(nb.meta.lastDerivedAt === null, 'empty state: not derived (button should read Build brief)');
+ok(B.LINE_KEYS.every(k => nb.lines[k.key] !== undefined), 'empty state: all 11 lines present');
+ok(B.isThin(nb) === true, 'empty state: isThin true, does not throw');
+// the exact accesses renderBrief makes on an empty brief must not throw
+let renderSafe = true;
+try {
+  void (!!nb.meta.lastDerivedAt);
+  void (nb.meta.reviewCount | 0);
+  B.mustHaveKeys().forEach(k => { let ln = nb.lines[k]; if (Array.isArray(ln)) ln.forEach(x => { B.evidence(nb, x); B.safeWords(x); B.claims(x); }); else { B.evidence(nb, ln); B.safeWords(ln); B.claims(ln); } });
+} catch(e){ renderSafe = false; }
+ok(renderSafe, 'empty state: every brief access renderBrief makes is safe on a no-brief product');
+
 // 10. storage glue reads dedicated columns
 let prod = { brief: m3.brief, raw: r.raw };
 ok(B.getBrief(prod).lines.pains.length === m3.brief.lines.pains.length, 'getBrief reads .brief column');

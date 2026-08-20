@@ -14525,21 +14525,20 @@ function genOneScript(opts){
   }
   function renderBrief(changes){
     var host = el("briefBelow"); if (!host) return; host.innerHTML = "";
-    var derived = !!brief.meta.lastDerivedAt;
+
+    // The card and its Build button are built and attached FIRST, using ONLY the local `deriving` flag
+    // -- no brief access -- so a null/odd brief or any body error below can never remove the primary
+    // action. This is why a product with reviews but no brief yet still gets a working Build button.
+    var b = (brief && brief.meta) ? brief : SB.emptyBrief();
+    var derived = !!b.meta.lastDerivedAt;
+    var reviewsN = (raw && raw.reviews) ? raw.reviews.length : 0;
 
     var card = document.createElement("div");
     card.style.cssText = "background:var(--panel,var(--surface));border:1px solid var(--border-md);border-radius:14px;padding:18px 18px 16px;";
-
-    // header: title + action button
     var head = document.createElement("div"); head.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px;";
     var titleWrap = document.createElement("div");
     var title = document.createElement("div"); title.style.cssText = "font-size:16px;font-weight:600;color:var(--white);"; title.textContent = "Conversion brief"; titleWrap.appendChild(title);
-    var sub = document.createElement("div"); sub.style.cssText = "font-size:12px;color:var(--muted);margin-top:2px;";
-    var n = brief.meta.reviewCount | 0;
-    if (!derived) sub.textContent = "Saxe reads your reviews and material, then writes the brief that feeds every script.";
-    else if (SB.isThin(brief)) sub.textContent = "Based on only " + n + " review" + (n===1?"":"s") + ". Add more for stronger evidence.";
-    else sub.textContent = "Based on " + n + " review" + (n===1?"":"s") + ".";
-    titleWrap.appendChild(sub);
+    var sub = document.createElement("div"); sub.style.cssText = "font-size:12px;color:var(--muted);margin-top:2px;"; titleWrap.appendChild(sub);
     head.appendChild(titleWrap);
 
     var btn = document.createElement("button"); btn.type = "button";
@@ -14549,56 +14548,58 @@ function genOneScript(opts){
     btn.addEventListener("click", deriveBrief);
     head.appendChild(btn);
     card.appendChild(head);
-
     var stat = document.createElement("div"); stat.id = "briefStatus"; stat.style.cssText = "font-size:12px;color:var(--muted);margin-top:8px;display:none;line-height:1.5;"; card.appendChild(stat);
+    host.appendChild(card);   // card + Build button are now guaranteed on screen
 
-    // Append NOW so the Build button is guaranteed on screen even if the body below throws -- the
-    // primary action must never disappear because of a render hiccup or a messy input.
-    host.appendChild(card);
+    // Everything past this point is defensive: it can enrich the card but must never remove it.
+    try {
+      var n = b.meta.reviewCount | 0;
+      if (!derived) sub.textContent = reviewsN
+        ? ("No brief yet. Build it from your " + reviewsN + " review" + (reviewsN===1?"":"s") + " and material.")
+        : "Saxe reads your reviews and material, then writes the brief that feeds every script.";
+      else if (SB.isThin(b)) sub.textContent = "Based on only " + n + " review" + (n===1?"":"s") + ". Add more for stronger evidence.";
+      else sub.textContent = "Based on " + n + " review" + (n===1?"":"s") + ".";
 
-    // Non-blocking notice: a stored review may contain more than one review. Name the rows and let the
-    // creator decide -- Build stays enabled. (Never gate the primary action on a tidy paste.)
-    var suspects = SB.suspectMergedIndices(raw.reviews);
-    if (suspects.length){
-      var warn = document.createElement("div");
-      warn.style.cssText = "margin-top:10px;background:rgba(240,170,60,.10);border:1px solid rgba(240,170,60,.35);border-radius:8px;padding:9px 11px;font-size:12px;color:var(--white-dim);line-height:1.5;";
-      warn.textContent = "Heads up: review " + suspects.join(", ") + " in your list " + (suspects.length===1?"looks":"look") + " like " + (suspects.length===1?"it may hold":"they may hold") + " more than one review. Open the list to check, and remove or re-paste if wrong. You can still build the brief.";
-      card.appendChild(warn);
-    }
-
-    if (derived) try {
-      // change summary from the last derivation
-      if (changes && changes.length){
-        var chg = document.createElement("div"); chg.style.cssText = "font-size:12px;color:var(--white-dim);margin-top:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;";
-        chg.textContent = "Updated " + changes.length + " line" + (changes.length===1?"":"s") + ". Lines you edited by hand were kept.";
-        card.appendChild(chg);
+      // Non-blocking notice: a stored review may hold more than one. Name the rows; Build stays enabled.
+      var suspects = SB.suspectMergedIndices((raw && raw.reviews) || []);
+      if (suspects.length){
+        var warn = document.createElement("div");
+        warn.style.cssText = "margin-top:10px;background:rgba(240,170,60,.10);border:1px solid rgba(240,170,60,.35);border-radius:8px;padding:9px 11px;font-size:12px;color:var(--white-dim);line-height:1.5;";
+        warn.textContent = "Heads up: review " + suspects.join(", ") + " in your list " + (suspects.length===1?"looks":"look") + " like " + (suspects.length===1?"it may hold":"they may hold") + " more than one review. Open the list to check, and remove or re-paste if wrong. You can still build the brief.";
+        card.appendChild(warn);
       }
-      var body = document.createElement("div"); body.style.cssText = "margin-top:14px;";
-      var mustKeys = SB.mustHaveKeys();
-      SB.LINE_KEYS.forEach(function(k){
-        if (mustKeys.indexOf(k.key) < 0) return;
-        body.appendChild(k.list ? listBlock(k.label, brief.lines[k.key]) : singleBlock(k.label, brief.lines[k.key]));
-      });
-      card.appendChild(body);
 
-      // the rest behind an expander
-      var rest = document.createElement("div"); rest.style.cssText = "margin-top:6px;display:none;";
-      SB.LINE_KEYS.forEach(function(k){
-        if (mustKeys.indexOf(k.key) >= 0) return;
-        rest.appendChild(k.list ? listBlock(k.label, brief.lines[k.key]) : singleBlock(k.label, brief.lines[k.key]));
-      });
-      if (brief.features && brief.features.length){
-        var fh = document.createElement("div"); fh.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:4px 0 3px;"; fh.textContent = "Features to benefits"; rest.appendChild(fh);
-        brief.features.forEach(function(f){ var row = document.createElement("div"); row.style.cssText = "font-size:14px;line-height:1.5;color:var(--white);margin-bottom:4px;"; row.textContent = "• " + f.feature + (f.benefit ? " → " + f.benefit : ""); rest.appendChild(row); });
+      if (derived){
+        if (changes && changes.length){
+          var chg = document.createElement("div"); chg.style.cssText = "font-size:12px;color:var(--white-dim);margin-top:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;";
+          chg.textContent = "Updated " + changes.length + " line" + (changes.length===1?"":"s") + ". Lines you edited by hand were kept.";
+          card.appendChild(chg);
+        }
+        var body = document.createElement("div"); body.style.cssText = "margin-top:14px;";
+        var mustKeys = SB.mustHaveKeys();
+        SB.LINE_KEYS.forEach(function(k){
+          if (mustKeys.indexOf(k.key) < 0) return;
+          body.appendChild(k.list ? listBlock(k.label, b.lines[k.key]) : singleBlock(k.label, b.lines[k.key]));
+        });
+        card.appendChild(body);
+
+        var rest = document.createElement("div"); rest.style.cssText = "margin-top:6px;display:none;";
+        SB.LINE_KEYS.forEach(function(k){
+          if (mustKeys.indexOf(k.key) >= 0) return;
+          rest.appendChild(k.list ? listBlock(k.label, b.lines[k.key]) : singleBlock(k.label, b.lines[k.key]));
+        });
+        if (b.features && b.features.length){
+          var fh = document.createElement("div"); fh.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:4px 0 3px;"; fh.textContent = "Features to benefits"; rest.appendChild(fh);
+          b.features.forEach(function(f){ var row = document.createElement("div"); row.style.cssText = "font-size:14px;line-height:1.5;color:var(--white);margin-bottom:4px;"; row.textContent = "• " + f.feature + (f.benefit ? " → " + f.benefit : ""); rest.appendChild(row); });
+        }
+        var toggle = document.createElement("button"); toggle.type = "button"; toggle.textContent = "Show all 11 lines";
+        toggle.style.cssText = "margin-top:10px;background:transparent;border:1px solid var(--border-md);border-radius:8px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 12px;cursor:pointer;";
+        toggle.addEventListener("click", function(){ var open = rest.style.display !== "none"; rest.style.display = open ? "none" : "block"; toggle.textContent = open ? "Show all 11 lines" : "Show fewer"; });
+        card.appendChild(toggle);
+        card.appendChild(rest);
       }
-      var toggle = document.createElement("button"); toggle.type = "button"; toggle.textContent = "Show all 11 lines";
-      toggle.style.cssText = "margin-top:10px;background:transparent;border:1px solid var(--border-md);border-radius:8px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 12px;cursor:pointer;";
-      toggle.addEventListener("click", function(){ var open = rest.style.display !== "none"; rest.style.display = open ? "none" : "block"; toggle.textContent = open ? "Show all 11 lines" : "Show fewer"; });
-      card.appendChild(toggle);
-      card.appendChild(rest);
     } catch(e){
-      // A body render error must not blank the card (and its Build button). Show a line, keep the action.
-      var er = document.createElement("div"); er.style.cssText = "font-size:12px;color:var(--red);margin-top:10px;"; er.textContent = "Could not render the brief details, but you can rebuild."; card.appendChild(er);
+      var er = document.createElement("div"); er.style.cssText = "font-size:12px;color:var(--red);margin-top:10px;"; er.textContent = "Could not render the brief details, but you can still build."; card.appendChild(er);
     }
   }
 
