@@ -1478,7 +1478,15 @@ function onSignedIn() {
   // Show full UI for all users immediately
   document.body.classList.remove("hub-mode");
 
-  // Landing: quiet product picker when the library is non-empty; blank new-product form when empty.
+  // Landing: ALWAYS the quiet page on sign-in. Reveal it here directly (hide the setup screen and the
+  // product toolbar, show the four-button landing) so this never depends on the product module loading,
+  // then let ProductScreen sync its own state. This is why sign-in no longer falls into the setup form.
+  (function revealLanding(){
+    var tp = document.getElementById("textPanel"); if (tp) tp.style.display = "none";
+    var hl = document.getElementById("homeLanding"); if (hl) hl.style.display = "";
+    var pb = document.querySelector(".product-bar"); if (pb) pb.style.display = "none";
+    var hp = document.getElementById("homePicker"); if (hp) hp.style.display = "none";
+  })();
   if (window.ProductScreen && ProductScreen.renderHome) ProductScreen.renderHome();
 
   // If signed in via magic link show set password popup
@@ -14680,9 +14688,10 @@ function genOneScript(opts){
     if (el("setupToggle"))  el("setupToggle").addEventListener("click", function(){ setSetupOpen(el("setupWrap") && el("setupWrap").style.display === "none"); });
     if (el("homePickerSearch")) el("homePickerSearch").addEventListener("input", function(){ renderHomePicker(this.value); });
   }
-  if (document.readyState !== "loading") init(); else document.addEventListener("DOMContentLoaded", init);
-
+  // Export FIRST, so a throw inside init() can never leave window.ProductScreen undefined.
   window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome, openPicker: openPicker };
+  function safeInit(){ try { init(); } catch(e){ if (window.console) console.error("ProductScreen init failed", e); } }
+  if (document.readyState !== "loading") safeInit(); else document.addEventListener("DOMContentLoaded", safeInit);
 })();
 </script>
 
