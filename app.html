@@ -13569,7 +13569,8 @@ function genOneScript(opts){
       praise:    str(r.praise),
       complaint: str(r.complaint),
       quote:     str(r.quote),
-      source:    str(r.source || "paste")   // "paste" | "ocr" | "competitor"
+      source:    str(r.source || "paste"),  // "paste" | "ocr" | "competitor"
+      derived:   !!r.derived                // true once this review has been fed into a derivation
     };
   }
 
@@ -13594,6 +13595,13 @@ function genOneScript(opts){
     r.reviews = r.reviews.concat(added);
     return { raw: r, added: added.length, rejected: rejected, atCap: r.reviews.length >= cap };
   }
+
+  // Incremental derivation: a review is derived ONCE, then never re-extracted. This is what makes the
+  // brief stable -- the findings and their phrases are persisted, and a rebuild only reads reviews that
+  // are new since the last build. newReviews() returns those; markReviewsDerived() flags them all after
+  // a successful build (including any added mid-build via screenshot OCR).
+  function newReviews(raw){ return arr(raw && raw.reviews).filter(function(r){ return !(r && r.derived); }); }
+  function markReviewsDerived(raw){ var r = normalizeRaw(raw); r.reviews.forEach(function(rv){ rv.derived = true; }); return r; }
 
   // Split reviews into chunks for derivation so a single big paste is not one oversized model call.
   function chunkReviews(reviews, size){
@@ -13675,6 +13683,52 @@ function genOneScript(opts){
     b.meta.lastDerivedAt = opts.now || null;   // caller passes a timestamp; kept null-safe for tests
     if (opts.promptVersion) b.meta.promptVersion = str(opts.promptVersion);
     return { brief: b, changes: changes };
+  }
+
+  // ---- incremental merge (rebuild = extend, not replace) ----------------------------------------
+  // Fold a derivation over only the NEW reviews into the stored brief WITHOUT churning what is already
+  // there. Single lines: an existing value is kept for stability (new phrases are unioned in to improve
+  // matching); an empty line is filled. Hand-edited lines are never touched. List lines: existing
+  // findings are all kept and new ones appended (exact-dup folded); semantic dedup of new-vs-old is the
+  // consolidation pass's job. Counts are set afterwards by the deterministic recount, not here.
+  function mergeIncremental(brief, newDerived, opts){
+    var b = normalizeBrief(brief);
+    newDerived = obj(newDerived); opts = obj(opts);
+    var dLines = obj(newDerived.lines);
+    LINE_KEYS.forEach(function(k){
+      var key = k.key;
+      if (k.list){
+        var incoming = arr(dLines[key]).map(normLine).filter(function(l){ return l.value; });
+        var out = [], seen = {};
+        arr(b.lines[key]).concat(incoming).forEach(function(l){
+          l = normLine(l); if (!l.value) return; var nk = norm(l.value);
+          if (seen[nk] != null){ var ex = out[seen[nk]];
+            l.words.forEach(function(w){ if (w && ex.words.indexOf(w) < 0) ex.words.push(w); });
+            l.claims.forEach(function(c){ if (c && ex.claims.indexOf(c) < 0) ex.claims.push(c); });
+            ex.edited = ex.edited || l.edited;
+          } else { seen[nk] = out.length; out.push(l); }
+        });
+        b.lines[key] = out;
+      } else {
+        var cur = normLine(b.lines[key]);
+        if (cur.edited){ b.lines[key] = cur; return; }              // never touch a hand-edit
+        var d = dLines[key] ? normLine(dLines[key]) : null;
+        if (!d || !d.value){ b.lines[key] = cur; return; }
+        if (cur.value){                                            // keep value for stability, union phrases
+          d.words.forEach(function(w){ if (w && cur.words.indexOf(w) < 0) cur.words.push(w); });
+          d.claims.forEach(function(c){ if (c && cur.claims.indexOf(c) < 0) cur.claims.push(c); });
+          b.lines[key] = cur;
+        } else { d.edited = false; b.lines[key] = d; }             // fill an empty line
+      }
+    });
+    var newF = arr(newDerived.features);
+    if (newF.length){
+      var seenF = {}; arr(b.features).forEach(function(f){ seenF[norm(f.feature)] = true; });
+      newF.forEach(function(f){ f = obj(f); var fn = str(f.feature); if (fn && !seenF[norm(fn)]){ seenF[norm(fn)] = true; b.features.push({ feature: fn, benefit: str(f.benefit), edited: false }); } });
+    }
+    if (opts.now) b.meta.lastDerivedAt = opts.now;
+    if (opts.promptVersion) b.meta.promptVersion = str(opts.promptVersion);
+    return b;
   }
 
   // ---- multi-chunk merge ------------------------------------------------------------------------
@@ -13769,16 +13823,26 @@ function genOneScript(opts){
     texts.forEach(function(hay){ for (var i = 0; i < ps.length; i++){ if (hay.indexOf(" " + ps[i] + " ") >= 0){ c++; return; } } });
     return c;
   }
-  // Overwrite every line's count with the deterministic review-scan count. Words are the search terms
-  // (unioned across variants by consolidation), so a merged "knives go dull" catches "blunt" too.
+  // Keep only phrases actually present in the reviews, so displayed buyer language is always real and a
+  // "Not quoted" finding never shows a phrase underneath (that self-contradiction was a bug).
+  function verifyPhrases(phrases, reviews){ return arr(phrases).map(str).filter(function(p){ return p && countInReviews([p], reviews) > 0; }); }
+  // Overwrite every line's count with the deterministic review-scan count, and prune words/claims to
+  // the ones truly in the reviews. count = reviews containing any verified word OR claim, so count 0
+  // means nothing was quoted and no chips render.
   function recountFindings(merged, reviews){
     merged = obj(merged);
     var total = arr(reviews).length;
     var lines = obj(merged.lines);
+    function recount(it){
+      it.words  = verifyPhrases(it.words, reviews);
+      it.claims = verifyPhrases(it.claims, reviews);
+      it.count  = countInReviews(it.words.concat(it.claims), reviews);
+      it.total  = total;
+    }
     LINE_KEYS.forEach(function(k){
       var v = lines[k.key];
-      if (k.list){ arr(v).forEach(function(it){ it.count = countInReviews(it.words, reviews); it.total = total; }); }
-      else if (v && typeof v === "object"){ v.count = countInReviews(v.words, reviews); v.total = total; }
+      if (k.list){ arr(v).forEach(recount); }
+      else if (v && typeof v === "object"){ recount(v); }
     });
     merged.meta = obj(merged.meta); merged.meta.reviewCount = total;
     return merged;
@@ -13806,10 +13870,13 @@ function genOneScript(opts){
     getRaw: getRaw,
     reviewCount: reviewCount,
     addReviews: addReviews,
+    newReviews: newReviews,
+    markReviewsDerived: markReviewsDerived,
     chunkReviews: chunkReviews,
     markEdited: markEdited,
     editLine: editLine,
     mergeChunkDerivations: mergeChunkDerivations,
+    mergeIncremental: mergeIncremental,
     applyClusters: applyClusters,
     countInReviews: countInReviews,
     recountFindings: recountFindings,
@@ -13833,7 +13900,7 @@ function genOneScript(opts){
   var raw = SB.emptyRaw();
   var brief = SB.emptyBrief();          // derived, light column; loaded on open, rebuilt by deriveBrief
   var deriving = false;                 // guards the derive button against double-fire
-  var DERIVE_PROMPT_V = "brief-derive-2";
+  var DERIVE_PROMPT_V = "brief-derive-3";
   var DERIVE_BATCH = 15;                // reviews per derivation call -- kept small so each call
   var DERIVE_REVIEW_CHARS = 600;        // returns well inside Netlify's ~26s sync gateway limit
   var DERIVE_MODEL = "claude-haiku-4-5-20251001"; // fast enough not to hit the gateway 504
@@ -14153,6 +14220,7 @@ function genOneScript(opts){
       "- pains and objections are arrays; return AT MOST 4 distinct items each, most-mentioned first.",
       "- Keep every value under 15 words. Return AT MOST 5 features.",
       "- Leave value empty ('') for anything the material does not support. Do not invent.",
+      "- NEVER state a number of reviews, a star rating, a percentage, or any statistic in a value (e.g. do NOT write 'all 15 reviewers gave 5 stars'). You are seeing only part of the reviews and do not know the totals. Describe the pattern in words only ('reviewers consistently report high satisfaction').",
       "- Do not use em dashes anywhere. Use plain sentences.",
       "- Return ONLY the JSON object. No preamble, no explanation, no markdown fences."
     ].join("\n");
@@ -14196,15 +14264,19 @@ function genOneScript(opts){
       cb(parseJson(text, "{", "}"), null);
     });
   }
-  function saveBrief(cb){
+  // Persist BOTH columns in one write: the derived brief AND raw (whose review `derived` flags are what
+  // make the next rebuild incremental). If this does not land, the flags do not stick and the caller
+  // rolls back, so a review is never marked derived without its brief being saved.
+  function saveBriefAndRaw(cb){
     if (!currentProductId || typeof currentUser === "undefined" || !currentUser || typeof sb === "undefined" || !sb){ cb(false); return; }
-    sb.from("products").update({ brief: brief, updated_at: new Date().toISOString() }).eq("id", currentProductId).select("id").single()
+    sb.from("products").update({ brief: brief, raw: raw, updated_at: new Date().toISOString() }).eq("id", currentProductId).select("id").single()
       .then(function(r){ if (r && !r.error){ lastSavedAt = new Date(); } cb(!!(r && !r.error)); }, function(){ cb(false); });
   }
-  // ALL-OR-NOTHING: a chunked run either fully succeeds and is saved, or ANY failed batch aborts the
-  // whole run WITHOUT saving. Your existing brief is never overwritten by a half-counted result, and
-  // review screenshots are only consumed once they have successfully become text. On failure you keep
-  // everything you had; you re-run to try again (the completed batches are re-derived on retry).
+  // INCREMENTAL + ALL-OR-NOTHING. A build extracts ONLY reviews new since the last build, then merges
+  // into the stored brief (never re-extracting what is already there -- that is what keeps the brief
+  // stable). No new reviews means NO model calls at all: just a deterministic recount. Any failed batch
+  // aborts without saving; the existing brief and reviews are untouched. Screenshots become text only
+  // once OCR succeeds. Counts are always recomputed in code, so they never drift between builds.
   function deriveBrief(){
     if (deriving) return;
     if (!currentProductId){ deriveStatus("Add some material first (it saves as you type), then build the brief.", "var(--red)"); scheduleSave(); return; }
@@ -14215,45 +14287,57 @@ function genOneScript(opts){
       var msg = (err && err.message) ? err.message : "unknown error";
       deriveStatus(where + " failed (" + code + ": " + msg + "). Nothing was saved; your existing brief and reviews are untouched. Try again.", "var(--red)");
     }
-    function runChunks(){
-      var chunks = SB.chunkReviews(raw.reviews, DERIVE_BATCH);
-      if (!chunks.length) chunks = [[]];              // no reviews: still derive once from listing + comments
+    // Persist the merged brief AND the raw (so review `derived` flags stick). All-or-nothing on save.
+    function commit(finalBrief, isFirstOrChanged){
+      var prevBrief = brief, prevRaw = raw;
+      brief = finalBrief;
+      raw = SB.markReviewsDerived(raw);
+      renderReviewList();
+      saveBriefAndRaw(function(okSave){
+        if (!okSave){ brief = prevBrief; raw = prevRaw; deriving = false; renderBrief(); renderReviewList(); deriveStatus("Brief built but could not be saved. Your previous brief is kept. Try again.", "var(--red)"); return; }
+        deriving = false; renderBrief();
+        deriveStatus(isFirstOrChanged ? "Brief updated." : "No new reviews. Counts refreshed.", "var(--green)");
+      });
+    }
+    function consolidateAndCommit(mergedBrief, changed){
+      var total = raw.reviews.length;
+      deriveStatus("Merging similar findings...");
+      // Consolidate the COMBINED list (existing + new) so a new finding folds into an existing one.
+      consolidateFindings(mergedBrief.lines.pains, mergedBrief.lines.objections, function(spec, err){
+        if (spec && !err){
+          if (spec.pains) mergedBrief.lines.pains = SB.applyClusters(mergedBrief.lines.pains, spec.pains, total);
+          if (spec.objections) mergedBrief.lines.objections = SB.applyClusters(mergedBrief.lines.objections, spec.objections, total);
+        }
+        SB.recountFindings(mergedBrief, raw.reviews);   // counts + verified phrases, deterministic
+        commit(mergedBrief, changed);
+      });
+    }
+    // Extract only the reviews new since the last build; merge them into the stored brief.
+    function runNewReviews(){
+      var fresh = SB.newReviews(raw);
+      var alreadyBuilt = !!brief.meta.lastDerivedAt;
+      if (!fresh.length && alreadyBuilt){
+        // Nothing new: recount the existing brief against current reviews (handles removals too). Free.
+        SB.recountFindings(brief, raw.reviews);
+        commit(brief, false);
+        return;
+      }
+      var chunks = SB.chunkReviews(fresh, DERIVE_BATCH);
+      if (!chunks.length) chunks = [[]];               // first build with no reviews: derive from listing once
       var results = [], i = 0;
       (function next(){
-        if (i >= chunks.length){ finish(results); return; }
-        deriveStatus(chunks.length > 1 ? ("Building brief... batch " + (i+1) + " of " + chunks.length) : "Building brief...");
+        if (i >= chunks.length){
+          var newDerived = SB.mergeChunkDerivations(results, raw.reviews.length);
+          var mergedBrief = SB.mergeIncremental(brief, newDerived, { now: new Date().toISOString(), promptVersion: DERIVE_PROMPT_V });
+          consolidateAndCommit(mergedBrief, true);
+          return;
+        }
+        deriveStatus(chunks.length > 1 ? ("Reading new reviews... batch " + (i+1) + " of " + chunks.length) : "Reading your reviews...");
         deriveChunk(chunks[i], function(obj, err){
           if (err || !obj){ fail("Building the brief (batch " + (i+1) + " of " + chunks.length + ")", err); return; }
           results.push(obj); i++; next();
         });
       })();
-    }
-    function saveMerged(merged){
-      var applied = SB.applyDerivation(brief, merged, { now: new Date().toISOString(), promptVersion: DERIVE_PROMPT_V });
-      var prevBrief = brief;
-      brief = applied.brief;
-      saveBrief(function(okSave){
-        if (!okSave){ brief = prevBrief; deriving = false; renderBrief(); deriveStatus("Brief built but could not be saved. Your previous brief is kept. Try again.", "var(--red)"); return; }
-        deriving = false; renderBrief(applied.changes);
-        deriveStatus("Brief updated.", "var(--green)");
-      });
-    }
-    function finish(results){
-      var merged = SB.mergeChunkDerivations(results, raw.reviews.length);
-      var total = raw.reviews.length;
-      // Best-effort semantic consolidation of the list findings. If it fails, keep the exact-merged
-      // lists (still a valid brief) rather than aborting -- a cleanup call is not worth losing the build.
-      deriveStatus("Merging similar findings...");
-      consolidateFindings(merged.lines.pains, merged.lines.objections, function(spec, err){
-        if (spec && !err){
-          if (spec.pains) merged.lines.pains = SB.applyClusters(merged.lines.pains, spec.pains, total);
-          if (spec.objections) merged.lines.objections = SB.applyClusters(merged.lines.objections, spec.objections, total);
-        }
-        // Discard the model's estimated counts and recount deterministically against the real reviews,
-        // AFTER consolidation so each finding's unioned phrase variants are all used as search terms.
-        SB.recountFindings(merged, raw.reviews);
-        saveMerged(merged);
-      });
     }
     // Step 1: turn any screenshots into visible review text before deriving. On OCR failure the
     // screenshots are KEPT (not cleared) so they are never lost, and the run aborts.
@@ -14261,13 +14345,12 @@ function genOneScript(opts){
       deriveStatus("Reading " + raw.reviewShots.length + " screenshot" + (raw.reviewShots.length>1?"s":"") + "...");
       ocrShots(raw.reviewShots.slice(), function(arr, err){
         if (err){ fail("Reading the review screenshots", err); return; }
-        if (arr && arr.length){ var res = SB.addReviews(raw, arr); raw = res.raw; }
-        raw.reviewShots = [];                          // consumed into review text (visible + removable)
+        if (arr && arr.length){ var res = SB.addReviews(raw, arr); raw = res.raw; }   // new reviews: derived=false
+        raw.reviewShots = [];
         renderReviewList(); renderReviewCount();
-        saveNow();
-        runChunks();
+        runNewReviews();
       });
-    } else { runChunks(); }
+    } else { runNewReviews(); }
   }
 
   // ---- brief display ---------------------------------------------------------------------------
