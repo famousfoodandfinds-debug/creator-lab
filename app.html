@@ -14191,16 +14191,9 @@ function genOneScript(opts){
     lastSavedAt = product.updated_at ? new Date(product.updated_at) : null;
     showForm(true); renderInputs(); setSetupOpen(!brief.meta.lastDerivedAt); setSaved("saved");
   }
-  // Sign-in landing: quiet page with New product / My products / Planner / Carousels. If the library is
-  // empty, drop straight into a blank new-product screen instead.
-  function renderHome(){
-    if (typeof currentUser === "undefined" || !currentUser || typeof sb === "undefined" || !sb){ showForm(true); renderBlank(); return; }
-    sb.from("products").select("id").eq("user_id", currentUser.id).limit(1).then(function(r){
-      var rows = (r && !r.error && r.data) ? r.data : [];
-      if (!rows.length){ showForm(true); renderBlank(); return; }
-      showForm(false);
-    }, function(){ showForm(true); renderBlank(); });
-  }
+  // Sign-in ALWAYS lands on the quiet page (New product / My products / Planner / Carousels), whether or
+  // not the library has products. New product is how you reach the blank setup form -- never sign-in.
+  function renderHome(){ showForm(false); }
 
   // "My products": one inline picker with search + open + rename + delete (folds in Manage). Single path.
   function openPicker(){
