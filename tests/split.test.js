@@ -75,5 +75,24 @@ ok(mdOut.some(r => /No es muy fuerte/.test(r)), 'MD: the Spanish review survives
 eq(B.suspectMergedCount(mdOut.map(f => ({ full: f }))), 0, 'MD: suspectMergedCount 0 on a good split');
 eq(B.suspectMergedCount([{ full: md }]), 1, 'MD: whole unsplit paste flagged as merged (the failed-split signature)');
 
+// ---- NEW: PLAIN-text Amazon paste (what actually lands in the textarea) ----------------------------
+// Same 20 reviews, but no markdown link syntax: reviewer name on its own line, then "N out of 5 stars"
+// plain, then "Reviewed in ... on". Exercises the star anchor + trailing-name boundary fix.
+const plain = fs.readFileSync(__dirname + '/fixtures/amazon2_plain.txt', 'utf8');
+const pOut = splitReviews(plain);
+eq(pOut.length, 20, 'PLAIN: plain-text Amazon paste splits into 20 reviews');
+// boundary fix: the giant Dallas review must NOT end with the next reviewer name "Beansssss"
+const dallas = pOut.find(r => /HEPA/.test(r) && r.length > 800);
+ok(dallas, 'PLAIN: Dallas review present and whole');
+ok(dallas && !/Beansssss\s*$/.test(dallas), 'PLAIN: Dallas review does NOT end with the next reviewer name (boundary fixed)');
+ok(pOut.some(r => /^Beansssss/.test(r)), 'PLAIN: "Beansssss" starts its own review, not trailing the previous one');
+// clean split => nothing flagged as merged
+eq(B.suspectMergedCount(pOut.map(f => ({ full: f }))), 0, 'PLAIN: no review flagged as merged after the boundary fix');
+ok(pOut.some(r => /No es muy fuerte/.test(r)), 'PLAIN: the Spanish review survives');
+
+// suspectMergedIndices names the offending row (1-based) and never throws on clean input
+eq(JSON.stringify(B.suspectMergedIndices([{ full: 'a' }, { full: plain }, { full: 'b' }])), JSON.stringify([2]), 'suspectMergedIndices: names the merged row (1-based)');
+eq(JSON.stringify(B.suspectMergedIndices(pOut.map(f => ({ full: f })))), JSON.stringify([]), 'suspectMergedIndices: empty on a clean split');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
