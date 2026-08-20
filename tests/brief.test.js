@@ -202,6 +202,34 @@ ok(vMerged.lines.pains[0].claims.length === 0, 'recount: unverified claim pruned
 ok(vMerged.lines.pains[0].count === 1, 'recount: count = reviews with a verified phrase');
 ok(vMerged.lines.who.words.length === 0 && vMerged.lines.who.count === 0, 'recount: line with no real phrase => 0 count, no chips (no self-contradiction)');
 
+// 9h. terms: count the concept across paraphrases, unioned through merge + incremental
+let reviewsT = [ {full:'the battery only lasts 10 minutes'}, {full:'charge dies so fast'}, {full:'run time is short'}, {full:'love the suction'} ];
+let mT = { lines: { pains: [ { value:'battery life', words:['battery'], terms:['battery','charge','run time','minutes'] } ] } };
+B.recountFindings(mT, reviewsT);
+ok(mT.lines.pains[0].count === 3, 'terms: battery concept counted across paraphrases (3 of 4), not 1');
+let tc1 = { lines: { pains: [ { value:'battery', terms:['battery','charge'] } ] } };
+let tc2 = { lines: { pains: [ { value:'battery', terms:['run time','dies'] } ] } };
+let tm = B.mergeChunkDerivations([tc1, tc2], 20);
+ok(tm.lines.pains[0].terms.length === 4, 'terms: unioned across chunks');
+let baseT = B.emptyBrief(); baseT.lines.pains = [ { value:'battery', words:[], claims:[], terms:['battery'], count:0, total:0, edited:false } ];
+let miT = B.mergeIncremental(baseT, { lines: { pains: [ { value:'battery', terms:['charge','run time'] } ] } });
+ok(miT.lines.pains[0].terms.indexOf('charge') >= 0 && miT.lines.pains[0].terms.indexOf('battery') >= 0, 'terms: incremental unions terms into kept finding');
+ok(B.emptyBrief().lines.who.terms && Array.isArray(B.emptyBrief().lines.who.terms), 'terms: present in the line shape');
+
+// 9i. applyUnifiedClusters: a concept in BOTH lists collapses to ONE category (no pain/objection dup)
+let uPains = [ { value:'battery dies fast', terms:['battery','dies'], count:5 }, { value:'filter clogs', terms:['filter','clog'], count:4 } ];
+let uObjs  = [ { value:'worried battery wont last', terms:['battery','last'], count:2 }, { value:'is it worth the price', terms:['price','worth'], count:1 } ];
+let uSpec = { clusters: [ { value:'battery life', category:'pain', members:[0,2] }, { value:'filter clogging', category:'pain', members:[1] }, { value:'price worth it', category:'objection', members:[3] } ], dropped:[] };
+let u = B.applyUnifiedClusters(uPains, uObjs, uSpec, 20);
+let allP = u.pains.map(p=>p.value), allO = u.objections.map(o=>o.value);
+ok(allP.includes('battery life') && !allO.includes('battery life'), 'unified: battery collapses to ONE category, not both');
+ok(u.pains.find(p=>p.value==='battery life').terms.indexOf('last') >= 0, 'unified: merged cluster unions terms from both lists');
+ok(u.pains.find(p=>p.value==='battery life').count === 7, 'unified: merged cluster sums counts across lists (5+2)');
+ok(allP.includes('filter clogging') && allO.includes('price worth it'), 'unified: other concepts placed in their category');
+ok(u.pains.length === 2 && u.objections.length === 1, 'unified: nothing duplicated across the two lists');
+let u2 = B.applyUnifiedClusters([{value:'a',terms:['a']}], [{value:'b',terms:['b']}], { clusters:[], dropped:[] }, 10);
+ok(u2.pains.length===1 && u2.objections.length===1, 'unified: forgotten items kept in their original list');
+
 // 10. storage glue reads dedicated columns
 let prod = { brief: m3.brief, raw: r.raw };
 ok(B.getBrief(prod).lines.pains.length === m3.brief.lines.pains.length, 'getBrief reads .brief column');
