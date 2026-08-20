@@ -247,6 +247,39 @@ try {
 } catch(e){ renderSafe = false; }
 ok(renderSafe, 'empty state: every brief access renderBrief makes is safe on a no-brief product');
 
+// 9k. sentiment-aware counting via classified hits
+ok(typeof B.reviewHash === 'function' && B.reviewHash('abc') === B.reviewHash('abc'), 'reviewHash: deterministic');
+ok(B.reviewHash('abc') !== B.reviewHash('abd'), 'reviewHash: differs by content');
+let ridRaw = B.normalizeRaw({ reviews:[{full:'sharpener works great'},{full:'sharpener never sharpens'}] });
+ok(ridRaw.reviews[0].id && ridRaw.reviews[0].id !== ridRaw.reviews[1].id, 'normReview: stable distinct ids');
+ok('hits' in B.emptyBrief().lines.who && Array.isArray(B.emptyBrief().lines.who.hits), 'line shape: hits array present');
+// recount: classified => count from hits (sentiment), not keyword topic
+let idA = B.reviewHash('sharpener works great'), idB = B.reviewHash('sharpener never sharpens'), idC = B.reviewHash('love the block');
+let clsReviews = [ {id:idA, full:'sharpener works great'}, {id:idB, full:'sharpener never sharpens'}, {id:idC, full:'love the block'} ];
+let clsBrief = B.emptyBrief();
+clsBrief.lines.objections = [ { value:'sharpener does not work', words:[], claims:[], terms:['sharpener'], hits:[idB], count:0, total:0, edited:false } ];
+clsBrief.meta.classified = true;
+B.recountFindings(clsBrief, clsReviews);
+ok(clsBrief.lines.objections[0].count === 1, 'recount(classified): counts only the sentiment-matching review (1, not 2 by keyword)');
+ok(clsBrief.lines.objections[0].total === 3, 'recount(classified): total = stored reviews');
+// removing the hit review drops the count deterministically
+B.recountFindings(clsBrief, [ {id:idA, full:'sharpener works great'}, {id:idC, full:'love the block'} ]);
+ok(clsBrief.lines.objections[0].count === 0, 'recount(classified): removed review drops the hit');
+// not-classified brief falls back to keyword terms (backward compatible)
+let fbBrief = B.emptyBrief(); fbBrief.lines.pains = [ { value:'x', words:[], claims:[], terms:['sharpener'], hits:[], count:0, total:0, edited:false } ];
+B.recountFindings(fbBrief, clsReviews);
+ok(fbBrief.lines.pains[0].count === 2, 'recount(unclassified): falls back to keyword terms (2)');
+// applyHits sets hits + flips classified
+let ahBrief = B.emptyBrief();
+ahBrief.lines.pains = [ { value:'battery dies', words:[], claims:[], terms:[], hits:[], count:0, total:0, edited:false } ];
+ahBrief.lines.who = { value:'busy parents', words:[], claims:[], terms:[], hits:[], count:0, total:0, edited:false };
+B.applyHits(ahBrief, { pains:[{ value:'battery dies', hits:['r1','r2'] }], who:{ hits:['r1'] } });
+ok(ahBrief.lines.pains[0].hits.length === 2 && ahBrief.lines.who.hits.length === 1, 'applyHits: hits assigned by value/key');
+ok(ahBrief.meta.classified === true, 'applyHits: flips meta.classified');
+// hits + classified survive normalizeBrief (persist through load)
+let rt = B.normalizeBrief(JSON.parse(JSON.stringify(ahBrief)));
+ok(rt.meta.classified === true && rt.lines.pains[0].hits.length === 2, 'normalizeBrief: hits + classified round-trip');
+
 // 10. storage glue reads dedicated columns
 let prod = { brief: m3.brief, raw: r.raw };
 ok(B.getBrief(prod).lines.pains.length === m3.brief.lines.pains.length, 'getBrief reads .brief column');

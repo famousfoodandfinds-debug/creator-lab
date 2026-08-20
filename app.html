@@ -13558,30 +13558,34 @@ function genOneScript(opts){
   // scripts. `claims` are buyer performance claims, NOT safe to assert (a review claiming a result
   // is not the listing claiming it) -- stored separately and labelled so generation can keep them out
   // of assertion positions. `count`/`total` are the evidence: mentions out of reviews actually stored.
-  function line(value, words, claims, count, total, terms){
+  function line(value, words, claims, count, total, terms, hits){
     return {
       value: str(value),
       words: arr(words).map(str),     // verbatim buyer language -- for DISPLAY (safe to reuse)
       claims: arr(claims).map(str),   // buyer performance claims -- kept separate, not for assertion
-      terms: arr(terms).map(str),     // broad keyword/synonym variants -- for COUNTING the concept across paraphrases
-      count: count|0,
-      total: total|0,
+      terms: arr(terms).map(str),     // keyword hints (kept, but no longer the count source)
+      hits: arr(hits).map(str),       // ids of reviews the model classified as expressing THIS finding
+      count: count|0,                 // (with correct sentiment). Count = hits still present. This is why
+      total: total|0,                 // "sharpener works great" no longer counts toward "sharpener fails".
       edited: false
     };
   }
   function normLine(x){
     x = obj(x);
-    var l = line(x.value, x.words, x.claims, x.count, x.total, x.terms);
+    var l = line(x.value, x.words, x.claims, x.count, x.total, x.terms, x.hits);
     l.edited = !!x.edited;
     if (x.id) l.id = str(x.id);
     return l;
   }
   function unionInto(dst, src){ arr(src).forEach(function(v){ v = str(v); if (v && dst.indexOf(v) < 0) dst.push(v); }); return dst; }
+  // Stable, content-derived id for a review (djb2). Same text -> same id, so ids survive reload and
+  // duplicate pastes collapse. Findings reference these ids in `hits`, so counts are deterministic.
+  function reviewHash(s){ s = str(s); var h = 5381, i = s.length; while (i) h = (h * 33) ^ s.charCodeAt(--i); return "r" + (h >>> 0).toString(36); }
 
   // The DERIVED brief -- lightweight, loaded on every product open. Holds NO raw source text: just
   // the structured lines (each with its evidence words + counts), features, and meta.
   function emptyBrief(){
-    var b = { v: BRIEF_V, lines: {}, features: [], meta: { reviewCount: 0, lastDerivedAt: null, promptVersion: "" } };
+    var b = { v: BRIEF_V, lines: {}, features: [], meta: { reviewCount: 0, lastDerivedAt: null, promptVersion: "", classified: false } };
     LINE_KEYS.forEach(function(k){ b.lines[k.key] = k.list ? [] : line(""); });
     return b;
   }
@@ -13613,6 +13617,7 @@ function genOneScript(opts){
     b.meta.reviewCount   = meta.reviewCount|0;
     b.meta.lastDerivedAt = meta.lastDerivedAt || null;
     b.meta.promptVersion = str(meta.promptVersion);
+    b.meta.classified    = !!meta.classified;
     return b;
   }
   function normalizeRaw(x){
@@ -13630,9 +13635,11 @@ function genOneScript(opts){
 
   function normReview(r){
     r = obj(r);
+    var full = str(r.full);
     return {
+      id:        str(r.id) || reviewHash(full),   // stable content id; findings' `hits` reference it
       reviewer:  str(r.reviewer),
-      full:      str(r.full),
+      full:      full,
       praise:    str(r.praise),
       complaint: str(r.complaint),
       quote:     str(r.quote),
@@ -14008,19 +14015,24 @@ function genOneScript(opts){
   // Keep only phrases actually present in the reviews, so displayed buyer language is always real and a
   // "Not quoted" finding never shows a phrase underneath (that self-contradiction was a bug).
   function verifyPhrases(phrases, reviews){ return arr(phrases).map(str).filter(function(p){ return p && countInReviews([p], reviews) > 0; }); }
-  // Overwrite every line's count with the deterministic review-scan count. words/claims are pruned to
-  // the ones truly in the reviews (they are DISPLAYED, so must be real), but `terms` are the broad
-  // count keys (synonyms/symptoms, not shown) and are NOT pruned. count = reviews containing ANY term,
-  // word, or claim -- so a concept is counted across paraphrases ("battery"/"charge"/"run time"/"dies")
-  // instead of one exact phrase, while a count of 0 still means nothing matched and no chips render.
+  // Count each finding from its classified HITS (reviews the model judged to actually express it, with
+  // correct sentiment), intersected with the reviews still stored -- so removing a review drops its
+  // contribution and the number is stable across rebuilds. Keyword term-matching is only a FALLBACK for
+  // a brief that has not been classified yet (meta.classified false), e.g. an old brief or first paint.
+  // words/claims are still pruned to what is truly in the reviews, since they are displayed.
   function recountFindings(merged, reviews){
     merged = obj(merged);
+    merged.meta = obj(merged.meta);
     var total = arr(reviews).length;
+    var classified = !!merged.meta.classified;
+    var idset = {}; arr(reviews).forEach(function(r){ idset[(typeof r === "string") ? r : (obj(r).id || reviewHash(obj(r).full))] = true; });
     var lines = obj(merged.lines);
     function recount(it){
       it.words  = verifyPhrases(it.words, reviews);
       it.claims = verifyPhrases(it.claims, reviews);
-      it.count  = countInReviews(arr(it.terms).concat(it.words).concat(it.claims), reviews);
+      it.hits   = arr(it.hits).filter(function(h){ return idset[h]; });   // drop hits for removed reviews
+      it.count  = classified ? it.hits.length
+                             : countInReviews(arr(it.terms).concat(it.words).concat(it.claims), reviews);
       it.total  = total;
     }
     LINE_KEYS.forEach(function(k){
@@ -14028,7 +14040,26 @@ function genOneScript(opts){
       if (k.list){ arr(v).forEach(recount); }
       else if (v && typeof v === "object"){ recount(v); }
     });
-    merged.meta = obj(merged.meta); merged.meta.reviewCount = total;
+    merged.meta.reviewCount = total;
+    return merged;
+  }
+
+  // Apply a classification result: spec is { "<lineKey>": [{value, hits:[reviewId]}...] } for list lines
+  // and { "<lineKey>": {hits:[reviewId]} } for single lines, matched to findings by normalized value.
+  // Sets each finding's hits (sentiment-correct membership) and flips meta.classified so counts use them.
+  function applyHits(merged, spec){
+    merged = obj(merged); spec = obj(spec);
+    var lines = obj(merged.lines);
+    LINE_KEYS.forEach(function(k){
+      var s = spec[k.key];
+      if (k.list){
+        var byVal = {}; arr(s).forEach(function(e){ e = obj(e); byVal[norm(e.value)] = arr(e.hits).map(str); });
+        arr(lines[k.key]).forEach(function(it){ var h = byVal[norm(it.value)]; if (h) it.hits = h; });
+      } else if (lines[k.key] && typeof lines[k.key] === "object"){
+        var one = obj(s); if (one && one.hits) lines[k.key].hits = arr(one.hits).map(str);
+      }
+    });
+    merged.meta = obj(merged.meta); merged.meta.classified = true;
     return merged;
   }
 
@@ -14068,6 +14099,8 @@ function genOneScript(opts){
     applyUnifiedClusters: applyUnifiedClusters,
     countInReviews: countInReviews,
     recountFindings: recountFindings,
+    applyHits: applyHits,
+    reviewHash: reviewHash,
     applyDerivation: applyDerivation,
     evidence: evidence,
     safeWords: safeWords,
@@ -14088,7 +14121,7 @@ function genOneScript(opts){
   var raw = SB.emptyRaw();
   var brief = SB.emptyBrief();          // derived, light column; loaded on open, rebuilt by deriveBrief
   var deriving = false;                 // guards the derive button against double-fire
-  var DERIVE_PROMPT_V = "brief-derive-4";
+  var DERIVE_PROMPT_V = "brief-derive-5";
   var DERIVE_BATCH = 8;                 // reviews per derivation call -- smaller so each call stays inside
   var DERIVE_REVIEW_CHARS = 2000;       // Netlify's ~26s sync gateway even with the larger per-review excerpt
   var DERIVE_MODEL = "claude-haiku-4-5-20251001"; // fast enough not to hit the gateway 504
@@ -14457,35 +14490,112 @@ function genOneScript(opts){
   // emitted into both lands in exactly ONE cluster with ONE category, instead of being duplicated across
   // pains AND objections. The model clusters synonyms, assigns each cluster a category, and drops items
   // that do not belong; the count arithmetic stays in SaxeBrief.applyUnifiedClusters.
-  function consolidatePrompt(pains, objections){
+  function consolidatePrompt(pains, objections, features){
     var combined = pains.concat(objections);
     var listText = combined.length
       ? combined.map(function(it, i){ var origin = i < pains.length ? "pain" : "objection"; return i + ". [" + origin + "] " + it.value; }).join("\n")
       : "(none)";
+    var featText = features.length ? features.map(function(f, i){ return i + ". " + f.feature + (f.benefit ? " -> " + f.benefit : ""); }).join("\n") : "(none)";
     return [
-      "You are cleaning up complaints and hesitations pulled from customer reviews of ONE product. Here is ONE numbered list; each item is tagged with the category it was first filed under.",
+      "You are cleaning up findings pulled from customer reviews of ONE product.",
       "",
+      "LIST A -- complaints and hesitations (each tagged with the category it was first filed under):",
       listText,
       "",
+      "LIST B -- product features to benefits (these DUPLICATE badly across rebuilds; collapse them):",
+      featText,
+      "",
       "Return ONLY this JSON:",
-      '{"clusters":[{"value":"clearest label in buyer language","category":"pain","members":[0,3]}],"dropped":[]}',
+      '{"clusters":[{"value":"clearest label in buyer language","category":"pain","members":[0,3]}],"dropped":[],"features":[{"feature":"one feature","benefit":"what it does for the buyer","members":[0,2]}]}',
       "",
       "RULES:",
-      "- Group items that MEAN THE SAME THING into one cluster (e.g. 'battery dies fast', 'only lasts 10 minutes', 'short run time' are ONE). members are the item numbers.",
-      "- Each cluster gets ONE category: \"pain\" if it is a complaint about how the product performs or holds up, \"objection\" if it is a hesitation, doubt, risk, or question about buying. A concept belongs in ONE category only, even if it appeared under both tags in the list.",
-      "- value = the clearest phrasing in the buyer's own language, under 12 words.",
-      "- Every item number appears in exactly one cluster OR in dropped. Do not invent numbers.",
-      "- dropped = items that are not a genuine complaint or hesitation (e.g. a positive or a reason they DID buy).",
+      "- clusters/members refer to LIST A. Group items that MEAN THE SAME THING into one cluster.",
+      "- Each cluster gets ONE category: \"pain\" (a complaint about how the product performs or holds up) or \"objection\" (a hesitation, doubt, risk, or question about buying). A concept goes in ONE category only.",
+      "- value = clearest phrasing in the buyer's words, under 12 words. Every LIST A number appears in exactly one cluster OR in dropped. dropped = items that are not a genuine complaint or hesitation.",
+      "- features refer to LIST B: merge duplicates and near-duplicates into one entry each (members are the LIST B numbers), keep at most 8, drop vague ones. Do not invent numbers.",
       "- No em dashes. Return only the JSON."
     ].join("\n");
   }
-  function consolidateFindings(pains, objections, cb){
-    if ((pains.length + objections.length) < 2){ cb(null, null); return; }   // nothing to consolidate
-    claudeCall({ model: DERIVE_MODEL, max_tokens: 1500, messages: [{ role: "user", content: consolidatePrompt(pains, objections) }] }, function(text, err){
+  function consolidateFindings(pains, objections, features, cb){
+    if ((pains.length + objections.length + features.length) < 2){ cb(null, null); return; }
+    claudeCall({ model: DERIVE_MODEL, max_tokens: 1800, messages: [{ role: "user", content: consolidatePrompt(pains, objections, features) }] }, function(text, err){
       if (err){ cb(null, err); return; }
       cb(parseJson(text, "{", "}"), null);
     });
   }
+  // Apply the feature clusters from consolidation: one deduped feature per cluster, keeping edited pairs.
+  function applyFeatureClusters(features, clusters){
+    if (!clusters || !clusters.length) return features;
+    var used = {}, out = [];
+    clusters.forEach(function(c){ c = c || {};
+      var mem = (Array.isArray(c.members) ? c.members : []).map(function(i){ return i|0; }).filter(function(i){ return features[i] && !used[i]; });
+      if (!mem.length && !c.feature) return;
+      mem.forEach(function(i){ used[i] = true; });
+      var name = String(c.feature || (features[mem[0]] && features[mem[0]].feature) || "").trim();
+      if (name) out.push({ feature: name, benefit: String(c.benefit || (features[mem[0]] && features[mem[0]].benefit) || ""), edited: false });
+    });
+    features.forEach(function(f, i){ if (!used[i] && f && f.feature) out.push(f); });   // keep any the model forgot
+    return out.slice(0, 10);
+  }
+
+  // ---- sentiment-aware counting (classification) -----------------------------------------------
+  // Term/keyword matching finds the TOPIC not the SENTIMENT, so "the sharpener works great" was being
+  // counted toward "the sharpener does not work". Instead we ask the model, per review, which findings
+  // that review ACTUALLY expresses (with matching sentiment), and record the review's id in each
+  // finding's `hits`. Counts then come from hits (SB.recountFindings), and are frozen + deterministic.
+  function flatFindings(b){
+    var flat = [];
+    SB.LINE_KEYS.forEach(function(k){
+      var v = b.lines[k.key];
+      if (k.list){ (Array.isArray(v) ? v : []).forEach(function(it){ if (it && it.value) flat.push({ key: k.key, value: it.value }); }); }
+      else if (v && v.value){ flat.push({ key: k.key, value: v.value }); }
+    });
+    return flat;
+  }
+  function classifyPrompt(flat, reviewsBatch){
+    return [
+      "For each customer review below, list which of these product findings the review ACTUALLY expresses, WITH MATCHING SENTIMENT. A review praising a feature does NOT express a complaint about that feature, and vice versa. Only include a finding if the review clearly makes THAT point with THAT sentiment.",
+      "",
+      "FINDINGS:",
+      flat.map(function(f, i){ return i + ". " + f.value; }).join("\n"),
+      "",
+      "REVIEWS:",
+      reviewsBatch.map(function(r, i){ return "R" + i + ": " + reviewExcerpt(r.full || r.quote || ""); }).join("\n"),
+      "",
+      "Return ONLY a JSON object mapping each review to the finding numbers it genuinely expresses, e.g. {\"R0\":[1,4],\"R1\":[]}. Use [] when a review expresses none. Do not invent finding numbers."
+    ].join("\n");
+  }
+  // Classify all reviews against the final findings; returns a spec for SB.applyHits (hits per finding).
+  function classifyReviews(b, reviews, cb){
+    var flat = flatFindings(b);
+    if (!flat.length || !reviews.length){ cb({}, null); return; }
+    var hitIds = flat.map(function(){ return []; });              // finding index -> [reviewId]
+    var batches = SB.chunkReviews(reviews, DERIVE_BATCH), bi = 0;
+    (function next(){
+      if (bi >= batches.length){
+        // group hits back into a spec keyed by line, matched by finding value
+        var spec = {};
+        SB.LINE_KEYS.forEach(function(k){ spec[k.key] = k.list ? [] : { hits: [] }; });
+        flat.forEach(function(f, i){
+          if (k_is_list(f.key)) spec[f.key].push({ value: f.value, hits: hitIds[i] });
+          else spec[f.key] = { hits: hitIds[i] };
+        });
+        cb(spec, null); return;
+      }
+      var batch = batches[bi], base = bi * DERIVE_BATCH;
+      deriveStatus("Checking which reviews back each point... batch " + (bi+1) + " of " + batches.length);
+      claudeCall({ model: DERIVE_MODEL, max_tokens: 1500, messages: [{ role: "user", content: classifyPrompt(flat, batch) }] }, function(text, err){
+        if (err){ cb(null, err); return; }
+        var map = parseJson(text, "{", "}") || {};
+        batch.forEach(function(rv, j){
+          var nums = map["R" + j]; if (!Array.isArray(nums)) return;
+          nums.forEach(function(n){ n = n|0; if (hitIds[n] && hitIds[n].indexOf(rv.id) < 0) hitIds[n].push(rv.id); });
+        });
+        bi++; next();
+      });
+    })();
+  }
+  function k_is_list(key){ for (var i=0;i<SB.LINE_KEYS.length;i++) if (SB.LINE_KEYS[i].key === key) return !!SB.LINE_KEYS[i].list; return false; }
   // Persist BOTH columns in one write: the derived brief AND raw (whose review `derived` flags are what
   // make the next rebuild incremental). If this does not land, the flags do not stick and the caller
   // rolls back, so a review is never marked derived without its brief being saved.
@@ -14524,15 +14634,20 @@ function genOneScript(opts){
     function consolidateAndCommit(mergedBrief, changed){
       var total = raw.reviews.length;
       deriveStatus("Merging similar findings...");
-      // Consolidate the COMBINED list (existing + new) so a new finding folds into an existing one AND a
-      // concept lands in only pains OR objections, not both.
-      consolidateFindings(mergedBrief.lines.pains, mergedBrief.lines.objections, function(spec, err){
-        if (spec && !err && spec.clusters){
-          var u = SB.applyUnifiedClusters(mergedBrief.lines.pains, mergedBrief.lines.objections, spec, total);
-          mergedBrief.lines.pains = u.pains; mergedBrief.lines.objections = u.objections;
+      // Consolidate the COMBINED list (existing + new) so a new finding folds into an existing one, a
+      // concept lands in only pains OR objections, and duplicated features collapse.
+      consolidateFindings(mergedBrief.lines.pains, mergedBrief.lines.objections, mergedBrief.features, function(spec, err){
+        if (spec && !err){
+          if (spec.clusters){ var u = SB.applyUnifiedClusters(mergedBrief.lines.pains, mergedBrief.lines.objections, spec, total); mergedBrief.lines.pains = u.pains; mergedBrief.lines.objections = u.objections; }
+          if (spec.features){ mergedBrief.features = applyFeatureClusters(mergedBrief.features, spec.features); }
         }
-        SB.recountFindings(mergedBrief, raw.reviews);   // counts on terms + verified phrases, deterministic
-        commit(mergedBrief, changed);
+        // Sentiment-aware counting: classify reviews against the FINAL findings, record hits, count from
+        // them. Best-effort -- if it fails, meta.classified stays false and counts fall back to keywords.
+        classifyReviews(mergedBrief, raw.reviews, function(hitSpec, cErr){
+          if (hitSpec && !cErr) SB.applyHits(mergedBrief, hitSpec);
+          SB.recountFindings(mergedBrief, raw.reviews);
+          commit(mergedBrief, changed);
+        });
       });
     }
     // Extract only the reviews new since the last build; merge them into the stored brief.
@@ -14574,6 +14689,18 @@ function genOneScript(opts){
         runNewReviews();
       });
     } else { runNewReviews(); }
+  }
+
+  // Rebuild from scratch: normal builds only EXTEND (they keep existing single-line values forever, so a
+  // stale value like "All 15 reviewers..." can never self-correct). This discards the whole brief AND any
+  // hand-edits, un-marks every review so they are all re-read, then runs a full fresh derivation.
+  function rebuildFromScratch(){
+    if (deriving) return;
+    if (!currentProductId){ deriveStatus("Add some material first, then build the brief.", "var(--red)"); scheduleSave(); return; }
+    if (!window.confirm("Rebuild the whole brief from scratch?\n\nThis DISCARDS the current brief and any lines you edited by hand, then re-derives everything from your reviews. Your reviews and product setup are kept.")) return;
+    brief = SB.emptyBrief();
+    raw.reviews.forEach(function(r){ r.derived = false; });
+    deriveBrief();
   }
 
   // ---- brief display ---------------------------------------------------------------------------
@@ -14712,6 +14839,14 @@ function genOneScript(opts){
         toggle.addEventListener("click", function(){ var open = rest.style.display !== "none"; rest.style.display = open ? "none" : "block"; toggle.textContent = open ? "Show all 11 lines" : "Show fewer"; });
         card.appendChild(toggle);
         card.appendChild(rest);
+
+        // Rebuild-from-scratch escape hatch: Update only extends, so kept single-line values can go stale.
+        var scratch = document.createElement("button"); scratch.type = "button"; scratch.textContent = "Rebuild from scratch";
+        scratch.disabled = deriving;
+        scratch.style.cssText = "display:block;margin-top:14px;background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;text-decoration:underline;cursor:pointer;padding:2px 0;";
+        scratch.title = "Discard the current brief and hand-edits, then re-derive everything from your reviews";
+        scratch.addEventListener("click", rebuildFromScratch);
+        card.appendChild(scratch);
       }
     } catch(e){
       var er = document.createElement("div"); er.style.cssText = "font-size:12px;color:var(--red);margin-top:10px;"; er.textContent = "Could not render the brief details, but you can still build."; card.appendChild(er);
