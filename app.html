@@ -602,6 +602,24 @@ body.carousel-mode .product-bar,
 body.carousel-mode #deleteBar,
 body.carousel-mode #dailyMeterSection { display: none !important; }
 
+/* Home landing: hide EVERY product/tab surface so only the four-button page shows. This is what keeps
+   the price selector, the Type/Upload toggle, the script bank, and the toolbar off the landing. */
+body.home-landing #inputSection .input-options,
+body.home-landing #textPanel,
+body.home-landing #priceSelectorMount,
+body.home-landing #priceWrap,
+body.home-landing #genBtn,
+body.home-landing #mainContent,
+body.home-landing .product-bar,
+body.home-landing #deleteBar,
+body.home-landing #dailyMeterSection,
+body.home-landing #favoritesPanel,
+body.home-landing #historyPanel,
+body.home-landing #plannerPanel,
+body.home-landing #carouselPanel { display: none !important; }
+body.home-landing #inputSection { display: block !important; }
+body.home-landing #homeLanding { display: block !important; }
+
 /* Carousel Studio lives in an isolated, same-origin iframe so its styles/scripts
    cannot collide with the app. The panel just fills the area under the header. */
 #carouselPanel { display: none; }
@@ -837,7 +855,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
     <div style="font-size:19px;font-weight:600;color:var(--white);margin-bottom:4px;text-align:center;">What do you want to do?</div>
     <div style="font-size:13px;color:var(--muted);margin-bottom:22px;text-align:center;">Start something new, or open a product you are already working on.</div>
     <div style="display:grid;gap:10px;">
-      <button type="button" onclick="showNew()" style="width:100%;background:var(--accent,#6C5CE7);border:none;border-radius:12px;color:#fff;font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">New product</button>
+      <button type="button" onclick="showNew()" style="width:100%;background:var(--gold);border:none;border-radius:12px;color:#080808;font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">New product</button>
       <button type="button" onclick="if(window.ProductScreen)ProductScreen.openPicker()" style="width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">My products</button>
       <button type="button" onclick="if(typeof showMainTab==='function')showMainTab('planner')" style="width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">Planner</button>
       <button type="button" onclick="if(typeof showMainTab==='function')showMainTab('carousel')" style="width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">Carousels</button>
@@ -1481,12 +1499,7 @@ function onSignedIn() {
   // Landing: ALWAYS the quiet page on sign-in. Reveal it here directly (hide the setup screen and the
   // product toolbar, show the four-button landing) so this never depends on the product module loading,
   // then let ProductScreen sync its own state. This is why sign-in no longer falls into the setup form.
-  (function revealLanding(){
-    var tp = document.getElementById("textPanel"); if (tp) tp.style.display = "none";
-    var hl = document.getElementById("homeLanding"); if (hl) hl.style.display = "";
-    var pb = document.querySelector(".product-bar"); if (pb) pb.style.display = "none";
-    var hp = document.getElementById("homePicker"); if (hp) hp.style.display = "none";
-  })();
+  goHome();
   if (window.ProductScreen && ProductScreen.renderHome) ProductScreen.renderHome();
 
   // If signed in via magic link show set password popup
@@ -12158,7 +12171,30 @@ function pushCarouselProducts() {
   });
 }
 
+// Home = the quiet landing. Reachable from anywhere (the SAXE logo, or the Scripts tab with no product
+// open). Adds the home-landing class (CSS hides every product/tab surface) and clears the tab highlight.
+function goHome() {
+  document.body.classList.remove("planner-mode");
+  document.body.classList.remove("carousel-mode");
+  document.body.classList.remove("hub-mode");
+  var pp = document.getElementById("plannerPanel"); if (pp) pp.style.display = "none";
+  var cp = document.getElementById("carouselPanel"); if (cp) cp.style.display = "none";
+  document.body.classList.add("home-landing");
+  var hl = document.getElementById("homeLanding"); if (hl) hl.style.display = "";
+  var tp = document.getElementById("textPanel"); if (tp) tp.style.display = "none";
+  var hp = document.getElementById("homePicker"); if (hp) hp.style.display = "none";
+  ["scripts","favorites","history","planner","carousel"].forEach(function(t){ var b = document.getElementById("mainTab" + t.charAt(0).toUpperCase() + t.slice(1)); if (b) b.classList.remove("active"); });
+}
+// The SAXE logo is the universal Home button -- click it from anywhere to return to the landing.
+(function(){
+  function wireHome(){ var lk = document.querySelector(".brand-lockup"); if (lk){ lk.style.cursor = "pointer"; lk.title = "Home"; lk.addEventListener("click", goHome); } }
+  if (document.readyState !== "loading") wireHome(); else document.addEventListener("DOMContentLoaded", wireHome);
+})();
+
 function showMainTab(tab) {
+  // Scripts with no product open is nothing to show, so it means Home. Other tabs leave Home.
+  if (tab === "scripts" && !(typeof currentProductId !== "undefined" && currentProductId)) { goHome(); return; }
+  document.body.classList.remove("home-landing");
   ["scripts","favorites","history","planner","carousel"].forEach(function(t) {
     var btn = document.getElementById("mainTab" + t.charAt(0).toUpperCase() + t.slice(1));
     if (btn) btn.classList.toggle("active", t === tab);
@@ -14180,6 +14216,8 @@ function genOneScript(opts){
   // Toggle the product screen (#textPanel) vs the quiet landing (#homeLanding); the product toolbar
   // (search / sort / manage / new) only shows while a product screen is open, so the landing stays clean.
   function showForm(yes){
+    // The home-landing body class hides ALL product/tab chrome via CSS; opening a product removes it.
+    if (yes) document.body.classList.remove("home-landing"); else document.body.classList.add("home-landing");
     var tp = el("textPanel"); if (tp) tp.style.display = yes ? "" : "none";
     var hl = el("homeLanding"); if (hl) hl.style.display = yes ? "none" : "";
     var pb = document.querySelector(".product-bar"); if (pb) pb.style.display = yes ? "" : "none";
@@ -14617,7 +14655,7 @@ function genOneScript(opts){
     var btn = document.createElement("button"); btn.type = "button";
     btn.textContent = deriving ? "Working..." : (derived ? "Update brief" : "Build brief");
     btn.disabled = deriving;
-    btn.style.cssText = "flex-shrink:0;background:" + (deriving ? "var(--surface)" : "var(--accent,#6C5CE7)") + ";border:none;border-radius:10px;color:#fff;font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:10px 16px;cursor:" + (deriving ? "default" : "pointer") + ";opacity:" + (deriving ? ".6" : "1") + ";";
+    btn.style.cssText = "flex-shrink:0;background:" + (deriving ? "var(--surface)" : "var(--gold)") + ";border:none;border-radius:10px;color:" + (deriving ? "var(--white)" : "#080808") + ";font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:10px 16px;cursor:" + (deriving ? "default" : "pointer") + ";opacity:" + (deriving ? ".6" : "1") + ";";
     btn.addEventListener("click", deriveBrief);
     head.appendChild(btn);
     card.appendChild(head);
