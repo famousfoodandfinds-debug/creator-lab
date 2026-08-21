@@ -13578,11 +13578,15 @@ function genOneScript(opts){
   // Stable, content-derived id for a review (djb2). Same text -> same id, so ids survive reload and
   // duplicate pastes collapse. Findings reference these ids in `hits`, so counts are deterministic.
   function reviewHash(s){ s = str(s); var h = 5381, i = s.length; while (i) h = (h * 33) ^ s.charCodeAt(--i); return "r" + (h >>> 0).toString(36); }
+  // Stable signature of a free-text block (djb2 over whitespace-normalized content). Used to tell whether
+  // the comments have CHANGED since the brief last read them, so new comment material triggers a rebuild
+  // the same way new reviews do. Empty/blank text -> "" (there is nothing to read).
+  function materialSig(s){ s = str(s).replace(/\s+/g, " ").trim(); if (!s) return ""; var h = 5381, i = s.length; while (i) h = (h * 33) ^ s.charCodeAt(--i); return "m" + (h >>> 0).toString(36); }
 
   // The DERIVED brief -- lightweight, loaded on every product open. Holds NO raw source text: just
   // the structured lines (each with its evidence words + counts), features, and meta.
   function emptyBrief(){
-    var b = { v: BRIEF_V, lines: {}, features: [], meta: { reviewCount: 0, lastDerivedAt: null, promptVersion: "", classified: false } };
+    var b = { v: BRIEF_V, lines: {}, features: [], meta: { reviewCount: 0, lastDerivedAt: null, promptVersion: "", classified: false, commentsHash: "" } };
     LINE_KEYS.forEach(function(k){ b.lines[k.key] = k.list ? [] : line(""); });
     return b;
   }
@@ -13615,6 +13619,7 @@ function genOneScript(opts){
     b.meta.lastDerivedAt = meta.lastDerivedAt || null;
     b.meta.promptVersion = str(meta.promptVersion);
     b.meta.classified    = !!meta.classified;
+    b.meta.commentsHash  = str(meta.commentsHash);
     return b;
   }
   function normalizeRaw(x){
@@ -14098,6 +14103,7 @@ function genOneScript(opts){
     recountFindings: recountFindings,
     applyHits: applyHits,
     reviewHash: reviewHash,
+    materialSig: materialSig,
     applyDerivation: applyDerivation,
     evidence: evidence,
     safeWords: safeWords,
@@ -14684,6 +14690,9 @@ function genOneScript(opts){
     }
     // Persist the merged brief AND the raw (so review `derived` flags stick). All-or-nothing on save.
     function commit(finalBrief, isFirstOrChanged){
+      // Record the comments the brief has now read, so the next build knows whether they changed. This is
+      // the comment-side twin of the review `derived` flags -- both are what make "nothing new" honest.
+      finalBrief.meta.commentsHash = SB.materialSig(raw.competitorComments);
       var prevBrief = brief, prevRaw = raw;
       brief = finalBrief;
       raw = SB.markReviewsDerived(raw);
@@ -14691,7 +14700,7 @@ function genOneScript(opts){
       saveBriefAndRaw(function(okSave){
         if (!okSave){ brief = prevBrief; raw = prevRaw; deriving = false; renderBrief(); renderReviewList(); deriveStatus("Brief built but could not be saved. Your previous brief is kept. Try again.", "var(--red)"); return; }
         deriving = false; renderBrief();
-        deriveStatus(isFirstOrChanged ? "Brief updated." : "No new reviews. Counts refreshed.", "var(--green)");
+        deriveStatus(isFirstOrChanged ? "Brief updated." : "Nothing new to read. Counts refreshed.", "var(--green)");
       });
     }
     function consolidateAndCommit(mergedBrief, changed){
@@ -14717,14 +14726,21 @@ function genOneScript(opts){
     function runNewReviews(){
       var fresh = SB.newReviews(raw);
       var alreadyBuilt = !!brief.meta.lastDerivedAt;
-      if (!fresh.length && alreadyBuilt){
-        // Nothing new: recount the existing brief against current reviews (handles removals too). Free.
+      // Comments are a source of the brief too (a major one for objections when the reviews skew positive),
+      // so new comment material must trigger a rebuild the same way a new review does -- not be ignored
+      // because the review set did not change. Track a signature of what the brief last read.
+      var commentsChanged = SB.materialSig(raw.competitorComments) !== (brief.meta.commentsHash || "");
+      if (!fresh.length && alreadyBuilt && !commentsChanged){
+        // Truly nothing new anywhere: recount the existing brief against current reviews (handles
+        // removals too). Free -- no model calls.
         SB.recountFindings(brief, raw.reviews);
         commit(brief, false);
         return;
       }
       var chunks = SB.chunkReviews(fresh, DERIVE_BATCH);
-      if (!chunks.length) chunks = [[]];               // first build with no reviews: derive from listing once
+      // No new reviews but new comments (or a first build): run ONE pass so the comments are actually read.
+      // derivePrompt attaches the comments as context, so an empty-review chunk still mines them.
+      if (!chunks.length) chunks = [[]];
       var results = [], i = 0;
       (function next(){
         if (i >= chunks.length){
@@ -14733,7 +14749,8 @@ function genOneScript(opts){
           consolidateAndCommit(mergedBrief, true);
           return;
         }
-        deriveStatus(chunks.length > 1 ? ("Reading new reviews... batch " + (i+1) + " of " + chunks.length) : "Reading your reviews...");
+        deriveStatus(chunks.length > 1 ? ("Reading new reviews... batch " + (i+1) + " of " + chunks.length)
+                     : (fresh.length ? "Reading your reviews..." : "Reading the new comments..."));
         deriveChunk(chunks[i], function(obj, err){
           if (err || !obj){ fail("Building the brief (batch " + (i+1) + " of " + chunks.length + ")", err); return; }
           results.push(obj); i++; next();

@@ -307,5 +307,24 @@ let prod = { brief: m3.brief, raw: r.raw };
 ok(B.getBrief(prod).lines.pains.length === m3.brief.lines.pains.length, 'getBrief reads .brief column');
 ok(B.reviewCount(B.getRaw(prod)) === 2, 'getRaw reads .raw column');
 
+// 11. materialSig: comments are tracked as derived material, so new comments trigger a rebuild.
+ok(B.materialSig('') === '' && B.materialSig('   \n ') === '', 'materialSig: blank text has no signature');
+ok(B.materialSig('too pricey for what it is') === B.materialSig('too pricey  for   what it is'), 'materialSig: whitespace-insensitive (stable across trivial edits)');
+ok(B.materialSig('too pricey') !== B.materialSig('runs out of battery'), 'materialSig: different content -> different signature');
+ok(B.materialSig('a') !== '', 'materialSig: real text -> a signature (not empty)');
+// the exact predicate deriveBrief uses to decide "comments are new material"
+let cmBrief = B.emptyBrief();                         // fresh brief has never read any comments
+ok(cmBrief.meta.commentsHash === '', 'commentsHash: empty on a never-derived brief');
+let noComments = B.materialSig('') !== (cmBrief.meta.commentsHash || '');
+ok(noComments === false, 'decision: no comments + never-read -> NOT changed (no needless rebuild)');
+let addedComments = B.materialSig('too pricey for a knife') !== (cmBrief.meta.commentsHash || '');
+ok(addedComments === true, 'decision: pasting comments into a built brief counts as new material (rebuild)');
+// after a build stamps the signature, the SAME comments no longer count as new
+cmBrief.meta.commentsHash = B.materialSig('too pricey for a knife');
+ok((B.materialSig('too pricey for a knife') !== cmBrief.meta.commentsHash) === false, 'decision: unchanged comments do NOT rebuild after being read');
+ok((B.materialSig('too pricey for a knife\nalso rusts') !== cmBrief.meta.commentsHash) === true, 'decision: editing/adding to the comments counts as new again');
+// commentsHash survives a storage round-trip (so the tracking is not lost on reload)
+ok(B.normalizeBrief({ meta: { commentsHash: 'mabc' } }).meta.commentsHash === 'mabc', 'commentsHash: preserved through normalizeBrief (persists across loads)');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
