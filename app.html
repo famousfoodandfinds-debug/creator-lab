@@ -898,7 +898,7 @@ body.home-landing #homeLanding { display: block !important; }
 
       <!-- Customer reviews: a growing SET. Reviews are added, never replaced. The box for new
            reviews is always empty so it is never ambiguous whether you are editing or adding. -->
-      <div style="margin-bottom:16px;">
+      <div id="psReviewBox" style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Customer reviews</div>
         <div class="field-hints-line" style="margin-bottom:8px;">Paste a mix, leaning positive: the happy reviews give the emotion and desire, and a few 3-star-and-below reviews are where the objections live.</div>
         <div id="psReviewCount" style="font-size:13px;color:var(--muted);margin-bottom:8px;">No reviews yet.</div>
@@ -920,9 +920,9 @@ body.home-landing #homeLanding { display: block !important; }
       </div>
 
       <!-- Competitor / viral comments (separate from winning angles; buyer language) -->
-      <div style="margin-bottom:16px;">
+      <div id="psCompBox" style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Competitor &amp; viral video comments <span style="font-size:11px;font-weight:400;color:var(--muted);">optional</span></div>
-        <div class="field-hints-line" style="margin-bottom:8px;">Paste comments from competitor or viral videos, or upload screenshots and we read them. This is buyer language for objections and positioning. Keep product listings out of here.</div>
+        <div class="field-hints-line" style="margin-bottom:8px;">Paste comments from competitor or viral videos. On a computer you can paste or drag a screenshot straight in; on a phone, upload one. Either way we read it. This is buyer language for objections and positioning. Keep product listings out of here.</div>
         <textarea id="psCompetitorText" maxlength="20000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste the comments people left on similar or viral videos."></textarea>
         <input type="file" id="psCompFiles" accept="image/*" multiple style="display:none;">
         <button type="button" id="psCompUpload" style="width:100%;margin-top:8px;background:transparent;border:1px dashed var(--border-md);border-radius:10px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:10px;cursor:pointer;">＋ Upload comment screenshots</button>
@@ -14355,8 +14355,8 @@ function genOneScript(opts){
     var done = 0;
     list.forEach(function(f){
       var reader = new FileReader();
-      reader.onload  = function(){ raw.reviewShots.push({ name: f.name || "", dataUrl: String(reader.result) }); if (++done === list.length){ renderReviewCount(); scheduleSave(); } };
-      reader.onerror = function(){ if (++done === list.length){ renderReviewCount(); scheduleSave(); } };
+      reader.onload  = function(){ raw.reviewShots.push({ name: f.name || "", dataUrl: String(reader.result) }); if (++done === list.length){ renderReviewCount(); reviewMsg(list.length + " screenshot" + (list.length>1?"s":"") + " added. They are read when you build the brief."); scheduleSave(); } };
+      reader.onerror = function(){ if (++done === list.length){ renderReviewCount(); reviewMsg("Some images could not be read.", "var(--red)"); scheduleSave(); } };
       reader.readAsDataURL(f);
     });
   }
@@ -14389,6 +14389,45 @@ function genOneScript(opts){
       collect(); compStatus("Added the comments. Check and edit the box, then build the brief.", "var(--green)");
       scheduleSave();
     });
+  }
+
+  // Desktop paths for getting a screenshot into a box WITHOUT the save-file-then-browse detour: paste
+  // from the clipboard, or drag an image file onto the box. The upload button stays for mobile, where
+  // screenshots live in the camera roll. Pull the image File(s) out of a clipboard OR a drag payload.
+  function imagesFrom(dt){
+    var out = [];
+    if (!dt) return out;
+    var files = dt.files ? [].slice.call(dt.files) : [];
+    files.forEach(function(f){ if (f && /^image\//.test(f.type || "")) out.push(f); });
+    // Fallback for clipboards that expose the image only through items (older Safari/Firefox paths).
+    if (!out.length && dt.items){
+      [].slice.call(dt.items).forEach(function(it){
+        if (it && it.kind === "file" && /^image\//.test(it.type || "")){ var f = it.getAsFile(); if (f) out.push(f); }
+      });
+    }
+    return out;
+  }
+  function dtHasFiles(dt){ return !!(dt && dt.types && [].indexOf.call(dt.types, "Files") > -1); }
+  // Route pasted / dropped images to `handler`. Cmd/Ctrl+V and right-click "Paste" both fire the same
+  // `paste` event, so this one listener covers mouse and keyboard alike -- they are one code path here.
+  // dragover MUST call preventDefault or the browser navigates to the dropped image instead of dropping.
+  function wireImageDrop(dropEl, pasteEl, handler){
+    if (pasteEl){
+      pasteEl.addEventListener("paste", function(e){
+        var imgs = imagesFrom(e.clipboardData);
+        if (imgs.length){ e.preventDefault(); handler(imgs); }
+      });
+    }
+    if (dropEl){
+      var lit = function(on){ dropEl.style.outline = on ? "2px dashed var(--purple)" : ""; dropEl.style.outlineOffset = on ? "4px" : ""; };
+      dropEl.addEventListener("dragover", function(e){ if (dtHasFiles(e.dataTransfer)){ e.preventDefault(); lit(true); } });
+      dropEl.addEventListener("dragleave", function(e){ if (e.target === dropEl) lit(false); });
+      dropEl.addEventListener("drop", function(e){
+        lit(false);
+        var imgs = imagesFrom(e.dataTransfer);
+        if (imgs.length){ e.preventDefault(); handler(imgs); }
+      });
+    }
   }
 
   function addAngleFromText(){
@@ -14889,6 +14928,11 @@ function genOneScript(opts){
     if (up && fi){ up.addEventListener("click", function(){ fi.click(); }); fi.addEventListener("change", function(){ onFiles(fi.files); fi.value = ""; }); }
     var cup = el("psCompUpload"), cfi = el("psCompFiles");
     if (cup && cfi){ cup.addEventListener("click", function(){ cfi.click(); }); cfi.addEventListener("change", function(){ onCompFiles(cfi.files); cfi.value = ""; }); }
+    // Desktop: paste a screenshot into the box (Cmd/Ctrl+V or right-click Paste) or drag an image onto
+    // it. Comments OCR on arrival; review screenshots are stored and read at build time -- each box
+    // matches what its own upload button already does.
+    wireImageDrop(el("psCompBox"), el("psCompetitorText"), onCompFiles);
+    wireImageDrop(el("psReviewBox"), el("psReviewNew"), onFiles);
     if (el("psAngleFetch")) el("psAngleFetch").addEventListener("click", fetchAngle);
     if (el("psAngleAdd"))   el("psAngleAdd").addEventListener("click", addAngleFromText);
     if (el("setupToggle"))  el("setupToggle").addEventListener("click", function(){ setSetupOpen(el("setupWrap") && el("setupWrap").style.display === "none"); });
