@@ -326,5 +326,33 @@ ok((B.materialSig('too pricey for a knife\nalso rusts') !== cmBrief.meta.comment
 // commentsHash survives a storage round-trip (so the tracking is not lost on reload)
 ok(B.normalizeBrief({ meta: { commentsHash: 'mabc' } }).meta.commentsHash === 'mabc', 'commentsHash: preserved through normalizeBrief (persists across loads)');
 
+// 12. classification-stability plumbing: the `classified` finding flag and meta.classifiedIds are what let
+// incremental classification leave SETTLED (review x finding) hits untouched instead of re-rolling them.
+ok(B.emptyBrief().meta.classifiedIds.length === 0 && B.emptyBrief().meta.classified === false, 'new brief: no reviews classified yet');
+ok(Array.isArray(B.normalizeBrief({ meta: { classifiedIds: ['ra','rb'] } }).meta.classifiedIds) &&
+   B.normalizeBrief({ meta: { classifiedIds: ['ra','rb'] } }).meta.classifiedIds.join(',') === 'ra,rb',
+   'classifiedIds: preserved through normalizeBrief (incremental state survives reload)');
+ok(B.emptyBrief().lines.who.classified === false, 'finding starts unclassified');
+ok(B.normalizeBrief({ lines: { who: { value:'busy parents', classified:true } } }).lines.who.classified === true,
+   'classified flag: preserved through normalizeBrief');
+// a settled finding merged in consolidation stays classified (so it is not re-judged next build)
+let cfsItems = [ {value:'rusts', hits:['r1'], count:1, classified:true}, {value:'goes rusty', hits:['r2'], count:1, classified:true} ];
+let cfsOut = B.applyClusters(cfsItems, { groups:[{value:'rusts', members:[0,1]}], dropped:[] }, 10);
+ok(cfsOut[0].classified === true, 'applyClusters: merged finding keeps classified=true');
+ok(cfsOut[0].hits.slice().sort().join(',') === 'r1,r2', 'applyClusters: merged finding keeps unioned hits');
+// a NEW (unclassified) finding merged with a settled one marks the survivor classified (OR of members)
+let cfsMix = B.applyClusters([ {value:'a', classified:true, hits:['r1']}, {value:'a2', classified:false, hits:[]} ],
+   { groups:[{value:'a', members:[0,1]}], dropped:[] }, 10);
+ok(cfsMix[0].classified === true, 'applyClusters: survivor is classified if ANY member was');
+// unified clusters carry the flag across the pain/objection split too
+let cfsUc = B.applyUnifiedClusters([{value:'dulls fast', hits:['r1'], count:1, classified:true}], [], { clusters:[{value:'dulls fast', category:'pain', members:[0]}], dropped:[] }, 10);
+ok(cfsUc.pains[0].classified === true, 'applyUnifiedClusters: carries classified through');
+// mergeIncremental: a settled list finding keeps its hits AND classified when the same value comes back empty
+let cfsBase = B.emptyBrief(); cfsBase.lines.pains = [ B.normalizeBrief({lines:{pains:[{value:'dulls fast', hits:['r1','r2'], count:2, classified:true}]}}).lines.pains[0] ];
+let cfsMerged = B.mergeIncremental(cfsBase, { lines: { pains: [{ value:'dulls fast', words:['dull'] }] } }, {});
+ok(cfsMerged.lines.pains.length === 1, 'mergeIncremental: duplicate value does not create a second finding');
+ok(cfsMerged.lines.pains[0].classified === true && cfsMerged.lines.pains[0].hits.slice().sort().join(',') === 'r1,r2',
+   'mergeIncremental: settled finding keeps its classified flag and hits when re-extracted');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
