@@ -828,7 +828,6 @@ body.home-landing #homeLanding { display: block !important; }
       </select>
       <div id="manageList" style="display:none;max-height:200px;overflow-y:auto;"></div>
     </div>
-    <button class="sort-btn" id="sortBtn" onclick="toggleSort()" title="Sort order">A-Z</button>
     <button class="sort-btn" onclick="toggleManageMode()" id="manageBtn">Manage</button>
     <button class="new-btn" onclick="showNew()">+ New</button>
   </div>
@@ -901,6 +900,7 @@ body.home-landing #homeLanding { display: block !important; }
            reviews is always empty so it is never ambiguous whether you are editing or adding. -->
       <div style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Customer reviews</div>
+        <div class="field-hints-line" style="margin-bottom:8px;">Paste a mix, leaning positive: the happy reviews give the emotion and desire, and a few 3-star-and-below reviews are where the objections live.</div>
         <div id="psReviewCount" style="font-size:13px;color:var(--muted);margin-bottom:8px;">No reviews yet.</div>
         <div id="psReviewList" style="max-height:260px;overflow-y:auto;margin-bottom:8px;"></div>
         <div id="psReviewAddArea" style="display:none;margin-bottom:8px;">
@@ -922,8 +922,11 @@ body.home-landing #homeLanding { display: block !important; }
       <!-- Competitor / viral comments (separate from winning angles; buyer language) -->
       <div style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Competitor &amp; viral video comments <span style="font-size:11px;font-weight:400;color:var(--muted);">optional</span></div>
-        <div class="field-hints-line" style="margin-bottom:8px;">Paste comments from competitor or viral videos. This is buyer language for objections and positioning. Keep product listings out of here.</div>
+        <div class="field-hints-line" style="margin-bottom:8px;">Paste comments from competitor or viral videos, or upload screenshots and we read them. This is buyer language for objections and positioning. Keep product listings out of here.</div>
         <textarea id="psCompetitorText" maxlength="20000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste the comments people left on similar or viral videos."></textarea>
+        <input type="file" id="psCompFiles" accept="image/*" multiple style="display:none;">
+        <button type="button" id="psCompUpload" style="width:100%;margin-top:8px;background:transparent;border:1px dashed var(--border-md);border-radius:10px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:10px;cursor:pointer;">＋ Upload comment screenshots</button>
+        <div id="psCompStatus" style="font-size:12px;color:var(--muted);margin-top:6px;display:none;line-height:1.5;"></div>
       </div>
 
       <!-- Winning angles: product-level, paste + fetch, editable -->
@@ -964,7 +967,7 @@ body.home-landing #homeLanding { display: block !important; }
     </div>
   </div>
   <div class="tip-box" id="uploadTip">
-    <div class="tip-title">How to upload a TikTok product screenshot</div>
+    <div class="tip-title">How to upload a product screenshot</div>
     <div class="tip-steps">
       <div class="tip-step"><div class="tip-num">1</div><span>Screenshot up to 3 screens -- product title, description, and reviews give the best results</span></div>
       <div class="tip-step"><div class="tip-num">2</div><span>Save each screenshot to your camera roll</span></div>
@@ -1907,7 +1910,7 @@ function showProfile() {
 
   var audHelp = document.createElement("div");
   audHelp.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6;";
-  audHelp.innerHTML = "Get these from TikTok Shop for Creator → View details → Est. commission → Audience → Analytics, last 30 days. Select <strong style='color:var(--white-dim);'>CUSTOMERS, not Followers</strong>. These are the people actually buying from you.";
+  audHelp.innerHTML = "Get these from your shop's creator analytics, under Audience for the last 30 days. Select <strong style='color:var(--white-dim);'>CUSTOMERS, not Followers</strong>. These are the people actually buying from you.";
   card.appendChild(audHelp);
 
   // shared factory: a percent input wired to a getter/setter, saving on blur
@@ -2519,13 +2522,7 @@ function buildSelect() {
   });
 }
 
-function toggleSort() {
-  sortMode = sortMode === "alpha" ? "recent" : "alpha";
-  var btn = document.getElementById("sortBtn");
-  if (btn) btn.textContent = sortMode === "alpha" ? "A-Z" : "Recent";
-  buildSelect();
-  showToast(sortMode === "alpha" ? "Library sorted A to Z -- tap the dropdown to browse" : "Library sorted by most recent -- tap the dropdown to browse");
-}
+// The library is always alphabetical (sortMode stays "alpha"); the A-Z toggle was removed.
 
 function loadProductById(id) {
   if (!id || !currentUser) return;
@@ -4347,7 +4344,7 @@ function openWinnerShotInput(container){
   sub.style.cssText = 'font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;';
   sub.textContent = isTouch
     ? 'A screenshot of a TikTok script. Tap to choose from your photos, or long-press and paste into the box below.'
-    : 'A screenshot of a TikTok script. Right-click the box below and choose Paste, press Cmd / Ctrl + V, use the Paste button, drag it in, or choose a file.';
+    : 'A screenshot of a script. Right-click the box below and choose Paste, press Cmd / Ctrl + V, use the Paste button, drag it in, or choose a file.';
   modal.appendChild(title); modal.appendChild(sub);
 
   var picker = document.createElement('input');
@@ -11295,7 +11292,7 @@ function rebuildCTAStep() {
   heading.innerHTML = "Pick your <em>CTA</em>";
   var sub = document.createElement("div");
   sub.className = "step-sub";
-  sub.textContent = "Written to close the loop on your specific script. Action verb first, TikTok Shop button, done.";
+  sub.textContent = "Written to close the loop on your specific script. Action verb first, shopping button, done.";
   panel.appendChild(heading);
   panel.appendChild(sub);
 
@@ -14288,8 +14285,9 @@ function genOneScript(opts){
     var box = el("homePickerList"); if (!box) return;
     if (typeof currentUser === "undefined" || !currentUser || typeof sb === "undefined" || !sb){ box.innerHTML = ""; return; }
     box.innerHTML = "<div style='font-size:12px;color:var(--muted);padding:6px 2px;'>Loading...</div>";
-    sb.from("products").select("id, name, updated_at").eq("user_id", currentUser.id).order("updated_at", { ascending: false }).then(function(r){
+    sb.from("products").select("id, name, updated_at").eq("user_id", currentUser.id).order("name", { ascending: true }).then(function(r){
       var rows = (r && !r.error && r.data) ? r.data : [];
+      rows.sort(function(a, b){ return String(a.name||"").toLowerCase().localeCompare(String(b.name||"").toLowerCase()); });
       var q = String(filter || "").trim().toLowerCase();
       if (q) rows = rows.filter(function(p){ return String(p.name || "").toLowerCase().indexOf(q) >= 0; });
       box.innerHTML = "";
@@ -14360,6 +14358,36 @@ function genOneScript(opts){
       reader.onload  = function(){ raw.reviewShots.push({ name: f.name || "", dataUrl: String(reader.result) }); if (++done === list.length){ renderReviewCount(); scheduleSave(); } };
       reader.onerror = function(){ if (++done === list.length){ renderReviewCount(); scheduleSave(); } };
       reader.readAsDataURL(f);
+    });
+  }
+
+  // Competitor/viral comment screenshots: OCR immediately and append the extracted comment text to the
+  // (visible, editable, removable) comments box -- phones cannot copy comment text, so this is the path.
+  function compStatus(msg, color){ var s = el("psCompStatus"); if (!s) return; if (msg){ s.style.display = "block"; s.style.color = color || "var(--muted)"; s.textContent = msg; } else { s.style.display = "none"; } }
+  function onCompFiles(files){
+    var list = [].slice.call(files || []).slice(0, 6); if (!list.length) return;
+    compStatus("Reading " + list.length + " screenshot" + (list.length>1?"s":"") + "...");
+    var imgs = [], done = 0;
+    list.forEach(function(f, idx){
+      var reader = new FileReader();
+      reader.onload = function(){ var du = String(reader.result), b64 = du.split(",")[1] || "", mt = "image/jpeg";
+        if (du.indexOf("image/png") > -1) mt = "image/png"; else if (du.indexOf("image/webp") > -1) mt = "image/webp";
+        imgs[idx] = { type: "image", source: { type: "base64", media_type: mt, data: b64 } };
+        if (++done === list.length) runCompOcr(imgs.filter(Boolean)); };
+      reader.onerror = function(){ if (++done === list.length) runCompOcr(imgs.filter(Boolean)); };
+      reader.readAsDataURL(f);
+    });
+  }
+  function runCompOcr(content){
+    if (!content.length){ compStatus("Could not read those images.", "var(--red)"); return; }
+    content.push({ type: "text", text: "These are screenshots of comments left on short-form videos about a product. Transcribe every distinct COMMENT verbatim, one per line, in the commenter's own words. Ignore usernames, timestamps, like counts, reply counts, and app chrome. Return ONLY the comment lines, nothing else." });
+    claudeCall({ model: "claude-haiku-4-5-20251001", max_tokens: 2000, messages: [{ role: "user", content: content }] }, function(text, err){
+      if (err){ compStatus("Reading failed (" + ((err && err.message) ? err.message : "try again") + "). You can paste the comments instead.", "var(--red)"); return; }
+      var add = String(text || "").replace(/```/g, "").trim();
+      if (!add){ compStatus("No comment text was found in those screenshots.", "var(--red)"); return; }
+      var box = el("psCompetitorText"); if (box){ box.value = (box.value.trim() ? box.value.trim() + "\n" : "") + add; }
+      collect(); compStatus("Added the comments. Check and edit the box, then build the brief.", "var(--green)");
+      scheduleSave();
     });
   }
 
@@ -14859,6 +14887,8 @@ function genOneScript(opts){
     if (el("psReviewAddConfirm")) el("psReviewAddConfirm").addEventListener("click", addReviewsFromBox);
     var up = el("psReviewUpload"), fi = el("psReviewFiles");
     if (up && fi){ up.addEventListener("click", function(){ fi.click(); }); fi.addEventListener("change", function(){ onFiles(fi.files); fi.value = ""; }); }
+    var cup = el("psCompUpload"), cfi = el("psCompFiles");
+    if (cup && cfi){ cup.addEventListener("click", function(){ cfi.click(); }); cfi.addEventListener("change", function(){ onCompFiles(cfi.files); cfi.value = ""; }); }
     if (el("psAngleFetch")) el("psAngleFetch").addEventListener("click", fetchAngle);
     if (el("psAngleAdd"))   el("psAngleAdd").addEventListener("click", addAngleFromText);
     if (el("setupToggle"))  el("setupToggle").addEventListener("click", function(){ setSetupOpen(el("setupWrap") && el("setupWrap").style.display === "none"); });
@@ -16002,7 +16032,7 @@ function genOneScript(opts){
           node.classList.add('ui-warn');
           const chip=document.createElement('div'); chip.className='uiwarn-chip noexport';
           chip.textContent='⚠ may be hidden';
-          chip.title='This overlaps where TikTok puts its buttons / caption, so it may be covered.';
+          chip.title='This overlaps where short-form apps put buttons and captions, so it may be covered.';
           node.appendChild(chip);
         }
       }
