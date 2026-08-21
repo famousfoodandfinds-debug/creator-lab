@@ -602,6 +602,24 @@ body.carousel-mode .product-bar,
 body.carousel-mode #deleteBar,
 body.carousel-mode #dailyMeterSection { display: none !important; }
 
+/* Home landing: hide EVERY product/tab surface so only the four-button page shows. This is what keeps
+   the price selector, the Type/Upload toggle, the script bank, and the toolbar off the landing. */
+body.home-landing #inputSection .input-options,
+body.home-landing #textPanel,
+body.home-landing #priceSelectorMount,
+body.home-landing #priceWrap,
+body.home-landing #genBtn,
+body.home-landing #mainContent,
+body.home-landing .product-bar,
+body.home-landing #deleteBar,
+body.home-landing #dailyMeterSection,
+body.home-landing #favoritesPanel,
+body.home-landing #historyPanel,
+body.home-landing #plannerPanel,
+body.home-landing #carouselPanel { display: none !important; }
+body.home-landing #inputSection { display: block !important; }
+body.home-landing #homeLanding { display: block !important; }
+
 /* Carousel Studio lives in an isolated, same-origin iframe so its styles/scripts
    cannot collide with the app. The panel just fills the area under the header. */
 #carouselPanel { display: none; }
@@ -810,7 +828,6 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
       </select>
       <div id="manageList" style="display:none;max-height:200px;overflow-y:auto;"></div>
     </div>
-    <button class="sort-btn" id="sortBtn" onclick="toggleSort()" title="Sort order">A-Z</button>
     <button class="sort-btn" onclick="toggleManageMode()" id="manageBtn">Manage</button>
     <button class="new-btn" onclick="showNew()">+ New</button>
   </div>
@@ -833,17 +850,35 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
     <button class="opt-btn" id="optUpload" onclick="setMode('upload')">&#128247; Upload</button>
     <input type="file" id="imageFileInput" accept="image/*" multiple onchange="handleUpload(event)">
   </div>
-  <div id="homeLanding" style="display:none;max-width:760px;margin:0 auto;">
-    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:20px 16px;">
-      <div style="font-size:15px;color:var(--white);margin-bottom:4px;">Pick a product to work on</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:14px;">Choose a recent product below, or use the product picker at the top. Selecting one loads its scripts.</div>
-      <div id="homeRecent"></div>
-      <button type="button" onclick="showNew()" style="width:100%;margin-top:6px;background:transparent;border:1px dashed var(--border-md);border-radius:10px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:11px;cursor:pointer;">+ New product</button>
+  <div id="homeLanding" style="display:none;max-width:460px;margin:36px auto 0;">
+    <div style="font-size:19px;font-weight:600;color:var(--white);margin-bottom:4px;text-align:center;">What do you want to do?</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:22px;text-align:center;">Start something new, or open a product you are already working on.</div>
+    <div style="display:grid;gap:10px;">
+      <button type="button" onclick="showNew()" style="width:100%;background:var(--gold);border:none;border-radius:12px;color:#080808;font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">New product</button>
+      <button type="button" onclick="if(window.ProductScreen)ProductScreen.openPicker()" style="width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">My products</button>
+      <button type="button" onclick="if(typeof showMainTab==='function')showMainTab('planner')" style="width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">Planner</button>
+      <button type="button" onclick="if(typeof showMainTab==='function')showMainTab('carousel')" style="width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">Carousels</button>
+    </div>
+    <!-- My products opens this inline picker (single search + rename/delete). Hidden until requested. -->
+    <div id="homePicker" style="display:none;margin-top:18px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;">
+      <input id="homePickerSearch" type="text" placeholder="Search your products..." autocomplete="off" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:9px 12px;outline:none;margin-bottom:10px;">
+      <div id="homePickerList" style="max-height:320px;overflow-y:auto;"></div>
     </div>
   </div>
   <div id="textPanel">
 
-    <!-- ===== ONE SCREEN: product inputs (Phase 2). Derived brief renders below in Phase 3. ===== -->
+    <!-- The brief LEADS (the daily artifact). Generated scripts will render above it in Phase 5. -->
+    <div id="briefBelow" style="margin-top:16px;max-width:760px;margin-left:auto;margin-right:auto;"></div>
+
+    <!-- Product setup is collapsible: expanded for a new product, collapsed once a brief exists. -->
+    <div style="max-width:760px;margin:14px auto 0;">
+      <button type="button" id="setupToggle" style="width:100%;text-align:left;background:transparent;border:1px solid var(--border-md);border-radius:10px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:11px 14px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;box-sizing:border-box;">
+        <span>Product setup</span><span id="setupCaret" style="color:var(--muted);">&#9662;</span>
+      </button>
+    </div>
+    <div id="setupWrap" style="margin-top:10px;">
+
+    <!-- ===== Product inputs: name, listing, reviews, competitor comments, winning angles, authority ===== -->
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;max-width:760px;margin:0 auto;">
 
       <div id="psSavedChip" style="font-size:11px;color:var(--muted);text-align:right;margin-bottom:10px;min-height:14px;">Saved automatically as you type.</div>
@@ -863,13 +898,14 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
 
       <!-- Customer reviews: a growing SET. Reviews are added, never replaced. The box for new
            reviews is always empty so it is never ambiguous whether you are editing or adding. -->
-      <div style="margin-bottom:16px;">
+      <div id="psReviewBox" style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Customer reviews</div>
+        <div class="field-hints-line" style="margin-bottom:8px;">Paste a mix, leaning positive: the happy reviews give the emotion and desire, and a few 3-star-and-below reviews are where the objections live.</div>
         <div id="psReviewCount" style="font-size:13px;color:var(--muted);margin-bottom:8px;">No reviews yet.</div>
         <div id="psReviewList" style="max-height:260px;overflow-y:auto;margin-bottom:8px;"></div>
         <div id="psReviewAddArea" style="display:none;margin-bottom:8px;">
           <div class="field-hints-line" style="margin-bottom:8px;">Paste new reviews only. These are added to your set, not replacing it. Separate reviews with a blank line.</div>
-          <textarea id="psReviewNew" maxlength="20000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste new customer reviews here. Separate each review with a blank line."></textarea>
+          <textarea id="psReviewNew" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste new customer reviews here. Separate each review with a blank line."></textarea>
           <div style="display:flex;gap:8px;margin-top:8px;">
             <button type="button" id="psReviewAddConfirm" style="flex:1;background:var(--purple);border:none;border-radius:10px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:700;padding:11px;cursor:pointer;">Add these reviews</button>
             <button type="button" id="psReviewAddCancel" style="background:transparent;border:1px solid var(--border-md);border-radius:10px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:11px 14px;cursor:pointer;">Cancel</button>
@@ -884,10 +920,13 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
       </div>
 
       <!-- Competitor / viral comments (separate from winning angles; buyer language) -->
-      <div style="margin-bottom:16px;">
+      <div id="psCompBox" style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Competitor &amp; viral video comments <span style="font-size:11px;font-weight:400;color:var(--muted);">optional</span></div>
-        <div class="field-hints-line" style="margin-bottom:8px;">Paste comments from competitor or viral videos. This is buyer language for objections and positioning. Keep product listings out of here.</div>
+        <div class="field-hints-line" style="margin-bottom:8px;">Paste comments from competitor or viral videos. On a computer you can paste or drag a screenshot straight in; on a phone, upload one. Either way we read it. This is buyer language for objections and positioning. Keep product listings out of here.</div>
         <textarea id="psCompetitorText" maxlength="20000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste the comments people left on similar or viral videos."></textarea>
+        <input type="file" id="psCompFiles" accept="image/*" multiple style="display:none;">
+        <button type="button" id="psCompUpload" style="width:100%;margin-top:8px;background:transparent;border:1px dashed var(--border-md);border-radius:10px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:10px;cursor:pointer;">＋ Upload comment screenshots</button>
+        <div id="psCompStatus" style="font-size:12px;color:var(--muted);margin-top:6px;display:none;line-height:1.5;"></div>
       </div>
 
       <!-- Winning angles: product-level, paste + fetch, editable -->
@@ -914,8 +953,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
       <div id="psSaveStatus" style="font-size:12px;color:var(--muted);margin-top:14px;">Saved automatically as you type.</div>
     </div>
 
-    <!-- Derived brief renders here in Phase 3. -->
-    <div id="briefBelow" style="margin-top:16px;max-width:760px;margin-left:auto;margin-right:auto;"></div>
+    </div><!-- /#setupWrap -->
 
   </div>
   <div id="imgPreviewWrap" style="display:none;">
@@ -929,7 +967,7 @@ body.carousel-mode #dailyMeterSection { display: none !important; }
     </div>
   </div>
   <div class="tip-box" id="uploadTip">
-    <div class="tip-title">How to upload a TikTok product screenshot</div>
+    <div class="tip-title">How to upload a product screenshot</div>
     <div class="tip-steps">
       <div class="tip-step"><div class="tip-num">1</div><span>Screenshot up to 3 screens -- product title, description, and reviews give the best results</span></div>
       <div class="tip-step"><div class="tip-num">2</div><span>Save each screenshot to your camera roll</span></div>
@@ -1461,7 +1499,10 @@ function onSignedIn() {
   // Show full UI for all users immediately
   document.body.classList.remove("hub-mode");
 
-  // Landing: quiet product picker when the library is non-empty; blank new-product form when empty.
+  // Landing: ALWAYS the quiet page on sign-in. Reveal it here directly (hide the setup screen and the
+  // product toolbar, show the four-button landing) so this never depends on the product module loading,
+  // then let ProductScreen sync its own state. This is why sign-in no longer falls into the setup form.
+  goHome();
   if (window.ProductScreen && ProductScreen.renderHome) ProductScreen.renderHome();
 
   // If signed in via magic link show set password popup
@@ -1869,7 +1910,7 @@ function showProfile() {
 
   var audHelp = document.createElement("div");
   audHelp.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.6;";
-  audHelp.innerHTML = "Get these from TikTok Shop for Creator → View details → Est. commission → Audience → Analytics, last 30 days. Select <strong style='color:var(--white-dim);'>CUSTOMERS, not Followers</strong>. These are the people actually buying from you.";
+  audHelp.innerHTML = "Get these from your shop's creator analytics, under Audience for the last 30 days. Select <strong style='color:var(--white-dim);'>CUSTOMERS, not Followers</strong>. These are the people actually buying from you.";
   card.appendChild(audHelp);
 
   // shared factory: a percent input wired to a getter/setter, saving on blur
@@ -2242,7 +2283,8 @@ function filterManageList(q) {
 function buildManageList() {
   var ml = document.getElementById("manageList");
   if(!ml || !currentUser) return;
-  ml.innerHTML = "<input id='manageSearch' type='text' placeholder='Search products...' oninput='filterManageList(this.value)' style='width:100%;box-sizing:border-box;margin-bottom:8px;background:var(--surface);border:1px solid var(--border-md);border-radius:8px;color:var(--white);font-size:13px;padding:8px 12px;outline:none;'><div style='padding:8px 0;font-size:12px;color:var(--muted);'>Tap a product to select for deletion. Tap Rename to edit its name.</div>";
+  // No own search box here: the one product search at the top filters this list (see renderProductResults).
+  ml.innerHTML = "<div style='padding:2px 0 8px;font-size:12px;color:var(--muted);'>Tap a product to select for deletion. Tap Rename to edit its name. Use the search above to filter.</div>";
   sb.from("products").select("id, name").eq("user_id", currentUser.id).then(function(result) {
     if(!result.data) return;
     var products = result.data;
@@ -2360,16 +2402,6 @@ function buildManageList() {
   });
 }
 
-function toggleDeleteSelect(id) {
-  selectedForDelete[id] = !selectedForDelete[id];
-  buildSelect();
-  var bar = document.getElementById("deleteBar");
-  var count = Object.values(selectedForDelete).filter(Boolean).length;
-  if(bar) {
-    bar.querySelector(".delete-count").textContent = count + " selected";
-    bar.querySelector(".delete-confirm-btn").disabled = count === 0;
-  }
-}
 
 function deleteSelected() {
   var ids = Object.keys(selectedForDelete).filter(function(id){ return selectedForDelete[id]; });
@@ -2412,6 +2444,8 @@ function productNameMatch(name, q) {
 // any-word match. The native <select id="productSelect"> is kept hidden only so its existing wiring
 // (buildSelect populates it; load/sort/reset read it) keeps working; the combobox reads its options.
 function renderProductResults(q) {
+  // In Manage mode the same search filters the manage list instead of showing the picker dropdown.
+  if (typeof manageMode !== "undefined" && manageMode){ if (typeof filterManageList === "function") filterManageList(q); var _pr = document.getElementById("productResults"); if (_pr) _pr.style.display = "none"; return; }
   var sel = document.getElementById("productSelect");
   var box = document.getElementById("productResults");
   if (!sel || !box) return;
@@ -2488,13 +2522,7 @@ function buildSelect() {
   });
 }
 
-function toggleSort() {
-  sortMode = sortMode === "alpha" ? "recent" : "alpha";
-  var btn = document.getElementById("sortBtn");
-  if (btn) btn.textContent = sortMode === "alpha" ? "A-Z" : "Recent";
-  buildSelect();
-  showToast(sortMode === "alpha" ? "Library sorted A to Z -- tap the dropdown to browse" : "Library sorted by most recent -- tap the dropdown to browse");
-}
+// The library is always alphabetical (sortMode stays "alpha"); the A-Z toggle was removed.
 
 function loadProductById(id) {
   if (!id || !currentUser) return;
@@ -4316,7 +4344,7 @@ function openWinnerShotInput(container){
   sub.style.cssText = 'font-size:12px;color:var(--muted);margin-bottom:16px;line-height:1.5;';
   sub.textContent = isTouch
     ? 'A screenshot of a TikTok script. Tap to choose from your photos, or long-press and paste into the box below.'
-    : 'A screenshot of a TikTok script. Right-click the box below and choose Paste, press Cmd / Ctrl + V, use the Paste button, drag it in, or choose a file.';
+    : 'A screenshot of a script. Right-click the box below and choose Paste, press Cmd / Ctrl + V, use the Paste button, drag it in, or choose a file.';
   modal.appendChild(title); modal.appendChild(sub);
 
   var picker = document.createElement('input');
@@ -4716,7 +4744,14 @@ function showNew() {
   if (typeof resetPicks === "function") resetPicks();
   var _ps = document.getElementById("productSelect"); if (_ps) _ps.value = "";
   var _psi = document.getElementById("productSearchInput"); if (_psi) _psi.value = "";
+  // Clear EVERY full-screen mode, not just hub-mode: planner-mode and carousel-mode also hide
+  // #inputSection (and with it #briefBelow), which would leave a new product with no visible screen.
   document.body.classList.remove("hub-mode");
+  document.body.classList.remove("planner-mode");
+  document.body.classList.remove("carousel-mode");
+  var _plP = document.getElementById("plannerPanel"); if (_plP) _plP.style.display = "none";
+  var _caP = document.getElementById("carouselPanel"); if (_caP) _caP.style.display = "none";
+  var _is = document.getElementById("inputSection"); if (_is) _is.style.display = "";
   currentMotivation = ""; currentBuyerInsight = ""; currentRealReason = ""; currentSurprise = "";
   if (typeof setBuyerMotivation === "function") setBuyerMotivation("");
   var mc = document.getElementById("mainContent"); if (mc) mc.innerHTML = "";
@@ -11257,7 +11292,7 @@ function rebuildCTAStep() {
   heading.innerHTML = "Pick your <em>CTA</em>";
   var sub = document.createElement("div");
   sub.className = "step-sub";
-  sub.textContent = "Written to close the loop on your specific script. Action verb first, TikTok Shop button, done.";
+  sub.textContent = "Written to close the loop on your specific script. Action verb first, shopping button, done.";
   panel.appendChild(heading);
   panel.appendChild(sub);
 
@@ -12133,7 +12168,34 @@ function pushCarouselProducts() {
   });
 }
 
+// Home = the quiet landing. Reachable from anywhere (the SAXE logo, or the Scripts tab with no product
+// open). Adds the home-landing class (CSS hides every product/tab surface) and clears the tab highlight.
+function goHome() {
+  document.body.classList.remove("planner-mode");
+  document.body.classList.remove("carousel-mode");
+  document.body.classList.remove("hub-mode");
+  var pp = document.getElementById("plannerPanel"); if (pp) pp.style.display = "none";
+  var cp = document.getElementById("carouselPanel"); if (cp) cp.style.display = "none";
+  document.body.classList.add("home-landing");
+  var hl = document.getElementById("homeLanding"); if (hl) hl.style.display = "";
+  var tp = document.getElementById("textPanel"); if (tp) tp.style.display = "none";
+  var hp = document.getElementById("homePicker"); if (hp) hp.style.display = "none";
+  ["scripts","favorites","history","planner","carousel"].forEach(function(t){ var b = document.getElementById("mainTab" + t.charAt(0).toUpperCase() + t.slice(1)); if (b) b.classList.remove("active"); });
+}
+// The SAXE logo is the universal Home button -- click it from anywhere to return to the landing.
+(function(){
+  function wireHome(){ var lk = document.querySelector(".brand-lockup"); if (lk){ lk.style.cursor = "pointer"; lk.title = "Home"; lk.addEventListener("click", goHome); } }
+  if (document.readyState !== "loading") wireHome(); else document.addEventListener("DOMContentLoaded", wireHome);
+})();
+
 function showMainTab(tab) {
+  // Scripts with no product open is nothing to show, so it means Home. Other tabs leave Home.
+  if (tab === "scripts" && !(typeof currentProductId !== "undefined" && currentProductId)) { goHome(); return; }
+  document.body.classList.remove("home-landing");
+  // The product workspace (#inputSection: the brief + setup) is the Scripts tab's content. Every OTHER
+  // tab must hide it, or the brief bleeds through on top of Favorites/History (planner/carousel already
+  // hide it via their mode classes, but set it explicitly so nothing leaks).
+  var _isec = document.getElementById("inputSection"); if (_isec) _isec.style.display = (tab === "scripts") ? "" : "none";
   ["scripts","favorites","history","planner","carousel"].forEach(function(t) {
     var btn = document.getElementById("mainTab" + t.charAt(0).toUpperCase() + t.slice(1));
     if (btn) btn.classList.toggle("active", t === tab);
@@ -13493,28 +13555,117 @@ function genOneScript(opts){
   // scripts. `claims` are buyer performance claims, NOT safe to assert (a review claiming a result
   // is not the listing claiming it) -- stored separately and labelled so generation can keep them out
   // of assertion positions. `count`/`total` are the evidence: mentions out of reviews actually stored.
-  function line(value, words, claims, count, total){
+  function line(value, words, claims, count, total, terms, hits){
     return {
       value: str(value),
-      words: arr(words).map(str),
-      claims: arr(claims).map(str),
-      count: count|0,
-      total: total|0,
+      words: arr(words).map(str),     // verbatim buyer language -- for DISPLAY (safe to reuse)
+      claims: arr(claims).map(str),   // buyer performance claims -- kept separate, not for assertion
+      terms: arr(terms).map(str),     // keyword hints (kept, but no longer the count source)
+      hits: arr(hits).map(str),       // ids of REVIEWS the model classified as expressing THIS finding
+      count: count|0,                 // (with correct sentiment). Count = hits still present. This is why
+      total: total|0,                 // "sharpener works great" no longer counts toward "sharpener fails".
+      chits: [],                      // ids of COMMENTS (competitor/viral) that raise this -- kept separate
+      cwords: [],                     // from reviews so a doubt from a non-buyer is never mixed with buyers'.
+      ccount: 0,                      // Comment evidence: raised in ccount of ctotal comments.
+      ctotal: 0,
+      classified: false,              // settled against reviews (never re-judged once true)
+      cclassified: false,             // settled against comments (never re-judged once true)
       edited: false
     };
   }
   function normLine(x){
     x = obj(x);
-    var l = line(x.value, x.words, x.claims, x.count, x.total);
+    var l = line(x.value, x.words, x.claims, x.count, x.total, x.terms, x.hits);
+    l.chits = arr(x.chits).map(str);
+    l.cwords = arr(x.cwords).map(str);
+    l.ccount = x.ccount|0;
+    l.ctotal = x.ctotal|0;
+    l.classified = !!x.classified;
+    l.cclassified = !!x.cclassified;
     l.edited = !!x.edited;
     if (x.id) l.id = str(x.id);
     return l;
+  }
+  function unionInto(dst, src){ arr(src).forEach(function(v){ v = str(v); if (v && dst.indexOf(v) < 0) dst.push(v); }); return dst; }
+  // Stable, content-derived id for a review (djb2). Same text -> same id, so ids survive reload and
+  // duplicate pastes collapse. Findings reference these ids in `hits`, so counts are deterministic.
+  function reviewHash(s){ s = str(s); var h = 5381, i = s.length; while (i) h = (h * 33) ^ s.charCodeAt(--i); return "r" + (h >>> 0).toString(36); }
+  // Stable signature of a free-text block (djb2 over whitespace-normalized content). Used to tell whether
+  // the comments have CHANGED since the brief last read them, so new comment material triggers a rebuild
+  // the same way new reviews do. Empty/blank text -> "" (there is nothing to read).
+  function materialSig(s){ s = str(s).replace(/\s+/g, " ").trim(); if (!s) return ""; var h = 5381, i = s.length; while (i) h = (h * 33) ^ s.charCodeAt(--i); return "m" + (h >>> 0).toString(36); }
+  function commentHash(s){ s = str(s); var h = 5381, i = s.length; while (i) h = (h * 33) ^ s.charCodeAt(--i); return "c" + (h >>> 0).toString(36); }
+  // Split the pasted competitor / viral-video comments into individual comment units, one per line
+  // (that is how they are pasted / OCR'd). Each gets a stable content id so classification against them
+  // can be persisted and reused exactly like reviews. Blank lines and duplicates collapse.
+  function splitComments(text){
+    var seen = {}, out = [];
+    str(text).split(/\r?\n/).forEach(function(ln){
+      ln = ln.replace(/\s+/g, " ").trim();
+      if (ln.length < 2) return;
+      var id = commentHash(ln);
+      if (seen[id]) return; seen[id] = true;
+      out.push({ id: id, text: ln });
+    });
+    return out;
+  }
+  // The 11 findings as a FLAT list of the actual line objects (single lines + list items), so hits attach
+  // by reference. Used by classification. Pure -- no DOM.
+  function flatFindings(b){
+    var flat = [];
+    b = obj(b); var lines = obj(b.lines);
+    LINE_KEYS.forEach(function(k){
+      var v = lines[k.key];
+      if (k.list){ arr(v).forEach(function(it){ if (it && it.value) flat.push(it); }); }
+      else if (v && v.value){ flat.push(v); }
+    });
+    return flat;
+  }
+  // A classification CHANNEL: reviews and comments are classified the same way but into separate fields,
+  // so a finding tracks buyer evidence (hits) and non-buyer evidence (chits) independently and can never
+  // conflate them. Each channel names the finding fields + the meta key that lists items already judged.
+  var CH_REVIEW  = { hits: "hits",  cls: "classified",  ids: "classifiedIds" };
+  var CH_COMMENT = { hits: "chits", cls: "cclassified", ids: "classifiedCommentIds" };
+  // PLAN an incremental classification. The core stability guarantee lives here: a (finding, item) pair is
+  // judged ONCE and never re-judged, so counts on untouched findings cannot drift when new material is
+  // added. Returns the passes that still need the model: every NEW item against ALL findings, and every
+  // OLD (already-judged) item against only the findings that are NEW since it was judged. A finding/item
+  // set with no prior record does a full pass. Pure: no model calls, no DOM.
+  function classifyPlan(brief, items, ch){
+    brief = obj(brief); brief.meta = obj(brief.meta);
+    var flat = flatFindings(brief);
+    items = arr(items);
+    var prevIds = arr(brief.meta[ch.ids]).map(str);
+    var full = !prevIds.length;                       // never classified this channel -> full pass
+    var prevSet = {}; prevIds.forEach(function(id){ prevSet[str(id)] = true; });
+    var newItems = full ? items : items.filter(function(it){ return !prevSet[str(it.id)]; });
+    var oldItems = full ? []    : items.filter(function(it){ return  prevSet[str(it.id)]; });
+    var newFinds = full ? flat  : flat.filter(function(f){ return !f[ch.cls]; });
+    var passes = [];
+    if (newItems.length && flat.length) passes.push({ items: newItems, findings: flat });      // new items x all
+    if (oldItems.length && newFinds.length) passes.push({ items: oldItems, findings: newFinds }); // old items x new finds
+    return { full: full, passes: passes, flat: flat };
+  }
+  // Record that item `id` expresses `finding` in this channel. Additive and idempotent -- settled hits are
+  // never cleared, which is what keeps evidence stable across rebuilds.
+  function addHit(finding, id, ch){
+    if (!finding) return;
+    if (!Array.isArray(finding[ch.hits])) finding[ch.hits] = [];
+    id = str(id); if (finding[ch.hits].indexOf(id) < 0) finding[ch.hits].push(id);
+  }
+  // Mark this channel fully classified: every current finding is settled, and every current item is on
+  // record as judged (so next build only touches genuinely new pairs).
+  function classifyFinalize(brief, items, ch){
+    brief = obj(brief); brief.meta = obj(brief.meta);
+    flatFindings(brief).forEach(function(f){ f[ch.cls] = true; });
+    brief.meta[ch.ids] = arr(items).map(function(it){ return str(it.id); });
+    return brief;
   }
 
   // The DERIVED brief -- lightweight, loaded on every product open. Holds NO raw source text: just
   // the structured lines (each with its evidence words + counts), features, and meta.
   function emptyBrief(){
-    var b = { v: BRIEF_V, lines: {}, features: [], meta: { reviewCount: 0, lastDerivedAt: null, promptVersion: "" } };
+    var b = { v: BRIEF_V, lines: {}, features: [], meta: { reviewCount: 0, commentCount: 0, lastDerivedAt: null, promptVersion: "", classified: false, classifiedIds: [], classifiedCommentIds: [], commentsHash: "" } };
     LINE_KEYS.forEach(function(k){ b.lines[k.key] = k.list ? [] : line(""); });
     return b;
   }
@@ -13544,8 +13695,13 @@ function genOneScript(opts){
     b.features = arr(x.features).map(function(f){ f=obj(f); return { feature:str(f.feature), benefit:str(f.benefit), edited:!!f.edited }; });
     var meta = obj(x.meta);
     b.meta.reviewCount   = meta.reviewCount|0;
+    b.meta.commentCount  = meta.commentCount|0;
     b.meta.lastDerivedAt = meta.lastDerivedAt || null;
     b.meta.promptVersion = str(meta.promptVersion);
+    b.meta.classified    = !!meta.classified;
+    b.meta.classifiedIds = arr(meta.classifiedIds).map(str);
+    b.meta.classifiedCommentIds = arr(meta.classifiedCommentIds).map(str);
+    b.meta.commentsHash  = str(meta.commentsHash);
     return b;
   }
   function normalizeRaw(x){
@@ -13563,13 +13719,16 @@ function genOneScript(opts){
 
   function normReview(r){
     r = obj(r);
+    var full = str(r.full);
     return {
+      id:        str(r.id) || reviewHash(full),   // stable content id; findings' `hits` reference it
       reviewer:  str(r.reviewer),
-      full:      str(r.full),
+      full:      full,
       praise:    str(r.praise),
       complaint: str(r.complaint),
       quote:     str(r.quote),
-      source:    str(r.source || "paste")   // "paste" | "ocr" | "competitor"
+      source:    str(r.source || "paste"),  // "paste" | "ocr" | "competitor"
+      derived:   !!r.derived                // true once this review has been fed into a derivation
     };
   }
 
@@ -13595,6 +13754,13 @@ function genOneScript(opts){
     return { raw: r, added: added.length, rejected: rejected, atCap: r.reviews.length >= cap };
   }
 
+  // Incremental derivation: a review is derived ONCE, then never re-extracted. This is what makes the
+  // brief stable -- the findings and their phrases are persisted, and a rebuild only reads reviews that
+  // are new since the last build. newReviews() returns those; markReviewsDerived() flags them all after
+  // a successful build (including any added mid-build via screenshot OCR).
+  function newReviews(raw){ return arr(raw && raw.reviews).filter(function(r){ return !(r && r.derived); }); }
+  function markReviewsDerived(raw){ var r = normalizeRaw(raw); r.reviews.forEach(function(rv){ rv.derived = true; }); return r; }
+
   // Split reviews into chunks for derivation so a single big paste is not one oversized model call.
   function chunkReviews(reviews, size){
     size = size || DERIVE_CHUNK;
@@ -13602,6 +13768,95 @@ function genOneScript(opts){
     for (var i=0; i<list.length; i+=size) out.push(list.slice(i, i+size));
     return out;
   }
+
+  // ---- split a paste into individual reviews ----------------------------------------------------
+  // Amazon copy/paste arrives in two very different shapes, and the count feeds every "of M reviews"
+  // denominator (which then FREEZES into the brief), so getting it right matters:
+  //   PLAIN text   -- each review starts with an "N out of 5 stars" line (or star glyphs).
+  //   MARKDOWN     -- each review starts with "* [Name](url)" and the star line is "[N out of 5 stars
+  //                   TITLE](url)"; bodies run for thousands of words with many internal blank lines.
+  // We anchor on whichever PER-REVIEW marker is actually present (reviewer line > star line > "Reviewed
+  // in ... on"), splitting at the START of each review; blank-line separation is only a last resort for
+  // hand pastes because real bodies are full of blank lines. Then Amazon chrome is stripped and markdown
+  // links unwrapped. Honest limits: reliable for the two Amazon shapes seen here and clean manual pastes;
+  // exotic formats can still mis-split, which is why suspectMergedCount() flags a failed split downstream.
+  var STAR_TXT_RE   = /\d(?:\.\d)?\s*out of\s*\d\s*stars/i;
+  var STAR_GLYPH_RE = /^\s*(?:[★☆⭐]️?){1,5}/;
+  var REVIEWED_RE   = /reviewed in\b.{0,60}?\bon\b/i;
+  var MDNAME_RE     = /^\s*\*\s+\[[^\]]+\]\(https?:\/\//i;
+  function isStarLine(l){ return STAR_TXT_RE.test(l) || STAR_GLYPH_RE.test(l); }
+  function splitByAnchor(lines, isAnchor){
+    var blocks = [], cur = [], started = false;
+    lines.forEach(function(ln){
+      if (isAnchor(ln)){ if (started){ blocks.push(cur); cur = []; } started = true; }
+      cur.push(ln);
+    });
+    if (cur.length) blocks.push(cur);
+    return blocks;
+  }
+  function cleanReviewBlock(lines){
+    return arr(lines).map(function(ln){
+      return str(ln).replace(/\[([^\]]*)\]\([^)]*\)/g, "$1").replace(/^\s*\*\s+/, "");   // unwrap [t](url), drop bullet
+    }).filter(function(ln){
+      var s = ln.trim();
+      if (/^\d+\s+(?:people|person)\s+found this helpful/i.test(s)) return false;
+      if (/^Helpful$/i.test(s)) return false;
+      if (/^Report$/i.test(s)) return false;
+      if (/^Translate\b/i.test(s)) return false;
+      if (/^Color:.*Verified Purchase\s*$/i.test(s)) return false;
+      return true;
+    }).join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+  // When the anchor is the star or "Reviewed in ... on" line, the reviewer NAME sits on the line just
+  // BEFORE it, so it lands at the end of the previous block. A short, unpunctuated final line right
+  // before the next review is that review's author name: move it forward so it starts the next review.
+  function shiftTrailingNames(blocks){
+    for (var i = 0; i < blocks.length - 1; i++){
+      var ls = blocks[i].split("\n");
+      var last = (ls[ls.length - 1] || "").trim();
+      if (last && last.length <= 60 && !/[.!?:;,")\]]$/.test(last)){
+        ls.pop();
+        blocks[i] = ls.join("\n").trim();
+        blocks[i + 1] = last + "\n" + blocks[i + 1];
+      }
+    }
+    return blocks.filter(Boolean);
+  }
+  function splitReviews(text){
+    var t = str(text).replace(/\r/g, "").trim();
+    if (!t) return [];
+    var lines = t.split("\n");
+    var nName = lines.filter(function(l){ return MDNAME_RE.test(l); }).length;
+    var nStar = lines.filter(isStarLine).length;
+    var nRevd = lines.filter(function(l){ return REVIEWED_RE.test(l); }).length;
+    var anchor = null, pullName = false;
+    if (nName >= 2)      anchor = function(l){ return MDNAME_RE.test(l); };            // markdown: review starts at the name
+    else if (nStar >= 2){ anchor = isStarLine; pullName = true; }                     // plain: name is one line above the star
+    else if (nRevd >= 2){ anchor = function(l){ return REVIEWED_RE.test(l); }; pullName = true; }
+    if (anchor){
+      var out = splitByAnchor(lines, anchor).map(cleanReviewBlock).filter(Boolean);
+      if (pullName) out = shiftTrailingNames(out);
+      if (out.length >= 2) return out;
+    }
+    var byBlank = t.split(/\n\s*\n+/).map(function(b){ return cleanReviewBlock(b.split("\n")); }).filter(Boolean);
+    if (byBlank.length >= 2) return byBlank;
+    var one = cleanReviewBlock(lines);
+    return one ? [one] : [];
+  }
+
+  // A stored review that CONTAINS a second review's header (two "Reviewed in ... on" lines, or two star
+  // ratings) is the signature of a split that merged two reviews -- length alone cannot say this, since a
+  // genuine review can run thousands of words. This only WARNS (naming the rows); it never blocks a build,
+  // because real pastes are messy and only the creator can judge whether a given row is actually wrong.
+  function reviewLooksMerged(full){
+    var s = str(full);
+    return (s.match(/reviewed in\b.{0,60}?\bon\b/gi) || []).length >= 2 ||
+           (s.match(/\d(?:\.\d)?\s*out of\s*\d\s*stars/gi) || []).length >= 2;
+  }
+  function suspectMergedIndices(reviews){
+    var out = []; arr(reviews).forEach(function(r, i){ if (reviewLooksMerged(obj(r).full)) out.push(i + 1); }); return out;   // 1-based
+  }
+  function suspectMergedCount(reviews){ return suspectMergedIndices(reviews).length; }
 
   // ---- edits (hand-edited lines are never overwritten by re-derivation) -------------------------
   function markEdited(brief, key, index){
@@ -13677,6 +13932,233 @@ function genOneScript(opts){
     return { brief: b, changes: changes };
   }
 
+  // ---- incremental merge (rebuild = extend, not replace) ----------------------------------------
+  // Fold a derivation over only the NEW reviews into the stored brief WITHOUT churning what is already
+  // there. Single lines: an existing value is kept for stability (new phrases are unioned in to improve
+  // matching); an empty line is filled. Hand-edited lines are never touched. List lines: existing
+  // findings are all kept and new ones appended (exact-dup folded); semantic dedup of new-vs-old is the
+  // consolidation pass's job. Counts are set afterwards by the deterministic recount, not here.
+  function mergeIncremental(brief, newDerived, opts){
+    var b = normalizeBrief(brief);
+    newDerived = obj(newDerived); opts = obj(opts);
+    var dLines = obj(newDerived.lines);
+    LINE_KEYS.forEach(function(k){
+      var key = k.key;
+      if (k.list){
+        var incoming = arr(dLines[key]).map(normLine).filter(function(l){ return l.value; });
+        var out = [], seen = {};
+        arr(b.lines[key]).concat(incoming).forEach(function(l){
+          l = normLine(l); if (!l.value) return; var nk = norm(l.value);
+          if (seen[nk] != null){ var ex = out[seen[nk]];
+            unionInto(ex.words, l.words); unionInto(ex.claims, l.claims); unionInto(ex.terms, l.terms); unionInto(ex.hits, l.hits); unionInto(ex.chits, l.chits);
+            ex.edited = ex.edited || l.edited; ex.classified = ex.classified || l.classified; ex.cclassified = ex.cclassified || l.cclassified;
+          } else { seen[nk] = out.length; out.push(l); }
+        });
+        b.lines[key] = out;
+      } else {
+        var cur = normLine(b.lines[key]);
+        if (cur.edited){ b.lines[key] = cur; return; }              // never touch a hand-edit
+        var d = dLines[key] ? normLine(dLines[key]) : null;
+        if (!d || !d.value){ b.lines[key] = cur; return; }
+        if (cur.value){                                            // keep value for stability, union phrases
+          unionInto(cur.words, d.words); unionInto(cur.claims, d.claims); unionInto(cur.terms, d.terms);
+          b.lines[key] = cur;
+        } else { d.edited = false; b.lines[key] = d; }             // fill an empty line
+      }
+    });
+    var newF = arr(newDerived.features);
+    if (newF.length){
+      var seenF = {}; arr(b.features).forEach(function(f){ seenF[norm(f.feature)] = true; });
+      newF.forEach(function(f){ f = obj(f); var fn = str(f.feature); if (fn && !seenF[norm(fn)]){ seenF[norm(fn)] = true; b.features.push({ feature: fn, benefit: str(f.benefit), edited: false }); } });
+    }
+    if (opts.now) b.meta.lastDerivedAt = opts.now;
+    if (opts.promptVersion) b.meta.promptVersion = str(opts.promptVersion);
+    return b;
+  }
+
+  // ---- multi-chunk merge ------------------------------------------------------------------------
+  // A big review set is derived in chunks (chunkReviews), so one paste is never one oversized model
+  // call. Each chunk returns its OWN derivation over only the reviews in that chunk, with counts =
+  // mentions within that chunk. This folds the chunks into ONE derived object whose counts are the
+  // sum across all chunks and whose `total` is the reviews actually stored -- so evidence stays honest
+  // ("mentioned in N of M reviews") no matter how many chunks it took. Pure; feeds applyDerivation.
+  function mergeChunkDerivations(chunks, total){
+    total = total|0;
+    var out = { lines: {}, features: [], meta: { reviewCount: total } };
+    // group findings by normalized value, summing counts and unioning words/claims
+    function fold(findings){
+      var order = [], by = {};
+      arr(findings).forEach(function(f){
+        f = normLine(f);
+        if (!f.value) return;
+        var k = norm(f.value);
+        if (!by[k]){ by[k] = { value:f.value, words:[], claims:[], terms:[], hits:[], count:0, total:total }; order.push(k); }
+        var g = by[k];
+        g.count += (f.count|0);
+        unionInto(g.words, f.words); unionInto(g.claims, f.claims); unionInto(g.terms, f.terms); unionInto(g.hits, f.hits);
+      });
+      return order.map(function(k){ return by[k]; }).sort(function(a,b){ return b.count - a.count; });
+    }
+    LINE_KEYS.forEach(function(k){
+      var findings = [];
+      arr(chunks).forEach(function(ch){ var l = obj(ch).lines ? obj(ch).lines[k.key] : null;
+        if (k.list) arr(l).forEach(function(x){ findings.push(x); });
+        else if (l) findings.push(l);
+      });
+      var folded = fold(findings);
+      out.lines[k.key] = k.list ? folded : (folded[0] || line(""));
+    });
+    // features -> benefits: dedupe by normalized feature, first benefit wins
+    var seenF = {}, feats = [];
+    arr(chunks).forEach(function(ch){ arr(obj(ch).features).forEach(function(f){ f = obj(f);
+      var name = str(f.feature); if (!name) return; var fk = norm(name);
+      if (!seenF[fk]){ seenF[fk] = true; feats.push({ feature:name, benefit:str(f.benefit) }); }
+    }); });
+    out.features = feats;
+    return out;
+  }
+
+  // ---- semantic consolidation -------------------------------------------------------------------
+  // Exact-string folding leaves "dull knives" / "knives get blunt" / "blades go dull" as three weak
+  // findings. A model pass decides which findings MEAN the same thing and returns a clustering spec
+  // { groups:[{value, members:[i...]}], dropped:[i...] }; this pure helper applies it so the COUNT
+  // ARITHMETIC stays in code (trustworthy), not in the model: member counts are summed and capped at
+  // the review total (overlap can never push a pain past the number of reviews), words/claims are
+  // unioned, `dropped` items (e.g. a positive mistaken for an objection) are removed, and any finding
+  // the model forgot to place is KEPT as its own group so a real pain is never silently lost.
+  function applyClusters(items, spec, total){
+    items = arr(items).map(normLine);
+    total = total|0;
+    spec = obj(spec);
+    var dropped = {}; arr(spec.dropped).forEach(function(i){ dropped[i|0] = true; });
+    var used = {}, out = [];
+    arr(spec.groups).forEach(function(g){
+      g = obj(g);
+      var mem = arr(g.members).map(function(i){ return i|0; }).filter(function(i){ return items[i] && !used[i]; });
+      if (!mem.length) return;
+      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false;
+      mem.forEach(function(i){ used[i] = true; var it = items[i]; count += (it.count|0); cls = cls || !!it.classified; ccls = ccls || !!it.cclassified;
+        unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits); unionInto(chits, it.chits);
+      });
+      if (total > 0) count = Math.min(count, total);
+      out.push(normLine({ value: str(g.value) || items[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls }));
+    });
+    // keep anything the model neither grouped nor explicitly dropped -- never silently lose a finding
+    items.forEach(function(it, i){ if (used[i] || dropped[i]) return;
+      out.push(normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified }));
+    });
+    out.sort(function(a,b){ return b.count - a.count; });
+    return out;
+  }
+
+  // Unified consolidation across BOTH lists: pains and objections go in as ONE indexed set so a concept
+  // (e.g. battery life) that the model emitted into both lands in exactly ONE cluster with ONE category,
+  // instead of being split across pains AND objections and counted in each. spec.clusters carry a
+  // `category` ("pain"|"objection"); forgotten items stay in their original list; dropped items go.
+  function applyUnifiedClusters(pains, objections, spec, total){
+    var A = arr(pains).map(normLine), C = arr(objections).map(normLine), combined = A.concat(C);
+    total = total|0; spec = obj(spec);
+    var dropped = {}; arr(spec.dropped).forEach(function(i){ dropped[i|0] = true; });
+    var used = {}, outP = [], outO = [];
+    function build(g, mem){
+      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false;
+      mem.forEach(function(i){ used[i] = true; var it = combined[i]; count += (it.count|0); cls = cls || !!it.classified; ccls = ccls || !!it.cclassified;
+        unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits); unionInto(chits, it.chits); });
+      if (total > 0) count = Math.min(count, total);
+      return normLine({ value: str(g.value) || combined[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls });
+    }
+    arr(spec.clusters).forEach(function(g){
+      g = obj(g);
+      var mem = arr(g.members).map(function(i){ return i|0; }).filter(function(i){ return combined[i] && !used[i]; });
+      if (!mem.length) return;
+      var f = build(g, mem), cat = norm(g.category);
+      (cat.indexOf("objection") >= 0 ? outO : outP).push(f);
+    });
+    combined.forEach(function(it, i){ if (used[i] || dropped[i]) return;   // keep forgotten in its origin list
+      var f = normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified });
+      (i < A.length ? outP : outO).push(f);
+    });
+    return { pains: outP, objections: outO };
+  }
+
+  // ---- deterministic counting -------------------------------------------------------------------
+  // The model ESTIMATES counts, so they drift run to run. Counting is deterministic work: recount in
+  // code by scanning the stored reviews for the finding's own buyer phrases. Whole-word, case- and
+  // punctuation-insensitive. This is a true FLOOR -- a review that expresses the point in different
+  // words than the extracted phrase is not counted -- so the UI labels it "Found in", not "Mentioned
+  // in". Stable: the same reviews always yield the same number.
+  function matchText(s){ return " " + str(s).toLowerCase().replace(/[^a-z0-9]+/g, " ").replace(/\s+/g, " ").trim() + " "; }
+  function countInReviews(phrases, reviews){
+    var ps = arr(phrases).map(function(p){ return matchText(p).trim(); }).filter(function(p){ return p.length >= 3; });
+    if (!ps.length) return 0;
+    var texts = arr(reviews).map(function(r){ return (typeof r === "string") ? matchText(r) : matchText(obj(r).full || obj(r).quote || ""); });
+    var c = 0;
+    texts.forEach(function(hay){ for (var i = 0; i < ps.length; i++){ if (hay.indexOf(" " + ps[i] + " ") >= 0){ c++; return; } } });
+    return c;
+  }
+  // Keep only phrases actually present in the reviews, so displayed buyer language is always real and a
+  // "Not quoted" finding never shows a phrase underneath (that self-contradiction was a bug).
+  function verifyPhrases(phrases, reviews){ return arr(phrases).map(str).filter(function(p){ return p && countInReviews([p], reviews) > 0; }); }
+  // Count each finding from its classified HITS (reviews the model judged to actually express it, with
+  // correct sentiment), intersected with the reviews still stored -- so removing a review drops its
+  // contribution and the number is stable across rebuilds. Keyword term-matching is only a FALLBACK for
+  // a brief that has not been classified yet (meta.classified false), e.g. an old brief or first paint.
+  // words/claims are still pruned to what is truly in the reviews, since they are displayed.
+  function recountFindings(merged, reviews, comments){
+    merged = obj(merged);
+    merged.meta = obj(merged.meta);
+    var total = arr(reviews).length;
+    var classified = !!merged.meta.classified;
+    var idset = {}; arr(reviews).forEach(function(r){ idset[(typeof r === "string") ? r : (obj(r).id || reviewHash(obj(r).full))] = true; });
+    // Comment channel (separate evidence). Only recomputed when comments are supplied, so a caller that
+    // recounts reviews only leaves the comment counts untouched instead of zeroing them.
+    var hasC = comments != null, cmts = arr(comments), ctotal = cmts.length;
+    var cText = {}, cidset = {}; cmts.forEach(function(c){ c = obj(c); cText[c.id] = str(c.text); cidset[c.id] = true; });
+    function cQuote(t){ t = str(t).split(/\s+/); return t.slice(0, 12).join(" ") + (t.length > 12 ? "..." : ""); }
+    var lines = obj(merged.lines);
+    function recount(it){
+      it.words  = verifyPhrases(it.words, reviews);
+      it.claims = verifyPhrases(it.claims, reviews);
+      it.hits   = arr(it.hits).filter(function(h){ return idset[h]; });   // drop hits for removed reviews
+      it.count  = classified ? it.hits.length
+                             : countInReviews(arr(it.terms).concat(it.words).concat(it.claims), reviews);
+      it.total  = total;
+      if (hasC){
+        it.chits  = arr(it.chits).filter(function(h){ return cidset[h]; });  // drop hits for removed comments
+        it.ccount = it.chits.length;
+        it.ctotal = ctotal;
+        it.cwords = it.chits.slice(0, 3).map(function(h){ return cQuote(cText[h]); }).filter(Boolean);   // commenter's own words
+      }
+    }
+    LINE_KEYS.forEach(function(k){
+      var v = lines[k.key];
+      if (k.list){ arr(v).forEach(recount); }
+      else if (v && typeof v === "object"){ recount(v); }
+    });
+    merged.meta.reviewCount = total;
+    if (hasC) merged.meta.commentCount = ctotal;
+    return merged;
+  }
+
+  // Apply a classification result: spec is { "<lineKey>": [{value, hits:[reviewId]}...] } for list lines
+  // and { "<lineKey>": {hits:[reviewId]} } for single lines, matched to findings by normalized value.
+  // Sets each finding's hits (sentiment-correct membership) and flips meta.classified so counts use them.
+  function applyHits(merged, spec){
+    merged = obj(merged); spec = obj(spec);
+    var lines = obj(merged.lines);
+    LINE_KEYS.forEach(function(k){
+      var s = spec[k.key];
+      if (k.list){
+        var byVal = {}; arr(s).forEach(function(e){ e = obj(e); byVal[norm(e.value)] = arr(e.hits).map(str); });
+        arr(lines[k.key]).forEach(function(it){ var h = byVal[norm(it.value)]; if (h) it.hits = h; });
+      } else if (lines[k.key] && typeof lines[k.key] === "object"){
+        var one = obj(s); if (one && one.hits) lines[k.key].hits = arr(one.hits).map(str);
+      }
+    });
+    merged.meta = obj(merged.meta); merged.meta.classified = true;
+    return merged;
+  }
+
   // ---- read helpers for later phases ------------------------------------------------------------
   // Honest evidence: mentions stated against the review total measured at derivation (line.total),
   // which is exactly what the count was computed against; falls back to the brief's derivation count.
@@ -13699,9 +14181,31 @@ function genOneScript(opts){
     getRaw: getRaw,
     reviewCount: reviewCount,
     addReviews: addReviews,
+    newReviews: newReviews,
+    markReviewsDerived: markReviewsDerived,
     chunkReviews: chunkReviews,
+    splitReviews: splitReviews,
+    suspectMergedCount: suspectMergedCount,
+    suspectMergedIndices: suspectMergedIndices,
     markEdited: markEdited,
     editLine: editLine,
+    mergeChunkDerivations: mergeChunkDerivations,
+    mergeIncremental: mergeIncremental,
+    applyClusters: applyClusters,
+    applyUnifiedClusters: applyUnifiedClusters,
+    countInReviews: countInReviews,
+    recountFindings: recountFindings,
+    applyHits: applyHits,
+    reviewHash: reviewHash,
+    commentHash: commentHash,
+    materialSig: materialSig,
+    splitComments: splitComments,
+    flatFindings: flatFindings,
+    CH_REVIEW: CH_REVIEW,
+    CH_COMMENT: CH_COMMENT,
+    classifyPlan: classifyPlan,
+    addHit: addHit,
+    classifyFinalize: classifyFinalize,
     applyDerivation: applyDerivation,
     evidence: evidence,
     safeWords: safeWords,
@@ -13720,6 +14224,20 @@ function genOneScript(opts){
   "use strict";
   var SB = window.SaxeBrief;
   var raw = SB.emptyRaw();
+  var brief = SB.emptyBrief();          // derived, light column; loaded on open, rebuilt by deriveBrief
+  var deriving = false;                 // guards the derive button against double-fire
+  var DERIVE_PROMPT_V = "brief-derive-5";
+  var DERIVE_BATCH = 8;                 // reviews per derivation call -- smaller so each call stays inside
+  var DERIVE_REVIEW_CHARS = 2000;       // Netlify's ~26s sync gateway even with the larger per-review excerpt
+  var DERIVE_MODEL = "claude-haiku-4-5-20251001"; // fast enough not to hit the gateway 504
+  // Complaints often sit at the END of long reviews, so send HEAD + TAIL, not head alone (which missed
+  // battery/filter gripes buried under thousands of words). Counting still scans the FULL stored review.
+  function reviewExcerpt(full){
+    var s = String(full || "").trim();
+    if (s.length <= DERIVE_REVIEW_CHARS) return s;
+    var head = Math.ceil(DERIVE_REVIEW_CHARS * 0.55), tail = DERIVE_REVIEW_CHARS - head;
+    return s.slice(0, head).trim() + "\n[...]\n" + s.slice(s.length - tail).trim();
+  }
   var saveTimer = null, saving = false, savePending = false, lastSavedAt = null;
   function el(id){ return document.getElementById(id); }
   function val(id){ var e = el(id); return e ? e.value : ""; }
@@ -13761,31 +14279,8 @@ function genOneScript(opts){
     if (btn) btn.style.display = show ? "none" : "";
     if (show){ var t = el("psReviewNew"); if (t){ t.value = ""; try{ t.focus(); }catch(e){} } }
   }
-  // Split pasted review text into individual reviews. Strategy, most reliable first:
-  // (1) Amazon star-rating lines ("5.0 out of 5 stars" or star glyphs), one per review, split before each;
-  // (2) blank-line separation (clean / manual pastes);
-  // (3) "Reviewed in ... on DATE" lines (Amazon), one per review, split before each.
-  // Honest limits: reliable for standard Amazon "out of 5 stars" copy; other formats can mis-split,
-  // which is exactly why the list below lets you verify and remove. Derivation re-parses for the final count.
-  function splitReviews(text){
-    var t = String(text || "").replace(/\r/g, "").trim();
-    if (!t) return [];
-    // Split BEFORE each marker line; any leading text before the first marker (e.g. the reviewer's
-    // name on Amazon) belongs to the first review, so merge it in rather than counting it separately.
-    function splitBefore(src){
-      var parts = t.split(new RegExp("(?=" + src + ")", "gim"));
-      var head = new RegExp(src, "im");
-      if (parts.length >= 2 && !head.test(parts[0])){ parts[1] = parts[0] + "\n" + parts[1]; parts.shift(); }
-      return parts.map(function(b){ return b.trim(); }).filter(Boolean);
-    }
-    var starSrc = "^[ \\t]*(?:[\u2605\u2b50]{1,5}|\\d(?:\\.\\d)?\\s*out of\\s*\\d\\s*stars\\b)";
-    if ((t.match(new RegExp(starSrc, "gim")) || []).length >= 2){ var a = splitBefore(starSrc); if (a.length >= 2) return a; }
-    var byBlank = t.split(/\n\s*\n+/).map(function(b){ return b.trim(); }).filter(Boolean);
-    if (byBlank.length >= 2) return byBlank;
-    var revSrc = "Reviewed in .{0,40}? on ";
-    if ((t.match(new RegExp(revSrc, "g")) || []).length >= 2){ var b = splitBefore(revSrc); if (b.length >= 2) return b; }
-    return [t];
-  }
+  // Review splitting lives in SaxeBrief (SB.splitReviews) so it is pure and unit-tested against real
+  // Amazon pastes. This screen just calls it and warns when a split looks merged.
 
   // Collapsed list of stored reviews, each with a remove control. Click a row to expand/collapse.
   function renderReviewList(){
@@ -13806,16 +14301,24 @@ function genOneScript(opts){
     });
   }
 
+  var MAX_PASTE_CHARS = 600000;   // generous; a big multi-review paste with long bodies fits easily
   function addReviewsFromBox(){
     var text = val("psReviewNew").trim();
     if (!text){ reviewMsg("Paste at least one review first.", "var(--red)"); return; }
-    var res = SB.addReviews(raw, splitReviews(text).map(function(b){ return { full: b, source: "paste" }; }));
+    // Never silently drop: if a paste is enormous, refuse and ask for smaller batches (the add flow
+    // appends, so batching loses nothing) rather than truncating and freezing a wrong count.
+    if (text.length > MAX_PASTE_CHARS){ reviewMsg("That paste is very large (" + text.length.toLocaleString() + " characters). Add it in two or three smaller batches so none of it is dropped.", "var(--red)"); return; }
+    var res = SB.addReviews(raw, SB.splitReviews(text).map(function(b){ return { full: b, source: "paste" }; }));
     raw = res.raw;
     toggleReviewAdd(false);
     renderReviewList(); renderReviewCount();
-    var msg = "Added " + res.added + " review" + (res.added===1?"":"s") + ". " + raw.reviews.length + " total. Check the list and remove any that split wrong.";
+    var msg = "Added " + res.added + " review" + (res.added===1?"":"s") + ". " + raw.reviews.length + " total.";
+    var suspects = SB.suspectMergedIndices(raw.reviews);
     if (res.rejected > 0) msg += " " + res.rejected + " not added (100 max reached, remove some first).";
-    reviewMsg(msg, res.rejected > 0 ? "var(--red)" : "var(--green)");
+    // Non-blocking heads-up naming the rows that might hold more than one review. Never blocks building.
+    if (suspects.length) msg += " Heads up: review " + suspects.join(", ") + " may hold more than one review. Open the list to check or remove.";
+    else msg += " Check the list and remove any that split wrong.";
+    reviewMsg(msg, (res.rejected > 0 || suspects.length) ? "var(--red)" : "var(--green)");
     scheduleSave();
   }
 
@@ -13841,45 +14344,88 @@ function genOneScript(opts){
     if (el("psAuthority"))      el("psAuthority").value      = raw.authorityRaw;
     ["psAngleLink","psAngleText"].forEach(function(id){ if (el(id)) el(id).value = ""; });
     renderAngles(); renderReviewList(); renderReviewCount(); reviewMsg(""); toggleReviewAdd(false);
+    renderBrief();
   }
 
-  // Toggle between the input form (#textPanel) and the quiet "pick a product" landing (#homeLanding).
+  // Collapsible product setup: the brief leads, setup tucks below. Expanded for a new/undrived product,
+  // collapsed once a brief exists (setup is a once-in-a-while job; the brief is the daily one).
+  function setSetupOpen(open){
+    var w = el("setupWrap"), c = el("setupCaret");
+    if (w) w.style.display = open ? "" : "none";
+    if (c) c.textContent = open ? "▴" : "▾";
+  }
+
+  // Toggle the product screen (#textPanel) vs the quiet landing (#homeLanding); the product toolbar
+  // (search / sort / manage / new) only shows while a product screen is open, so the landing stays clean.
   function showForm(yes){
+    // The home-landing body class hides ALL product/tab chrome via CSS; opening a product removes it.
+    if (yes) document.body.classList.remove("home-landing"); else document.body.classList.add("home-landing");
     var tp = el("textPanel"); if (tp) tp.style.display = yes ? "" : "none";
     var hl = el("homeLanding"); if (hl) hl.style.display = yes ? "none" : "";
+    var pb = document.querySelector(".product-bar"); if (pb) pb.style.display = yes ? "" : "none";
+    if (!yes){ var hp = el("homePicker"); if (hp) hp.style.display = "none"; }
   }
   function renderBlank(){
     raw = SB.emptyRaw();
+    brief = SB.emptyBrief();
     currentProductId = null; currentProductName = "";
-    lastSavedAt = null; showForm(true); renderInputs(); status("New product. Saved automatically as you type.");
+    lastSavedAt = null; showForm(true); renderInputs(); setSetupOpen(true); status("New product. Saved automatically as you type.");
   }
   function fill(product){
     raw = SB.getRaw(product);
+    brief = SB.getBrief(product);
     currentProductId = product.id;
     currentProductName = product.name || "";
     lastSavedAt = product.updated_at ? new Date(product.updated_at) : null;
-    showForm(true); renderInputs(); setSaved("saved");
+    showForm(true); renderInputs(); setSetupOpen(!brief.meta.lastDerivedAt); setSaved("saved");
   }
-  // Landing shown on sign-in when the library is non-empty: a short line, up to 5 most-recent
-  // products as quick picks, and a New button. The full list stays in the top picker/dropdown.
-  function renderHome(){
-    if (typeof currentUser === "undefined" || !currentUser || typeof sb === "undefined" || !sb){ showForm(true); renderBlank(); return; }
-    sb.from("products").select("id, name, updated_at").eq("user_id", currentUser.id).order("updated_at", { ascending: false }).then(function(r){
+  // Sign-in ALWAYS lands on the quiet page (New product / My products / Planner / Carousels), whether or
+  // not the library has products. New product is how you reach the blank setup form -- never sign-in.
+  function renderHome(){ showForm(false); }
+
+  // "My products": one inline picker with search + open + rename + delete (folds in Manage). Single path.
+  function openPicker(){
+    var hp = el("homePicker"); if (hp) hp.style.display = "";
+    renderHomePicker("");
+    var s = el("homePickerSearch"); if (s){ s.value = ""; try { s.focus(); } catch(e){} }
+  }
+  function renderHomePicker(filter){
+    var box = el("homePickerList"); if (!box) return;
+    if (typeof currentUser === "undefined" || !currentUser || typeof sb === "undefined" || !sb){ box.innerHTML = ""; return; }
+    box.innerHTML = "<div style='font-size:12px;color:var(--muted);padding:6px 2px;'>Loading...</div>";
+    sb.from("products").select("id, name, updated_at").eq("user_id", currentUser.id).order("name", { ascending: true }).then(function(r){
       var rows = (r && !r.error && r.data) ? r.data : [];
-      if (!rows.length){ showForm(true); renderBlank(); return; }
-      var box = el("homeRecent");
-      if (box){
-        box.innerHTML = "";
-        rows.slice(0, 5).forEach(function(p){
-          var b = document.createElement("button"); b.type = "button";
-          b.style.cssText = "display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border-md);border-radius:10px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:12px 14px;margin-bottom:8px;cursor:pointer;";
-          b.textContent = p.name || "Untitled product";
-          b.addEventListener("click", function(){ if (typeof loadProductById === "function") loadProductById(p.id); });
-          box.appendChild(b);
-        });
-      }
-      showForm(false);
-    }, function(){ showForm(true); renderBlank(); });
+      rows.sort(function(a, b){ return String(a.name||"").toLowerCase().localeCompare(String(b.name||"").toLowerCase()); });
+      var q = String(filter || "").trim().toLowerCase();
+      if (q) rows = rows.filter(function(p){ return String(p.name || "").toLowerCase().indexOf(q) >= 0; });
+      box.innerHTML = "";
+      if (!rows.length){ var n = document.createElement("div"); n.style.cssText = "font-size:13px;color:var(--muted);padding:8px 2px;"; n.textContent = q ? "No products match that search." : "No products yet. Start with New product."; box.appendChild(n); return; }
+      rows.forEach(function(p){ box.appendChild(homePickerRow(p)); });
+    }, function(){ box.innerHTML = "<div style='font-size:13px;color:var(--red);padding:8px 2px;'>Could not load products.</div>"; });
+  }
+  function homePickerRow(p){
+    var row = document.createElement("div"); row.style.cssText = "display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:0.5px solid var(--border);";
+    var name = document.createElement("button"); name.type = "button";
+    name.style.cssText = "flex:1;min-width:0;text-align:left;background:none;border:none;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:2px 0;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
+    name.textContent = p.name || "Untitled product";
+    name.addEventListener("click", function(){ if (typeof loadProductById === "function") loadProductById(p.id); });
+    var ren = document.createElement("button"); ren.type = "button"; ren.textContent = "Rename";
+    ren.style.cssText = "flex-shrink:0;background:none;border:1px solid var(--border-md);border-radius:7px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:11px;padding:5px 9px;cursor:pointer;";
+    ren.addEventListener("click", function(){
+      var nn = window.prompt("Rename product", p.name || "");
+      if (nn == null) return; nn = String(nn).trim(); if (!nn) return;
+      sb.from("products").update({ name: nn }).eq("id", p.id).then(function(){ p.name = nn; renderHomePicker(val("homePickerSearch")); if (typeof buildSelect === "function"){ try { buildSelect(); } catch(e){} } });
+    });
+    var del = document.createElement("button"); del.type = "button"; del.textContent = "✕"; del.title = "Delete product";
+    del.style.cssText = "flex-shrink:0;background:none;border:none;color:var(--muted);font-size:14px;line-height:1;cursor:pointer;";
+    del.addEventListener("click", function(){
+      if (!window.confirm("Delete \"" + (p.name || "this product") + "\" and its scripts? This cannot be undone.")) return;
+      sb.from("scripts").delete().eq("product_id", p.id).then(function(){
+        sb.from("products").delete().eq("id", p.id).then(function(){ renderHomePicker(val("homePickerSearch")); if (typeof buildSelect === "function"){ try { buildSelect(); } catch(e){} } });
+      });
+    });
+    row.appendChild(name); row.appendChild(ren); row.appendChild(del);
+    return row;
   }
 
   function scheduleSave(){ setSaved("saving"); clearTimeout(saveTimer); saveTimer = setTimeout(saveNow, 800); }
@@ -13917,10 +14463,90 @@ function genOneScript(opts){
     var done = 0;
     list.forEach(function(f){
       var reader = new FileReader();
-      reader.onload  = function(){ raw.reviewShots.push({ name: f.name || "", dataUrl: String(reader.result) }); if (++done === list.length){ renderReviewCount(); scheduleSave(); } };
-      reader.onerror = function(){ if (++done === list.length){ renderReviewCount(); scheduleSave(); } };
+      reader.onload  = function(){ raw.reviewShots.push({ name: f.name || "", dataUrl: String(reader.result) }); if (++done === list.length){ renderReviewCount(); reviewMsg(list.length + " screenshot" + (list.length>1?"s":"") + " added. They are read when you build the brief."); scheduleSave(); } };
+      reader.onerror = function(){ if (++done === list.length){ renderReviewCount(); reviewMsg("Some images could not be read.", "var(--red)"); scheduleSave(); } };
       reader.readAsDataURL(f);
     });
+  }
+
+  // Build a Claude image content block from a data URL, detecting the REAL media type from the base64
+  // magic bytes rather than trusting the data: prefix or the File.type (a pasted PNG often arrives typed
+  // as jpeg, and the API rejects a mislabeled image). Falls back to the declared type, then to jpeg.
+  function imgBlock(dataUrl){
+    var du = String(dataUrl || ""), b64 = du.split(",")[1] || "", mt = "";
+    if (/^iVBORw0KGgo/.test(b64)) mt = "image/png";
+    else if (/^\/9j\//.test(b64)) mt = "image/jpeg";
+    else if (/^R0lGOD/.test(b64)) mt = "image/gif";
+    else if (/^UklGR/.test(b64)) mt = "image/webp";
+    else { var m = du.match(/^data:(image\/[a-z0-9.+-]+)/i); mt = m ? m[1].toLowerCase() : "image/jpeg"; }
+    return { type: "image", source: { type: "base64", media_type: mt, data: b64 } };
+  }
+  // Competitor/viral comment screenshots: OCR immediately and append the extracted comment text to the
+  // (visible, editable, removable) comments box -- phones cannot copy comment text, so this is the path.
+  function compStatus(msg, color){ var s = el("psCompStatus"); if (!s) return; if (msg){ s.style.display = "block"; s.style.color = color || "var(--muted)"; s.textContent = msg; } else { s.style.display = "none"; } }
+  function onCompFiles(files){
+    var list = [].slice.call(files || []).slice(0, 6); if (!list.length) return;
+    compStatus("Reading " + list.length + " screenshot" + (list.length>1?"s":"") + "...");
+    var imgs = [], done = 0;
+    list.forEach(function(f, idx){
+      var reader = new FileReader();
+      reader.onload = function(){
+        imgs[idx] = imgBlock(reader.result);
+        if (++done === list.length) runCompOcr(imgs.filter(Boolean)); };
+      reader.onerror = function(){ if (++done === list.length) runCompOcr(imgs.filter(Boolean)); };
+      reader.readAsDataURL(f);
+    });
+  }
+  function runCompOcr(content){
+    if (!content.length){ compStatus("Could not read those images.", "var(--red)"); return; }
+    content.push({ type: "text", text: "These are screenshots of comments left on short-form videos about a product. Transcribe every distinct COMMENT verbatim, one per line, in the commenter's own words. Ignore usernames, timestamps, like counts, reply counts, and app chrome. Return ONLY the comment lines, nothing else." });
+    claudeCall({ model: "claude-haiku-4-5-20251001", max_tokens: 2000, messages: [{ role: "user", content: content }] }, function(text, err){
+      if (err){ compStatus("Reading failed (" + ((err && err.message) ? err.message : "try again") + "). You can paste the comments instead.", "var(--red)"); return; }
+      var add = String(text || "").replace(/```/g, "").trim();
+      if (!add){ compStatus("No comment text was found in those screenshots.", "var(--red)"); return; }
+      var box = el("psCompetitorText"); if (box){ box.value = (box.value.trim() ? box.value.trim() + "\n" : "") + add; }
+      collect(); compStatus("Added the comments. Check and edit the box, then build the brief.", "var(--green)");
+      scheduleSave();
+    });
+  }
+
+  // Desktop paths for getting a screenshot into a box WITHOUT the save-file-then-browse detour: paste
+  // from the clipboard, or drag an image file onto the box. The upload button stays for mobile, where
+  // screenshots live in the camera roll. Pull the image File(s) out of a clipboard OR a drag payload.
+  function imagesFrom(dt){
+    var out = [];
+    if (!dt) return out;
+    var files = dt.files ? [].slice.call(dt.files) : [];
+    files.forEach(function(f){ if (f && /^image\//.test(f.type || "")) out.push(f); });
+    // Fallback for clipboards that expose the image only through items (older Safari/Firefox paths).
+    if (!out.length && dt.items){
+      [].slice.call(dt.items).forEach(function(it){
+        if (it && it.kind === "file" && /^image\//.test(it.type || "")){ var f = it.getAsFile(); if (f) out.push(f); }
+      });
+    }
+    return out;
+  }
+  function dtHasFiles(dt){ return !!(dt && dt.types && [].indexOf.call(dt.types, "Files") > -1); }
+  // Route pasted / dropped images to `handler`. Cmd/Ctrl+V and right-click "Paste" both fire the same
+  // `paste` event, so this one listener covers mouse and keyboard alike -- they are one code path here.
+  // dragover MUST call preventDefault or the browser navigates to the dropped image instead of dropping.
+  function wireImageDrop(dropEl, pasteEl, handler){
+    if (pasteEl){
+      pasteEl.addEventListener("paste", function(e){
+        var imgs = imagesFrom(e.clipboardData);
+        if (imgs.length){ e.preventDefault(); handler(imgs); }
+      });
+    }
+    if (dropEl){
+      var lit = function(on){ dropEl.style.outline = on ? "2px dashed var(--purple)" : ""; dropEl.style.outlineOffset = on ? "4px" : ""; };
+      dropEl.addEventListener("dragover", function(e){ if (dtHasFiles(e.dataTransfer)){ e.preventDefault(); lit(true); } });
+      dropEl.addEventListener("dragleave", function(e){ if (e.target === dropEl) lit(false); });
+      dropEl.addEventListener("drop", function(e){
+        lit(false);
+        var imgs = imagesFrom(e.dataTransfer);
+        if (imgs.length){ e.preventDefault(); handler(imgs); }
+      });
+    }
   }
 
   function addAngleFromText(){
@@ -13942,6 +14568,502 @@ function genOneScript(opts){
     }, function(err){ show("Fetch failed (" + ((err && err.message) ? err.message : "the transcript service did not respond") + "). Fetch is optional. Paste the transcript below and press Add winning angle.", "var(--red)"); });
   }
 
+  // ===== Phase 3: brief derivation ==============================================================
+  // Reads the RAW material and derives the light `brief` (Evolution Pro 11-line checklist with
+  // per-line evidence). Screenshots are OCR'd into visible review text first (so counts include
+  // them and you can see/remove them). Big review sets are derived in chunks and the counts summed,
+  // so evidence stays honest. Hand-edited lines are preserved by SaxeBrief.applyDerivation.
+  function deriveStatus(msg, color){
+    var s = el("briefStatus"); if (!s) return;
+    if (msg){ s.style.display = "block"; s.style.color = color || "var(--muted)"; s.textContent = msg; }
+    else { s.style.display = "none"; s.textContent = ""; }
+  }
+  // Tolerant JSON extraction from a model reply (strips code fences, slices to the outer bracket).
+  function parseJson(text, open, close){
+    var c = String(text || "").replace(/```json|```/g, "").trim();
+    var a = c.indexOf(open), z = c.lastIndexOf(close);
+    if (a >= 0 && z > a) c = c.slice(a, z + 1);
+    try { return JSON.parse(c); } catch(e){ return null; }
+  }
+  // Surfaces the REAL failure: the HTTP status AND the response body from /api/claude, so a missing
+  // key (proxy returns 500 {"error":"API key not configured"}), a 429 cap, or an auth 401 are visible
+  // instead of a generic "could not build". cb(null, {status, message}) on any non-2xx or error body.
+  function claudeCall(body, cb){
+    var st = 0;
+    fetch("/api/claude", { method: "POST", headers: claudeHeaders(), body: JSON.stringify(body) })
+      .then(function(r){ st = r.status; return r.text(); })
+      .then(function(rawText){
+        var d = null; try { d = JSON.parse(rawText); } catch(e){}
+        if (st < 200 || st >= 300 || (d && d.error)){
+          var m = (d && d.error && (d.error.message || d.error)) || (rawText ? String(rawText).slice(0, 300) : "empty response body");
+          cb(null, { status: st, message: String(m) }); return;
+        }
+        var text = ""; ((d && d.content) || []).forEach(function(b){ if (b.type === "text") text += b.text; });
+        cb(text, null);
+      })
+      .catch(function(err){ cb(null, { status: st, message: (err && err.message) ? err.message : "network error" }); });
+  }
+  // OCR any review screenshots into structured reviews (same prompt the rest of the app uses).
+  function ocrShots(shots, cb){
+    var content = shots.map(function(s){ return imgBlock(s.dataUrl); });
+    content.push({ type: "text", text: "These are customer REVIEW screenshots for one product. Read every review shown. For EACH distinct review, return an object with: reviewer (a short phrase describing who they are or their use-case if stated, else empty string), full (the COMPLETE review text transcribed verbatim, word for word), praise (the single benefit this reviewer is most happy about, in their own words), complaint (the main complaint, objection, or hesitation, empty string if none), quote (one short verbatim sentence that best captures it). Transcribe faithfully. Do NOT invent or infer beyond what is written, do NOT shorten the full field, and ignore star widgets, avatars, dates, and UI chrome. Return ONLY a JSON array and nothing else." });
+    claudeCall({ model: "claude-haiku-4-5-20251001", max_tokens: 3000, messages: [{ role: "user", content: content }] }, function(text, err){
+      if (err){ cb(null, err); return; }
+      var arr = parseJson(text, "[", "]");
+      // Do not silently treat an unparseable reply as "no reviews" -- that would clear the screenshots.
+      if (!Array.isArray(arr)){ cb(null, { status: 200, message: "the screenshot text could not be read as JSON. Reply started: " + String(text || "").replace(/\s+/g, " ").slice(0, 160) }); return; }
+      cb(arr.map(function(r){ r = r || {}; return { reviewer: String(r.reviewer||""), full: String(r.full||""), praise: String(r.praise||""), complaint: String(r.complaint||""), quote: String(r.quote||""), source: "ocr" }; }).filter(function(r){ return r.full || r.quote; }), null);
+    });
+  }
+  function derivePrompt(reviewsChunk){
+    var revs = reviewsChunk.map(function(r, i){
+      return "Review " + (i+1) + ": " + reviewExcerpt(r.full || r.quote || "");
+    }).join("\n");
+    var ctx = [];
+    if (raw.description) ctx.push("PRODUCT LISTING (what the seller says):\n" + raw.description);
+    if (raw.authorityRaw) ctx.push("CREATOR AUTHORITY (only if given):\n" + raw.authorityRaw);
+    if (raw.competitorComments) ctx.push("COMPETITOR / VIRAL-VIDEO COMMENTS (buyer language and objections from similar products):\n" + raw.competitorComments);
+    return [
+      "You are building a conversion brief for a TikTok Shop product. Analyse the material below and return a strict JSON object with the buyer's psychology in THEIR words.",
+      "",
+      ctx.join("\n\n"),
+      "",
+      (revs ? ("CUSTOMER REVIEWS FOR THIS BATCH (" + reviewsChunk.length + " reviews):\n" + revs) : "There are no customer reviews yet; derive what you can from the listing and comments, and set every count to 0."),
+      "",
+      "Return ONLY this JSON object, nothing else. Every line has words, claims, and terms:",
+      '{"lines":{',
+      '"who":{"value":"who this is really for, one sentence","words":[],"claims":[],"terms":[]},',
+      '"emotion":{"value":"the dominant emotion driving the purchase","words":[],"claims":[],"terms":[]},',
+      '"desire":{"value":"the outcome they actually want","words":[],"claims":[],"terms":[]},',
+      '"pains":[{"value":"a specific pain in their words","words":[],"claims":[],"terms":[]}],',
+      '"problem":{"value":"the core problem the product solves","words":[],"claims":[],"terms":[]},',
+      '"objections":[{"value":"a hesitation or question buyers raise","words":[],"claims":[],"terms":[]}],',
+      '"scarcity":{"value":"any real scarcity or urgency, else empty","words":[],"claims":[],"terms":[]},',
+      '"authority":{"value":"why to trust this (creator authority or social proof), else empty","words":[],"claims":[],"terms":[]},',
+      '"socialProof":{"value":"proof others love it, in their words","words":[],"claims":[],"terms":[]},',
+      '"priceAnchor":{"value":"how buyers frame the value vs price, else empty","words":[],"claims":[],"terms":[]},',
+      '"positioning":{"value":"what makes this different from alternatives","words":[],"claims":[],"terms":[]}},',
+      '"features":[{"feature":"a concrete product feature","benefit":"what it does for the buyer"}]}',
+      "",
+      "RULES:",
+      "- words = the buyer's own emotional or identity phrases, quoted short and verbatim, SAFE to reuse in marketing. At most 3 per line.",
+      "- claims = performance or result claims a buyer makes (e.g. 'cured my back pain'). Keep SEPARATE from words. At most 3 per line.",
+      "- terms = 5 to 10 SHORT distinctive keywords a buyer might use for THIS point, including synonyms and symptoms, so it can be counted across different wordings. Example for a battery-life complaint: battery, charge, run time, runtime, minutes, dies, recharge, lasts. Pick DISTINCTIVE words that would not show up in unrelated reviews (avoid generic words like good, product, use). No counts are needed; do not include a count field.",
+      "- pains = a complaint about how the product actually PERFORMS or holds up in use (rusts, stops working, wears out). objections = a hesitation, doubt, risk, or QUESTION about buying (would it be worth it, will it fit, is it durable, is the info clear, will the colour match). Put each concept in ONE of the two, never both. A positive or a reason they DID buy is NOT an objection.",
+      "- The COMPETITOR / VIRAL-VIDEO COMMENTS above come from people reacting to a video, most of whom have NOT bought. Doubts they raise -- unclear or missing product information, colours or looks not matching what they already own, price worry, whether it will fit or suit them -- are OBJECTIONS, not pains. Only call something a pain when someone describes the product actually failing or wearing out in hand. When the source is a comment and you are unsure, prefer objection.",
+      "- pains and objections are arrays; return AT MOST 4 distinct items each, most-common first.",
+      "- Keep every value under 15 words. Return AT MOST 5 features.",
+      "- Leave value empty ('') for anything the material does not support. Do not invent.",
+      "- NEVER state a number of reviews, a star rating, a percentage, or any statistic in a value. Describe the pattern in words only.",
+      "- Do not use em dashes anywhere. Use plain sentences.",
+      "- Return ONLY the JSON object. No preamble, no explanation, no markdown fences."
+    ].join("\n");
+  }
+  function deriveChunk(reviewsChunk, cb){
+    claudeCall({ model: DERIVE_MODEL, max_tokens: 3000, messages: [{ role: "user", content: derivePrompt(reviewsChunk) }] }, function(text, err){
+      if (err){ cb(null, err); return; }
+      var obj = parseJson(text, "{", "}");
+      // A 200 with unparseable text (usually a cut-off JSON) must surface as a real error, not a
+      // misleading "no response" -- include the actual reply so the cause is visible.
+      if (!obj){ cb(null, { status: 200, message: "the model reply could not be read as JSON (likely cut off). Reply started: " + String(text || "").replace(/\s+/g, " ").slice(0, 200) }); return; }
+      cb(obj, null);
+    });
+  }
+  // Unified cleanup pass. Pains and objections are combined into ONE numbered list so a concept that was
+  // emitted into both lands in exactly ONE cluster with ONE category, instead of being duplicated across
+  // pains AND objections. The model clusters synonyms, assigns each cluster a category, and drops items
+  // that do not belong; the count arithmetic stays in SaxeBrief.applyUnifiedClusters.
+  function consolidatePrompt(pains, objections, features){
+    var combined = pains.concat(objections);
+    var listText = combined.length
+      ? combined.map(function(it, i){ var origin = i < pains.length ? "pain" : "objection"; return i + ". [" + origin + "] " + it.value; }).join("\n")
+      : "(none)";
+    var featText = features.length ? features.map(function(f, i){ return i + ". " + f.feature + (f.benefit ? " -> " + f.benefit : ""); }).join("\n") : "(none)";
+    return [
+      "You are cleaning up findings pulled from customer reviews of ONE product.",
+      "",
+      "LIST A -- complaints and hesitations (each tagged with the category it was first filed under):",
+      listText,
+      "",
+      "LIST B -- product features to benefits (these DUPLICATE badly across rebuilds; collapse them):",
+      featText,
+      "",
+      "Return ONLY this JSON:",
+      '{"clusters":[{"value":"clearest label in buyer language","category":"pain","members":[0,3]}],"dropped":[],"features":[{"feature":"one feature","benefit":"what it does for the buyer","members":[0,2]}]}',
+      "",
+      "RULES:",
+      "- clusters/members refer to LIST A. Group items that MEAN THE SAME THING into one cluster.",
+      "- Each cluster gets ONE category: \"pain\" (a complaint about how the product performs or holds up IN USE -- rusts, stops working, wears out) or \"objection\" (a hesitation, doubt, risk, or question about BUYING -- unclear or missing product info, colour or look not matching, price worry, will it fit or suit me). Reasons to hesitate before buying are objections even when phrased as a complaint. A concept goes in ONE category only.",
+      "- value = clearest phrasing in the buyer's words, under 12 words. Every LIST A number appears in exactly one cluster OR in dropped. dropped = items that are not a genuine complaint or hesitation.",
+      "- features refer to LIST B: merge duplicates and near-duplicates into one entry each (members are the LIST B numbers), keep at most 8, drop vague ones. Do not invent numbers.",
+      "- No em dashes. Return only the JSON."
+    ].join("\n");
+  }
+  function consolidateFindings(pains, objections, features, cb){
+    if ((pains.length + objections.length + features.length) < 2){ cb(null, null); return; }
+    claudeCall({ model: DERIVE_MODEL, max_tokens: 1800, messages: [{ role: "user", content: consolidatePrompt(pains, objections, features) }] }, function(text, err){
+      if (err){ cb(null, err); return; }
+      cb(parseJson(text, "{", "}"), null);
+    });
+  }
+  // Apply the feature clusters from consolidation: one deduped feature per cluster, keeping edited pairs.
+  function applyFeatureClusters(features, clusters){
+    if (!clusters || !clusters.length) return features;
+    var used = {}, out = [];
+    clusters.forEach(function(c){ c = c || {};
+      var mem = (Array.isArray(c.members) ? c.members : []).map(function(i){ return i|0; }).filter(function(i){ return features[i] && !used[i]; });
+      if (!mem.length && !c.feature) return;
+      mem.forEach(function(i){ used[i] = true; });
+      var name = String(c.feature || (features[mem[0]] && features[mem[0]].feature) || "").trim();
+      if (name) out.push({ feature: name, benefit: String(c.benefit || (features[mem[0]] && features[mem[0]].benefit) || ""), edited: false });
+    });
+    features.forEach(function(f, i){ if (!used[i] && f && f.feature) out.push(f); });   // keep any the model forgot
+    return out.slice(0, 10);
+  }
+
+  // ---- sentiment-aware counting (classification) -----------------------------------------------
+  // Term/keyword matching finds the TOPIC not the SENTIMENT, so "the sharpener works great" was being
+  // counted toward "the sharpener does not work". Instead we ask the model, per item (review OR comment),
+  // which findings that item ACTUALLY expresses (with matching sentiment), and record the item's id in the
+  // finding's hits for that channel. Counts then come from hits (SB.recountFindings), frozen + stable.
+  function classifyPrompt(flat, batch, kind){
+    return [
+      "For each " + kind + " below, list which of these product findings it ACTUALLY expresses, WITH MATCHING SENTIMENT. Praise for a feature does NOT express a complaint about that feature, and vice versa. Only include a finding if the " + kind + " clearly makes THAT point with THAT sentiment.",
+      "",
+      "FINDINGS:",
+      flat.map(function(f, i){ return i + ". " + f.value; }).join("\n"),
+      "",
+      kind.toUpperCase() + "S:",
+      batch.map(function(r, i){ return "R" + i + ": " + reviewExcerpt(r.full || r.quote || r.text || ""); }).join("\n"),
+      "",
+      "Return ONLY a JSON object mapping each " + kind + " to the finding numbers it genuinely expresses, e.g. {\"R0\":[1,4],\"R1\":[]}. Use [] when it expresses none. Do not invent finding numbers."
+    ].join("\n");
+  }
+  // INCREMENTAL classification -- the key to a STABLE brief. A finding's hits are its evidence, and once a
+  // (finding, item) pair has been judged it is NEVER re-judged: the model is not deterministic, so re-running
+  // it on the whole brief every build would silently move counts on lines that did not change (a "who" line
+  // falling from 4 to 1 just because comments were added). SB.classifyPlan returns only the genuinely new
+  // pairs to judge -- every NEW item against ALL findings, and every OLD item against only the NEW findings.
+  // Settled hits are reused verbatim. Works for either channel (reviews or comments) via `ch`.
+  // cb(true, judged) on success; cb(false, err) on failure (caller keeps existing hits, no re-roll).
+  function runClassify(b, items, ch, kind, cb){
+    var plan = SB.classifyPlan(b, items, ch);
+    if (!plan.flat.length || !items.length){ cb(false); return; }
+    if (!plan.passes.length){ SB.classifyFinalize(b, items, ch); cb(true, plan.full); return; }  // nothing new
+    var pi = 0;
+    (function nextPass(){
+      if (pi >= plan.passes.length){ SB.classifyFinalize(b, items, ch); cb(true, plan.full); return; }
+      var finds = plan.passes[pi].findings, batches = SB.chunkReviews(plan.passes[pi].items, DERIVE_BATCH), bi = 0;
+      (function next(){
+        if (bi >= batches.length){ pi++; nextPass(); return; }
+        var batch = batches[bi];
+        deriveStatus("Checking which " + kind + "s back each point... batch " + (bi+1) + " of " + batches.length);
+        claudeCall({ model: DERIVE_MODEL, max_tokens: 1500, messages: [{ role: "user", content: classifyPrompt(finds, batch, kind) }] }, function(text, err){
+          if (err){ cb(false, err); return; }
+          var map = parseJson(text, "{", "}") || {};
+          batch.forEach(function(it, j){
+            var nums = map["R" + j]; if (!Array.isArray(nums)) return;
+            nums.forEach(function(n){ SB.addHit(finds[n|0], it.id, ch); });
+          });
+          bi++; next();
+        });
+      })();
+    })();
+  }
+  // Persist BOTH columns in one write: the derived brief AND raw (whose review `derived` flags are what
+  // make the next rebuild incremental). If this does not land, the flags do not stick and the caller
+  // rolls back, so a review is never marked derived without its brief being saved.
+  function saveBriefAndRaw(cb){
+    if (!currentProductId || typeof currentUser === "undefined" || !currentUser || typeof sb === "undefined" || !sb){ cb(false); return; }
+    sb.from("products").update({ brief: brief, raw: raw, updated_at: new Date().toISOString() }).eq("id", currentProductId).select("id").single()
+      .then(function(r){ if (r && !r.error){ lastSavedAt = new Date(); } cb(!!(r && !r.error)); }, function(){ cb(false); });
+  }
+  // INCREMENTAL + ALL-OR-NOTHING. A build extracts ONLY reviews new since the last build, then merges
+  // into the stored brief (never re-extracting what is already there -- that is what keeps the brief
+  // stable). No new reviews means NO model calls at all: just a deterministic recount. Any failed batch
+  // aborts without saving; the existing brief and reviews are untouched. Screenshots become text only
+  // once OCR succeeds. Counts are always recomputed in code, so they never drift between builds.
+  function deriveBrief(){
+    if (deriving) return;
+    if (!currentProductId){ deriveStatus("Add some material first (it saves as you type), then build the brief.", "var(--red)"); scheduleSave(); return; }
+    deriving = true; renderBrief();
+    function fail(where, err){
+      deriving = false; renderBrief();
+      var code = (err && err.status) ? ("HTTP " + err.status) : "no response";
+      var msg = (err && err.message) ? err.message : "unknown error";
+      deriveStatus(where + " failed (" + code + ": " + msg + "). Nothing was saved; your existing brief and reviews are untouched. Try again.", "var(--red)");
+    }
+    // Persist the merged brief AND the raw (so review `derived` flags stick). All-or-nothing on save.
+    function commit(finalBrief, isFirstOrChanged){
+      // Record the comments the brief has now read, so the next build knows whether they changed. This is
+      // the comment-side twin of the review `derived` flags -- both are what make "nothing new" honest.
+      finalBrief.meta.commentsHash = SB.materialSig(raw.competitorComments);
+      var prevBrief = brief, prevRaw = raw;
+      brief = finalBrief;
+      raw = SB.markReviewsDerived(raw);
+      renderReviewList();
+      saveBriefAndRaw(function(okSave){
+        if (!okSave){ brief = prevBrief; raw = prevRaw; deriving = false; renderBrief(); renderReviewList(); deriveStatus("Brief built but could not be saved. Your previous brief is kept. Try again.", "var(--red)"); return; }
+        deriving = false; renderBrief();
+        deriveStatus(isFirstOrChanged ? "Brief updated." : "Nothing new to read. Counts refreshed.", "var(--green)");
+      });
+    }
+    function consolidateAndCommit(mergedBrief, changed){
+      var total = raw.reviews.length;
+      var comments = SB.splitComments(raw.competitorComments);
+      var hadReviewCls = (Array.isArray(mergedBrief.meta.classifiedIds) ? mergedBrief.meta.classifiedIds.length : 0) > 0;
+      // Classify FIRST, against the granular findings -- the model matches reviews far more reliably to
+      // narrow, specific findings than to a broad merged one. Reviews and comments are separate channels,
+      // so buyer evidence and non-buyer evidence never mix. THEN consolidate: the merge unions each
+      // cluster's hit sets onto the surviving finding. Classification is incremental (SB.classifyPlan), so
+      // settled counts never move; a failed classify keeps the existing hits rather than re-rolling them.
+      runClassify(mergedBrief, raw.reviews, SB.CH_REVIEW, "review", function(rok){
+        // Use hits-based counting whenever we have any classification (this run or a prior one). Only fall
+        // back to keyword counting if the brief has NEVER been classified and this run failed.
+        mergedBrief.meta.classified = rok || hadReviewCls;
+        runClassify(mergedBrief, comments, SB.CH_COMMENT, "comment", function(){
+          deriveStatus("Merging similar findings...");
+          consolidateFindings(mergedBrief.lines.pains, mergedBrief.lines.objections, mergedBrief.features, function(spec, err){
+            if (spec && !err){
+              if (spec.clusters){ var u = SB.applyUnifiedClusters(mergedBrief.lines.pains, mergedBrief.lines.objections, spec, total); mergedBrief.lines.pains = u.pains; mergedBrief.lines.objections = u.objections; }
+              if (spec.features){ mergedBrief.features = applyFeatureClusters(mergedBrief.features, spec.features); }
+            }
+            SB.recountFindings(mergedBrief, raw.reviews, comments);
+            commit(mergedBrief, changed);
+          });
+        });
+      });
+    }
+    // Extract only the reviews new since the last build; merge them into the stored brief.
+    function runNewReviews(){
+      var fresh = SB.newReviews(raw);
+      var alreadyBuilt = !!brief.meta.lastDerivedAt;
+      // Comments are a source of the brief too (a major one for objections when the reviews skew positive),
+      // so new comment material must trigger a rebuild the same way a new review does -- not be ignored
+      // because the review set did not change. Track a signature of what the brief last read.
+      var commentsChanged = SB.materialSig(raw.competitorComments) !== (brief.meta.commentsHash || "");
+      if (!fresh.length && alreadyBuilt && !commentsChanged){
+        // Truly nothing new anywhere: recount the existing brief against current reviews and comments
+        // (handles removals too). Free -- no model calls.
+        SB.recountFindings(brief, raw.reviews, SB.splitComments(raw.competitorComments));
+        commit(brief, false);
+        return;
+      }
+      var chunks = SB.chunkReviews(fresh, DERIVE_BATCH);
+      // No new reviews but new comments (or a first build): run ONE pass so the comments are actually read.
+      // derivePrompt attaches the comments as context, so an empty-review chunk still mines them.
+      if (!chunks.length) chunks = [[]];
+      var results = [], i = 0;
+      (function next(){
+        if (i >= chunks.length){
+          var newDerived = SB.mergeChunkDerivations(results, raw.reviews.length);
+          var mergedBrief = SB.mergeIncremental(brief, newDerived, { now: new Date().toISOString(), promptVersion: DERIVE_PROMPT_V });
+          consolidateAndCommit(mergedBrief, true);
+          return;
+        }
+        deriveStatus(chunks.length > 1 ? ("Reading new reviews... batch " + (i+1) + " of " + chunks.length)
+                     : (fresh.length ? "Reading your reviews..." : "Reading the new comments..."));
+        deriveChunk(chunks[i], function(obj, err){
+          if (err || !obj){ fail("Building the brief (batch " + (i+1) + " of " + chunks.length + ")", err); return; }
+          results.push(obj); i++; next();
+        });
+      })();
+    }
+    // Step 1: turn any screenshots into visible review text before deriving. On OCR failure the
+    // screenshots are KEPT (not cleared) so they are never lost, and the run aborts.
+    if (raw.reviewShots.length){
+      deriveStatus("Reading " + raw.reviewShots.length + " screenshot" + (raw.reviewShots.length>1?"s":"") + "...");
+      ocrShots(raw.reviewShots.slice(), function(arr, err){
+        if (err){ fail("Reading the review screenshots", err); return; }
+        if (arr && arr.length){ var res = SB.addReviews(raw, arr); raw = res.raw; }   // new reviews: derived=false
+        raw.reviewShots = [];
+        renderReviewList(); renderReviewCount();
+        runNewReviews();
+      });
+    } else { runNewReviews(); }
+  }
+
+  // Rebuild from scratch: normal builds only EXTEND (they keep existing single-line values forever, so a
+  // stale value like "All 15 reviewers..." can never self-correct). This discards the whole brief AND any
+  // hand-edits, un-marks every review so they are all re-read, then runs a full fresh derivation.
+  function rebuildFromScratch(){
+    if (deriving) return;
+    if (!currentProductId){ deriveStatus("Add some material first, then build the brief.", "var(--red)"); scheduleSave(); return; }
+    if (!window.confirm("Rebuild the whole brief from scratch?\n\nThis DISCARDS the current brief and any lines you edited by hand, then re-derives everything from your reviews. Your reviews and product setup are kept.")) return;
+    brief = SB.emptyBrief();
+    raw.reviews.forEach(function(r){ r.derived = false; });
+    deriveBrief();
+  }
+
+  // ---- brief display ---------------------------------------------------------------------------
+  function briefChip(text, kind){
+    var s = document.createElement("span"); s.textContent = text;
+    s.style.cssText = "display:inline-block;font-size:11px;padding:3px 8px;border-radius:999px;margin:2px 4px 2px 0;line-height:1.3;" +
+      (kind === "claim"   ? "background:rgba(240,90,90,.12);color:var(--red);border:1px solid rgba(240,90,90,.3);"
+     : kind === "comment" ? "background:rgba(144,144,240,.12);color:var(--purple);border:1px solid rgba(144,144,240,.35);"
+                          : "background:var(--surface);color:var(--white-dim);border:1px solid var(--border-md);");
+    return s;
+  }
+  // Evidence is a deterministic text-scan of the reviews (a floor), so it reads "Found in", and a
+  // finding with no literal match reads "Not quoted in the reviews" rather than showing nothing.
+  // Always show an explicit evidence line. When the count is real, chips of buyer language appear too
+  // (see wordsAndClaims); when it is zero, no chips render, so the line never contradicts visible quotes.
+  // Two separate evidence lines: buyers (reviews) and people who have not bought yet (comments), so a doubt
+  // that only shows up in the comments is never invisible AND is never mistaken for a buyer complaint.
+  function evidenceLine(ln){
+    if (!ln || !ln.value) return null;
+    var ev = SB.evidence(brief, ln);
+    var cc = ln.ccount | 0, ctot = ln.ctotal | 0;
+    var frag = document.createDocumentFragment();
+    // Review line: the count when there is one; "Not counted in the reviews" only when there is also no
+    // comment evidence (so a comment-only finding does not read as producing nothing).
+    var reviewText = (ln.count > 0) ? ("Found in " + ev.count + " of " + ev.total + " review" + (ev.total === 1 ? "" : "s"))
+                   : (cc === 0)     ? "Not counted in the reviews"
+                   : null;
+    if (reviewText){ var e = document.createElement("div"); e.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;"; e.textContent = reviewText; frag.appendChild(e); }
+    if (cc > 0){ var ce = document.createElement("div"); ce.style.cssText = "font-size:11px;color:var(--purple);margin-top:2px;"; ce.textContent = "Raised in " + cc + " of " + ctot + " comment" + (ctot === 1 ? "" : "s"); frag.appendChild(ce); }
+    return frag;
+  }
+  function wordsAndClaims(ln){
+    var frag = document.createDocumentFragment();
+    if (!ln) return frag;
+    if ((ln.count | 0) > 0){   // review buyer language -- only with a real review count, never contradicting "Not counted"
+      var words = SB.safeWords(ln), claims = SB.claims(ln);
+      if (words.length){ var wc = document.createElement("div"); wc.style.marginTop = "4px"; words.forEach(function(w){ wc.appendChild(briefChip(w, "word")); }); frag.appendChild(wc); }
+      if (claims.length){
+        var cl = document.createElement("div"); cl.style.marginTop = "5px";
+        var lbl = document.createElement("div"); lbl.style.cssText = "font-size:10px;color:var(--red);margin-bottom:2px;"; lbl.textContent = "Buyer claims (not for you to assert)"; cl.appendChild(lbl);
+        claims.forEach(function(c){ cl.appendChild(briefChip(c, "claim")); }); frag.appendChild(cl);
+      }
+    }
+    var cwords = (ln.ccount | 0) > 0 && Array.isArray(ln.cwords) ? ln.cwords : [];   // commenter's own words, kept distinct
+    if (cwords.length){
+      var cm = document.createElement("div"); cm.style.marginTop = "5px";
+      var clbl = document.createElement("div"); clbl.style.cssText = "font-size:10px;color:var(--purple);margin-bottom:2px;"; clbl.textContent = "From the comments (people who have not bought yet)"; cm.appendChild(clbl);
+      cwords.forEach(function(w){ cm.appendChild(briefChip(w, "comment")); }); frag.appendChild(cm);
+    }
+    return frag;
+  }
+  function singleBlock(label, ln){
+    var wrap = document.createElement("div"); wrap.style.cssText = "margin-bottom:14px;";
+    var h = document.createElement("div"); h.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px;"; h.textContent = label; wrap.appendChild(h);
+    var v = document.createElement("div"); v.style.cssText = "font-size:14px;line-height:1.5;color:" + (ln.value ? "var(--white)" : "var(--muted)") + ";"; v.textContent = ln.value || "Not found yet."; wrap.appendChild(v);
+    var e = evidenceLine(ln); if (e) wrap.appendChild(e);
+    wrap.appendChild(wordsAndClaims(ln));
+    return wrap;
+  }
+  function listBlock(label, items){
+    var wrap = document.createElement("div"); wrap.style.cssText = "margin-bottom:14px;";
+    var h = document.createElement("div"); h.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px;"; h.textContent = label; wrap.appendChild(h);
+    if (!items.length){ var n = document.createElement("div"); n.style.cssText = "font-size:14px;color:var(--muted);"; n.textContent = "Not found yet."; wrap.appendChild(n); return wrap; }
+    items.forEach(function(it){
+      var row = document.createElement("div"); row.style.cssText = "margin-bottom:8px;";
+      var v = document.createElement("div"); v.style.cssText = "font-size:14px;line-height:1.5;color:var(--white);"; v.textContent = "• " + (it.value || ""); row.appendChild(v);
+      var e = evidenceLine(it); if (e) row.appendChild(e);
+      row.appendChild(wordsAndClaims(it));
+      wrap.appendChild(row);
+    });
+    return wrap;
+  }
+  function renderBrief(changes){
+    var host = el("briefBelow");
+    // If the host is missing (some navigation path cleared or never included it), recreate it inside the
+    // input panel so the Build button always has a home. A missing node is the only way the card could
+    // fail to appear, since the card itself is built and attached below with no dependency on the brief.
+    if (!host){
+      var parent = el("textPanel") || el("inputSection") || document.body;
+      if (!parent) return;
+      host = document.createElement("div"); host.id = "briefBelow";
+      host.style.cssText = "margin-top:16px;max-width:760px;margin-left:auto;margin-right:auto;";
+      parent.appendChild(host);
+    }
+    host.innerHTML = "";
+
+    // The card and its Build button are built and attached FIRST, using ONLY the local `deriving` flag
+    // -- no brief access -- so a null/odd brief or any body error below can never remove the primary
+    // action. This is why a product with reviews but no brief yet still gets a working Build button.
+    var b = (brief && brief.meta) ? brief : SB.emptyBrief();
+    var derived = !!b.meta.lastDerivedAt;
+    var reviewsN = (raw && raw.reviews) ? raw.reviews.length : 0;
+
+    var card = document.createElement("div");
+    card.style.cssText = "background:var(--panel,var(--surface));border:1px solid var(--border-md);border-radius:14px;padding:18px 18px 16px;";
+    var head = document.createElement("div"); head.style.cssText = "display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:4px;";
+    var titleWrap = document.createElement("div");
+    var title = document.createElement("div"); title.style.cssText = "font-size:16px;font-weight:600;color:var(--white);"; title.textContent = "Conversion brief"; titleWrap.appendChild(title);
+    var sub = document.createElement("div"); sub.style.cssText = "font-size:12px;color:var(--muted);margin-top:2px;"; titleWrap.appendChild(sub);
+    head.appendChild(titleWrap);
+
+    var btn = document.createElement("button"); btn.type = "button";
+    btn.textContent = deriving ? "Working..." : (derived ? "Update brief" : "Build brief");
+    btn.disabled = deriving;
+    btn.style.cssText = "flex-shrink:0;background:" + (deriving ? "var(--surface)" : "var(--gold)") + ";border:none;border-radius:10px;color:" + (deriving ? "var(--white)" : "#080808") + ";font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:10px 16px;cursor:" + (deriving ? "default" : "pointer") + ";opacity:" + (deriving ? ".6" : "1") + ";";
+    btn.addEventListener("click", deriveBrief);
+    head.appendChild(btn);
+    card.appendChild(head);
+    var stat = document.createElement("div"); stat.id = "briefStatus"; stat.style.cssText = "font-size:12px;color:var(--muted);margin-top:8px;display:none;line-height:1.5;"; card.appendChild(stat);
+    host.appendChild(card);   // card + Build button are now guaranteed on screen
+
+    // Everything past this point is defensive: it can enrich the card but must never remove it.
+    try {
+      var n = b.meta.reviewCount | 0;
+      if (!derived) sub.textContent = reviewsN
+        ? ("No brief yet. Build it from your " + reviewsN + " review" + (reviewsN===1?"":"s") + " and material.")
+        : "Saxe reads your reviews and material, then writes the brief that feeds every script.";
+      else if (SB.isThin(b)) sub.textContent = "Based on only " + n + " review" + (n===1?"":"s") + ". Add more for stronger evidence.";
+      else sub.textContent = "Based on " + n + " review" + (n===1?"":"s") + ".";
+
+      // Non-blocking notice: a stored review may hold more than one. Name the rows; Build stays enabled.
+      var suspects = SB.suspectMergedIndices((raw && raw.reviews) || []);
+      if (suspects.length){
+        var warn = document.createElement("div");
+        warn.style.cssText = "margin-top:10px;background:rgba(240,170,60,.10);border:1px solid rgba(240,170,60,.35);border-radius:8px;padding:9px 11px;font-size:12px;color:var(--white-dim);line-height:1.5;";
+        warn.textContent = "Heads up: review " + suspects.join(", ") + " in your list " + (suspects.length===1?"looks":"look") + " like " + (suspects.length===1?"it may hold":"they may hold") + " more than one review. Open the list to check, and remove or re-paste if wrong. You can still build the brief.";
+        card.appendChild(warn);
+      }
+
+      if (derived){
+        if (changes && changes.length){
+          var chg = document.createElement("div"); chg.style.cssText = "font-size:12px;color:var(--white-dim);margin-top:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:8px 10px;";
+          chg.textContent = "Updated " + changes.length + " line" + (changes.length===1?"":"s") + ". Lines you edited by hand were kept.";
+          card.appendChild(chg);
+        }
+        var body = document.createElement("div"); body.style.cssText = "margin-top:14px;";
+        var mustKeys = SB.mustHaveKeys();
+        SB.LINE_KEYS.forEach(function(k){
+          if (mustKeys.indexOf(k.key) < 0) return;
+          body.appendChild(k.list ? listBlock(k.label, b.lines[k.key]) : singleBlock(k.label, b.lines[k.key]));
+        });
+        card.appendChild(body);
+
+        var rest = document.createElement("div"); rest.style.cssText = "margin-top:6px;display:none;";
+        SB.LINE_KEYS.forEach(function(k){
+          if (mustKeys.indexOf(k.key) >= 0) return;
+          rest.appendChild(k.list ? listBlock(k.label, b.lines[k.key]) : singleBlock(k.label, b.lines[k.key]));
+        });
+        if (b.features && b.features.length){
+          var fh = document.createElement("div"); fh.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:4px 0 3px;"; fh.textContent = "Features to benefits"; rest.appendChild(fh);
+          b.features.forEach(function(f){ var row = document.createElement("div"); row.style.cssText = "font-size:14px;line-height:1.5;color:var(--white);margin-bottom:4px;"; row.textContent = "• " + f.feature + (f.benefit ? " → " + f.benefit : ""); rest.appendChild(row); });
+        }
+        var toggle = document.createElement("button"); toggle.type = "button"; toggle.textContent = "Show all 11 lines";
+        toggle.style.cssText = "margin-top:10px;background:transparent;border:1px solid var(--border-md);border-radius:8px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 12px;cursor:pointer;";
+        toggle.addEventListener("click", function(){ var open = rest.style.display !== "none"; rest.style.display = open ? "none" : "block"; toggle.textContent = open ? "Show all 11 lines" : "Show fewer"; });
+        card.appendChild(toggle);
+        card.appendChild(rest);
+
+        // Rebuild-from-scratch escape hatch: Update only extends, so kept single-line values can go stale.
+        var scratch = document.createElement("button"); scratch.type = "button"; scratch.textContent = "Rebuild from scratch";
+        scratch.disabled = deriving;
+        scratch.style.cssText = "display:block;margin-top:14px;background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;text-decoration:underline;cursor:pointer;padding:2px 0;";
+        scratch.title = "Discard the current brief and hand-edits, then re-derive everything from your reviews";
+        scratch.addEventListener("click", rebuildFromScratch);
+        card.appendChild(scratch);
+      }
+    } catch(e){
+      var er = document.createElement("div"); er.style.cssText = "font-size:12px;color:var(--red);margin-top:10px;"; er.textContent = "Could not render the brief details, but you can still build."; card.appendChild(er);
+    }
+  }
+
   function init(){
     ["newProductNameInput","productInput","psCompetitorText","psAuthority"].forEach(function(id){ var e = el(id); if (e) e.addEventListener("input", scheduleSave); });
     if (el("psReviewAddBtn"))     el("psReviewAddBtn").addEventListener("click", function(){ toggleReviewAdd(true); });
@@ -13949,12 +15071,22 @@ function genOneScript(opts){
     if (el("psReviewAddConfirm")) el("psReviewAddConfirm").addEventListener("click", addReviewsFromBox);
     var up = el("psReviewUpload"), fi = el("psReviewFiles");
     if (up && fi){ up.addEventListener("click", function(){ fi.click(); }); fi.addEventListener("change", function(){ onFiles(fi.files); fi.value = ""; }); }
+    var cup = el("psCompUpload"), cfi = el("psCompFiles");
+    if (cup && cfi){ cup.addEventListener("click", function(){ cfi.click(); }); cfi.addEventListener("change", function(){ onCompFiles(cfi.files); cfi.value = ""; }); }
+    // Desktop: paste a screenshot into the box (Cmd/Ctrl+V or right-click Paste) or drag an image onto
+    // it. Comments OCR on arrival; review screenshots are stored and read at build time -- each box
+    // matches what its own upload button already does.
+    wireImageDrop(el("psCompBox"), el("psCompetitorText"), onCompFiles);
+    wireImageDrop(el("psReviewBox"), el("psReviewNew"), onFiles);
     if (el("psAngleFetch")) el("psAngleFetch").addEventListener("click", fetchAngle);
     if (el("psAngleAdd"))   el("psAngleAdd").addEventListener("click", addAngleFromText);
+    if (el("setupToggle"))  el("setupToggle").addEventListener("click", function(){ setSetupOpen(el("setupWrap") && el("setupWrap").style.display === "none"); });
+    if (el("homePickerSearch")) el("homePickerSearch").addEventListener("input", function(){ renderHomePicker(this.value); });
   }
-  if (document.readyState !== "loading") init(); else document.addEventListener("DOMContentLoaded", init);
-
-  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome };
+  // Export FIRST, so a throw inside init() can never leave window.ProductScreen undefined.
+  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome, openPicker: openPicker };
+  function safeInit(){ try { init(); } catch(e){ if (window.console) console.error("ProductScreen init failed", e); } }
+  if (document.readyState !== "loading") safeInit(); else document.addEventListener("DOMContentLoaded", safeInit);
 })();
 </script>
 
@@ -15089,7 +16221,7 @@ function genOneScript(opts){
           node.classList.add('ui-warn');
           const chip=document.createElement('div'); chip.className='uiwarn-chip noexport';
           chip.textContent='⚠ may be hidden';
-          chip.title='This overlaps where TikTok puts its buttons / caption, so it may be covered.';
+          chip.title='This overlaps where short-form apps put buttons and captions, so it may be covered.';
           node.appendChild(chip);
         }
       }
