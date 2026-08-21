@@ -354,5 +354,74 @@ ok(cfsMerged.lines.pains.length === 1, 'mergeIncremental: duplicate value does n
 ok(cfsMerged.lines.pains[0].classified === true && cfsMerged.lines.pains[0].hits.slice().sort().join(',') === 'r1,r2',
    'mergeIncremental: settled finding keeps its classified flag and hits when re-extracted');
 
+// 13. INCREMENTAL classification stability -- the core guarantee: once a (finding, item) pair is judged it
+// is never re-judged, so counts on untouched findings cannot move across builds even if the model would
+// answer differently. simClassify replays exactly what the DOM driver does with the pure plan.
+function simClassify(brief, items, ch, model){
+  let plan = B.classifyPlan(brief, items, ch);
+  plan.passes.forEach(function(pass){
+    pass.items.forEach(function(it){
+      (model(it, pass.findings) || []).forEach(function(n){ B.addHit(pass.findings[n], it.id, ch); });
+    });
+  });
+  B.classifyFinalize(brief, items, ch);
+  brief.meta.classified = true;   // driver flips this so recount counts from hits
+}
+let sbrief = B.emptyBrief();
+sbrief.lines.who = B.normalizeBrief({ lines: { who: { value: 'busy parents' } } }).lines.who;
+sbrief.lines.pains = [ B.normalizeBrief({ lines: { pains: [{ value: 'dulls fast' }] } }).lines.pains[0] ];
+let sreviews = ['r1','r2','r3','r4'].map(function(id){ return { id: id, full: id }; });
+// build 1: who expressed by r1,r2 ; dulls by r1,r2,r3
+simClassify(sbrief, sreviews, B.CH_REVIEW, function(it, finds){
+  let whoI = finds.findIndex(f => f.value === 'busy parents'), dullI = finds.findIndex(f => f.value === 'dulls fast');
+  let out = [];
+  if (['r1','r2'].indexOf(it.id) >= 0 && whoI >= 0) out.push(whoI);
+  if (['r1','r2','r3'].indexOf(it.id) >= 0 && dullI >= 0) out.push(dullI);
+  return out;
+});
+B.recountFindings(sbrief, sreviews, []);
+let whoCount1 = sbrief.lines.who.count, dullCount1 = sbrief.lines.pains[0].count;
+ok(whoCount1 === 2, 'stability: build 1 who = 2');
+ok(dullCount1 === 3, 'stability: build 1 dulls = 3');
+// build 2: a NEW pain 'rusts' arrives (as comments would add). An ADVERSARIAL model that, IF asked, would
+// answer who/dulls completely differently -- proving settled findings are simply never re-asked.
+sbrief.lines.pains.push(B.normalizeBrief({ lines: { pains: [{ value: 'rusts' }] } }).lines.pains[0]);
+simClassify(sbrief, sreviews, B.CH_REVIEW, function(it, finds){
+  let whoI = finds.findIndex(f => f.value === 'busy parents'), dullI = finds.findIndex(f => f.value === 'dulls fast'), rustI = finds.findIndex(f => f.value === 'rusts');
+  let out = [];
+  if (whoI >= 0) out.push(whoI);     // would claim ALL 4 reviews express who -- must be ignored
+  if (dullI >= 0) out.push(dullI);   // ditto for dulls
+  if (rustI >= 0 && ['r4'].indexOf(it.id) >= 0) out.push(rustI);
+  return out;
+});
+B.recountFindings(sbrief, sreviews, []);
+ok(sbrief.lines.who.count === whoCount1, 'stability: who count UNCHANGED after new finding added (was ' + whoCount1 + ', now ' + sbrief.lines.who.count + ')');
+ok(sbrief.lines.pains.find(p=>p.value==='dulls fast').count === dullCount1, 'stability: dulls count UNCHANGED after new finding added');
+ok(sbrief.lines.pains.find(p=>p.value==='rusts').count === 1, 'stability: the NEW finding gets its own count (rusts = 1)');
+// build 3: nothing new at all -> plan has no passes -> pure recount, still identical
+let plan3 = B.classifyPlan(sbrief, sreviews, B.CH_REVIEW);
+ok(plan3.passes.length === 0, 'stability: build 3 with nothing new needs ZERO model passes');
+B.recountFindings(sbrief, sreviews, []);
+ok(sbrief.lines.who.count === whoCount1 && sbrief.lines.pains.find(p=>p.value==='dulls fast').count === dullCount1, 'stability: counts identical on a no-op rebuild');
+
+// 14. comment channel: separate evidence from people who have not bought yet
+ok(B.splitComments('too pricey\n\n  colours dont match  \ntoo pricey').length === 2, 'splitComments: trims, drops blanks, dedupes');
+let cmts = B.splitComments('the colours dont match my kitchen at all\nis the product info even accurate\nlooks cheap in person');
+let cobj = B.emptyBrief();
+cobj.lines.objections = [ B.normalizeBrief({ lines: { objections: [{ value: 'colours do not match' }] } }).lines.objections[0] ];
+simClassify(cobj, cmts, B.CH_COMMENT, function(it, finds){
+  let ci = finds.findIndex(f => f.value === 'colours do not match');
+  return (/colours/.test(it.text) && ci >= 0) ? [ci] : [];
+});
+B.recountFindings(cobj, [], cmts);
+let cObjLine = cobj.lines.objections[0];
+ok(cObjLine.ccount === 1 && cObjLine.ctotal === 3, 'comments: objection raised in 1 of 3 comments');
+ok(cObjLine.cwords.length === 1 && /colours dont match/.test(cObjLine.cwords[0]), 'comments: commenter own words captured as chips');
+ok(cObjLine.count === 0, 'comments: review count stays 0 (kept separate from comment count)');
+// comment classification is ALSO incremental: re-running with the same comments needs no passes
+ok(B.classifyPlan(cobj, cmts, B.CH_COMMENT).passes.length === 0, 'comments: settled comment classification is not re-judged');
+// review and comment channels are independent: classifying comments did not set review classifiedIds
+ok(B.classifyPlan(cobj, [{id:'rx',full:'x'}], B.CH_REVIEW).full === true, 'channels: comment classification leaves the review channel untouched');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

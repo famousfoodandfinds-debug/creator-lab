@@ -13561,17 +13561,27 @@ function genOneScript(opts){
       words: arr(words).map(str),     // verbatim buyer language -- for DISPLAY (safe to reuse)
       claims: arr(claims).map(str),   // buyer performance claims -- kept separate, not for assertion
       terms: arr(terms).map(str),     // keyword hints (kept, but no longer the count source)
-      hits: arr(hits).map(str),       // ids of reviews the model classified as expressing THIS finding
+      hits: arr(hits).map(str),       // ids of REVIEWS the model classified as expressing THIS finding
       count: count|0,                 // (with correct sentiment). Count = hits still present. This is why
       total: total|0,                 // "sharpener works great" no longer counts toward "sharpener fails".
-      classified: false,              // true once this finding has been through classification. New findings
-      edited: false                   // are classified against all reviews; settled ones are never re-rolled.
+      chits: [],                      // ids of COMMENTS (competitor/viral) that raise this -- kept separate
+      cwords: [],                     // from reviews so a doubt from a non-buyer is never mixed with buyers'.
+      ccount: 0,                      // Comment evidence: raised in ccount of ctotal comments.
+      ctotal: 0,
+      classified: false,              // settled against reviews (never re-judged once true)
+      cclassified: false,             // settled against comments (never re-judged once true)
+      edited: false
     };
   }
   function normLine(x){
     x = obj(x);
     var l = line(x.value, x.words, x.claims, x.count, x.total, x.terms, x.hits);
+    l.chits = arr(x.chits).map(str);
+    l.cwords = arr(x.cwords).map(str);
+    l.ccount = x.ccount|0;
+    l.ctotal = x.ctotal|0;
     l.classified = !!x.classified;
+    l.cclassified = !!x.cclassified;
     l.edited = !!x.edited;
     if (x.id) l.id = str(x.id);
     return l;
@@ -13584,11 +13594,78 @@ function genOneScript(opts){
   // the comments have CHANGED since the brief last read them, so new comment material triggers a rebuild
   // the same way new reviews do. Empty/blank text -> "" (there is nothing to read).
   function materialSig(s){ s = str(s).replace(/\s+/g, " ").trim(); if (!s) return ""; var h = 5381, i = s.length; while (i) h = (h * 33) ^ s.charCodeAt(--i); return "m" + (h >>> 0).toString(36); }
+  function commentHash(s){ s = str(s); var h = 5381, i = s.length; while (i) h = (h * 33) ^ s.charCodeAt(--i); return "c" + (h >>> 0).toString(36); }
+  // Split the pasted competitor / viral-video comments into individual comment units, one per line
+  // (that is how they are pasted / OCR'd). Each gets a stable content id so classification against them
+  // can be persisted and reused exactly like reviews. Blank lines and duplicates collapse.
+  function splitComments(text){
+    var seen = {}, out = [];
+    str(text).split(/\r?\n/).forEach(function(ln){
+      ln = ln.replace(/\s+/g, " ").trim();
+      if (ln.length < 2) return;
+      var id = commentHash(ln);
+      if (seen[id]) return; seen[id] = true;
+      out.push({ id: id, text: ln });
+    });
+    return out;
+  }
+  // The 11 findings as a FLAT list of the actual line objects (single lines + list items), so hits attach
+  // by reference. Used by classification. Pure -- no DOM.
+  function flatFindings(b){
+    var flat = [];
+    b = obj(b); var lines = obj(b.lines);
+    LINE_KEYS.forEach(function(k){
+      var v = lines[k.key];
+      if (k.list){ arr(v).forEach(function(it){ if (it && it.value) flat.push(it); }); }
+      else if (v && v.value){ flat.push(v); }
+    });
+    return flat;
+  }
+  // A classification CHANNEL: reviews and comments are classified the same way but into separate fields,
+  // so a finding tracks buyer evidence (hits) and non-buyer evidence (chits) independently and can never
+  // conflate them. Each channel names the finding fields + the meta key that lists items already judged.
+  var CH_REVIEW  = { hits: "hits",  cls: "classified",  ids: "classifiedIds" };
+  var CH_COMMENT = { hits: "chits", cls: "cclassified", ids: "classifiedCommentIds" };
+  // PLAN an incremental classification. The core stability guarantee lives here: a (finding, item) pair is
+  // judged ONCE and never re-judged, so counts on untouched findings cannot drift when new material is
+  // added. Returns the passes that still need the model: every NEW item against ALL findings, and every
+  // OLD (already-judged) item against only the findings that are NEW since it was judged. A finding/item
+  // set with no prior record does a full pass. Pure: no model calls, no DOM.
+  function classifyPlan(brief, items, ch){
+    brief = obj(brief); brief.meta = obj(brief.meta);
+    var flat = flatFindings(brief);
+    items = arr(items);
+    var prevIds = arr(brief.meta[ch.ids]).map(str);
+    var full = !prevIds.length;                       // never classified this channel -> full pass
+    var prevSet = {}; prevIds.forEach(function(id){ prevSet[str(id)] = true; });
+    var newItems = full ? items : items.filter(function(it){ return !prevSet[str(it.id)]; });
+    var oldItems = full ? []    : items.filter(function(it){ return  prevSet[str(it.id)]; });
+    var newFinds = full ? flat  : flat.filter(function(f){ return !f[ch.cls]; });
+    var passes = [];
+    if (newItems.length && flat.length) passes.push({ items: newItems, findings: flat });      // new items x all
+    if (oldItems.length && newFinds.length) passes.push({ items: oldItems, findings: newFinds }); // old items x new finds
+    return { full: full, passes: passes, flat: flat };
+  }
+  // Record that item `id` expresses `finding` in this channel. Additive and idempotent -- settled hits are
+  // never cleared, which is what keeps evidence stable across rebuilds.
+  function addHit(finding, id, ch){
+    if (!finding) return;
+    if (!Array.isArray(finding[ch.hits])) finding[ch.hits] = [];
+    id = str(id); if (finding[ch.hits].indexOf(id) < 0) finding[ch.hits].push(id);
+  }
+  // Mark this channel fully classified: every current finding is settled, and every current item is on
+  // record as judged (so next build only touches genuinely new pairs).
+  function classifyFinalize(brief, items, ch){
+    brief = obj(brief); brief.meta = obj(brief.meta);
+    flatFindings(brief).forEach(function(f){ f[ch.cls] = true; });
+    brief.meta[ch.ids] = arr(items).map(function(it){ return str(it.id); });
+    return brief;
+  }
 
   // The DERIVED brief -- lightweight, loaded on every product open. Holds NO raw source text: just
   // the structured lines (each with its evidence words + counts), features, and meta.
   function emptyBrief(){
-    var b = { v: BRIEF_V, lines: {}, features: [], meta: { reviewCount: 0, lastDerivedAt: null, promptVersion: "", classified: false, classifiedIds: [], commentsHash: "" } };
+    var b = { v: BRIEF_V, lines: {}, features: [], meta: { reviewCount: 0, commentCount: 0, lastDerivedAt: null, promptVersion: "", classified: false, classifiedIds: [], classifiedCommentIds: [], commentsHash: "" } };
     LINE_KEYS.forEach(function(k){ b.lines[k.key] = k.list ? [] : line(""); });
     return b;
   }
@@ -13618,10 +13695,12 @@ function genOneScript(opts){
     b.features = arr(x.features).map(function(f){ f=obj(f); return { feature:str(f.feature), benefit:str(f.benefit), edited:!!f.edited }; });
     var meta = obj(x.meta);
     b.meta.reviewCount   = meta.reviewCount|0;
+    b.meta.commentCount  = meta.commentCount|0;
     b.meta.lastDerivedAt = meta.lastDerivedAt || null;
     b.meta.promptVersion = str(meta.promptVersion);
     b.meta.classified    = !!meta.classified;
     b.meta.classifiedIds = arr(meta.classifiedIds).map(str);
+    b.meta.classifiedCommentIds = arr(meta.classifiedCommentIds).map(str);
     b.meta.commentsHash  = str(meta.commentsHash);
     return b;
   }
@@ -13871,8 +13950,8 @@ function genOneScript(opts){
         arr(b.lines[key]).concat(incoming).forEach(function(l){
           l = normLine(l); if (!l.value) return; var nk = norm(l.value);
           if (seen[nk] != null){ var ex = out[seen[nk]];
-            unionInto(ex.words, l.words); unionInto(ex.claims, l.claims); unionInto(ex.terms, l.terms); unionInto(ex.hits, l.hits);
-            ex.edited = ex.edited || l.edited; ex.classified = ex.classified || l.classified;
+            unionInto(ex.words, l.words); unionInto(ex.claims, l.claims); unionInto(ex.terms, l.terms); unionInto(ex.hits, l.hits); unionInto(ex.chits, l.chits);
+            ex.edited = ex.edited || l.edited; ex.classified = ex.classified || l.classified; ex.cclassified = ex.cclassified || l.cclassified;
           } else { seen[nk] = out.length; out.push(l); }
         });
         b.lines[key] = out;
@@ -13957,16 +14036,16 @@ function genOneScript(opts){
       g = obj(g);
       var mem = arr(g.members).map(function(i){ return i|0; }).filter(function(i){ return items[i] && !used[i]; });
       if (!mem.length) return;
-      var count = 0, words = [], claims = [], terms = [], hits = [], cls = false;
-      mem.forEach(function(i){ used[i] = true; var it = items[i]; count += (it.count|0); cls = cls || !!it.classified;
-        unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits);
+      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false;
+      mem.forEach(function(i){ used[i] = true; var it = items[i]; count += (it.count|0); cls = cls || !!it.classified; ccls = ccls || !!it.cclassified;
+        unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits); unionInto(chits, it.chits);
       });
       if (total > 0) count = Math.min(count, total);
-      out.push({ value: str(g.value) || items[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, count: count, total: total, classified: cls, edited: false });
+      out.push(normLine({ value: str(g.value) || items[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls }));
     });
     // keep anything the model neither grouped nor explicitly dropped -- never silently lose a finding
     items.forEach(function(it, i){ if (used[i] || dropped[i]) return;
-      out.push({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, edited: false });
+      out.push(normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified }));
     });
     out.sort(function(a,b){ return b.count - a.count; });
     return out;
@@ -13982,11 +14061,11 @@ function genOneScript(opts){
     var dropped = {}; arr(spec.dropped).forEach(function(i){ dropped[i|0] = true; });
     var used = {}, outP = [], outO = [];
     function build(g, mem){
-      var count = 0, words = [], claims = [], terms = [], hits = [], cls = false;
-      mem.forEach(function(i){ used[i] = true; var it = combined[i]; count += (it.count|0); cls = cls || !!it.classified;
-        unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits); });
+      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false;
+      mem.forEach(function(i){ used[i] = true; var it = combined[i]; count += (it.count|0); cls = cls || !!it.classified; ccls = ccls || !!it.cclassified;
+        unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits); unionInto(chits, it.chits); });
       if (total > 0) count = Math.min(count, total);
-      return { value: str(g.value) || combined[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, count: count, total: total, classified: cls, edited: false };
+      return normLine({ value: str(g.value) || combined[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls });
     }
     arr(spec.clusters).forEach(function(g){
       g = obj(g);
@@ -13996,7 +14075,7 @@ function genOneScript(opts){
       (cat.indexOf("objection") >= 0 ? outO : outP).push(f);
     });
     combined.forEach(function(it, i){ if (used[i] || dropped[i]) return;   // keep forgotten in its origin list
-      var f = { value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, edited: false };
+      var f = normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified });
       (i < A.length ? outP : outO).push(f);
     });
     return { pains: outP, objections: outO };
@@ -14025,12 +14104,17 @@ function genOneScript(opts){
   // contribution and the number is stable across rebuilds. Keyword term-matching is only a FALLBACK for
   // a brief that has not been classified yet (meta.classified false), e.g. an old brief or first paint.
   // words/claims are still pruned to what is truly in the reviews, since they are displayed.
-  function recountFindings(merged, reviews){
+  function recountFindings(merged, reviews, comments){
     merged = obj(merged);
     merged.meta = obj(merged.meta);
     var total = arr(reviews).length;
     var classified = !!merged.meta.classified;
     var idset = {}; arr(reviews).forEach(function(r){ idset[(typeof r === "string") ? r : (obj(r).id || reviewHash(obj(r).full))] = true; });
+    // Comment channel (separate evidence). Only recomputed when comments are supplied, so a caller that
+    // recounts reviews only leaves the comment counts untouched instead of zeroing them.
+    var hasC = comments != null, cmts = arr(comments), ctotal = cmts.length;
+    var cText = {}, cidset = {}; cmts.forEach(function(c){ c = obj(c); cText[c.id] = str(c.text); cidset[c.id] = true; });
+    function cQuote(t){ t = str(t).split(/\s+/); return t.slice(0, 12).join(" ") + (t.length > 12 ? "..." : ""); }
     var lines = obj(merged.lines);
     function recount(it){
       it.words  = verifyPhrases(it.words, reviews);
@@ -14039,6 +14123,12 @@ function genOneScript(opts){
       it.count  = classified ? it.hits.length
                              : countInReviews(arr(it.terms).concat(it.words).concat(it.claims), reviews);
       it.total  = total;
+      if (hasC){
+        it.chits  = arr(it.chits).filter(function(h){ return cidset[h]; });  // drop hits for removed comments
+        it.ccount = it.chits.length;
+        it.ctotal = ctotal;
+        it.cwords = it.chits.slice(0, 3).map(function(h){ return cQuote(cText[h]); }).filter(Boolean);   // commenter's own words
+      }
     }
     LINE_KEYS.forEach(function(k){
       var v = lines[k.key];
@@ -14046,6 +14136,7 @@ function genOneScript(opts){
       else if (v && typeof v === "object"){ recount(v); }
     });
     merged.meta.reviewCount = total;
+    if (hasC) merged.meta.commentCount = ctotal;
     return merged;
   }
 
@@ -14106,7 +14197,15 @@ function genOneScript(opts){
     recountFindings: recountFindings,
     applyHits: applyHits,
     reviewHash: reviewHash,
+    commentHash: commentHash,
     materialSig: materialSig,
+    splitComments: splitComments,
+    flatFindings: flatFindings,
+    CH_REVIEW: CH_REVIEW,
+    CH_COMMENT: CH_COMMENT,
+    classifyPlan: classifyPlan,
+    addHit: addHit,
+    classifyFinalize: classifyFinalize,
     applyDerivation: applyDerivation,
     evidence: evidence,
     safeWords: safeWords,
@@ -14624,81 +14723,47 @@ function genOneScript(opts){
 
   // ---- sentiment-aware counting (classification) -----------------------------------------------
   // Term/keyword matching finds the TOPIC not the SENTIMENT, so "the sharpener works great" was being
-  // counted toward "the sharpener does not work". Instead we ask the model, per review, which findings
-  // that review ACTUALLY expresses (with matching sentiment), and record the review's id in each
-  // finding's `hits`. Counts then come from hits (SB.recountFindings), and are frozen + deterministic.
-  function flatFindings(b){
-    var flat = [];   // the ACTUAL finding objects, so hits attach by reference (no fragile value re-match)
-    SB.LINE_KEYS.forEach(function(k){
-      var v = b.lines[k.key];
-      if (k.list){ (Array.isArray(v) ? v : []).forEach(function(it){ if (it && it.value) flat.push(it); }); }
-      else if (v && v.value){ flat.push(v); }
-    });
-    return flat;
-  }
-  function classifyPrompt(flat, reviewsBatch){
+  // counted toward "the sharpener does not work". Instead we ask the model, per item (review OR comment),
+  // which findings that item ACTUALLY expresses (with matching sentiment), and record the item's id in the
+  // finding's hits for that channel. Counts then come from hits (SB.recountFindings), frozen + stable.
+  function classifyPrompt(flat, batch, kind){
     return [
-      "For each customer review below, list which of these product findings the review ACTUALLY expresses, WITH MATCHING SENTIMENT. A review praising a feature does NOT express a complaint about that feature, and vice versa. Only include a finding if the review clearly makes THAT point with THAT sentiment.",
+      "For each " + kind + " below, list which of these product findings it ACTUALLY expresses, WITH MATCHING SENTIMENT. Praise for a feature does NOT express a complaint about that feature, and vice versa. Only include a finding if the " + kind + " clearly makes THAT point with THAT sentiment.",
       "",
       "FINDINGS:",
       flat.map(function(f, i){ return i + ". " + f.value; }).join("\n"),
       "",
-      "REVIEWS:",
-      reviewsBatch.map(function(r, i){ return "R" + i + ": " + reviewExcerpt(r.full || r.quote || ""); }).join("\n"),
+      kind.toUpperCase() + "S:",
+      batch.map(function(r, i){ return "R" + i + ": " + reviewExcerpt(r.full || r.quote || r.text || ""); }).join("\n"),
       "",
-      "Return ONLY a JSON object mapping each review to the finding numbers it genuinely expresses, e.g. {\"R0\":[1,4],\"R1\":[]}. Use [] when a review expresses none. Do not invent finding numbers."
+      "Return ONLY a JSON object mapping each " + kind + " to the finding numbers it genuinely expresses, e.g. {\"R0\":[1,4],\"R1\":[]}. Use [] when it expresses none. Do not invent finding numbers."
     ].join("\n");
   }
-  // INCREMENTAL classification -- the key to a STABLE brief. A finding's `hits` are its evidence, and once
-  // a (review, finding) pair has been judged it is NEVER re-judged: the model is not deterministic, so
-  // re-running it on the whole brief every build would silently move counts on lines that did not change
-  // (a "who" line falling from 4 to 1 just because comments were added). So only the genuinely new pairs
-  // are classified: every NEW review against ALL findings, and every OLD review against only the NEW
-  // findings (e.g. an objection that comments just surfaced). meta.classifiedIds tracks which reviews are
-  // already done. cb(true) on success, cb(false, err) on failure (caller then falls back to keyword count).
-  function classifyReviews(b, reviews, cb){
-    var flat = flatFindings(b);
-    if (!flat.length || !reviews.length){ cb(false); return; }
-    b.meta = b.meta || {};
-    var prevIds = Array.isArray(b.meta.classifiedIds) ? b.meta.classifiedIds : [];
-    var prevSet = {}; prevIds.forEach(function(id){ prevSet[String(id)] = true; });
-    // A brief that was never classified (first build, or an older brief from before this tracking) gets a
-    // full pass: every review against every finding, exactly as before.
-    var full = !b.meta.classified || !prevIds.length;
-    var newReviews  = full ? reviews : reviews.filter(function(r){ return !prevSet[r.id]; });
-    var oldReviews  = full ? []      : reviews.filter(function(r){ return  prevSet[r.id]; });
-    var newFindings = full ? flat    : flat.filter(function(f){ return !f.classified; });
-
-    // Passes: A = new reviews x all findings; B = old reviews x new findings only. `finds` is a subset of
-    // `flat` BY REFERENCE, and classifyPrompt numbers findings by their position in that subset, so a hit
-    // lands on the right object. Hits are ADDED, never replaced, so settled evidence is preserved.
-    var passes = [];
-    if (newReviews.length) passes.push({ revs: newReviews, finds: flat });
-    if (oldReviews.length && newFindings.length) passes.push({ revs: oldReviews, finds: newFindings });
-
-    function finish(){
-      flat.forEach(function(f){ f.classified = true; });
-      b.meta.classified = true;
-      b.meta.classifiedIds = reviews.map(function(r){ return r.id; });   // all current reviews now judged
-      cb(true);
-    }
-    if (!passes.length){ finish(); return; }   // nothing new to judge (e.g. only removals): keep all hits
-
+  // INCREMENTAL classification -- the key to a STABLE brief. A finding's hits are its evidence, and once a
+  // (finding, item) pair has been judged it is NEVER re-judged: the model is not deterministic, so re-running
+  // it on the whole brief every build would silently move counts on lines that did not change (a "who" line
+  // falling from 4 to 1 just because comments were added). SB.classifyPlan returns only the genuinely new
+  // pairs to judge -- every NEW item against ALL findings, and every OLD item against only the NEW findings.
+  // Settled hits are reused verbatim. Works for either channel (reviews or comments) via `ch`.
+  // cb(true, judged) on success; cb(false, err) on failure (caller keeps existing hits, no re-roll).
+  function runClassify(b, items, ch, kind, cb){
+    var plan = SB.classifyPlan(b, items, ch);
+    if (!plan.flat.length || !items.length){ cb(false); return; }
+    if (!plan.passes.length){ SB.classifyFinalize(b, items, ch); cb(true, plan.full); return; }  // nothing new
     var pi = 0;
     (function nextPass(){
-      if (pi >= passes.length){ finish(); return; }
-      var finds = passes[pi].finds, batches = SB.chunkReviews(passes[pi].revs, DERIVE_BATCH), bi = 0;
+      if (pi >= plan.passes.length){ SB.classifyFinalize(b, items, ch); cb(true, plan.full); return; }
+      var finds = plan.passes[pi].findings, batches = SB.chunkReviews(plan.passes[pi].items, DERIVE_BATCH), bi = 0;
       (function next(){
         if (bi >= batches.length){ pi++; nextPass(); return; }
         var batch = batches[bi];
-        deriveStatus("Checking which reviews back each point... batch " + (bi+1) + " of " + batches.length);
-        claudeCall({ model: DERIVE_MODEL, max_tokens: 1500, messages: [{ role: "user", content: classifyPrompt(finds, batch) }] }, function(text, err){
+        deriveStatus("Checking which " + kind + "s back each point... batch " + (bi+1) + " of " + batches.length);
+        claudeCall({ model: DERIVE_MODEL, max_tokens: 1500, messages: [{ role: "user", content: classifyPrompt(finds, batch, kind) }] }, function(text, err){
           if (err){ cb(false, err); return; }
           var map = parseJson(text, "{", "}") || {};
-          batch.forEach(function(rv, j){
+          batch.forEach(function(it, j){
             var nums = map["R" + j]; if (!Array.isArray(nums)) return;
-            nums.forEach(function(n){ n = n|0; var f = finds[n]; if (!f) return;
-              if (!Array.isArray(f.hits)) f.hits = []; if (f.hits.indexOf(rv.id) < 0) f.hits.push(rv.id); });
+            nums.forEach(function(n){ SB.addHit(finds[n|0], it.id, ch); });
           });
           bi++; next();
         });
@@ -14745,20 +14810,27 @@ function genOneScript(opts){
     }
     function consolidateAndCommit(mergedBrief, changed){
       var total = raw.reviews.length;
+      var comments = SB.splitComments(raw.competitorComments);
+      var hadReviewCls = (Array.isArray(mergedBrief.meta.classifiedIds) ? mergedBrief.meta.classifiedIds.length : 0) > 0;
       // Classify FIRST, against the granular findings -- the model matches reviews far more reliably to
-      // narrow, specific findings than to a broad merged one. THEN consolidate: the merge unions each
-      // cluster's hit sets onto the surviving finding, so the big merged pain carries all its members'
-      // hits instead of coming back empty. If classification fails, fall back to keyword counting.
-      classifyReviews(mergedBrief, raw.reviews, function(ok, cErr){
-        if (!ok) mergedBrief.meta.classified = false;
-        deriveStatus("Merging similar findings...");
-        consolidateFindings(mergedBrief.lines.pains, mergedBrief.lines.objections, mergedBrief.features, function(spec, err){
-          if (spec && !err){
-            if (spec.clusters){ var u = SB.applyUnifiedClusters(mergedBrief.lines.pains, mergedBrief.lines.objections, spec, total); mergedBrief.lines.pains = u.pains; mergedBrief.lines.objections = u.objections; }
-            if (spec.features){ mergedBrief.features = applyFeatureClusters(mergedBrief.features, spec.features); }
-          }
-          SB.recountFindings(mergedBrief, raw.reviews);
-          commit(mergedBrief, changed);
+      // narrow, specific findings than to a broad merged one. Reviews and comments are separate channels,
+      // so buyer evidence and non-buyer evidence never mix. THEN consolidate: the merge unions each
+      // cluster's hit sets onto the surviving finding. Classification is incremental (SB.classifyPlan), so
+      // settled counts never move; a failed classify keeps the existing hits rather than re-rolling them.
+      runClassify(mergedBrief, raw.reviews, SB.CH_REVIEW, "review", function(rok){
+        // Use hits-based counting whenever we have any classification (this run or a prior one). Only fall
+        // back to keyword counting if the brief has NEVER been classified and this run failed.
+        mergedBrief.meta.classified = rok || hadReviewCls;
+        runClassify(mergedBrief, comments, SB.CH_COMMENT, "comment", function(){
+          deriveStatus("Merging similar findings...");
+          consolidateFindings(mergedBrief.lines.pains, mergedBrief.lines.objections, mergedBrief.features, function(spec, err){
+            if (spec && !err){
+              if (spec.clusters){ var u = SB.applyUnifiedClusters(mergedBrief.lines.pains, mergedBrief.lines.objections, spec, total); mergedBrief.lines.pains = u.pains; mergedBrief.lines.objections = u.objections; }
+              if (spec.features){ mergedBrief.features = applyFeatureClusters(mergedBrief.features, spec.features); }
+            }
+            SB.recountFindings(mergedBrief, raw.reviews, comments);
+            commit(mergedBrief, changed);
+          });
         });
       });
     }
@@ -14771,9 +14843,9 @@ function genOneScript(opts){
       // because the review set did not change. Track a signature of what the brief last read.
       var commentsChanged = SB.materialSig(raw.competitorComments) !== (brief.meta.commentsHash || "");
       if (!fresh.length && alreadyBuilt && !commentsChanged){
-        // Truly nothing new anywhere: recount the existing brief against current reviews (handles
-        // removals too). Free -- no model calls.
-        SB.recountFindings(brief, raw.reviews);
+        // Truly nothing new anywhere: recount the existing brief against current reviews and comments
+        // (handles removals too). Free -- no model calls.
+        SB.recountFindings(brief, raw.reviews, SB.splitComments(raw.competitorComments));
         commit(brief, false);
         return;
       }
@@ -14827,32 +14899,48 @@ function genOneScript(opts){
   function briefChip(text, kind){
     var s = document.createElement("span"); s.textContent = text;
     s.style.cssText = "display:inline-block;font-size:11px;padding:3px 8px;border-radius:999px;margin:2px 4px 2px 0;line-height:1.3;" +
-      (kind === "claim" ? "background:rgba(240,90,90,.12);color:var(--red);border:1px solid rgba(240,90,90,.3);"
-                        : "background:var(--surface);color:var(--white-dim);border:1px solid var(--border-md);");
+      (kind === "claim"   ? "background:rgba(240,90,90,.12);color:var(--red);border:1px solid rgba(240,90,90,.3);"
+     : kind === "comment" ? "background:rgba(144,144,240,.12);color:var(--purple);border:1px solid rgba(144,144,240,.35);"
+                          : "background:var(--surface);color:var(--white-dim);border:1px solid var(--border-md);");
     return s;
   }
   // Evidence is a deterministic text-scan of the reviews (a floor), so it reads "Found in", and a
   // finding with no literal match reads "Not quoted in the reviews" rather than showing nothing.
   // Always show an explicit evidence line. When the count is real, chips of buyer language appear too
   // (see wordsAndClaims); when it is zero, no chips render, so the line never contradicts visible quotes.
+  // Two separate evidence lines: buyers (reviews) and people who have not bought yet (comments), so a doubt
+  // that only shows up in the comments is never invisible AND is never mistaken for a buyer complaint.
   function evidenceLine(ln){
     if (!ln || !ln.value) return null;
     var ev = SB.evidence(brief, ln);
-    var e = document.createElement("div"); e.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;";
-    e.textContent = (ln.count > 0)
-      ? ("Found in " + ev.count + " of " + ev.total + " review" + (ev.total === 1 ? "" : "s"))
-      : "Not counted in the reviews";
-    return e;
+    var cc = ln.ccount | 0, ctot = ln.ctotal | 0;
+    var frag = document.createDocumentFragment();
+    // Review line: the count when there is one; "Not counted in the reviews" only when there is also no
+    // comment evidence (so a comment-only finding does not read as producing nothing).
+    var reviewText = (ln.count > 0) ? ("Found in " + ev.count + " of " + ev.total + " review" + (ev.total === 1 ? "" : "s"))
+                   : (cc === 0)     ? "Not counted in the reviews"
+                   : null;
+    if (reviewText){ var e = document.createElement("div"); e.style.cssText = "font-size:11px;color:var(--muted);margin-top:2px;"; e.textContent = reviewText; frag.appendChild(e); }
+    if (cc > 0){ var ce = document.createElement("div"); ce.style.cssText = "font-size:11px;color:var(--purple);margin-top:2px;"; ce.textContent = "Raised in " + cc + " of " + ctot + " comment" + (ctot === 1 ? "" : "s"); frag.appendChild(ce); }
+    return frag;
   }
   function wordsAndClaims(ln){
     var frag = document.createDocumentFragment();
-    if (!ln || (ln.count | 0) === 0) return frag;   // no real count -> no chips, so nothing contradicts "Not counted"
-    var words = SB.safeWords(ln), claims = SB.claims(ln);
-    if (words.length){ var wc = document.createElement("div"); wc.style.marginTop = "4px"; words.forEach(function(w){ wc.appendChild(briefChip(w, "word")); }); frag.appendChild(wc); }
-    if (claims.length){
-      var cl = document.createElement("div"); cl.style.marginTop = "5px";
-      var lbl = document.createElement("div"); lbl.style.cssText = "font-size:10px;color:var(--red);margin-bottom:2px;"; lbl.textContent = "Buyer claims (not for you to assert)"; cl.appendChild(lbl);
-      claims.forEach(function(c){ cl.appendChild(briefChip(c, "claim")); }); frag.appendChild(cl);
+    if (!ln) return frag;
+    if ((ln.count | 0) > 0){   // review buyer language -- only with a real review count, never contradicting "Not counted"
+      var words = SB.safeWords(ln), claims = SB.claims(ln);
+      if (words.length){ var wc = document.createElement("div"); wc.style.marginTop = "4px"; words.forEach(function(w){ wc.appendChild(briefChip(w, "word")); }); frag.appendChild(wc); }
+      if (claims.length){
+        var cl = document.createElement("div"); cl.style.marginTop = "5px";
+        var lbl = document.createElement("div"); lbl.style.cssText = "font-size:10px;color:var(--red);margin-bottom:2px;"; lbl.textContent = "Buyer claims (not for you to assert)"; cl.appendChild(lbl);
+        claims.forEach(function(c){ cl.appendChild(briefChip(c, "claim")); }); frag.appendChild(cl);
+      }
+    }
+    var cwords = (ln.ccount | 0) > 0 && Array.isArray(ln.cwords) ? ln.cwords : [];   // commenter's own words, kept distinct
+    if (cwords.length){
+      var cm = document.createElement("div"); cm.style.marginTop = "5px";
+      var clbl = document.createElement("div"); clbl.style.cssText = "font-size:10px;color:var(--purple);margin-bottom:2px;"; clbl.textContent = "From the comments (people who have not bought yet)"; cm.appendChild(clbl);
+      cwords.forEach(function(w){ cm.appendChild(briefChip(w, "comment")); }); frag.appendChild(cm);
     }
     return frag;
   }
