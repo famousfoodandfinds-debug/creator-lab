@@ -423,5 +423,49 @@ ok(B.classifyPlan(cobj, cmts, B.CH_COMMENT).passes.length === 0, 'comments: sett
 // review and comment channels are independent: classifying comments did not set review classifiedIds
 ok(B.classifyPlan(cobj, [{id:'rx',full:'x'}], B.CH_REVIEW).full === true, 'channels: comment classification leaves the review channel untouched');
 
+// 15. hand-editing the brief (Phase 4): wording is editable; counts and chips are not.
+let he = B.emptyBrief();
+he.lines.who = B.normalizeBrief({ lines: { who: { value: 'derived who', hits: ['r1','r2'], count: 2, classified: true } } }).lines.who;
+let he2 = B.editLine(he, 'who', { value: 'my who' });
+ok(he2.lines.who.value === 'my who' && he2.lines.who.edited === true, 'editLine: sets value + edited');
+ok(he2.lines.who.derivedValue === 'derived who', 'editLine: snapshots the derived wording for revert');
+ok(he2.lines.who.count === 2 && he2.lines.who.hits.join(',') === 'r1,r2', 'editLine: editing wording does NOT change count or hits');
+let he3 = B.editLine(he2, 'who', { value: 'my who again' });
+ok(he3.lines.who.derivedValue === 'derived who', 'editLine: a second edit keeps the ORIGINAL derived snapshot');
+let he4 = B.revertLine(he3, 'who');
+ok(he4.lines.who.value === 'derived who' && he4.lines.who.edited === false, 'revertLine: restores derived wording and unlocks the line');
+// clearing a single line sticks -- an edited empty line is never refilled by a rebuild
+let hc = B.editLine(he, 'who', { value: '' });
+ok(hc.lines.who.value === '' && hc.lines.who.edited === true, 'clear: empty value + edited');
+let hcR = B.mergeIncremental(hc, { lines: { who: { value: 'FRESH DERIVED' } } }, {});
+ok(hcR.lines.who.value === '' && hcR.lines.who.edited === true, 'clear: a rebuild does NOT refill a deliberately cleared line');
+ok(hcR.lines.who.derivedValue === 'derived who', 'clear: the revert snapshot survives the rebuild');
+let heR = B.mergeIncremental(he2, { lines: { who: { value: 'FRESH' } } }, {});
+ok(heR.lines.who.value === 'my who' && heR.lines.who.derivedValue === 'derived who', 'edit: edited value AND snapshot both survive a rebuild');
+
+// list add / delete / revert
+let la = B.emptyBrief();
+la.lines.objections = [ B.normalizeBrief({ lines: { objections: [{ value: 'derived obj', hits: ['r1'], count: 1, classified: true }] } }).lines.objections[0] ];
+let la2 = B.addListItem(la, 'objections', 'colours do not match my set');
+ok(la2.lines.objections.length === 2, 'addListItem: appends the line');
+ok(la2.lines.objections[1].added === true && la2.lines.objections[1].edited === true && la2.lines.objections[1].count === 0, 'addListItem: marked mine, locked, no count');
+ok(B.flatFindings(la2).some(f => f.value === 'derived obj') && !B.flatFindings(la2).some(f => f.value === 'colours do not match my set'), 'flatFindings: added lines are excluded from classification (never get a review count)');
+la2.meta.classified = true;
+B.recountFindings(la2, [{ id: 'r1', full: 'x' }], []);
+ok(la2.lines.objections[1].count === 0, 'recount: an added line stays at count 0');
+ok(la2.lines.objections[0].count === 1, 'recount: the derived line keeps its real count');
+ok(B.deleteListItem(la2, 'objections', 0).lines.objections.length === 1, 'deleteListItem: removes the named item');
+ok(B.revertLine(la2, 'objections', 1).lines.objections.length === 1, 'revertLine: an added line is removed (nothing derived to fall back to)');
+let laRev = B.emptyBrief();
+laRev.lines.pains = [ B.normalizeBrief({ lines: { pains: [{ value: 'edited pain', derivedValue: 'original pain', edited: true, hits: ['r1'], count: 1 }] } }).lines.pains[0] ];
+ok(B.revertLine(laRev, 'pains', 0).lines.pains[0].value === 'original pain', 'revertLine: an edited list item goes back to its derived wording');
+
+// 16. consolidation shield: a locked (edited/added) list line survives a merge that would drop it
+let pEdited = B.normalizeBrief({ lines: { pains: [{ value: 'my edited pain', hits: ['r1'], count: 1, classified: true, edited: true }] } }).lines.pains[0];
+let pFree   = B.normalizeBrief({ lines: { pains: [{ value: 'derived pain', hits: ['r2'], count: 1, classified: true }] } }).lines.pains[0];
+let clustered = B.applyUnifiedClusters([pFree], [], { clusters: [], dropped: [0] }, 5);   // model drops the free pain
+let recombined = [pEdited].concat(clustered.pains);
+ok(recombined.length === 1 && recombined[0].value === 'my edited pain', 'shield: the merge can drop a derived pain, but the edited one is held out of its reach');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
