@@ -467,5 +467,24 @@ let clustered = B.applyUnifiedClusters([pFree], [], { clusters: [], dropped: [0]
 let recombined = [pEdited].concat(clustered.pains);
 ok(recombined.length === 1 && recombined[0].value === 'my edited pain', 'shield: the merge can drop a derived pain, but the edited one is held out of its reach');
 
+// 17. features get the SAME edit/delete/add/revert (they come from the listing, not buyers -- most likely
+// to carry marketing wording you would not say on camera).
+let fb = B.normalizeBrief({ features: [{ feature: 'ultra-precision blade', benefit: 'volumizes your prep' }] });
+ok(fb.features[0].added === false && fb.features[0].derivedFeature === '', 'feature: starts derived, no snapshot yet');
+let fe = B.editFeature(fb, 0, { feature: 'sharp blade', benefit: 'cuts clean' });
+ok(fe.features[0].feature === 'sharp blade' && fe.features[0].benefit === 'cuts clean' && fe.features[0].edited === true, 'editFeature: sets both fields + edited');
+ok(fe.features[0].derivedFeature === 'ultra-precision blade' && fe.features[0].derivedBenefit === 'volumizes your prep', 'editFeature: snapshots BOTH derived fields for revert');
+let fr = B.revertFeature(fe, 0);
+ok(fr.features[0].feature === 'ultra-precision blade' && fr.features[0].benefit === 'volumizes your prep' && fr.features[0].edited === false, 'revertFeature: restores both derived fields and unlocks');
+// snapshot survives a rebuild (adding reviews should not lose revert)
+let feR = B.mergeIncremental(fe, { features: [{ feature: 'ultra-precision blade', benefit: 'volumizes your prep' }] }, {});
+ok(feR.features[0].feature === 'sharp blade' && feR.features[0].derivedFeature === 'ultra-precision blade', 'feature: edit AND snapshot survive a rebuild (dup feature is not re-added)');
+let fa = B.addFeature(fb, 'dishwasher safe', 'no hand washing');
+ok(fa.features.length === 2 && fa.features[1].added === true && fa.features[1].edited === true, 'addFeature: appends a line marked mine');
+ok(B.deleteFeature(fa, 0).features.length === 1, 'deleteFeature: removes the named feature');
+ok(B.revertFeature(fa, 1).features.length === 1, 'revertFeature: an added feature is removed');
+// a locked feature is preserved by mergeIncremental (never dropped by a rebuild's dedup)
+ok(B.mergeIncremental(fa, { features: [{ feature: 'a new derived feature', benefit: 'x' }] }, {}).features.some(f => f.added && f.feature === 'dishwasher safe'), 'feature: my added feature survives a rebuild');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

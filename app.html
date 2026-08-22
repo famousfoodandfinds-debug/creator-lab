@@ -13575,6 +13575,17 @@ function genOneScript(opts){
       edited: false                   // so revert keeps working after later rebuilds. Empty until first edit.
     };
   }
+  // A feature-to-benefit pair. Like a line, it can be hand-edited/added: `derivedFeature`/`derivedBenefit`
+  // snapshot the wording for revert, `added` marks one I wrote myself. The listing (not buyers) is where
+  // these come from, so this is the section most likely to need fixing before it goes on camera.
+  function normFeature(f){
+    f = obj(f);
+    return {
+      feature: str(f.feature), benefit: str(f.benefit),
+      derivedFeature: str(f.derivedFeature), derivedBenefit: str(f.derivedBenefit),
+      added: !!f.added, edited: !!f.edited
+    };
+  }
   function normLine(x){
     x = obj(x);
     var l = line(x.value, x.words, x.claims, x.count, x.total, x.terms, x.hits);
@@ -13698,7 +13709,7 @@ function genOneScript(opts){
       if (k.list) b.lines[k.key] = arr(lines[k.key]).map(normLine);
       else        b.lines[k.key] = normLine(lines[k.key] || {});
     });
-    b.features = arr(x.features).map(function(f){ f=obj(f); return { feature:str(f.feature), benefit:str(f.benefit), edited:!!f.edited }; });
+    b.features = arr(x.features).map(normFeature);
     var meta = obj(x.meta);
     b.meta.reviewCount   = meta.reviewCount|0;
     b.meta.commentCount  = meta.commentCount|0;
@@ -13920,6 +13931,31 @@ function genOneScript(opts){
     b.lines[key].push(l);
     return b;
   }
+  // Features get the same three actions. They come from the listing, not buyers, so they carry marketing
+  // wording most likely to need fixing -- editing here is the same shape: wording only, snapshot for revert,
+  // added ones marked mine. (Features never had a count, so there is nothing to protect on that front.)
+  function editFeature(brief, index, patch){
+    var b = normalizeBrief(brief); patch = obj(patch); var f = b.features[index]; if (!f) return b;
+    if (!f.added){ if (!f.derivedFeature) f.derivedFeature = f.feature; if (!f.derivedBenefit) f.derivedBenefit = f.benefit; }
+    if ("feature" in patch) f.feature = str(patch.feature);
+    if ("benefit" in patch) f.benefit = str(patch.benefit);
+    f.edited = true;
+    return b;
+  }
+  function revertFeature(brief, index){
+    var b = normalizeBrief(brief); var f = b.features[index]; if (!f) return b;
+    if (f.added){ b.features.splice(index, 1); return b; }
+    f.feature = f.derivedFeature; f.benefit = f.derivedBenefit; f.edited = false;
+    return b;
+  }
+  function deleteFeature(brief, index){
+    var b = normalizeBrief(brief); if (b.features[index]) b.features.splice(index, 1); return b;
+  }
+  function addFeature(brief, feature, benefit){
+    var b = normalizeBrief(brief); feature = str(feature).trim(); if (!feature) return b;
+    b.features.push({ feature: feature, benefit: str(benefit).trim(), derivedFeature: "", derivedBenefit: "", added: true, edited: true });
+    return b;
+  }
 
   // ---- the merge rule ---------------------------------------------------------------------------
   // Apply a fresh derivation onto the stored brief. Hand-edited lines are preserved untouched.
@@ -14010,7 +14046,7 @@ function genOneScript(opts){
     var newF = arr(newDerived.features);
     if (newF.length){
       var seenF = {}; arr(b.features).forEach(function(f){ seenF[norm(f.feature)] = true; });
-      newF.forEach(function(f){ f = obj(f); var fn = str(f.feature); if (fn && !seenF[norm(fn)]){ seenF[norm(fn)] = true; b.features.push({ feature: fn, benefit: str(f.benefit), edited: false }); } });
+      newF.forEach(function(f){ f = obj(f); var fn = str(f.feature); if (fn && !seenF[norm(fn)]){ seenF[norm(fn)] = true; b.features.push(normFeature({ feature: fn, benefit: str(f.benefit) })); } });
     }
     if (opts.now) b.meta.lastDerivedAt = opts.now;
     if (opts.promptVersion) b.meta.promptVersion = str(opts.promptVersion);
@@ -14234,6 +14270,10 @@ function genOneScript(opts){
     revertLine: revertLine,
     deleteListItem: deleteListItem,
     addListItem: addListItem,
+    editFeature: editFeature,
+    revertFeature: revertFeature,
+    deleteFeature: deleteFeature,
+    addFeature: addFeature,
     mergeChunkDerivations: mergeChunkDerivations,
     mergeIncremental: mergeIncremental,
     applyClusters: applyClusters,
@@ -14876,12 +14916,14 @@ function genOneScript(opts){
           var locked = function(it){ return !!(it && (it.edited || it.added)); }, free = function(it){ return !locked(it); };
           var lockP = mergedBrief.lines.pains.filter(locked), freeP = mergedBrief.lines.pains.filter(free);
           var lockO = mergedBrief.lines.objections.filter(locked), freeO = mergedBrief.lines.objections.filter(free);
-          consolidateFindings(freeP, freeO, mergedBrief.features, function(spec, err){
-            var cP = freeP, cO = freeO;
+          var lockF = mergedBrief.features.filter(locked), freeF = mergedBrief.features.filter(free);
+          consolidateFindings(freeP, freeO, freeF, function(spec, err){
+            var cP = freeP, cO = freeO, cF = freeF;
             if (spec && !err){
               if (spec.clusters){ var u = SB.applyUnifiedClusters(freeP, freeO, spec, total); cP = u.pains; cO = u.objections; }
-              if (spec.features){ mergedBrief.features = applyFeatureClusters(mergedBrief.features, spec.features); }
+              if (spec.features){ cF = applyFeatureClusters(freeF, spec.features); }
             }
+            mergedBrief.features = lockF.concat(cF);
             mergedBrief.lines.pains = lockP.concat(cP);
             mergedBrief.lines.objections = lockO.concat(cO);
             SB.recountFindings(mergedBrief, raw.reviews, comments);
@@ -15090,6 +15132,47 @@ function genOneScript(opts){
     else { var add = actionBtn("+ Add your own line", function(){ editingLine = { key: key, index: -2 }; renderBrief(); }); add.style.color = "var(--purple)"; add.style.textDecoration = "none"; add.style.fontWeight = "600"; add.style.marginTop = "2px"; wrap.appendChild(add); }
     return wrap;
   }
+  // Features are a two-field pair (feature -> benefit), so their editor has two inputs. index -2 = add.
+  function featureEditor(index, f){
+    var wrap = document.createElement("div"); wrap.style.marginTop = "4px";
+    function inp(val, ph){ var i = document.createElement("input"); i.type = "text"; i.value = val || ""; i.placeholder = ph;
+      i.style.cssText = "width:100%;box-sizing:border-box;font-family:'Instrument Sans',sans-serif;font-size:14px;color:var(--white);background:var(--surface);border:1px solid var(--purple);border-radius:8px;padding:8px;margin-bottom:6px;"; return i; }
+    var fi = inp(f && f.feature, "Feature (what it is)"); var bi = inp(f && f.benefit, "What it does for the buyer");
+    wrap.appendChild(fi); wrap.appendChild(bi);
+    var row = document.createElement("div"); row.style.cssText = "display:flex;gap:8px;align-items:center;flex-wrap:wrap;";
+    var save = document.createElement("button"); save.type = "button"; save.textContent = index === -2 ? "Add feature" : "Save";
+    save.style.cssText = "background:var(--purple);border:none;border-radius:8px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;";
+    save.addEventListener("click", function(){
+      if (index === -2) persistBriefEdit(SB.addFeature(brief, fi.value, bi.value));
+      else persistBriefEdit(SB.editFeature(brief, index, { feature: fi.value, benefit: bi.value }));
+    });
+    var cancel = document.createElement("button"); cancel.type = "button"; cancel.textContent = "Cancel";
+    cancel.style.cssText = "background:transparent;border:1px solid var(--border-md);border-radius:8px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;padding:7px 12px;cursor:pointer;";
+    cancel.addEventListener("click", function(){ editingLine = null; renderBrief(); });
+    row.appendChild(save); row.appendChild(cancel); wrap.appendChild(row);
+    setTimeout(function(){ try { fi.focus(); } catch(e){} }, 0);
+    return wrap;
+  }
+  function featureBlock(features){
+    var wrap = document.createElement("div"); wrap.style.cssText = "margin-bottom:14px;";
+    var h = document.createElement("div"); h.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:4px 0 3px;"; h.textContent = "Features to benefits"; wrap.appendChild(h);
+    if (!features.length && !isEditing("features", -2)){ var n = document.createElement("div"); n.style.cssText = "font-size:14px;color:var(--muted);"; n.textContent = "Not found yet."; wrap.appendChild(n); }
+    features.forEach(function(f, idx){
+      if (isEditing("features", idx)){ wrap.appendChild(featureEditor(idx, f)); return; }
+      var row = document.createElement("div"); row.style.cssText = "margin-bottom:10px;";
+      var v = document.createElement("div"); v.style.cssText = "font-size:14px;line-height:1.5;color:var(--white);"; v.textContent = "• " + f.feature + (f.benefit ? " → " + f.benefit : "");
+      if (f.added || f.edited) v.appendChild(mineTag(!!f.added));
+      row.appendChild(v);
+      var acts = document.createElement("div"); acts.style.cssText = "margin-top:5px;";
+      acts.appendChild(actionBtn("Edit", (function(i){ return function(){ editingLine = { key: "features", index: i }; renderBrief(); }; })(idx)));
+      acts.appendChild(actionBtn("Delete", (function(i){ return function(){ persistBriefEdit(SB.deleteFeature(brief, i)); }; })(idx)));
+      if (f.edited && !f.added) acts.appendChild(actionBtn("Revert", (function(i){ return function(){ persistBriefEdit(SB.revertFeature(brief, i)); }; })(idx)));
+      row.appendChild(acts); wrap.appendChild(row);
+    });
+    if (isEditing("features", -2)){ wrap.appendChild(featureEditor(-2, { feature: "", benefit: "" })); }
+    else { var add = actionBtn("+ Add your own feature", function(){ editingLine = { key: "features", index: -2 }; renderBrief(); }); add.style.color = "var(--purple)"; add.style.textDecoration = "none"; add.style.fontWeight = "600"; add.style.marginTop = "2px"; wrap.appendChild(add); }
+    return wrap;
+  }
   function renderBrief(changes){
     var host = el("briefBelow");
     // If the host is missing (some navigation path cleared or never included it), recreate it inside the
@@ -15164,16 +15247,13 @@ function genOneScript(opts){
         // Keep the "show all" section open across the re-renders that editing triggers, and force it open
         // when the line being edited lives in it (objections is here), so an edit never collapses on save.
         var restKeys = SB.LINE_KEYS.filter(function(k){ return mustKeys.indexOf(k.key) < 0; }).map(function(k){ return k.key; });
-        if (editingLine && restKeys.indexOf(editingLine.key) >= 0) restOpen = true;
+        if (editingLine && (restKeys.indexOf(editingLine.key) >= 0 || editingLine.key === "features")) restOpen = true;
         var rest = document.createElement("div"); rest.style.cssText = "margin-top:6px;display:" + (restOpen ? "block" : "none") + ";";
         SB.LINE_KEYS.forEach(function(k){
           if (mustKeys.indexOf(k.key) >= 0) return;
           rest.appendChild(k.list ? listBlock(k.label, b.lines[k.key], k.key) : singleBlock(k.label, b.lines[k.key], k.key));
         });
-        if (b.features && b.features.length){
-          var fh = document.createElement("div"); fh.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:4px 0 3px;"; fh.textContent = "Features to benefits"; rest.appendChild(fh);
-          b.features.forEach(function(f){ var row = document.createElement("div"); row.style.cssText = "font-size:14px;line-height:1.5;color:var(--white);margin-bottom:4px;"; row.textContent = "• " + f.feature + (f.benefit ? " → " + f.benefit : ""); rest.appendChild(row); });
-        }
+        rest.appendChild(featureBlock(b.features));
         var toggle = document.createElement("button"); toggle.type = "button"; toggle.textContent = "Show all 11 lines";
         toggle.style.cssText = "margin-top:10px;background:transparent;border:1px solid var(--border-md);border-radius:8px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 12px;cursor:pointer;";
         toggle.textContent = restOpen ? "Show fewer" : "Show all 11 lines";
