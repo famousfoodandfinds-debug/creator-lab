@@ -14302,11 +14302,22 @@ function genOneScript(opts){
     if (/[—–]/.test(whole)) v.push("em-dash");
     if (/\b(kill|killed|killing|die|dies|dying|dead|death|haunting)\b/.test(lc)) v.push("moderation");
     if (!opts.priceAllowed && /\b(price|prices|priced|pricing|pricey|cost|costs|costly|expensive|cheap|cheaper|overpriced|afford|affordable|unaffordable)\b/.test(lc)) v.push("price");
-    if (/(customer service|support team|\bwarranty\b|\brefunds?\b|money back|the seller|\breturn it\b|\breturns\b|\breplacements?\b|replace it|contact (?:them|shark|support|the company|the seller))/.test(lc)) v.push("company");
+    // Company/service as a selling lever -- broadened past a warranty word list to the way it actually shows
+    // up ("the maker stood behind it," "they make it right"). Bare "maker" is avoided so "ice maker" is safe.
+    if (/(customer service|support team|\bwarranty\b|\bguarantee\b|\brefunds?\b|money back|the seller|\bmanufacturer\b|\bthe company\b|\bthe brand\b|\breturn it\b|\breturns\b|\breplacements?\b|replace it|stands behind|stood behind|backs it up|makes? it right|honou?rs? it|contact (?:them|shark|support|the company|the seller|the maker))/.test(lc)) v.push("company");
     if (/\bmy\b/.test(body) || /\bi (?:use|used|grab|grabbed|reach|reached|keep|kept|love|loved|own|owned|bought|got|have|had|tried|noticed|realized)\b/.test(body)) v.push("ownership");
     // Seller specs asserted as fact: a number+unit that comes from the LISTING (not from a review) stated
     // in the creator's voice ("33 pounds a day," "16 inches deep") -- the creator cannot verify it.
     if (arr(opts.sellerSpecs).some(function(s){ return s && lc.indexOf(str(s).toLowerCase()) >= 0; })) v.push("seller-spec");
+    // Verbatim lifting: buyer phrases are for wording, not for copying a whole review sentence into a line.
+    if (opts.reviewsText){
+      var hay = " " + str(opts.reviewsText).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ") + " ";
+      [str(script.hook), str(script.body1), str(script.preclose), str(script.body2)].some(function(t){
+        var n = t.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+        if (n.split(" ").length >= 6 && hay.indexOf(" " + n + " ") >= 0){ v.push("lifted"); return true; }
+        return false;
+      });
+    }
     return v;
   }
   // Number+unit tokens in a block of text (33 pounds, 16 inches, 24 hours, 45 db). Used to catch seller
@@ -14322,6 +14333,14 @@ function genOneScript(opts){
     var rev = str(reviewsText).toLowerCase(), seen = {}, out = [];
     numberUnits(description).forEach(function(s){ if (seen[s] || rev.indexOf(s) >= 0) return; seen[s] = true; out.push(s); });
     return out;
+  }
+  // Grounding, enforced in code (a prompt rule alone let invented objections through): once the brief is
+  // classified, a DERIVED pain/objection with zero review hits AND zero comment hits is grounded in
+  // nothing -- it was invented -- so it is dropped. Hand-edited and added lines are always kept (they are
+  // the owner's), and comment-only findings (ccount > 0) are kept. Only runs on a classified brief.
+  function groundedFindings(list, classified){
+    if (!classified) return arr(list);
+    return arr(list).filter(function(it){ it = obj(it); return it.edited || it.added || (it.count | 0) > 0 || (it.ccount | 0) > 0; });
   }
   // Batch-level repetition: two scripts must not open their objection turn with the same construction, and
   // CTAs must not be near-identical. Compares one script against those already accepted.
@@ -14385,7 +14404,8 @@ function genOneScript(opts){
     briefToGenContext: briefToGenContext,
     scriptViolations: scriptViolations,
     scriptRepeats: scriptRepeats,
-    sellerSpecs: sellerSpecs
+    sellerSpecs: sellerSpecs,
+    groundedFindings: groundedFindings
   };
 })();
 </script>
@@ -14821,7 +14841,7 @@ function genOneScript(opts){
       '"features":[{"feature":"a concrete product feature","benefit":"what it does for the buyer"}]}',
       "",
       "RULES:",
-      "- words = the buyer's own emotional or identity phrases, quoted short and verbatim, SAFE to reuse in marketing. At most 3 per line.",
+      "- words = the buyer's own emotional or identity phrases, quoted short and verbatim, SAFE to reuse in marketing. At most 3 per line. Words MUST match the sentiment of their line: under a complaint use the buyer's NEGATIVE phrasing only, never a positive phrase as evidence of a problem (do not put 'not too loud' under a noise complaint).",
       "- claims = performance or result claims a buyer makes (e.g. 'cured my back pain'). Keep SEPARATE from words. At most 3 per line.",
       "- terms = 5 to 10 SHORT distinctive keywords a buyer might use for THIS point, including synonyms and symptoms, so it can be counted across different wordings. Example for a battery-life complaint: battery, charge, run time, runtime, minutes, dies, recharge, lasts. Pick DISTINCTIVE words that would not show up in unrelated reviews (avoid generic words like good, product, use). No counts are needed; do not include a count field.",
       "- pains = a complaint about how the product actually PERFORMS or holds up in use (rusts, stops working, wears out). objections = a hesitation, doubt, risk, or QUESTION about buying (would it be worth it, will it fit, is it durable, is the info clear, will the colour match). Put each concept in ONE of the two, never both. A positive or a reason they DID buy is NOT an objection.",
@@ -14829,6 +14849,7 @@ function genOneScript(opts){
       "- pains and objections are arrays; return AT MOST 4 distinct items each, most-common first.",
       "- who, emotion, desire, pains, objections, socialProof, priceAnchor and ALL words come from the REVIEWS and COMMENTS only. features come from the listing. NEVER fill a buyer-psychology line or a buyer word from the seller listing.",
       "- Every pain and objection MUST be something a reviewer or commenter actually said or plainly implied. If the reviews do not raise it, leave it out. NEVER invent an objection the reviews do not contain (for example a price-versus-bagged-ice comparison no one wrote). A specific complaint a reviewer made (watery first ice, slow to fill, awkward drain, noisy) belongs in pains, in their words.",
+      "- Customer service, warranty, returns, refunds, or the seller/maker standing behind the product are NEVER pains or objections -- they are about the company, not the product. Leave them out entirely, even when a review praises the seller. The brief is about the product and the buyer, never the company.",
       "- Keep every value under 15 words. Return AT MOST 5 features.",
       "- Leave value empty ('') for anything the reviews and comments do not support. Do not invent. An empty line is better than a listing-derived guess.",
       "- NEVER state a number of reviews, a star rating, a percentage, or any statistic in a value. Describe the pattern in words only.",
@@ -15018,6 +15039,10 @@ function genOneScript(opts){
             mergedBrief.lines.pains = lockP.concat(cP);
             mergedBrief.lines.objections = lockO.concat(cO);
             SB.recountFindings(mergedBrief, raw.reviews, comments);
+            // Drop derived pains/objections with no review AND no comment evidence -- they were invented.
+            // Hand-edited/added and comment-sourced lines are kept.
+            mergedBrief.lines.pains = SB.groundedFindings(mergedBrief.lines.pains, mergedBrief.meta.classified);
+            mergedBrief.lines.objections = SB.groundedFindings(mergedBrief.lines.objections, mergedBrief.meta.classified);
             // Order each list by review count (stable), so my added lines (count 0) settle at the bottom
             // and edited derived lines keep their evidence-based place.
             var byCount = function(a, b){ return (b.count|0) - (a.count|0); };
@@ -15459,6 +15484,8 @@ function genOneScript(opts){
     L.push("NO-META RULE -- ABSOLUTE, every line: you are talking TO the viewer about THEIR life, never ABOUT your research. NEVER mention reviews, reviewers, buyers, customers, ratings, \"social proof,\" \"specs,\" or what people \"mention\" or \"say.\" The brief above is your SOURCE and the viewer has never seen it. Wrong: \"Every buyer mentions the battery.\" / \"Social proof speaks louder than specs.\" Right: put the battery inside the viewer's own moment.");
     L.push("HARD RULE -- PRICE: never raise price, cost, expensive, cheap, \"too much,\" or \"the price is too high\" as a doubt or objection ANYWHERE, unless the word price or cost literally appears in the objection list above (it does not by default). Value and worth belong ONLY in the payoff as a good feeling, never as a hesitation to overcome. Inventing a price objection plants a doubt the viewer never had.");
     L.push("HARD RULE -- SELLER SPECS AND CLAIMS (quarantined exactly like buyer claims): the listing's numbers and performance claims belong to the SELLER, not to you -- you have not measured or verified them. NEVER state a seller spec or number as your own fact (no \"33 pounds a day,\" \"16 inches deep,\" watts, decibels, hours). NEVER repeat a seller performance claim as fact, and NEVER escalate one -- if the listing says \"no scratches,\" you may NOT say \"wrecks your blender.\" Speak only to what the product plainly IS and what the BUYER actually experienced in the reviews.");
+    L.push("HARD RULE -- INVENT NOTHING: every fact, number, timeframe, cause, and outcome must come from the brief above or the listing. Do NOT add a time (\"under ten minutes\"), a statistic (\"most people adjust in a week\"), or a mechanism (\"water running through the freezing chamber\") that is not in the material. A reframe's cause must be stated in the reviews or listing; if you cannot point to where, reframe as a benefit instead of naming a cause. If you cannot ground something, leave it out.");
+    L.push("REUSE PHRASES, NOT SENTENCES: the buyer language above is for wording and rhythm, never for copying a whole review sentence verbatim into a line (do not lift \"the first batch of cubes that drop are always smaller\" as-is). Rewrite every line in your own words.");
     L.push("LENGTH: aim the WHOLE script -- hook through CTA -- at about 60 to 110 spoken words, a finished video of 25 to 45 seconds. Let the sections balance within that budget, do not pad to fill it, and land all four scripts at a similar total length. No hard per-section word count.");
     L.push("SETUP RULE (body1): one specific moment, jump straight to the feeling. Do not restate the hook. The objection turn must do DIFFERENT work than the setup.");
     L.push("PRE-CLOSE RULE (all scripts): one sentence, a statement not a question, and it must do DIFFERENT work than the setup -- never restate it. It must defuse an objection that ACTUALLY appears in the objections above; NEVER introduce a hesitation the buyer did not raise (do NOT mention price or cost unless price is in the objections list). BANNED, never use it: the first-person resolved testimony \"I thought / I assumed / I kept telling myself X and then I realized Y.\"");
@@ -15507,7 +15534,8 @@ function genOneScript(opts){
     var reviewsText = (raw.reviews || []).map(function(r){ return String(r.full || r.quote || ""); }).join(" ");
     var guardOpts = {
       priceAllowed: ctx.objections.some(function(o){ return /\b(price|cost)\b/i.test(o.value); }),
-      sellerSpecs: SB.sellerSpecs(raw.description, reviewsText)
+      sellerSpecs: SB.sellerSpecs(raw.description, reviewsText),
+      reviewsText: reviewsText
     };
     claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
       if (err){ generating = false; renderGenScripts(); genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + "). Nothing was lost.", "var(--red)"); return; }

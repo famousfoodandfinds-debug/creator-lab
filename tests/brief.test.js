@@ -547,5 +547,23 @@ ok(B.scriptViolations({ body1: "This thing pumps out 33 pounds a day" }, { selle
 ok(B.scriptViolations({ body1: "Ten minutes and the basket is full" }, { sellerSpecs: specs }).indexOf("seller-spec") < 0, 'validator: a script with no seller number passes');
 ok(B.scriptViolations({ body1: "It only runs about 10 minutes before a break" }, { sellerSpecs: specs }).indexOf("seller-spec") < 0, 'validator: a buyer-said number (10 minutes) is allowed');
 
+// 21. broadened company net + verbatim-lift + code grounding (the exact misses in the ice-maker batch).
+ok(B.scriptViolations({ preclose: "The maker stood behind it when the first unit had issues" }, {}).indexOf("company") >= 0, 'validator: catches "the maker stood behind it" (was slipping through)');
+ok(B.scriptViolations({ preclose: "If anything goes wrong they make it right fast" }, {}).indexOf("company") >= 0, 'validator: catches "they make it right"');
+ok(B.scriptViolations({ hook: "This little ice maker lives on your counter" }, {}).indexOf("company") < 0, 'validator: "ice maker" is NOT a company hit (bare maker avoided)');
+ok(B.scriptViolations({ hook: "The first batch of cubes that drop are always smaller" }, { reviewsText: "honestly the first batch of cubes that drop are always smaller and watery" }).indexOf("lifted") >= 0, 'validator: catches a review sentence lifted verbatim');
+ok(B.scriptViolations({ hook: "Your morning ice should not taste like effort" }, { reviewsText: "the first batch of cubes that drop are always smaller" }).indexOf("lifted") < 0, 'validator: an original line is not a lift');
+// groundedFindings: a classified brief drops derived 0/0 findings but keeps evidence-backed, comment-only, and user lines
+let gf = [
+  B.normalizeBrief({lines:{objections:[{value:'real objection', count:4}]}}).lines.objections[0],
+  B.normalizeBrief({lines:{objections:[{value:'invented, no evidence', count:0, ccount:0}]}}).lines.objections[0],
+  B.normalizeBrief({lines:{objections:[{value:'from the comments', count:0, ccount:3}]}}).lines.objections[0],
+  B.normalizeBrief({lines:{objections:[{value:'my own line', count:0, ccount:0, added:true}]}}).lines.objections[0]
+];
+let gfOut = B.groundedFindings(gf, true).map(o=>o.value);
+ok(gfOut.indexOf('invented, no evidence') < 0, 'groundedFindings: drops a derived 0-review 0-comment finding');
+ok(gfOut.indexOf('real objection') >= 0 && gfOut.indexOf('from the comments') >= 0 && gfOut.indexOf('my own line') >= 0, 'groundedFindings: keeps evidence-backed, comment-only, and added lines');
+ok(B.groundedFindings(gf, false).length === 4, 'groundedFindings: an UNclassified brief drops nothing (counts not trustworthy yet)');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
