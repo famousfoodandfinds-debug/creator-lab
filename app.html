@@ -14304,7 +14304,24 @@ function genOneScript(opts){
     if (!opts.priceAllowed && /\b(price|prices|priced|pricing|pricey|cost|costs|costly|expensive|cheap|cheaper|overpriced|afford|affordable|unaffordable)\b/.test(lc)) v.push("price");
     if (/(customer service|support team|\bwarranty\b|\brefunds?\b|money back|the seller|\breturn it\b|\breturns\b|\breplacements?\b|replace it|contact (?:them|shark|support|the company|the seller))/.test(lc)) v.push("company");
     if (/\bmy\b/.test(body) || /\bi (?:use|used|grab|grabbed|reach|reached|keep|kept|love|loved|own|owned|bought|got|have|had|tried|noticed|realized)\b/.test(body)) v.push("ownership");
+    // Seller specs asserted as fact: a number+unit that comes from the LISTING (not from a review) stated
+    // in the creator's voice ("33 pounds a day," "16 inches deep") -- the creator cannot verify it.
+    if (arr(opts.sellerSpecs).some(function(s){ return s && lc.indexOf(str(s).toLowerCase()) >= 0; })) v.push("seller-spec");
     return v;
+  }
+  // Number+unit tokens in a block of text (33 pounds, 16 inches, 24 hours, 45 db). Used to catch seller
+  // specs leaking into a script as asserted fact.
+  function numberUnits(text){
+    var out = [], re = /\b\d[\d.,]*\s?(?:pounds?|lbs?|inches?|feet|foot|ft|cm|mm|ounces?|oz|grams?|kg|watts?|w|decibels?|db|hours?|hrs?|minutes?|mins?|seconds?|secs?|liters?|litres?|ml|gallons?|gal|degrees?|percent|%|square feet|sq ft|cubic)\b/gi, m;
+    while ((m = re.exec(str(text)))) out.push(m[0].toLowerCase().replace(/\s+/g, " ").trim());
+    return out;
+  }
+  // Seller specs = number+unit tokens in the listing that NO review states (a buyer-said number is fair
+  // game; a seller-only number is not). Fed to scriptViolations so an asserted seller number is caught.
+  function sellerSpecs(description, reviewsText){
+    var rev = str(reviewsText).toLowerCase(), seen = {}, out = [];
+    numberUnits(description).forEach(function(s){ if (seen[s] || rev.indexOf(s) >= 0) return; seen[s] = true; out.push(s); });
+    return out;
   }
   // Batch-level repetition: two scripts must not open their objection turn with the same construction, and
   // CTAs must not be near-identical. Compares one script against those already accepted.
@@ -14367,7 +14384,8 @@ function genOneScript(opts){
     isThin: isThin,
     briefToGenContext: briefToGenContext,
     scriptViolations: scriptViolations,
-    scriptRepeats: scriptRepeats
+    scriptRepeats: scriptRepeats,
+    sellerSpecs: sellerSpecs
   };
 })();
 </script>
@@ -14382,7 +14400,7 @@ function genOneScript(opts){
   var raw = SB.emptyRaw();
   var brief = SB.emptyBrief();          // derived, light column; loaded on open, rebuilt by deriveBrief
   var deriving = false;                 // guards the derive button against double-fire
-  var DERIVE_PROMPT_V = "brief-derive-5";
+  var DERIVE_PROMPT_V = "brief-derive-6";   // reviews-primary framing + no invented objections
   var DERIVE_BATCH = 8;                 // reviews per derivation call -- smaller so each call stays inside
   var DERIVE_REVIEW_CHARS = 2000;       // Netlify's ~26s sync gateway even with the larger per-review excerpt
   var DERIVE_MODEL = "claude-haiku-4-5-20251001"; // fast enough not to hit the gateway 504
@@ -14777,15 +14795,15 @@ function genOneScript(opts){
       return "Review " + (i+1) + ": " + reviewExcerpt(r.full || r.quote || "");
     }).join("\n");
     var ctx = [];
-    if (raw.description) ctx.push("PRODUCT LISTING (what the seller says):\n" + raw.description);
+    if (raw.description) ctx.push("SELLER LISTING (the seller's marketing copy -- use ONLY to name factual FEATURES; NEVER a source of pains, objections, emotions, desires, or buyer words):\n" + raw.description);
     if (raw.authorityRaw) ctx.push("CREATOR AUTHORITY (only if given):\n" + raw.authorityRaw);
     if (raw.competitorComments) ctx.push("COMPETITOR / VIRAL-VIDEO COMMENTS (buyer language and objections from similar products):\n" + raw.competitorComments);
     return [
-      "You are building a conversion brief for a TikTok Shop product. Analyse the material below and return a strict JSON object with the buyer's psychology in THEIR words.",
+      "You are building a conversion brief for a short-form video product. The CUSTOMER REVIEWS (and any COMMENTS) are your ONLY source for buyer psychology -- who this is for, what they feel and want, their pains, their objections, their social proof, and their exact words. The SELLER LISTING is marketing copy: use it ONLY to name factual features, NEVER to source a pain, objection, emotion, desire, or buyer phrase. When reviews are present, build the whole brief FROM THEM.",
+      "",
+      (revs ? ("CUSTOMER REVIEWS (" + reviewsChunk.length + " reviews) -- your primary source, read every one:\n" + revs) : "There are no customer reviews yet; derive what you can from the listing and comments, and set every count to 0."),
       "",
       ctx.join("\n\n"),
-      "",
-      (revs ? ("CUSTOMER REVIEWS FOR THIS BATCH (" + reviewsChunk.length + " reviews):\n" + revs) : "There are no customer reviews yet; derive what you can from the listing and comments, and set every count to 0."),
       "",
       "Return ONLY this JSON object, nothing else. Every line has words, claims, and terms:",
       '{"lines":{',
@@ -14809,8 +14827,10 @@ function genOneScript(opts){
       "- pains = a complaint about how the product actually PERFORMS or holds up in use (rusts, stops working, wears out). objections = a hesitation, doubt, risk, or QUESTION about buying (would it be worth it, will it fit, is it durable, is the info clear, will the colour match). Put each concept in ONE of the two, never both. A positive or a reason they DID buy is NOT an objection.",
       "- The COMPETITOR / VIRAL-VIDEO COMMENTS above come from people reacting to a video, most of whom have NOT bought. Doubts they raise -- unclear or missing product information, colours or looks not matching what they already own, price worry, whether it will fit or suit them -- are OBJECTIONS, not pains. Only call something a pain when someone describes the product actually failing or wearing out in hand. When the source is a comment and you are unsure, prefer objection.",
       "- pains and objections are arrays; return AT MOST 4 distinct items each, most-common first.",
+      "- who, emotion, desire, pains, objections, socialProof, priceAnchor and ALL words come from the REVIEWS and COMMENTS only. features come from the listing. NEVER fill a buyer-psychology line or a buyer word from the seller listing.",
+      "- Every pain and objection MUST be something a reviewer or commenter actually said or plainly implied. If the reviews do not raise it, leave it out. NEVER invent an objection the reviews do not contain (for example a price-versus-bagged-ice comparison no one wrote). A specific complaint a reviewer made (watery first ice, slow to fill, awkward drain, noisy) belongs in pains, in their words.",
       "- Keep every value under 15 words. Return AT MOST 5 features.",
-      "- Leave value empty ('') for anything the material does not support. Do not invent.",
+      "- Leave value empty ('') for anything the reviews and comments do not support. Do not invent. An empty line is better than a listing-derived guess.",
       "- NEVER state a number of reviews, a star rating, a percentage, or any statistic in a value. Describe the pattern in words only.",
       "- Do not use em dashes anywhere. Use plain sentences.",
       "- Return ONLY the JSON object. No preamble, no explanation, no markdown fences."
@@ -15438,6 +15458,7 @@ function genOneScript(opts){
     // the body ("every buyer mentions the battery," "social proof speaks louder than specs").
     L.push("NO-META RULE -- ABSOLUTE, every line: you are talking TO the viewer about THEIR life, never ABOUT your research. NEVER mention reviews, reviewers, buyers, customers, ratings, \"social proof,\" \"specs,\" or what people \"mention\" or \"say.\" The brief above is your SOURCE and the viewer has never seen it. Wrong: \"Every buyer mentions the battery.\" / \"Social proof speaks louder than specs.\" Right: put the battery inside the viewer's own moment.");
     L.push("HARD RULE -- PRICE: never raise price, cost, expensive, cheap, \"too much,\" or \"the price is too high\" as a doubt or objection ANYWHERE, unless the word price or cost literally appears in the objection list above (it does not by default). Value and worth belong ONLY in the payoff as a good feeling, never as a hesitation to overcome. Inventing a price objection plants a doubt the viewer never had.");
+    L.push("HARD RULE -- SELLER SPECS AND CLAIMS (quarantined exactly like buyer claims): the listing's numbers and performance claims belong to the SELLER, not to you -- you have not measured or verified them. NEVER state a seller spec or number as your own fact (no \"33 pounds a day,\" \"16 inches deep,\" watts, decibels, hours). NEVER repeat a seller performance claim as fact, and NEVER escalate one -- if the listing says \"no scratches,\" you may NOT say \"wrecks your blender.\" Speak only to what the product plainly IS and what the BUYER actually experienced in the reviews.");
     L.push("LENGTH: aim the WHOLE script -- hook through CTA -- at about 60 to 110 spoken words, a finished video of 25 to 45 seconds. Let the sections balance within that budget, do not pad to fill it, and land all four scripts at a similar total length. No hard per-section word count.");
     L.push("SETUP RULE (body1): one specific moment, jump straight to the feeling. Do not restate the hook. The objection turn must do DIFFERENT work than the setup.");
     L.push("PRE-CLOSE RULE (all scripts): one sentence, a statement not a question, and it must do DIFFERENT work than the setup -- never restate it. It must defuse an objection that ACTUALLY appears in the objections above; NEVER introduce a hesitation the buyer did not raise (do NOT mention price or cost unless price is in the objections list). BANNED, never use it: the first-person resolved testimony \"I thought / I assumed / I kept telling myself X and then I realized Y.\"");
@@ -15462,9 +15483,9 @@ function genOneScript(opts){
   function finalizeScript(s, ctx){ return { hook: s.hook, body1: s.body1, preclose: s.preclose, body2: s.body2, cta: s.cta, angle: lead0(ctx), desire: ctx.desire }; }
   // The GUARD: check each script; a violation regenerates it once; a second failure DROPS it. A banned
   // move never reaches the screen. Sequential so `scriptRepeats` can compare against already-accepted ones.
-  function validateBatch(ctx, priceAllowed, scripts, done){
+  function validateBatch(ctx, guardOpts, scripts, done){
     var accepted = [], dropped = 0, i = 0;
-    function problems(s){ return SB.scriptViolations(s, { priceAllowed: priceAllowed }).concat(SB.scriptRepeats(s, accepted) ? ["repetition"] : []); }
+    function problems(s){ return SB.scriptViolations(s, guardOpts).concat(SB.scriptRepeats(s, accepted) ? ["repetition"] : []); }
     (function next(){
       if (i >= scripts.length){ done(accepted, dropped); return; }
       var idx = i, s = scripts[idx], viol = problems(s);
@@ -15483,13 +15504,17 @@ function genOneScript(opts){
     if (!brief.meta.lastDerivedAt){ genStatus("Build the brief first, then generate.", "var(--red)"); return; }
     generating = true; renderGenScripts();
     var ctx = SB.briefToGenContext(brief, raw);
-    var priceAllowed = ctx.objections.some(function(o){ return /\b(price|cost)\b/i.test(o.value); });
+    var reviewsText = (raw.reviews || []).map(function(r){ return String(r.full || r.quote || ""); }).join(" ");
+    var guardOpts = {
+      priceAllowed: ctx.objections.some(function(o){ return /\b(price|cost)\b/i.test(o.value); }),
+      sellerSpecs: SB.sellerSpecs(raw.description, reviewsText)
+    };
     claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
       if (err){ generating = false; renderGenScripts(); genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + "). Nothing was lost.", "var(--red)"); return; }
       var out = parseJson(text, "[", "]");
       if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
       genStatus("Checking each script against the hard rules...");
-      validateBatch(ctx, priceAllowed, out.slice(0, GEN_COUNT).map(cleanScript), function(clean, dropped){
+      validateBatch(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), function(clean, dropped){
         generating = false; generatedScripts = clean; renderGenScripts();
         var msg = clean.length ? (clean.length + " script" + (clean.length === 1 ? "" : "s") + " from your brief" + (dropped ? " (" + dropped + " dropped for breaking a rule)" : "") + ". Save the ones you want.")
                                : "Every draft broke a rule and was dropped. Try again.";

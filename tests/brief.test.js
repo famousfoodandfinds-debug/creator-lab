@@ -538,5 +538,14 @@ ok(B.scriptRepeats({ preclose: "Pull the filter, then wipe the housing", cta: "G
 ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Grab yours from the orange cart today" }, acc) === true, 'repeats: near-identical CTA opening is a repeat');
 ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Add it to your cart now" }, acc) === false, 'repeats: a genuinely different turn and CTA passes');
 
+// 20. seller-spec quarantine: a number+unit from the LISTING asserted as fact is caught; a buyer-said
+// number (in a review) is fair game.
+let specs = B.sellerSpecs("Makes 33 pounds of ice a day. Basket is 16 inches deep. Runs at 45 db.", "one reviewer said it only makes ice for about 10 minutes before it needs a break");
+ok(specs.indexOf("33 pounds") >= 0 && specs.indexOf("16 inches") >= 0, 'sellerSpecs: pulls listing number+unit tokens');
+ok(specs.indexOf("10 minutes") < 0, 'sellerSpecs: a number a REVIEW states is not a seller spec');
+ok(B.scriptViolations({ body1: "This thing pumps out 33 pounds a day" }, { sellerSpecs: specs }).indexOf("seller-spec") >= 0, 'validator: catches a seller spec asserted as fact');
+ok(B.scriptViolations({ body1: "Ten minutes and the basket is full" }, { sellerSpecs: specs }).indexOf("seller-spec") < 0, 'validator: a script with no seller number passes');
+ok(B.scriptViolations({ body1: "It only runs about 10 minutes before a break" }, { sellerSpecs: specs }).indexOf("seller-spec") < 0, 'validator: a buyer-said number (10 minutes) is allowed');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
