@@ -517,5 +517,26 @@ ok(gctx2.leadPain.value === 'blocks wear out', 'adapter: an added (count 0) line
 let gce = B.briefToGenContext(B.emptyBrief(), B.emptyRaw());
 ok(gce.leadPain === null && gce.defuseObjection === null && gce.pains.length === 0, 'adapter: empty brief yields a safe empty context');
 
+// 19. script validator (Phase 5 guard): prompt rules were not enforcing the hard bans, so every generated
+// script is checked in code -- a violation regenerates it, a second failure drops it. Must catch the exact
+// misses the owner saw in the browser.
+let clean = { hook: "Your fur baby isn't the problem, it's your vacuum", body1: "You chase the same corner twice a day", preclose: "Pull the filter, tap it out, done in two minutes", body2: "The floor stays clear and you move on", cta: "Grab yours from the orange cart" };
+ok(B.scriptViolations(clean, { priceAllowed: false }).length === 0, 'validator: a clean script passes');
+ok(B.scriptViolations({ preclose: "Shark's customer service will point you to the right one" }, {}).indexOf("company") >= 0, 'validator: catches company customer-service defuse');
+ok(B.scriptViolations({ body2: "the warranty covers it and returns are easy" }, {}).indexOf("company") >= 0, 'validator: catches warranty/returns');
+ok(B.scriptViolations({ preclose: "The price is hard to justify at first" }, { priceAllowed: false }).indexOf("price") >= 0, 'validator: catches invented price doubt');
+ok(B.scriptViolations({ preclose: "It costs less than what you already waste" }, { priceAllowed: true }).indexOf("price") < 0, 'validator: price allowed when price IS an objection');
+ok(B.scriptViolations({ body1: "It shuts off and the plant is dead by morning" }, {}).indexOf("moderation") >= 0, 'validator: catches a moderation word (dead)');
+ok(B.scriptViolations({ body2: "so good I use it every single day now" }, {}).indexOf("ownership") >= 0, 'validator: catches first-person ownership (I use)');
+ok(B.scriptViolations({ preclose: "my wrist finally stopped aching" }, {}).indexOf("ownership") >= 0, 'validator: catches ownership possessive (my)');
+ok(B.scriptViolations({ hook: "It shouldn't take 15 minutes — set up your vacuum" }, {}).indexOf("em-dash") >= 0, 'validator: flags an em dash');
+// the hook may confess with "I"; ownership check is body-only
+ok(B.scriptViolations({ hook: "I almost talked myself out of this", body1: "You clean the corner twice a day", preclose: "Tap the filter out in two minutes", body2: "The floor stays clear", cta: "Grab one today" }, {}).indexOf("ownership") < 0, 'validator: a confession hook with "I" is allowed (ownership is body-only)');
+// batch repetition: same objection-turn opening or near-identical CTA
+let acc = [{ preclose: "Pull the filter and tap it out", cta: "Grab yours from the orange cart" }];
+ok(B.scriptRepeats({ preclose: "Pull the filter, then wipe the housing", cta: "Get one before they sell out" }, acc) === true, 'repeats: same first words of the objection turn is a repeat');
+ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Grab yours from the orange cart today" }, acc) === true, 'repeats: near-identical CTA opening is a repeat');
+ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Add it to your cart now" }, acc) === false, 'repeats: a genuinely different turn and CTA passes');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

@@ -14288,6 +14288,31 @@ function genOneScript(opts){
       commentCount: b.meta.commentCount|0
     };
   }
+  // Deterministic post-generation GUARD. Prompt rules were not enforcing the hard bans (price invented as a
+  // doubt, company-service defuses, first-person ownership, moderation words, em dashes all reached the
+  // screen after being "banned"). So every generated script is checked here in CODE: a violation regenerates
+  // the script, a second failure drops it. Pure + testable; returns an array of violation codes.
+  // opts.priceAllowed = true only when "price"/"cost" is an actual objection in the brief.
+  function scriptViolations(script, opts){
+    script = obj(script); opts = obj(opts);
+    var whole = [str(script.hook), str(script.body1), str(script.preclose), str(script.body2), str(script.cta)].join("\n");
+    var lc = whole.toLowerCase();
+    var body = [str(script.body1), str(script.preclose), str(script.body2), str(script.cta)].join("\n").toLowerCase();
+    var v = [];
+    if (/[—–]/.test(whole)) v.push("em-dash");
+    if (/\b(kill|killed|killing|die|dies|dying|dead|death|haunting)\b/.test(lc)) v.push("moderation");
+    if (!opts.priceAllowed && /\b(price|prices|priced|pricing|pricey|cost|costs|costly|expensive|cheap|cheaper|overpriced|afford|affordable|unaffordable)\b/.test(lc)) v.push("price");
+    if (/(customer service|support team|\bwarranty\b|\brefunds?\b|money back|the seller|\breturn it\b|\breturns\b|\breplacements?\b|replace it|contact (?:them|shark|support|the company|the seller))/.test(lc)) v.push("company");
+    if (/\bmy\b/.test(body) || /\bi (?:use|used|grab|grabbed|reach|reached|keep|kept|love|loved|own|owned|bought|got|have|had|tried|noticed|realized)\b/.test(body)) v.push("ownership");
+    return v;
+  }
+  // Batch-level repetition: two scripts must not open their objection turn with the same construction, and
+  // CTAs must not be near-identical. Compares one script against those already accepted.
+  function firstWords(t, n){ return str(t).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).slice(0, n).join(" "); }
+  function scriptRepeats(script, accepted){
+    var pc = firstWords(script.preclose, 3), ct = firstWords(script.cta, 4);
+    return arr(accepted).some(function(a){ return (pc && firstWords(a.preclose, 3) === pc) || (ct && firstWords(a.cta, 4) === ct); });
+  }
 
   window.SaxeBrief = {
     VERSION: BRIEF_V,
@@ -14340,7 +14365,9 @@ function genOneScript(opts){
     claims: claims,
     mustHaveKeys: mustHaveKeys,
     isThin: isThin,
-    briefToGenContext: briefToGenContext
+    briefToGenContext: briefToGenContext,
+    scriptViolations: scriptViolations,
+    scriptRepeats: scriptRepeats
   };
 })();
 </script>
@@ -15415,23 +15442,59 @@ function genOneScript(opts){
     L.push("SETUP RULE (body1): one specific moment, jump straight to the feeling. Do not restate the hook. The objection turn must do DIFFERENT work than the setup.");
     L.push("PRE-CLOSE RULE (all scripts): one sentence, a statement not a question, and it must do DIFFERENT work than the setup -- never restate it. It must defuse an objection that ACTUALLY appears in the objections above; NEVER introduce a hesitation the buyer did not raise (do NOT mention price or cost unless price is in the objections list). BANNED, never use it: the first-person resolved testimony \"I thought / I assumed / I kept telling myself X and then I realized Y.\"");
     L.push("OVERCOME OBJECTIONS INSIDE THE PRODUCT -- ABSOLUTE, all scripts: every objection is answered by the product and how it is USED -- something the viewer can do or see for themselves (the model is the filter: same battery doubt, but the fix is a two-minute thing the viewer does). NEVER overcome an objection by pointing at the company behind the product: no support team, warranty, returns, replacements, customer service, or \"the seller will make it right.\" Those are not selling levers in a shop video -- they are what you reach for when you have run out of product to talk about.");
+    L.push("VARIETY (all scripts): no two scripts may open their HOOK or their OBJECTION TURN with the same construction (the same first few words), and every CTA must be worded differently from the others.");
     L.push("");
     L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the tight setup; preclose = the assigned pre-close; body2 = the desire/payoff (describe the moment, do not say "you become the person who"); cta = the shopping-button call to action, echoing the hook. Keep every script tight and speakable. No em dashes.');
     return L.join("\n");
+  }
+  // Ask for ONE script rewritten -- reuses the full batch prompt (all context + this script's assignment +
+  // every rule) and just changes the output instruction, so nothing diverges from the batch rules.
+  function genOnePrompt(ctx, i, prev, violations){
+    return genPrompt(ctx) +
+      "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for breaking these hard rules: " + violations.join("; ") + "." +
+      " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
+      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, no price raised as a doubt, no company service or warranty or returns, no first-person ownership, no moderation words." +
+      " Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
+  }
+  // Em dashes are stripped outright (never regenerate for a mechanical fix); the owner wants none, ever.
+  function stripDashes(t){ return String(t == null ? "" : t).replace(/\s*[—–]\s*/g, ", ").replace(/,\s*,/g, ",").replace(/\s+,/g, ",").replace(/\s{2,}/g, " ").trim(); }
+  function cleanScript(o){ o = o || {}; return { hook: stripDashes(o.hook), body1: stripDashes(o.body1), preclose: stripDashes(o.preclose), body2: stripDashes(o.body2), cta: stripDashes(o.cta) }; }
+  function finalizeScript(s, ctx){ return { hook: s.hook, body1: s.body1, preclose: s.preclose, body2: s.body2, cta: s.cta, angle: lead0(ctx), desire: ctx.desire }; }
+  // The GUARD: check each script; a violation regenerates it once; a second failure DROPS it. A banned
+  // move never reaches the screen. Sequential so `scriptRepeats` can compare against already-accepted ones.
+  function validateBatch(ctx, priceAllowed, scripts, done){
+    var accepted = [], dropped = 0, i = 0;
+    function problems(s){ return SB.scriptViolations(s, { priceAllowed: priceAllowed }).concat(SB.scriptRepeats(s, accepted) ? ["repetition"] : []); }
+    (function next(){
+      if (i >= scripts.length){ done(accepted, dropped); return; }
+      var idx = i, s = scripts[idx], viol = problems(s);
+      if (!viol.length){ accepted.push(finalizeScript(s, ctx)); i++; next(); return; }
+      genStatus("Fixing a script that broke a rule (" + viol.join(", ") + ")...");
+      claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genOnePrompt(ctx, idx, s, viol) }] }, function(t, e){
+        var s2 = null; if (!e){ var o = parseJson(t, "{", "}"); if (o) s2 = cleanScript(o); }
+        if (s2 && !problems(s2).length){ accepted.push(finalizeScript(s2, ctx)); }
+        else { dropped++; }   // failed twice (or the retry errored): drop it, never show a violation
+        i++; next();
+      });
+    })();
   }
   function generateScripts(){
     if (generating) return;
     if (!brief.meta.lastDerivedAt){ genStatus("Build the brief first, then generate.", "var(--red)"); return; }
     generating = true; renderGenScripts();
     var ctx = SB.briefToGenContext(brief, raw);
+    var priceAllowed = ctx.objections.some(function(o){ return /\b(price|cost)\b/i.test(o.value); });
     claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
-      generating = false;
-      if (err){ renderGenScripts(); genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + "). Nothing was lost.", "var(--red)"); return; }
+      if (err){ generating = false; renderGenScripts(); genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + "). Nothing was lost.", "var(--red)"); return; }
       var out = parseJson(text, "[", "]");
-      if (!Array.isArray(out) || !out.length){ renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
-      generatedScripts = out.map(function(s){ s = s || {}; return { hook: String(s.hook || ""), body1: String(s.body1 || ""), preclose: String(s.preclose || ""), body2: String(s.body2 || ""), cta: String(s.cta || ""), angle: lead0(ctx), desire: ctx.desire }; });
-      renderGenScripts();
-      genStatus(generatedScripts.length + " script" + (generatedScripts.length > 1 ? "s" : "") + " from your brief. Save the ones you want.", "var(--green)");
+      if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
+      genStatus("Checking each script against the hard rules...");
+      validateBatch(ctx, priceAllowed, out.slice(0, GEN_COUNT).map(cleanScript), function(clean, dropped){
+        generating = false; generatedScripts = clean; renderGenScripts();
+        var msg = clean.length ? (clean.length + " script" + (clean.length === 1 ? "" : "s") + " from your brief" + (dropped ? " (" + dropped + " dropped for breaking a rule)" : "") + ". Save the ones you want.")
+                               : "Every draft broke a rule and was dropped. Try again.";
+        genStatus(msg, clean.length ? "var(--green)" : "var(--red)");
+      });
     });
   }
   function lead0(ctx){ return ctx.leadPain ? ctx.leadPain.value : ""; }
