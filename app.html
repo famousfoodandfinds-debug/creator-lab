@@ -15352,15 +15352,15 @@ function genOneScript(opts){
   var HOOK_SOURCES = [
     { key: "reversal",  instr: "IT IS NOT YOU, IT IS X. Move the blame the buyer quietly puts on themselves onto the thing that actually failed them. START WITH THE THING -- no \"it is not that you...\" throat-clearing at the front. One concrete idea, no explanation attached. In this creator's voice: \"Your fur baby isn't the problem, it's your vacuum.\" Never an abstract state, never a first-person story." },
     { key: "flat",      instr: "FLAT ABSURDITY. State one specific, concrete absurdity as a plain fact and stop -- let the viewer feel it. Start with the thing, one idea, no explanation. In this creator's voice: \"It shouldn't take 15 minutes to set up your vacuum.\" These show the SHAPE (write your OWN for this product, do not reuse the topic): \"You clean the vacuum more than it cleans your floors.\" \"The timer goes off and the one thing you needed is still not ready.\" \"You reach for the good pan and it is the one already soaking in the sink.\" \"The counters are spotless and then you open the cabinet of mismatched lids.\" \"Your drink is warm by the back nine.\"" },
-    { key: "objection", instr: "OBJECTION AS CURIOSITY. Take the biggest objection and frame it as a curiosity gap the viewer must close -- resolve or reframe it, NEVER a flat negative that plants doubt in someone who did not have it. In this creator's voice: \"Everyone blames the battery. It's the filter.\" \"Ten minutes of battery is the whole design.\" \"It shuts off after sixty seconds. Here's why.\"" },
+    { key: "objection", instr: "OBJECTION AS CURIOSITY. Take the biggest objection and frame it as a curiosity gap the viewer must close -- resolve or reframe it, NEVER a flat negative that plants doubt in someone who did not have it. The reframe MUST land on a specific, surprising, fixable MECHANISM drawn from the brief (the real cause), never an abstract category. \"It's the filter\" works because it names a concrete cause the viewer can act on; \"it's the design\" is a shrug that makes the hook and the pre-close say the same thing. Banned reframes: the design, the build, the quality, how it's made. If the brief gives no concrete mechanism for an objection, do not use this shape on it. In this creator's voice: \"Everyone blames the battery. It's the filter.\" \"It shuts off after sixty seconds. Here's why.\"" },
     { key: "curiosity", instr: "CURIOSITY LOOP. Open a loop the viewer must keep watching to close -- an unexpected pattern or reaction, in RECOMMENDER voice: never imply you own it or have used it, never borrow a reviewer's personal history. In this creator's voice: \"Somehow people keep buying a second one.\" \"There's a reason this stays by the door.\"" }
   ];
   // Pre-close angles rotate too, so one focus per batch never means the same rebuttal four times.
   var PRECLOSE_ANGLES = [
-    "Handle the batch's main objection head on: name it in the viewer's own words, then defuse it with ONE concrete, specific counter.",
-    "Use a WORSE-ALTERNATIVE contrast: what it costs them to keep doing it the old way. Only contrast with a real hesitation from the list, never a price or cost the list does not raise.",
-    "Defuse a DIFFERENT objection FROM THE LIST than the other scripts; if the list is short, reuse one and defuse it from a new angle -- never invent a hesitation.",
-    "Reframe the batch's main objection as the point: name the trade-off and show why it is exactly right for this viewer."
+    "Head on: name the assigned objection in the viewer's own words, then defuse it with ONE concrete, specific counter.",
+    "Worse-alternative contrast: what the assigned objection costs them if they keep doing it the old way (never a price the list does not raise).",
+    "Shrink it: cut the assigned objection down to the smallest real risk, then dissolve that risk with one specific fact.",
+    "Reframe it as the point: show the assigned objection is the intended trade-off and why that is exactly right for this viewer (e.g. a short battery IS the design of a grab-and-go tool)."
   ];
   // Assign a hook source per script IN CODE (deterministic, one per source), then pass explicit per-script
   // assignments to the model -- never a single "vary the hook type" instruction, which converges.
@@ -15380,7 +15380,7 @@ function genOneScript(opts){
     L.push("");
     L.push(block("WHO THIS IS FOR", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning));
     if (lead) L.push("LEAD WITH THIS PAIN across the batch (the emotional core of the setups): " + lead.value + (lead.words.length ? "\n  phrasing you may reuse as the VIEWER'S own words: " + lead.words.join(", ") : ""));
-    if (defuse) L.push("MAIN OBJECTION to defuse (defuse only objections that appear here or below -- never invent one): " + defuse.value + (defuse.words.length ? "\n  phrasing: " + defuse.words.join(", ") : ""));
+    if (defuse) L.push("THE BIGGEST OBJECTION (the objection-as-curiosity hook reframes THIS one -- it has the richest detail; the pre-closes rotate through all of them below): " + defuse.value + (defuse.words.length ? "\n  phrasing: " + defuse.words.join(", ") : ""));
     var op = ctx.pains.filter(function(p){ return !lead || p.value !== lead.value; }).map(function(p){ return "- " + p.value; });
     if (op.length) L.push("OTHER PAINS you may touch on:\n" + op.join("\n"));
     var oo = ctx.objections.filter(function(o){ return !defuse || o.value !== defuse.value; }).map(function(o){ return "- " + o.value; });
@@ -15393,9 +15393,12 @@ function genOneScript(opts){
     L.push("");
     // Per-script assignment: rotate the HOOK SOURCE and the PRE-CLOSE angle so the batch never converges.
     var plan = hookPlanFor(GEN_COUNT);
-    L.push("PER-SCRIPT ASSIGNMENTS (each script MUST follow its own hook source and pre-close angle -- do not repeat another script's shape):");
+    var objs = ctx.objections;   // count-ranked; each script defuses a DIFFERENT one, drawing down the list
+    L.push("PER-SCRIPT ASSIGNMENTS (each script MUST follow its own hook source, its own pre-close style, and defuse its OWN assigned objection -- never repeat another script's shape and never defuse the same objection as another script):");
     plan.forEach(function(hs, i){
-      L.push("Script " + (i + 1) + ":\n  HOOK SOURCE: " + hs.instr + "\n  PRE-CLOSE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length]);
+      var line = "Script " + (i + 1) + ":\n  HOOK SOURCE: " + hs.instr + "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
+      if (objs.length){ var o = objs[i % objs.length]; line += "\n  PRE-CLOSE DEFUSES THIS OBJECTION AND NO OTHER: " + o.value + (o.words.length ? " (viewer's words: " + o.words.join(", ") + ")" : ""); }
+      L.push(line);
     });
     L.push("");
     L.push("HOOK RULES (all scripts): frame the hook as curiosity or tension, never a trend observation. Never start with \"Everyone is talking about.\" Never use the word gap. 6 to 8 words is the sweet spot, 10 words is the hard limit, and it must be a complete sentence. Never reference a specific year in any line (wrong: still doing this in 2024; right: still doing this somehow).");
@@ -15403,7 +15406,8 @@ function genOneScript(opts){
     // The brief is SOURCE, never something the script names. This ban is the fix for research leaking into
     // the body ("every buyer mentions the battery," "social proof speaks louder than specs").
     L.push("NO-META RULE -- ABSOLUTE, every line: you are talking TO the viewer about THEIR life, never ABOUT your research. NEVER mention reviews, reviewers, buyers, customers, ratings, \"social proof,\" \"specs,\" or what people \"mention\" or \"say.\" The brief above is your SOURCE and the viewer has never seen it. Wrong: \"Every buyer mentions the battery.\" / \"Social proof speaks louder than specs.\" Right: put the battery inside the viewer's own moment.");
-    L.push("SETUP RULE (body1): under 20 words. One specific moment, jump straight to the feeling. Do not restate the hook, and keep all four setups roughly the same tight length.");
+    L.push("LENGTH: aim the WHOLE script -- hook through CTA -- at about 60 to 110 spoken words, a finished video of 25 to 45 seconds. Let the sections balance within that budget, do not pad to fill it, and land all four scripts at a similar total length. No hard per-section word count.");
+    L.push("SETUP RULE (body1): one specific moment, jump straight to the feeling. Do not restate the hook. The objection turn must do DIFFERENT work than the setup.");
     L.push("PRE-CLOSE RULE (all scripts): one sentence, a statement not a question, and it must do DIFFERENT work than the setup -- never restate it. It must defuse an objection that ACTUALLY appears in the objections above; NEVER introduce a hesitation the buyer did not raise (do NOT mention price or cost unless price is in the objections list). BANNED, never use it: the first-person resolved testimony \"I thought / I assumed / I kept telling myself X and then I realized Y.\"");
     L.push("");
     L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the tight setup; preclose = the assigned pre-close; body2 = the desire/payoff (describe the moment, do not say "you become the person who"); cta = the shopping-button call to action, echoing the hook. Keep every script tight and speakable. No em dashes.');
