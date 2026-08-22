@@ -538,14 +538,16 @@ ok(B.scriptRepeats({ preclose: "Pull the filter, then wipe the housing", cta: "G
 ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Grab yours from the orange cart today" }, acc) === true, 'repeats: near-identical CTA opening is a repeat');
 ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Add it to your cart now" }, acc) === false, 'repeats: a genuinely different turn and CTA passes');
 
-// 20. seller-spec quarantine: a number+unit from the LISTING asserted as fact is caught; a buyer-said
-// number (in a review) is fair game.
-let specs = B.sellerSpecs("Makes 33 pounds of ice a day. Basket is 16 inches deep. Runs at 45 db.", "one reviewer said it only makes ice for about 10 minutes before it needs a break");
-ok(specs.indexOf("33 pounds") >= 0 && specs.indexOf("16 inches") >= 0, 'sellerSpecs: pulls listing number+unit tokens');
-ok(specs.indexOf("10 minutes") < 0, 'sellerSpecs: a number a REVIEW states is not a seller spec');
-ok(B.scriptViolations({ body1: "This thing pumps out 33 pounds a day" }, { sellerSpecs: specs }).indexOf("seller-spec") >= 0, 'validator: catches a seller spec asserted as fact');
-ok(B.scriptViolations({ body1: "Ten minutes and the basket is full" }, { sellerSpecs: specs }).indexOf("seller-spec") < 0, 'validator: a script with no seller number passes');
-ok(B.scriptViolations({ body1: "It only runs about 10 minutes before a break" }, { sellerSpecs: specs }).indexOf("seller-spec") < 0, 'validator: a buyer-said number (10 minutes) is allowed');
+// 20. asserted-number quarantine: a specific figure from the source -- seller OR buyer, digit OR word --
+// stated as fact in the script is caught. The creator measured none of them.
+let nums = B.sourceNumbers("Makes 33 pounds of ice a day. Basket is 16 inches deep.", "one reviewer said it drops fresh ice every six or seven minutes, another gets about 10 minutes of run");
+ok(nums.indexOf("33 pounds") >= 0 && nums.indexOf("16 inches") >= 0, 'sourceNumbers: pulls listing figures');
+ok(nums.indexOf("six or seven minutes") >= 0, 'sourceNumbers: pulls a WORD-form range from a review');
+ok(nums.indexOf("10 minutes") >= 0, 'sourceNumbers: a review figure is included (a buyer number counts too)');
+ok(B.scriptViolations({ body1: "This thing pumps out 33 pounds a day" }, { sourceNumbers: nums }).indexOf("asserted-number") >= 0, 'validator: catches a seller figure asserted as fact');
+ok(B.scriptViolations({ body1: "Fresh ice every six or seven minutes flat" }, { sourceNumbers: nums }).indexOf("asserted-number") >= 0, 'validator: catches a BUYER figure asserted as fact (the exact ice-maker miss)');
+ok(B.scriptViolations({ body1: "Fresh ice before your coffee even brews" }, { sourceNumbers: nums }).indexOf("asserted-number") < 0, 'validator: a script that states no figure passes');
+ok(B.sourceNumbers("comes in a few pieces", "takes a couple minutes").length === 0, 'sourceNumbers: vague quantifiers (a few, a couple) are NOT figures');
 
 // 21. broadened company net + verbatim-lift + code grounding (the exact misses in the ice-maker batch).
 ok(B.scriptViolations({ preclose: "The maker stood behind it when the first unit had issues" }, {}).indexOf("company") >= 0, 'validator: catches "the maker stood behind it" (was slipping through)');
