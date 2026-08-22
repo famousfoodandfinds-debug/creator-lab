@@ -15138,10 +15138,19 @@ function genOneScript(opts){
   // Features are a two-field pair (feature -> benefit), so their editor has two inputs. index -2 = add.
   function featureEditor(index, f){
     var wrap = document.createElement("div"); wrap.style.marginTop = "4px";
-    function inp(val, ph){ var i = document.createElement("input"); i.type = "text"; i.value = val || ""; i.placeholder = ph;
-      i.style.cssText = "width:100%;box-sizing:border-box;font-family:'Instrument Sans',sans-serif;font-size:14px;color:var(--white);background:var(--surface);border:1px solid var(--purple);border-radius:8px;padding:8px;margin-bottom:6px;"; return i; }
-    var fi = inp(f && f.feature, "Feature (what it is)"); var bi = inp(f && f.benefit, "What it does for the buyer");
-    wrap.appendChild(fi); wrap.appendChild(bi);
+    // Two clearly labelled boxes side by side (feature left, benefit right) so it is never ambiguous which
+    // half you are editing. They wrap to stacked on a narrow screen, labels still attached.
+    function field(labelText, val, ph){
+      var col = document.createElement("div"); col.style.cssText = "flex:1;min-width:180px;";
+      var lab = document.createElement("div"); lab.style.cssText = "font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px;"; lab.textContent = labelText; col.appendChild(lab);
+      var i = document.createElement("input"); i.type = "text"; i.value = val || ""; i.placeholder = ph;
+      i.style.cssText = "width:100%;box-sizing:border-box;font-family:'Instrument Sans',sans-serif;font-size:14px;color:var(--white);background:var(--surface);border:1px solid var(--purple);border-radius:8px;padding:8px;";
+      col.appendChild(i); col._input = i; return col;
+    }
+    var fCol = field("Feature", f && f.feature, "what it is"); var bCol = field("Benefit", f && f.benefit, "what it does for the buyer");
+    var fi = fCol._input, bi = bCol._input;
+    var fields = document.createElement("div"); fields.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px;align-items:flex-end;";
+    fields.appendChild(fCol); fields.appendChild(bCol); wrap.appendChild(fields);
     var row = document.createElement("div"); row.style.cssText = "display:flex;gap:8px;align-items:center;flex-wrap:wrap;";
     var save = document.createElement("button"); save.type = "button"; save.textContent = index === -2 ? "Add feature" : "Save";
     save.style.cssText = "background:var(--purple);border:none;border-radius:8px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;";
