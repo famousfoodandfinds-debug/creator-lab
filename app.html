@@ -867,7 +867,10 @@ body.home-landing #homeLanding { display: block !important; }
   </div>
   <div id="textPanel">
 
-    <!-- The brief LEADS (the daily artifact). Generated scripts will render above it in Phase 5. -->
+    <!-- Generated scripts render ABOVE the brief (the brief is the source; scripts are the product). -->
+    <div id="genScripts" style="margin-top:16px;max-width:760px;margin-left:auto;margin-right:auto;"></div>
+
+    <!-- The brief LEADS (the daily artifact). Scripts above are generated from it. -->
     <div id="briefBelow" style="margin-top:16px;max-width:760px;margin-left:auto;margin-right:auto;"></div>
 
     <!-- Product setup is collapsible: expanded for a new product, collapsed once a brief exists. -->
@@ -14246,6 +14249,46 @@ function genOneScript(opts){
   function mustHaveKeys(){ return LINE_KEYS.filter(function(k){ return k.must; }).map(function(k){ return k.key; }); }
   function isThin(brief){ return (normalizeBrief(brief).meta.reviewCount|0) < 5; }   // "based on N reviews, add more"
 
+  // ---- generation adapter (Phase 5) -------------------------------------------------------------
+  // The single seam between the derived brief and script generation. Turns brief + raw into the flat
+  // context a generator needs, keeping the compliance split intact: `words` are buyer LANGUAGE (safe to
+  // say), `claims` are buyer performance CLAIMS (never asserted). The default focus is the top-count pain
+  // to lead with and the top-count objection to defuse -- so generation works with zero picking (the
+  // picker UI comes later). Pure and DOM-free, so it can be unit-tested against a stored brief.
+  function briefToGenContext(brief, raw){
+    var b = normalizeBrief(brief); raw = normalizeRaw(raw);
+    function v(k){ return str(b.lines[k] && b.lines[k].value); }
+    function w(k){ return arr(b.lines[k] && b.lines[k].words).map(str); }
+    function listOf(k){
+      return arr(b.lines[k]).filter(function(it){ return it && it.value; }).map(function(it){
+        return { value: str(it.value), words: arr(it.words).map(str), claims: arr(it.claims).map(str),
+                 count: it.count|0, total: it.total|0, ccount: it.ccount|0, ctotal: it.ctotal|0, added: !!it.added };
+      });
+    }
+    // Top by REVIEW count, then comment count -- evidence-ranked, added (count 0) lines never lead by default.
+    function top(list){ return list.slice().sort(function(x, y){ return (y.count - x.count) || (y.ccount - x.ccount); })[0] || null; }
+    var pains = listOf("pains"), objections = listOf("objections");
+    return {
+      who: v("who"), whoWords: w("who"),
+      emotion: v("emotion"), emotionWords: w("emotion"),
+      desire: v("desire"), desireWords: w("desire"),
+      problem: v("problem"),
+      positioning: v("positioning"),
+      socialProof: v("socialProof"), socialProofWords: w("socialProof"),
+      priceAnchor: v("priceAnchor"),
+      authority: v("authority"),
+      scarcity: v("scarcity"),
+      pains: pains, objections: objections,
+      features: arr(b.features).map(function(f){ f = obj(f); return { feature: str(f.feature), benefit: str(f.benefit) }; }),
+      description: str(raw.description),
+      winningAngles: arr(raw.winningAngles).map(function(a){ a = obj(a); return { transcript: str(a.transcript), topic: str(a.topic) }; }),
+      leadPain: top(pains),               // default focus: lead with this pain
+      defuseObjection: top(objections),   // default focus: defuse this objection
+      reviewCount: b.meta.reviewCount|0,
+      commentCount: b.meta.commentCount|0
+    };
+  }
+
   window.SaxeBrief = {
     VERSION: BRIEF_V,
     STORED_REVIEW_CAP: STORED_REVIEW_CAP,
@@ -14296,7 +14339,8 @@ function genOneScript(opts){
     safeWords: safeWords,
     claims: claims,
     mustHaveKeys: mustHaveKeys,
-    isThin: isThin
+    isThin: isThin,
+    briefToGenContext: briefToGenContext
   };
 })();
 </script>
@@ -14457,7 +14501,7 @@ function genOneScript(opts){
     lastSavedAt = null; showForm(true); renderInputs(); setSetupOpen(true); status("New product. Saved automatically as you type.");
   }
   function fill(product){
-    editingLine = null; restOpen = false;   // fresh product: no open editor, list collapsed
+    editingLine = null; restOpen = false; generatedScripts = [];   // fresh product: no open editor, no stale scripts
     raw = SB.getRaw(product);
     brief = SB.getBrief(product);
     currentProductId = product.id;
@@ -15284,6 +15328,92 @@ function genOneScript(opts){
     } catch(e){
       var er = document.createElement("div"); er.style.cssText = "font-size:12px;color:var(--red);margin-top:10px;"; er.textContent = "Could not render the brief details, but you can still build."; card.appendChild(er);
     }
+    renderGenScripts();   // scripts render above the brief; keep them in sync with every brief re-render
+  }
+
+  // ---- script generation (Phase 5, step 1a) -----------------------------------------------------
+  // Generation reads the DERIVED brief through SB.briefToGenContext and reuses the tuned global `system`
+  // prompt (voice + compliance + framework rules). A DEFAULT focus is threaded -- lead with the top-count
+  // pain, defuse the top-count objection -- with no picker UI yet (that is step 1b) and NO gating: the
+  // brief is the source, and generation is the primary action, so it is never blocked by an untidy brief
+  // or a missing price. One model call returns a small batch of complete, editable scripts.
+  var GEN_MODEL = "claude-haiku-4-5-20251001";
+  var GEN_COUNT = 3;
+  var generatedScripts = [];
+  var generating = false;
+  function genStatus(msg, color){ var s = el("genStatus"); if (!s) return; if (msg){ s.style.display = "block"; s.style.color = color || "var(--muted)"; s.textContent = msg; } else { s.style.display = "none"; s.textContent = ""; } }
+  function genPrompt(ctx){
+    function block(label, val){ return val ? (label + ": " + val + "\n") : ""; }
+    var safe = [], claimed = [];
+    ["whoWords","emotionWords","desireWords","socialProofWords"].forEach(function(k){ (ctx[k] || []).forEach(function(x){ if (x && safe.indexOf(x) < 0) safe.push(x); }); });
+    ctx.pains.concat(ctx.objections).forEach(function(f){ f.words.forEach(function(x){ if (x && safe.indexOf(x) < 0) safe.push(x); }); f.claims.forEach(function(x){ if (x && claimed.indexOf(x) < 0) claimed.push(x); }); });
+    var lead = ctx.leadPain, defuse = ctx.defuseObjection, L = [];
+    L.push("Write " + GEN_COUNT + " short-form video scripts for this product. Each is a complete, ready-to-film script in the creator's own natural spoken voice.");
+    L.push("");
+    L.push(block("WHO THIS IS FOR", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning));
+    if (lead) L.push("LEAD WITH THIS PAIN (make it the emotional core of the hook and setup): " + lead.value + (lead.words.length ? "\n  buyer words you may reuse: " + lead.words.join(", ") : ""));
+    if (defuse) L.push("DEFUSE THIS OBJECTION honestly before the close (acknowledge it, do not dismiss it): " + defuse.value + (defuse.words.length ? "\n  buyer words: " + defuse.words.join(", ") : ""));
+    var op = ctx.pains.filter(function(p){ return !lead || p.value !== lead.value; }).map(function(p){ return "- " + p.value; });
+    if (op.length) L.push("OTHER PAINS you may touch on:\n" + op.join("\n"));
+    var oo = ctx.objections.filter(function(o){ return !defuse || o.value !== defuse.value; }).map(function(o){ return "- " + o.value; });
+    if (oo.length) L.push("OTHER OBJECTIONS (context):\n" + oo.join("\n"));
+    L.push(block("SOCIAL PROOF", ctx.socialProof) + block("PRICE FRAMING", ctx.priceAnchor) + block("WHY TO TRUST THIS", ctx.authority) + block("REAL SCARCITY", ctx.scarcity));
+    if (ctx.features.length) L.push("PRODUCT FEATURES (factual specs -- your ingredient list, NOT claims):\n" + ctx.features.map(function(f){ return "- " + f.feature + (f.benefit ? " -> " + f.benefit : ""); }).join("\n"));
+    if (safe.length) L.push("BUYER LANGUAGE you may reuse verbatim (safe, real buyer phrasing): " + safe.slice(0, 20).join(" | "));
+    if (claimed.length) L.push("BUYER CLAIMS -- results BUYERS asserted. You may NOT state these as fact in your own voice; only ever as what other people say: " + claimed.slice(0, 12).join(" | "));
+    if (ctx.description) L.push("PRODUCT LISTING (ingredient list only -- ignore any marketing or claim language in it): " + ctx.description);
+    L.push("");
+    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the scroll-stopping first line; body1 = the pain/story setup; preclose = the honest objection-handling turn; body2 = the desire/payoff; cta = the shopping-button call to action. Keep every script tight and speakable. No em dashes.');
+    return L.join("\n");
+  }
+  function generateScripts(){
+    if (generating) return;
+    if (!brief.meta.lastDerivedAt){ genStatus("Build the brief first, then generate.", "var(--red)"); return; }
+    generating = true; renderGenScripts();
+    var ctx = SB.briefToGenContext(brief, raw);
+    claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
+      generating = false;
+      if (err){ renderGenScripts(); genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + "). Nothing was lost.", "var(--red)"); return; }
+      var out = parseJson(text, "[", "]");
+      if (!Array.isArray(out) || !out.length){ renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
+      generatedScripts = out.map(function(s){ s = s || {}; return { hook: String(s.hook || ""), body1: String(s.body1 || ""), preclose: String(s.preclose || ""), body2: String(s.body2 || ""), cta: String(s.cta || ""), angle: lead0(ctx), desire: ctx.desire }; });
+      renderGenScripts();
+      genStatus(generatedScripts.length + " script" + (generatedScripts.length > 1 ? "s" : "") + " from your brief. Save the ones you want.", "var(--green)");
+    });
+  }
+  function lead0(ctx){ return ctx.leadPain ? ctx.leadPain.value : ""; }
+  function scriptCard(s){
+    var card = document.createElement("div"); card.style.cssText = "background:var(--panel,var(--surface));border:1px solid var(--border-md);border-radius:14px;padding:16px 18px;margin-bottom:12px;";
+    [["Hook","hook"],["Setup","body1"],["Objection turn","preclose"],["Payoff","body2"],["CTA","cta"]].forEach(function(p){
+      if (!s[p[1]]) return;
+      var lbl = document.createElement("div"); lbl.style.cssText = "font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:8px 0 2px;"; lbl.textContent = p[0]; card.appendChild(lbl);
+      var v = document.createElement("div"); v.style.cssText = "font-size:14px;line-height:1.55;color:var(--white);white-space:pre-wrap;"; v.textContent = s[p[1]]; card.appendChild(v);
+    });
+    var row = document.createElement("div"); row.style.cssText = "display:flex;gap:8px;margin-top:12px;";
+    var save = document.createElement("button"); save.type = "button"; save.textContent = "Save to scripts";
+    save.style.cssText = "background:var(--purple);border:none;border-radius:8px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:700;padding:8px 14px;cursor:pointer;";
+    save.addEventListener("click", function(){
+      if (typeof saveScriptToCloud !== "function"){ return; }
+      saveScriptToCloud({ hook: s.hook, body1: s.body1, body2: s.body2, cta: s.cta, preclose: s.preclose, angle: s.angle, desire: s.desire }, function(){ save.textContent = "Saved ✓"; save.disabled = true; save.style.opacity = ".6"; save.style.cursor = "default"; });
+    });
+    row.appendChild(save); card.appendChild(row);
+    return card;
+  }
+  function renderGenScripts(){
+    var host = el("genScripts"); if (!host) return;
+    host.innerHTML = "";
+    // The brief is the source, so generation only appears once a brief has been built. Never gated on a
+    // COMPLETE brief -- a thin brief still generates.
+    if (!brief || !brief.meta || !brief.meta.lastDerivedAt) return;
+    var head = document.createElement("div"); head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:10px;";
+    var btn = document.createElement("button"); btn.type = "button";
+    btn.textContent = generating ? "Writing scripts..." : (generatedScripts.length ? "Generate again" : "Generate scripts");
+    btn.disabled = generating;
+    btn.style.cssText = "background:" + (generating ? "var(--surface)" : "var(--gold)") + ";border:none;border-radius:10px;color:" + (generating ? "var(--white)" : "#080808") + ";font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:700;padding:11px 18px;cursor:" + (generating ? "default" : "pointer") + ";opacity:" + (generating ? ".6" : "1") + ";";
+    btn.addEventListener("click", generateScripts);
+    head.appendChild(btn); host.appendChild(head);
+    var stat = document.createElement("div"); stat.id = "genStatus"; stat.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:10px;display:none;line-height:1.5;"; host.appendChild(stat);
+    generatedScripts.forEach(function(s){ host.appendChild(scriptCard(s)); });
   }
 
   function init(){

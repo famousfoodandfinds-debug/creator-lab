@@ -486,5 +486,36 @@ ok(B.revertFeature(fa, 1).features.length === 1, 'revertFeature: an added featur
 // a locked feature is preserved by mergeIncremental (never dropped by a rebuild's dedup)
 ok(B.mergeIncremental(fa, { features: [{ feature: 'a new derived feature', benefit: 'x' }] }, {}).features.some(f => f.added && f.feature === 'dishwasher safe'), 'feature: my added feature survives a rebuild');
 
+// 18. generation adapter (Phase 5 step 1a): brief -> flat context with a DEFAULT focus.
+let gcBrief = B.emptyBrief();
+gcBrief.meta.reviewCount = 22;
+gcBrief.lines.who = B.normalizeBrief({lines:{who:{value:'busy parents', words:['no time','exhausted']}}}).lines.who;
+gcBrief.lines.emotion = B.normalizeBrief({lines:{emotion:{value:'overwhelmed'}}}).lines.emotion;
+gcBrief.lines.desire = B.normalizeBrief({lines:{desire:{value:'a calm kitchen'}}}).lines.desire;
+gcBrief.lines.pains = B.normalizeBrief({lines:{pains:[
+  {value:'knives dull fast', count:4, words:['goes dull'], claims:['ruined my tomatoes']},
+  {value:'blocks wear out', count:9, words:['fell apart']}
+]}}).lines.pains;
+gcBrief.lines.objections = B.normalizeBrief({lines:{objections:[
+  {value:'too pricey', count:2, words:['not worth it']},
+  {value:'will it fit my drawer', count:6, words:['drawer']}
+]}}).lines.objections;
+gcBrief.features = [{feature:'German steel', benefit:'holds an edge'}];
+let gctx = B.briefToGenContext(gcBrief, { description: 'a knife set', winningAngles: [] });
+ok(gctx.who === 'busy parents' && gctx.desire === 'a calm kitchen', 'adapter: single lines carried across');
+ok(gctx.leadPain && gctx.leadPain.value === 'blocks wear out', 'adapter: default lead pain is the HIGHEST-count pain (9 > 4)');
+ok(gctx.defuseObjection && gctx.defuseObjection.value === 'will it fit my drawer', 'adapter: default defuse objection is the highest-count objection (6 > 2)');
+ok(gctx.pains.length === 2 && gctx.features.length === 1, 'adapter: lists and features carried');
+// compliance split preserved: words are safe, claims are separate
+let leadForClaims = gctx.pains.find(p => p.value === 'knives dull fast');
+ok(leadForClaims.words.join() === 'goes dull' && leadForClaims.claims.join() === 'ruined my tomatoes', 'adapter: buyer LANGUAGE and buyer CLAIMS stay separated (compliance)');
+// an added (mine) line never leads by default: count 0 sinks below evidence-backed findings
+let gcAdded = B.addListItem(gcBrief, 'pains', 'my own hand-added pain');
+let gctx2 = B.briefToGenContext(gcAdded, {});
+ok(gctx2.leadPain.value === 'blocks wear out', 'adapter: an added (count 0) line never becomes the default lead');
+// empty brief -> safe empty context, no throw, no default focus
+let gce = B.briefToGenContext(B.emptyBrief(), B.emptyRaw());
+ok(gce.leadPain === null && gce.defuseObjection === null && gce.pains.length === 0, 'adapter: empty brief yields a safe empty context');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
