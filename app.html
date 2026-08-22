@@ -15341,6 +15341,23 @@ function genOneScript(opts){
   var GEN_COUNT = 3;
   var generatedScripts = [];
   var generating = false;
+  // Ported from the old orchestration (this lived ABOVE the system prompt, in the per-script user prompt,
+  // and was lost when generation moved to a single generic call). Hook SOURCES rotate across the batch so
+  // three videos are not the same shape; REVERSAL ("it is not you, it is X") is forced into the batch as
+  // the high-converting lever the plain flow never picks. Each entry says where that hook comes from.
+  var HOOK_SOURCES = [
+    { key: "reversal",  instr: "IT IS NOT YOU, IT IS X. Take the blame the buyer quietly puts on themselves and move it onto the thing that actually failed them. One concrete, specific reversal (it is not that you cannot make good coffee, your machine was never built for it). Never an abstract state, never a first-person story." },
+    { key: "objection", instr: "Derive the hook from the biggest objection, framed as a CURIOSITY GAP the viewer needs to close -- open the loop, do not resolve it in the hook. Turn the hesitation into intrigue, not a statement." },
+    { key: "curiosity", instr: "Open a CURIOSITY LOOP or an unexpected reaction that only fully makes sense after watching -- the viewer has to keep watching to close it." }
+  ];
+  // Pre-close angles rotate too, so one focus per batch never means the same rebuttal three times.
+  var PRECLOSE_ANGLES = [
+    "Handle the batch's main objection head on: name it in the buyer's own words, then defuse it with ONE concrete, specific counter.",
+    "Use a WORSE-ALTERNATIVE contrast instead: what it costs them to keep doing it the old way, or to buy the cheap version again.",
+    "Defuse a DIFFERENT hesitation than the other scripts in this batch, so no two share a rebuttal."
+  ];
+  // Assign a hook source per script: REVERSAL always leads the batch, then rotate objection/curiosity.
+  function hookPlanFor(n){ var out = []; for (var i = 0; i < n; i++){ out.push(HOOK_SOURCES[i % HOOK_SOURCES.length]); } return out; }
   function genStatus(msg, color){ var s = el("genStatus"); if (!s) return; if (msg){ s.style.display = "block"; s.style.color = color || "var(--muted)"; s.textContent = msg; } else { s.style.display = "none"; s.textContent = ""; } }
   function genPrompt(ctx){
     function block(label, val){ return val ? (label + ": " + val + "\n") : ""; }
@@ -15348,22 +15365,36 @@ function genOneScript(opts){
     ["whoWords","emotionWords","desireWords","socialProofWords"].forEach(function(k){ (ctx[k] || []).forEach(function(x){ if (x && safe.indexOf(x) < 0) safe.push(x); }); });
     ctx.pains.concat(ctx.objections).forEach(function(f){ f.words.forEach(function(x){ if (x && safe.indexOf(x) < 0) safe.push(x); }); f.claims.forEach(function(x){ if (x && claimed.indexOf(x) < 0) claimed.push(x); }); });
     var lead = ctx.leadPain, defuse = ctx.defuseObjection, L = [];
-    L.push("Write " + GEN_COUNT + " short-form video scripts for this product. Each is a complete, ready-to-film script in the creator's own natural spoken voice.");
+    L.push("Write " + GEN_COUNT + " short-form video scripts for this product. Each is a complete, ready-to-film script.");
+    L.push("");
+    // VOICE (the ownership ban lived here, not in the system prompt). Default is RECOMMENDER: you do not
+    // own this product, you are pointing the viewer at what it will mean for THEM.
+    L.push("VOICE -- RECOMMENDER (not an owner): You are NOT the owner of this product. Talk TO the viewer about THEIR life in second person (you, your). Never first-person ownership testimony -- no \"my wrist,\" \"I use it so much,\" \"now when I,\" \"I grab it.\" \"I\" is allowed ONLY as a short honest confession the viewer recognizes in themselves, never as an opener describing what you found, bought, or did.");
     L.push("");
     L.push(block("WHO THIS IS FOR", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning));
-    if (lead) L.push("LEAD WITH THIS PAIN (make it the emotional core of the hook and setup): " + lead.value + (lead.words.length ? "\n  buyer words you may reuse: " + lead.words.join(", ") : ""));
-    if (defuse) L.push("DEFUSE THIS OBJECTION honestly before the close (acknowledge it, do not dismiss it): " + defuse.value + (defuse.words.length ? "\n  buyer words: " + defuse.words.join(", ") : ""));
+    if (lead) L.push("LEAD WITH THIS PAIN across the batch (the emotional core of the setups): " + lead.value + (lead.words.length ? "\n  buyer words you may reuse: " + lead.words.join(", ") : ""));
+    if (defuse) L.push("MAIN OBJECTION to defuse: " + defuse.value + (defuse.words.length ? "\n  buyer words: " + defuse.words.join(", ") : ""));
     var op = ctx.pains.filter(function(p){ return !lead || p.value !== lead.value; }).map(function(p){ return "- " + p.value; });
     if (op.length) L.push("OTHER PAINS you may touch on:\n" + op.join("\n"));
     var oo = ctx.objections.filter(function(o){ return !defuse || o.value !== defuse.value; }).map(function(o){ return "- " + o.value; });
-    if (oo.length) L.push("OTHER OBJECTIONS (context):\n" + oo.join("\n"));
+    if (oo.length) L.push("OTHER OBJECTIONS (context, useful for the varied pre-closes):\n" + oo.join("\n"));
     L.push(block("SOCIAL PROOF", ctx.socialProof) + block("PRICE FRAMING", ctx.priceAnchor) + block("WHY TO TRUST THIS", ctx.authority) + block("REAL SCARCITY", ctx.scarcity));
     if (ctx.features.length) L.push("PRODUCT FEATURES (factual specs -- your ingredient list, NOT claims):\n" + ctx.features.map(function(f){ return "- " + f.feature + (f.benefit ? " -> " + f.benefit : ""); }).join("\n"));
     if (safe.length) L.push("BUYER LANGUAGE you may reuse verbatim (safe, real buyer phrasing): " + safe.slice(0, 20).join(" | "));
     if (claimed.length) L.push("BUYER CLAIMS -- results BUYERS asserted. You may NOT state these as fact in your own voice; only ever as what other people say: " + claimed.slice(0, 12).join(" | "));
     if (ctx.description) L.push("PRODUCT LISTING (ingredient list only -- ignore any marketing or claim language in it): " + ctx.description);
     L.push("");
-    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the scroll-stopping first line; body1 = the pain/story setup; preclose = the honest objection-handling turn; body2 = the desire/payoff; cta = the shopping-button call to action. Keep every script tight and speakable. No em dashes.');
+    // Per-script assignment: rotate the HOOK SOURCE and the PRE-CLOSE angle so the batch never converges.
+    var plan = hookPlanFor(GEN_COUNT);
+    L.push("PER-SCRIPT ASSIGNMENTS (each script MUST follow its own hook source and pre-close angle -- do not repeat another script's shape):");
+    plan.forEach(function(hs, i){
+      L.push("Script " + (i + 1) + ":\n  HOOK SOURCE: " + hs.instr + "\n  PRE-CLOSE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length]);
+    });
+    L.push("");
+    L.push("HOOK RULES (all scripts): frame the hook as curiosity or tension, never a trend observation. Never start with \"Everyone is talking about.\" Never use the word gap. 6 to 8 words is the sweet spot, 10 words is the hard limit, a complete sentence. Never reference a specific year. Never use kill, die, dead, death (use lost, gave up, brown leaves instead).");
+    L.push("PRE-CLOSE RULE (all scripts): one sentence, a statement not a question. BANNED, never use it: the first-person resolved testimony \"I thought / I assumed / I kept telling myself X and then I realized Y.\"");
+    L.push("");
+    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the pain/story setup; preclose = the assigned pre-close; body2 = the desire/payoff (describe the moment, do not say "you become the person who"); cta = the shopping-button call to action, echoing the hook. Keep every script tight and speakable. No em dashes.');
     return L.join("\n");
   }
   function generateScripts(){
