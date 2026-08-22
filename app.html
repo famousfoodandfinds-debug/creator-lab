@@ -13570,7 +13570,20 @@ function genOneScript(opts){
       ctotal: 0,
       classified: false,              // settled against reviews (never re-judged once true)
       cclassified: false,             // settled against comments (never re-judged once true)
-      edited: false
+      added: false,                   // MINE: a line I added by hand (carries no count, marked as mine)
+      derivedValue: "",               // snapshot of the wording as DERIVED, for per-line revert. Persisted,
+      edited: false                   // so revert keeps working after later rebuilds. Empty until first edit.
+    };
+  }
+  // A feature-to-benefit pair. Like a line, it can be hand-edited/added: `derivedFeature`/`derivedBenefit`
+  // snapshot the wording for revert, `added` marks one I wrote myself. The listing (not buyers) is where
+  // these come from, so this is the section most likely to need fixing before it goes on camera.
+  function normFeature(f){
+    f = obj(f);
+    return {
+      feature: str(f.feature), benefit: str(f.benefit),
+      derivedFeature: str(f.derivedFeature), derivedBenefit: str(f.derivedBenefit),
+      added: !!f.added, edited: !!f.edited
     };
   }
   function normLine(x){
@@ -13582,6 +13595,8 @@ function genOneScript(opts){
     l.ctotal = x.ctotal|0;
     l.classified = !!x.classified;
     l.cclassified = !!x.cclassified;
+    l.added = !!x.added;
+    l.derivedValue = str(x.derivedValue);
     l.edited = !!x.edited;
     if (x.id) l.id = str(x.id);
     return l;
@@ -13614,10 +13629,12 @@ function genOneScript(opts){
   function flatFindings(b){
     var flat = [];
     b = obj(b); var lines = obj(b.lines);
+    // Skip lines I added by hand: they did not come from the reviews, so they must never be classified
+    // (that would give them a review count). They stay at "no count -- your line".
     LINE_KEYS.forEach(function(k){
       var v = lines[k.key];
-      if (k.list){ arr(v).forEach(function(it){ if (it && it.value) flat.push(it); }); }
-      else if (v && v.value){ flat.push(v); }
+      if (k.list){ arr(v).forEach(function(it){ if (it && it.value && !it.added) flat.push(it); }); }
+      else if (v && v.value && !v.added){ flat.push(v); }
     });
     return flat;
   }
@@ -13692,7 +13709,7 @@ function genOneScript(opts){
       if (k.list) b.lines[k.key] = arr(lines[k.key]).map(normLine);
       else        b.lines[k.key] = normLine(lines[k.key] || {});
     });
-    b.features = arr(x.features).map(function(f){ f=obj(f); return { feature:str(f.feature), benefit:str(f.benefit), edited:!!f.edited }; });
+    b.features = arr(x.features).map(normFeature);
     var meta = obj(x.meta);
     b.meta.reviewCount   = meta.reviewCount|0;
     b.meta.commentCount  = meta.commentCount|0;
@@ -13869,14 +13886,74 @@ function genOneScript(opts){
     var b = normalizeBrief(brief);
     patch = obj(patch);
     function apply(l){
+      // Snapshot the DERIVED wording the first time this line is touched, so "revert to what was derived"
+      // still works after later rebuilds. Only for real derived lines (an added line has nothing to revert
+      // to), and only once (a second edit must not overwrite the original snapshot).
+      if ("value" in patch && !l.added && !l.derivedValue) l.derivedValue = l.value;
       if ("value" in patch) l.value = str(patch.value);
       if ("words" in patch)  l.words = arr(patch.words).map(str);
       if ("claims" in patch) l.claims = arr(patch.claims).map(str);
-      l.edited = true;            // any hand-edit locks the line
+      l.edited = true;            // any hand-edit (including clearing to empty) locks the line
       return l;
     }
     if (LIST_KEYS[key]) { if (b.lines[key][index]) apply(b.lines[key][index]); }
     else if (b.lines[key]) apply(b.lines[key]);
+    return b;
+  }
+  // Revert one line to the wording it was DERIVED with, handing it back to the machine (edited=false, so a
+  // rebuild can update it again). Per line, so undoing one edit never disturbs the others. An added line
+  // has no derived origin -- reverting it removes it (list keys only).
+  function revertLine(brief, key, index){
+    var b = normalizeBrief(brief);
+    if (LIST_KEYS[key]){
+      var it = b.lines[key][index]; if (!it) return b;
+      if (it.added){ b.lines[key].splice(index, 1); return b; }
+      it.value = it.derivedValue; it.edited = false;
+    } else if (b.lines[key]){
+      var l = b.lines[key]; l.value = l.derivedValue; l.edited = false;
+    }
+    return b;
+  }
+  // Delete one item from a LIST line (pains/objections). A finding filed in the wrong place is faster to
+  // remove than to fix. Single lines are fixed slots -- they are cleared via editLine("") instead, which
+  // sticks because an edited empty line is never refilled by a rebuild.
+  function deleteListItem(brief, key, index){
+    var b = normalizeBrief(brief);
+    if (LIST_KEYS[key] && b.lines[key][index]) b.lines[key].splice(index, 1);
+    return b;
+  }
+  // Add MY OWN item to a list line. It is marked mine (added=true) and edited=true so a rebuild keeps it,
+  // and it carries no count -- it did not come from the reviews.
+  function addListItem(brief, key, value){
+    var b = normalizeBrief(brief);
+    value = str(value).trim(); if (!value || !LIST_KEYS[key]) return b;
+    var l = line(value); l.added = true; l.edited = true;
+    b.lines[key].push(l);
+    return b;
+  }
+  // Features get the same three actions. They come from the listing, not buyers, so they carry marketing
+  // wording most likely to need fixing -- editing here is the same shape: wording only, snapshot for revert,
+  // added ones marked mine. (Features never had a count, so there is nothing to protect on that front.)
+  function editFeature(brief, index, patch){
+    var b = normalizeBrief(brief); patch = obj(patch); var f = b.features[index]; if (!f) return b;
+    if (!f.added){ if (!f.derivedFeature) f.derivedFeature = f.feature; if (!f.derivedBenefit) f.derivedBenefit = f.benefit; }
+    if ("feature" in patch) f.feature = str(patch.feature);
+    if ("benefit" in patch) f.benefit = str(patch.benefit);
+    f.edited = true;
+    return b;
+  }
+  function revertFeature(brief, index){
+    var b = normalizeBrief(brief); var f = b.features[index]; if (!f) return b;
+    if (f.added){ b.features.splice(index, 1); return b; }
+    f.feature = f.derivedFeature; f.benefit = f.derivedBenefit; f.edited = false;
+    return b;
+  }
+  function deleteFeature(brief, index){
+    var b = normalizeBrief(brief); if (b.features[index]) b.features.splice(index, 1); return b;
+  }
+  function addFeature(brief, feature, benefit){
+    var b = normalizeBrief(brief); feature = str(feature).trim(); if (!feature) return b;
+    b.features.push({ feature: feature, benefit: str(benefit).trim(), derivedFeature: "", derivedBenefit: "", added: true, edited: true });
     return b;
   }
 
@@ -13969,7 +14046,7 @@ function genOneScript(opts){
     var newF = arr(newDerived.features);
     if (newF.length){
       var seenF = {}; arr(b.features).forEach(function(f){ seenF[norm(f.feature)] = true; });
-      newF.forEach(function(f){ f = obj(f); var fn = str(f.feature); if (fn && !seenF[norm(fn)]){ seenF[norm(fn)] = true; b.features.push({ feature: fn, benefit: str(f.benefit), edited: false }); } });
+      newF.forEach(function(f){ f = obj(f); var fn = str(f.feature); if (fn && !seenF[norm(fn)]){ seenF[norm(fn)] = true; b.features.push(normFeature({ feature: fn, benefit: str(f.benefit) })); } });
     }
     if (opts.now) b.meta.lastDerivedAt = opts.now;
     if (opts.promptVersion) b.meta.promptVersion = str(opts.promptVersion);
@@ -14117,6 +14194,7 @@ function genOneScript(opts){
     function cQuote(t){ t = str(t).split(/\s+/); return t.slice(0, 12).join(" ") + (t.length > 12 ? "..." : ""); }
     var lines = obj(merged.lines);
     function recount(it){
+      if (it.added){ it.count = 0; it.total = total; it.ccount = 0; it.ctotal = hasC ? ctotal : it.ctotal; it.hits = []; it.chits = []; it.words = []; it.claims = []; it.cwords = []; return; }  // my line: never counted
       it.words  = verifyPhrases(it.words, reviews);
       it.claims = verifyPhrases(it.claims, reviews);
       it.hits   = arr(it.hits).filter(function(h){ return idset[h]; });   // drop hits for removed reviews
@@ -14189,6 +14267,13 @@ function genOneScript(opts){
     suspectMergedIndices: suspectMergedIndices,
     markEdited: markEdited,
     editLine: editLine,
+    revertLine: revertLine,
+    deleteListItem: deleteListItem,
+    addListItem: addListItem,
+    editFeature: editFeature,
+    revertFeature: revertFeature,
+    deleteFeature: deleteFeature,
+    addFeature: addFeature,
     mergeChunkDerivations: mergeChunkDerivations,
     mergeIncremental: mergeIncremental,
     applyClusters: applyClusters,
@@ -14372,6 +14457,7 @@ function genOneScript(opts){
     lastSavedAt = null; showForm(true); renderInputs(); setSetupOpen(true); status("New product. Saved automatically as you type.");
   }
   function fill(product){
+    editingLine = null; restOpen = false;   // fresh product: no open editor, list collapsed
     raw = SB.getRaw(product);
     brief = SB.getBrief(product);
     currentProductId = product.id;
@@ -14786,6 +14872,7 @@ function genOneScript(opts){
   function deriveBrief(){
     if (deriving) return;
     if (!currentProductId){ deriveStatus("Add some material first (it saves as you type), then build the brief.", "var(--red)"); scheduleSave(); return; }
+    editingLine = null;   // a rebuild closes any open inline editor
     deriving = true; renderBrief();
     function fail(where, err){
       deriving = false; renderBrief();
@@ -14823,12 +14910,27 @@ function genOneScript(opts){
         mergedBrief.meta.classified = rok || hadReviewCls;
         runClassify(mergedBrief, comments, SB.CH_COMMENT, "comment", function(){
           deriveStatus("Merging similar findings...");
-          consolidateFindings(mergedBrief.lines.pains, mergedBrief.lines.objections, mergedBrief.features, function(spec, err){
+          // Shield hand-curated lines from consolidation: a line I edited or added must never be re-clustered,
+          // re-categorised, or dropped by the model. Only the derived (free) findings go through the merge;
+          // the locked ones are set aside and put back afterwards, so a rebuild can never overwrite them.
+          var locked = function(it){ return !!(it && (it.edited || it.added)); }, free = function(it){ return !locked(it); };
+          var lockP = mergedBrief.lines.pains.filter(locked), freeP = mergedBrief.lines.pains.filter(free);
+          var lockO = mergedBrief.lines.objections.filter(locked), freeO = mergedBrief.lines.objections.filter(free);
+          var lockF = mergedBrief.features.filter(locked), freeF = mergedBrief.features.filter(free);
+          consolidateFindings(freeP, freeO, freeF, function(spec, err){
+            var cP = freeP, cO = freeO, cF = freeF;
             if (spec && !err){
-              if (spec.clusters){ var u = SB.applyUnifiedClusters(mergedBrief.lines.pains, mergedBrief.lines.objections, spec, total); mergedBrief.lines.pains = u.pains; mergedBrief.lines.objections = u.objections; }
-              if (spec.features){ mergedBrief.features = applyFeatureClusters(mergedBrief.features, spec.features); }
+              if (spec.clusters){ var u = SB.applyUnifiedClusters(freeP, freeO, spec, total); cP = u.pains; cO = u.objections; }
+              if (spec.features){ cF = applyFeatureClusters(freeF, spec.features); }
             }
+            mergedBrief.features = lockF.concat(cF);
+            mergedBrief.lines.pains = lockP.concat(cP);
+            mergedBrief.lines.objections = lockO.concat(cO);
             SB.recountFindings(mergedBrief, raw.reviews, comments);
+            // Order each list by review count (stable), so my added lines (count 0) settle at the bottom
+            // and edited derived lines keep their evidence-based place.
+            var byCount = function(a, b){ return (b.count|0) - (a.count|0); };
+            mergedBrief.lines.pains.sort(byCount); mergedBrief.lines.objections.sort(byCount);
             commit(mergedBrief, changed);
           });
         });
@@ -14926,7 +15028,7 @@ function genOneScript(opts){
   }
   function wordsAndClaims(ln){
     var frag = document.createDocumentFragment();
-    if (!ln) return frag;
+    if (!ln || !ln.value) return frag;   // no sentence -> no chips (a cleared line must not show evidence for nothing)
     if ((ln.count | 0) > 0){   // review buyer language -- only with a real review count, never contradicting "Not counted"
       var words = SB.safeWords(ln), claims = SB.claims(ln);
       if (words.length){ var wc = document.createElement("div"); wc.style.marginTop = "4px"; words.forEach(function(w){ wc.appendChild(briefChip(w, "word")); }); frag.appendChild(wc); }
@@ -14944,25 +15046,143 @@ function genOneScript(opts){
     }
     return frag;
   }
-  function singleBlock(label, ln){
+  // ---- hand-editing the brief (the WORDING only; counts and chips stay, they are facts about the data) --
+  // Editing is never required -- the brief is fully usable the moment it builds. This is for when the owner
+  // disagrees with a line. editingLine holds the one line currently open in the inline editor, keyed by
+  // (section, index); index -1 = the single line's one slot, -2 = the "add a line" box for a list section.
+  var editingLine = null;
+  var restOpen = false;   // whether the "show all 11 lines" section is expanded (kept across re-renders)
+  function persistBriefEdit(nb){
+    brief = nb; editingLine = null; renderBrief();
+    saveBriefAndRaw(function(ok){ if (!ok) deriveStatus("Could not save your change. Your brief still shows it; try again.", "var(--red)"); });
+  }
+  function isEditing(key, index){ return editingLine && editingLine.key === key && editingLine.index === index; }
+  function mineTag(added){
+    var t = document.createElement("span");
+    t.textContent = added ? "yours · no count" : "edited by you";
+    t.style.cssText = "display:inline-block;font-size:9px;text-transform:uppercase;letter-spacing:.04em;color:var(--purple);border:1px solid rgba(144,144,240,.4);border-radius:999px;padding:1px 7px;margin-left:7px;vertical-align:middle;line-height:1.6;";
+    return t;
+  }
+  function actionBtn(label, cb){
+    var b = document.createElement("button"); b.type = "button"; b.textContent = label;
+    b.style.cssText = "background:none;border:none;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:11px;cursor:pointer;padding:2px 7px 2px 0;text-decoration:underline;";
+    b.addEventListener("click", cb); return b;
+  }
+  // Inline editor for one line's wording. index -2 = adding a new line to a list section.
+  function lineEditor(key, index, ln){
+    var wrap = document.createElement("div"); wrap.style.marginTop = "4px";
+    var ta = document.createElement("textarea"); ta.value = (ln && ln.value) || "";
+    ta.style.cssText = "width:100%;box-sizing:border-box;font-family:'Instrument Sans',sans-serif;font-size:14px;line-height:1.5;color:var(--white);background:var(--surface);border:1px solid var(--purple);border-radius:8px;padding:8px;min-height:52px;resize:vertical;";
+    wrap.appendChild(ta);
+    var row = document.createElement("div"); row.style.cssText = "display:flex;gap:8px;margin-top:6px;align-items:center;flex-wrap:wrap;";
+    var save = document.createElement("button"); save.type = "button"; save.textContent = index === -2 ? "Add line" : "Save";
+    save.style.cssText = "background:var(--purple);border:none;border-radius:8px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;";
+    save.addEventListener("click", function(){
+      var val = ta.value;
+      if (index === -2) persistBriefEdit(SB.addListItem(brief, key, val));
+      else persistBriefEdit(SB.editLine(brief, key, { value: val }, index));
+    });
+    var cancel = document.createElement("button"); cancel.type = "button"; cancel.textContent = "Cancel";
+    cancel.style.cssText = "background:transparent;border:1px solid var(--border-md);border-radius:8px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;padding:7px 12px;cursor:pointer;";
+    cancel.addEventListener("click", function(){ editingLine = null; renderBrief(); });
+    var hint = document.createElement("span"); hint.textContent = index === -2 ? "Your own line. It carries no review count." : "Wording only. The count and buyer language stay.";
+    hint.style.cssText = "font-size:11px;color:var(--muted);";
+    row.appendChild(save); row.appendChild(cancel); row.appendChild(hint);
+    wrap.appendChild(row);
+    setTimeout(function(){ try { ta.focus(); } catch(e){} }, 0);
+    return wrap;
+  }
+  function singleBlock(label, ln, key){
     var wrap = document.createElement("div"); wrap.style.cssText = "margin-bottom:14px;";
-    var h = document.createElement("div"); h.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px;"; h.textContent = label; wrap.appendChild(h);
+    var h = document.createElement("div"); h.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px;"; h.textContent = label;
+    if (ln.edited) h.appendChild(mineTag(false));
+    wrap.appendChild(h);
+    if (isEditing(key, -1)){ wrap.appendChild(lineEditor(key, -1, ln)); return wrap; }
     var v = document.createElement("div"); v.style.cssText = "font-size:14px;line-height:1.5;color:" + (ln.value ? "var(--white)" : "var(--muted)") + ";"; v.textContent = ln.value || "Not found yet."; wrap.appendChild(v);
     var e = evidenceLine(ln); if (e) wrap.appendChild(e);
     wrap.appendChild(wordsAndClaims(ln));
+    var acts = document.createElement("div"); acts.style.cssText = "margin-top:5px;";
+    acts.appendChild(actionBtn("Edit", function(){ editingLine = { key: key, index: -1 }; renderBrief(); }));
+    // Clear shows on any line except one already cleared (empty + edited) -- so an empty derived line like
+    // Scarcity gets it too: clearing locks it empty, a real "no urgency angle here" decision that a rebuild
+    // then leaves alone. Revert appears once a line has been changed (edited or cleared), same as every line.
+    if (ln.value || !ln.edited) acts.appendChild(actionBtn("Clear", function(){ persistBriefEdit(SB.editLine(brief, key, { value: "" }, -1)); }));
+    if (ln.edited) acts.appendChild(actionBtn("Revert", function(){ persistBriefEdit(SB.revertLine(brief, key, -1)); }));
+    wrap.appendChild(acts);
     return wrap;
   }
-  function listBlock(label, items){
+  function listBlock(label, items, key){
     var wrap = document.createElement("div"); wrap.style.cssText = "margin-bottom:14px;";
     var h = document.createElement("div"); h.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px;"; h.textContent = label; wrap.appendChild(h);
-    if (!items.length){ var n = document.createElement("div"); n.style.cssText = "font-size:14px;color:var(--muted);"; n.textContent = "Not found yet."; wrap.appendChild(n); return wrap; }
-    items.forEach(function(it){
-      var row = document.createElement("div"); row.style.cssText = "margin-bottom:8px;";
-      var v = document.createElement("div"); v.style.cssText = "font-size:14px;line-height:1.5;color:var(--white);"; v.textContent = "• " + (it.value || ""); row.appendChild(v);
-      var e = evidenceLine(it); if (e) row.appendChild(e);
-      row.appendChild(wordsAndClaims(it));
+    if (!items.length && !isEditing(key, -2)){ var n = document.createElement("div"); n.style.cssText = "font-size:14px;color:var(--muted);"; n.textContent = "Not found yet."; wrap.appendChild(n); }
+    items.forEach(function(it, idx){
+      var row = document.createElement("div"); row.style.cssText = "margin-bottom:10px;";
+      if (isEditing(key, idx)){ row.appendChild(lineEditor(key, idx, it)); wrap.appendChild(row); return; }
+      var v = document.createElement("div"); v.style.cssText = "font-size:14px;line-height:1.5;color:var(--white);";
+      v.textContent = "• " + (it.value || "");
+      if (it.added || it.edited) v.appendChild(mineTag(!!it.added));
+      row.appendChild(v);
+      if (it.added){ var yn = document.createElement("div"); yn.style.cssText = "font-size:11px;color:var(--purple);margin-top:2px;"; yn.textContent = "Your line -- not counted"; row.appendChild(yn); }
+      else { var e = evidenceLine(it); if (e) row.appendChild(e); row.appendChild(wordsAndClaims(it)); }
+      var acts = document.createElement("div"); acts.style.cssText = "margin-top:5px;";
+      acts.appendChild(actionBtn("Edit", (function(i){ return function(){ editingLine = { key: key, index: i }; renderBrief(); }; })(idx)));
+      acts.appendChild(actionBtn("Delete", (function(i){ return function(){ persistBriefEdit(SB.deleteListItem(brief, key, i)); }; })(idx)));
+      if (it.edited && !it.added) acts.appendChild(actionBtn("Revert", (function(i){ return function(){ persistBriefEdit(SB.revertLine(brief, key, i)); }; })(idx)));
+      row.appendChild(acts);
       wrap.appendChild(row);
     });
+    if (isEditing(key, -2)){ wrap.appendChild(lineEditor(key, -2, { value: "" })); }
+    else { var add = actionBtn("+ Add your own line", function(){ editingLine = { key: key, index: -2 }; renderBrief(); }); add.style.color = "var(--purple)"; add.style.textDecoration = "none"; add.style.fontWeight = "600"; add.style.marginTop = "2px"; wrap.appendChild(add); }
+    return wrap;
+  }
+  // Features are a two-field pair (feature -> benefit), so their editor has two inputs. index -2 = add.
+  function featureEditor(index, f){
+    var wrap = document.createElement("div"); wrap.style.marginTop = "4px";
+    // Two clearly labelled boxes side by side (feature left, benefit right) so it is never ambiguous which
+    // half you are editing. They wrap to stacked on a narrow screen, labels still attached.
+    function field(labelText, val, ph){
+      var col = document.createElement("div"); col.style.cssText = "flex:1;min-width:180px;";
+      var lab = document.createElement("div"); lab.style.cssText = "font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-bottom:3px;"; lab.textContent = labelText; col.appendChild(lab);
+      var i = document.createElement("input"); i.type = "text"; i.value = val || ""; i.placeholder = ph;
+      i.style.cssText = "width:100%;box-sizing:border-box;font-family:'Instrument Sans',sans-serif;font-size:14px;color:var(--white);background:var(--surface);border:1px solid var(--purple);border-radius:8px;padding:8px;";
+      col.appendChild(i); col._input = i; return col;
+    }
+    var fCol = field("Feature", f && f.feature, "what it is"); var bCol = field("Benefit", f && f.benefit, "what it does for the buyer");
+    var fi = fCol._input, bi = bCol._input;
+    var fields = document.createElement("div"); fields.style.cssText = "display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px;align-items:flex-end;";
+    fields.appendChild(fCol); fields.appendChild(bCol); wrap.appendChild(fields);
+    var row = document.createElement("div"); row.style.cssText = "display:flex;gap:8px;align-items:center;flex-wrap:wrap;";
+    var save = document.createElement("button"); save.type = "button"; save.textContent = index === -2 ? "Add feature" : "Save";
+    save.style.cssText = "background:var(--purple);border:none;border-radius:8px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:700;padding:7px 14px;cursor:pointer;";
+    save.addEventListener("click", function(){
+      if (index === -2) persistBriefEdit(SB.addFeature(brief, fi.value, bi.value));
+      else persistBriefEdit(SB.editFeature(brief, index, { feature: fi.value, benefit: bi.value }));
+    });
+    var cancel = document.createElement("button"); cancel.type = "button"; cancel.textContent = "Cancel";
+    cancel.style.cssText = "background:transparent;border:1px solid var(--border-md);border-radius:8px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:12px;padding:7px 12px;cursor:pointer;";
+    cancel.addEventListener("click", function(){ editingLine = null; renderBrief(); });
+    row.appendChild(save); row.appendChild(cancel); wrap.appendChild(row);
+    setTimeout(function(){ try { fi.focus(); } catch(e){} }, 0);
+    return wrap;
+  }
+  function featureBlock(features){
+    var wrap = document.createElement("div"); wrap.style.cssText = "margin-bottom:14px;";
+    var h = document.createElement("div"); h.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:4px 0 3px;"; h.textContent = "Features to benefits"; wrap.appendChild(h);
+    if (!features.length && !isEditing("features", -2)){ var n = document.createElement("div"); n.style.cssText = "font-size:14px;color:var(--muted);"; n.textContent = "Not found yet."; wrap.appendChild(n); }
+    features.forEach(function(f, idx){
+      if (isEditing("features", idx)){ wrap.appendChild(featureEditor(idx, f)); return; }
+      var row = document.createElement("div"); row.style.cssText = "margin-bottom:10px;";
+      var v = document.createElement("div"); v.style.cssText = "font-size:14px;line-height:1.5;color:var(--white);"; v.textContent = "• " + f.feature + (f.benefit ? " → " + f.benefit : "");
+      if (f.added || f.edited) v.appendChild(mineTag(!!f.added));
+      row.appendChild(v);
+      var acts = document.createElement("div"); acts.style.cssText = "margin-top:5px;";
+      acts.appendChild(actionBtn("Edit", (function(i){ return function(){ editingLine = { key: "features", index: i }; renderBrief(); }; })(idx)));
+      acts.appendChild(actionBtn("Delete", (function(i){ return function(){ persistBriefEdit(SB.deleteFeature(brief, i)); }; })(idx)));
+      if (f.edited && !f.added) acts.appendChild(actionBtn("Revert", (function(i){ return function(){ persistBriefEdit(SB.revertFeature(brief, i)); }; })(idx)));
+      row.appendChild(acts); wrap.appendChild(row);
+    });
+    if (isEditing("features", -2)){ wrap.appendChild(featureEditor(-2, { feature: "", benefit: "" })); }
+    else { var add = actionBtn("+ Add your own feature", function(){ editingLine = { key: "features", index: -2 }; renderBrief(); }); add.style.color = "var(--purple)"; add.style.textDecoration = "none"; add.style.fontWeight = "600"; add.style.marginTop = "2px"; wrap.appendChild(add); }
     return wrap;
   }
   function renderBrief(changes){
@@ -15032,22 +15252,24 @@ function genOneScript(opts){
         var mustKeys = SB.mustHaveKeys();
         SB.LINE_KEYS.forEach(function(k){
           if (mustKeys.indexOf(k.key) < 0) return;
-          body.appendChild(k.list ? listBlock(k.label, b.lines[k.key]) : singleBlock(k.label, b.lines[k.key]));
+          body.appendChild(k.list ? listBlock(k.label, b.lines[k.key], k.key) : singleBlock(k.label, b.lines[k.key], k.key));
         });
         card.appendChild(body);
 
-        var rest = document.createElement("div"); rest.style.cssText = "margin-top:6px;display:none;";
+        // Keep the "show all" section open across the re-renders that editing triggers, and force it open
+        // when the line being edited lives in it (objections is here), so an edit never collapses on save.
+        var restKeys = SB.LINE_KEYS.filter(function(k){ return mustKeys.indexOf(k.key) < 0; }).map(function(k){ return k.key; });
+        if (editingLine && (restKeys.indexOf(editingLine.key) >= 0 || editingLine.key === "features")) restOpen = true;
+        var rest = document.createElement("div"); rest.style.cssText = "margin-top:6px;display:" + (restOpen ? "block" : "none") + ";";
         SB.LINE_KEYS.forEach(function(k){
           if (mustKeys.indexOf(k.key) >= 0) return;
-          rest.appendChild(k.list ? listBlock(k.label, b.lines[k.key]) : singleBlock(k.label, b.lines[k.key]));
+          rest.appendChild(k.list ? listBlock(k.label, b.lines[k.key], k.key) : singleBlock(k.label, b.lines[k.key], k.key));
         });
-        if (b.features && b.features.length){
-          var fh = document.createElement("div"); fh.style.cssText = "font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:4px 0 3px;"; fh.textContent = "Features to benefits"; rest.appendChild(fh);
-          b.features.forEach(function(f){ var row = document.createElement("div"); row.style.cssText = "font-size:14px;line-height:1.5;color:var(--white);margin-bottom:4px;"; row.textContent = "• " + f.feature + (f.benefit ? " → " + f.benefit : ""); rest.appendChild(row); });
-        }
+        rest.appendChild(featureBlock(b.features));
         var toggle = document.createElement("button"); toggle.type = "button"; toggle.textContent = "Show all 11 lines";
         toggle.style.cssText = "margin-top:10px;background:transparent;border:1px solid var(--border-md);border-radius:8px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 12px;cursor:pointer;";
-        toggle.addEventListener("click", function(){ var open = rest.style.display !== "none"; rest.style.display = open ? "none" : "block"; toggle.textContent = open ? "Show all 11 lines" : "Show fewer"; });
+        toggle.textContent = restOpen ? "Show fewer" : "Show all 11 lines";
+        toggle.addEventListener("click", function(){ restOpen = !restOpen; rest.style.display = restOpen ? "block" : "none"; toggle.textContent = restOpen ? "Show fewer" : "Show all 11 lines"; });
         card.appendChild(toggle);
         card.appendChild(rest);
 
