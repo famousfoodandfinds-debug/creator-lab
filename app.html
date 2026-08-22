@@ -15357,10 +15357,10 @@ function genOneScript(opts){
   ];
   // Pre-close angles rotate too, so one focus per batch never means the same rebuttal four times.
   var PRECLOSE_ANGLES = [
-    "Handle the batch's main objection head on: name it in the buyer's own words, then defuse it with ONE concrete, specific counter.",
-    "Use a WORSE-ALTERNATIVE contrast instead: what it costs them to keep doing it the old way, or to buy the cheap version again.",
-    "Defuse a DIFFERENT hesitation than the other scripts in this batch, so no two share a rebuttal.",
-    "Reframe the objection as the point: name the trade-off and show why it is exactly right for this buyer."
+    "Handle the batch's main objection head on: name it in the viewer's own words, then defuse it with ONE concrete, specific counter.",
+    "Use a WORSE-ALTERNATIVE contrast: what it costs them to keep doing it the old way. Only contrast with a real hesitation from the list, never a price or cost the list does not raise.",
+    "Defuse a DIFFERENT objection FROM THE LIST than the other scripts; if the list is short, reuse one and defuse it from a new angle -- never invent a hesitation.",
+    "Reframe the batch's main objection as the point: name the trade-off and show why it is exactly right for this viewer."
   ];
   // Assign a hook source per script IN CODE (deterministic, one per source), then pass explicit per-script
   // assignments to the model -- never a single "vary the hook type" instruction, which converges.
@@ -15379,16 +15379,16 @@ function genOneScript(opts){
     L.push("VOICE -- RECOMMENDER (not an owner): You are NOT the owner of this product. Talk TO the viewer about THEIR life in second person (you, your). Never first-person ownership testimony -- no \"my wrist,\" \"I use it so much,\" \"now when I,\" \"I grab it.\" \"I\" is allowed ONLY as a short honest confession the viewer recognizes in themselves, never as an opener describing what you found, bought, or did.");
     L.push("");
     L.push(block("WHO THIS IS FOR", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning));
-    if (lead) L.push("LEAD WITH THIS PAIN across the batch (the emotional core of the setups): " + lead.value + (lead.words.length ? "\n  buyer words you may reuse: " + lead.words.join(", ") : ""));
-    if (defuse) L.push("MAIN OBJECTION to defuse: " + defuse.value + (defuse.words.length ? "\n  buyer words: " + defuse.words.join(", ") : ""));
+    if (lead) L.push("LEAD WITH THIS PAIN across the batch (the emotional core of the setups): " + lead.value + (lead.words.length ? "\n  phrasing you may reuse as the VIEWER'S own words: " + lead.words.join(", ") : ""));
+    if (defuse) L.push("MAIN OBJECTION to defuse (defuse only objections that appear here or below -- never invent one): " + defuse.value + (defuse.words.length ? "\n  phrasing: " + defuse.words.join(", ") : ""));
     var op = ctx.pains.filter(function(p){ return !lead || p.value !== lead.value; }).map(function(p){ return "- " + p.value; });
     if (op.length) L.push("OTHER PAINS you may touch on:\n" + op.join("\n"));
     var oo = ctx.objections.filter(function(o){ return !defuse || o.value !== defuse.value; }).map(function(o){ return "- " + o.value; });
-    if (oo.length) L.push("OTHER OBJECTIONS (context, useful for the varied pre-closes):\n" + oo.join("\n"));
-    L.push(block("SOCIAL PROOF", ctx.socialProof) + block("PRICE FRAMING", ctx.priceAnchor) + block("WHY TO TRUST THIS", ctx.authority) + block("REAL SCARCITY", ctx.scarcity));
-    if (ctx.features.length) L.push("PRODUCT FEATURES (factual specs -- your ingredient list, NOT claims):\n" + ctx.features.map(function(f){ return "- " + f.feature + (f.benefit ? " -> " + f.benefit : ""); }).join("\n"));
-    if (safe.length) L.push("BUYER LANGUAGE you may reuse verbatim (safe, real buyer phrasing): " + safe.slice(0, 20).join(" | "));
-    if (claimed.length) L.push("BUYER CLAIMS -- results BUYERS asserted. You may NOT state these as fact in your own voice; only ever as what other people say: " + claimed.slice(0, 12).join(" | "));
+    if (oo.length) L.push("OTHER OBJECTIONS you may defuse (this is the ONLY list -- if it is short, reuse one, never invent a new hesitation):\n" + oo.join("\n"));
+    L.push(block("WHY IT WINS (as a felt outcome in the viewer's world, never cited as proof)", ctx.socialProof) + block("HOW THE VALUE FEELS WORTH IT", ctx.priceAnchor) + block("WHY TO TRUST THIS", ctx.authority) + block("REAL SCARCITY", ctx.scarcity));
+    if (ctx.features.length) L.push("WHAT IT IS (factual attributes, your ingredient list only -- never call these \"specs\" in a script):\n" + ctx.features.map(function(f){ return "- " + f.feature + (f.benefit ? " -> " + f.benefit : ""); }).join("\n"));
+    if (safe.length) L.push("LANGUAGE you may reuse verbatim as the VIEWER'S own words (never attributed to buyers or reviews): " + safe.slice(0, 20).join(" | "));
+    if (claimed.length) L.push("DO NOT USE THESE in any script -- not as fact, not as \"people say\" (they are performance claims): " + claimed.slice(0, 12).join(" | "));
     if (ctx.description) L.push("PRODUCT LISTING (ingredient list only -- ignore any marketing or claim language in it): " + ctx.description);
     L.push("");
     // Per-script assignment: rotate the HOOK SOURCE and the PRE-CLOSE angle so the batch never converges.
@@ -15400,9 +15400,13 @@ function genOneScript(opts){
     L.push("");
     L.push("HOOK RULES (all scripts): frame the hook as curiosity or tension, never a trend observation. Never start with \"Everyone is talking about.\" Never use the word gap. 6 to 8 words is the sweet spot, 10 words is the hard limit, and it must be a complete sentence. Never reference a specific year in any line (wrong: still doing this in 2024; right: still doing this somehow).");
     L.push("HARD MODERATION RULE -- ABSOLUTE, applies to EVERY line of EVERY script (these exact words get videos suppressed by the platform, so this is not stylistic): never use kill, killed, killing, die, dies, dying, dead, death, or haunting anywhere. Say lost, gave up, stopped surviving, brown leaves, browned out, or did not make it instead.");
-    L.push("PRE-CLOSE RULE (all scripts): one sentence, a statement not a question. BANNED, never use it: the first-person resolved testimony \"I thought / I assumed / I kept telling myself X and then I realized Y.\"");
+    // The brief is SOURCE, never something the script names. This ban is the fix for research leaking into
+    // the body ("every buyer mentions the battery," "social proof speaks louder than specs").
+    L.push("NO-META RULE -- ABSOLUTE, every line: you are talking TO the viewer about THEIR life, never ABOUT your research. NEVER mention reviews, reviewers, buyers, customers, ratings, \"social proof,\" \"specs,\" or what people \"mention\" or \"say.\" The brief above is your SOURCE and the viewer has never seen it. Wrong: \"Every buyer mentions the battery.\" / \"Social proof speaks louder than specs.\" Right: put the battery inside the viewer's own moment.");
+    L.push("SETUP RULE (body1): under 20 words. One specific moment, jump straight to the feeling. Do not restate the hook, and keep all four setups roughly the same tight length.");
+    L.push("PRE-CLOSE RULE (all scripts): one sentence, a statement not a question, and it must do DIFFERENT work than the setup -- never restate it. It must defuse an objection that ACTUALLY appears in the objections above; NEVER introduce a hesitation the buyer did not raise (do NOT mention price or cost unless price is in the objections list). BANNED, never use it: the first-person resolved testimony \"I thought / I assumed / I kept telling myself X and then I realized Y.\"");
     L.push("");
-    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the pain/story setup; preclose = the assigned pre-close; body2 = the desire/payoff (describe the moment, do not say "you become the person who"); cta = the shopping-button call to action, echoing the hook. Keep every script tight and speakable. No em dashes.');
+    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the tight setup; preclose = the assigned pre-close; body2 = the desire/payoff (describe the moment, do not say "you become the person who"); cta = the shopping-button call to action, echoing the hook. Keep every script tight and speakable. No em dashes.');
     return L.join("\n");
   }
   function generateScripts(){
