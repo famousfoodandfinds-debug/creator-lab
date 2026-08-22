@@ -15338,25 +15338,32 @@ function genOneScript(opts){
   // brief is the source, and generation is the primary action, so it is never blocked by an untidy brief
   // or a missing price. One model call returns a small batch of complete, editable scripts.
   var GEN_MODEL = "claude-haiku-4-5-20251001";
-  var GEN_COUNT = 3;
+  var GEN_COUNT = 4;   // one script per hook source, so all four shapes fire every batch (matches filming 3-4/day)
   var generatedScripts = [];
   var generating = false;
   // Ported from the old orchestration (this lived ABOVE the system prompt, in the per-script user prompt,
   // and was lost when generation moved to a single generic call). Hook SOURCES rotate across the batch so
   // three videos are not the same shape; REVERSAL ("it is not you, it is X") is forced into the batch as
   // the high-converting lever the plain flow never picks. Each entry says where that hook comes from.
+  // The teaching EXAMPLES are the real lever (the model imitates them, and no rule survives a bad example).
+  // These are curated in the creator's own voice: start with the thing, one idea, no explanation attached,
+  // a gap the viewer closes themselves. Four sources, one per script, so every shape fires every batch --
+  // including FLAT ABSURDITY, which is neither a reversal nor a curiosity loop and had no slot before.
   var HOOK_SOURCES = [
-    { key: "reversal",  instr: "IT IS NOT YOU, IT IS X. Move the blame the buyer quietly puts on themselves onto the thing that actually failed them. START WITH THE THING -- no \"it is not that you...\" throat-clearing at the front. One concrete idea, no explanation attached to it. Example: \"Your fur baby isn't the problem, it's your vacuum.\" You may also state a specific absurdity flat: \"It shouldn't take 15 minutes to set up your vacuum.\" Never an abstract state, never a first-person story." },
-    { key: "objection", instr: "Derive the hook from the biggest objection, framed as a CURIOSITY GAP the viewer needs to close -- open the loop, do not resolve it in the hook. Turn the hesitation into intrigue, not a statement." },
-    { key: "curiosity", instr: "Open a CURIOSITY LOOP or an unexpected reaction that only fully makes sense after watching -- the viewer has to keep watching to close it." }
+    { key: "reversal",  instr: "IT IS NOT YOU, IT IS X. Move the blame the buyer quietly puts on themselves onto the thing that actually failed them. START WITH THE THING -- no \"it is not that you...\" throat-clearing at the front. One concrete idea, no explanation attached. In this creator's voice: \"Your fur baby isn't the problem, it's your vacuum.\" Never an abstract state, never a first-person story." },
+    { key: "flat",      instr: "FLAT ABSURDITY. State one specific, concrete absurdity as a plain fact and stop -- let the viewer feel it. Start with the thing, one idea, no explanation. In this creator's voice: \"It shouldn't take 15 minutes to set up your vacuum.\" These show the SHAPE (write your OWN for this product, do not reuse the topic): \"You clean the vacuum more than it cleans your floors.\" \"The timer goes off and the one thing you needed is still not ready.\" \"You reach for the good pan and it is the one already soaking in the sink.\" \"The counters are spotless and then you open the cabinet of mismatched lids.\" \"Your drink is warm by the back nine.\"" },
+    { key: "objection", instr: "OBJECTION AS CURIOSITY. Take the biggest objection and frame it as a curiosity gap the viewer must close -- resolve or reframe it, NEVER a flat negative that plants doubt in someone who did not have it. In this creator's voice: \"Everyone blames the battery. It's the filter.\" \"Ten minutes of battery is the whole design.\" \"It shuts off after sixty seconds. Here's why.\"" },
+    { key: "curiosity", instr: "CURIOSITY LOOP. Open a loop the viewer must keep watching to close -- an unexpected pattern or reaction, in RECOMMENDER voice: never imply you own it or have used it, never borrow a reviewer's personal history. In this creator's voice: \"Somehow people keep buying a second one.\" \"There's a reason this stays by the door.\"" }
   ];
-  // Pre-close angles rotate too, so one focus per batch never means the same rebuttal three times.
+  // Pre-close angles rotate too, so one focus per batch never means the same rebuttal four times.
   var PRECLOSE_ANGLES = [
     "Handle the batch's main objection head on: name it in the buyer's own words, then defuse it with ONE concrete, specific counter.",
     "Use a WORSE-ALTERNATIVE contrast instead: what it costs them to keep doing it the old way, or to buy the cheap version again.",
-    "Defuse a DIFFERENT hesitation than the other scripts in this batch, so no two share a rebuttal."
+    "Defuse a DIFFERENT hesitation than the other scripts in this batch, so no two share a rebuttal.",
+    "Reframe the objection as the point: name the trade-off and show why it is exactly right for this buyer."
   ];
-  // Assign a hook source per script: REVERSAL always leads the batch, then rotate objection/curiosity.
+  // Assign a hook source per script IN CODE (deterministic, one per source), then pass explicit per-script
+  // assignments to the model -- never a single "vary the hook type" instruction, which converges.
   function hookPlanFor(n){ var out = []; for (var i = 0; i < n; i++){ out.push(HOOK_SOURCES[i % HOOK_SOURCES.length]); } return out; }
   function genStatus(msg, color){ var s = el("genStatus"); if (!s) return; if (msg){ s.style.display = "block"; s.style.color = color || "var(--muted)"; s.textContent = msg; } else { s.style.display = "none"; s.textContent = ""; } }
   function genPrompt(ctx){
