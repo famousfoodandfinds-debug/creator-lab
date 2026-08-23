@@ -14317,12 +14317,17 @@ function genOneScript(opts){
     // blocked. Percent is always blocked -- a discount or a "20 percent more" claim the tool cannot verify.
     // (Banning every figure regardless of source was over-corrected: it dropped legitimate specs too, which
     // took the app from broken to useless and made the writing vague.)
+    // Provenance needs a source of truth. Judge figures ONLY when there is a listing to check them against.
+    // With no stored listing we cannot tell a real spec from an invented one, and blocking every figure then
+    // is pure downside -- it silently nuked whole batches on review-only products that have no listing text
+    // (the ice maker). Percent is always blocked: that is a claim/price rule, not a provenance question.
+    var listingText = str(opts.listingText).trim();
     var allowedFig = {};
-    numberUnits(str(opts.listingText)).forEach(function(f){ allowedFig[f] = true; });
+    if (listingText) numberUnits(listingText).forEach(function(f){ allowedFig[f] = true; });
     var badFigure = false;
     numberUnits(whole).forEach(function(fig){
-      if (/percent|%/.test(fig)) { badFigure = true; return; }   // percent: block regardless of source
-      if (!allowedFig[fig]) badFigure = true;                    // review-only or invented: block
+      if (/percent|%/.test(fig)) { badFigure = true; return; }     // percent: always blocked
+      if (listingText && !allowedFig[fig]) badFigure = true;       // listing present: block anything not in it
     });
     if (badFigure) v.push("asserted-number");
     // Verbatim lifting: buyer phrases are for wording, not for copying a whole review sentence into a line.
@@ -15597,18 +15602,18 @@ function genOneScript(opts){
       if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
       genStatus("Checking each script against the hard rules...");
       validateBatch(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), function(clean, dropped, dropCodes){
-        generating = false; generatedScripts = clean; renderGenScripts();
-        var msg, color;
+        generating = false;
         if (clean.length){
-          msg = clean.length + " script" + (clean.length === 1 ? "" : "s") + " from your brief" + (dropped ? " (" + dropped + " dropped: " + fmtDrops(dropCodes) + ")" : "") + ". Save the ones you want.";
-          color = "var(--green)";
+          generatedScripts = clean; renderGenScripts();
+          genStatus(clean.length + " script" + (clean.length === 1 ? "" : "s") + " from your brief" + (dropped ? " (" + dropped + " dropped: " + fmtDrops(dropCodes) + ")" : "") + ". Save the ones you want.", "var(--green)");
         } else {
-          // Never an empty screen with no explanation: name the guard(s) that dropped everything. A whole
-          // batch lost to one rule almost always means that rule is too aggressive, not that the brief is bad.
-          msg = "All " + dropped + " drafts were dropped by the guards: " + fmtDrops(dropCodes) + ". That usually means a rule is too strict, not that your brief is wrong. Nothing was saved -- try again, and if it repeats it is a rule bug.";
-          color = "var(--red)";
+          // NEVER an empty screen. If every draft was flagged, show the drafts anyway (dashes stripped,
+          // finalized) with a warning naming the guards -- producing nothing is worse than a flagged script.
+          // A whole batch flagged almost always means a rule is too strict, not that the brief is wrong.
+          var drafts = out.slice(0, GEN_COUNT).map(function(o){ return finalizeScript(cleanScript(o), ctx); });
+          generatedScripts = drafts; renderGenScripts();
+          genStatus("Showing " + drafts.length + " unverified draft" + (drafts.length === 1 ? "" : "s") + " -- the guards flagged " + fmtDrops(dropCodes) + ", so read them before posting. A whole batch flagged usually means a rule is too strict, not your brief.", "var(--red)");
         }
-        genStatus(msg, color);
       });
     });
   }

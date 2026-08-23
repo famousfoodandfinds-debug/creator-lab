@@ -546,9 +546,15 @@ ok(B.numberUnits("survives 90-degree heat").length > 0, 'numberUnits: hyphenated
 ok(B.numberUnits("descale it once a month").length > 0, 'numberUnits: frequency "once a month" (was missed)');
 ok(B.numberUnits("five minutes and done").length > 0, 'numberUnits: plain "five minutes"');
 ok(B.numberUnits("grab a second one today").length === 0, 'numberUnits: "a second one" is an ordinal, not a figure');
-ok(B.scriptViolations({ body1: "It's ready every six or seven minutes" }, {}).indexOf("asserted-number") >= 0, 'validator: catches the exact ice-maker miss (six or seven minutes)');
-ok(B.scriptViolations({ hook: "Your patio survives 90-degree heat" }, {}).indexOf("asserted-number") >= 0, 'validator: catches a FABRICATED figure not in any source (90-degree)');
-ok(B.scriptViolations({ preclose: "Descale it once a month and forget it" }, {}).indexOf("asserted-number") >= 0, 'validator: catches a fabricated frequency (once a month)');
+let noMatchListing = { listingText: "Makes ice fast and stays quiet on your counter" };
+ok(B.scriptViolations({ body1: "It's ready every six or seven minutes" }, noMatchListing).indexOf("asserted-number") >= 0, 'validator: a figure not in the listing is blocked (six or seven minutes)');
+ok(B.scriptViolations({ hook: "Your patio survives 90-degree heat" }, noMatchListing).indexOf("asserted-number") >= 0, 'validator: a FABRICATED figure not in the listing is blocked (90-degree)');
+ok(B.scriptViolations({ preclose: "Descale it once a month and forget it" }, noMatchListing).indexOf("asserted-number") >= 0, 'validator: a fabricated frequency not in the listing is blocked (once a month)');
+// No listing at all -> provenance cannot be judged, so figures are NOT blocked (blocking them nuked whole
+// batches on review-only products). Percent is still always blocked.
+ok(B.scriptViolations({ body1: "It's ready every six or seven minutes" }, {}).indexOf("asserted-number") < 0, 'validator: with NO listing, a figure is allowed (cannot judge provenance)');
+ok(B.scriptViolations({ hook: "Your patio survives 90-degree heat" }, {}).indexOf("asserted-number") < 0, 'validator: with NO listing, even a suspect figure is allowed');
+ok(B.scriptViolations({ cta: "You get 20 percent more ice" }, {}).indexOf("asserted-number") >= 0, 'validator: percent is blocked even with no listing');
 ok(B.scriptViolations({ body1: "Fresh ice before your coffee even brews" }, {}).indexOf("asserted-number") < 0, 'validator: a script with no figure passes');
 // PROVENANCE: a figure in the LISTING is a verifiable spec and is allowed; review-only or invented is blocked.
 let listing = "Makes up to 33 pounds of ice a day. Holds 25 ounces. Measures 26 inches deep.";
