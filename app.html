@@ -14341,6 +14341,17 @@ function genOneScript(opts){
     if (!classified) return arr(list);
     return arr(list).filter(function(it){ it = obj(it); return it.edited || it.added || (it.count | 0) > 0 || (it.ccount | 0) > 0; });
   }
+  // The defusable-objection pool for generation. An objection is grounded -- real enough to build a script's
+  // objection turn on -- only if it carries real evidence weight (raised in at least two reviews OR at least
+  // two comments) or the owner added it by hand. Everything else is excluded, and there is NO fallback that
+  // grabs an ungrounded objection to fill a slot. This is the mechanical fix for the ice maker, where every
+  // derived objection read "not counted in the reviews" and a forced objection turn made the model invent a
+  // price doubt and a customer-service defuse. Empty pool -> scripts close another way, never manufacture one.
+  function groundedObjections(objections){
+    return arr(objections).filter(function(o){ o = obj(o); return (o.count | 0) >= 2 || (o.ccount | 0) >= 2 || !!o.added; })
+      .slice().sort(function(a, b){ return ((b.count | 0) - (a.count | 0)) || ((b.ccount | 0) - (a.ccount | 0)); })
+      .slice(0, 5);
+  }
   // Batch-level repetition: two scripts must not open their objection turn with the same construction, and
   // CTAs must not be near-identical. Compares one script against those already accepted.
   function firstWords(t, n){ return str(t).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).slice(0, n).join(" "); }
@@ -14404,7 +14415,8 @@ function genOneScript(opts){
     scriptViolations: scriptViolations,
     scriptRepeats: scriptRepeats,
     numberUnits: numberUnits,
-    groundedFindings: groundedFindings
+    groundedFindings: groundedFindings,
+    groundedObjections: groundedObjections
   };
 })();
 </script>
@@ -15433,6 +15445,13 @@ function genOneScript(opts){
     "Shrink it: cut the assigned objection down to the smallest real risk, then dissolve that risk with one specific fact.",
     "Reframe it as the point: show the assigned objection is the intended trade-off and why that is exactly right for this viewer (e.g. a short battery IS the design of a grab-and-go tool)."
   ];
+  // Close modes for a script that has NO grounded objection to defuse. It does not write an objection turn at
+  // all; it closes another way. These are the two closes real high-performing scripts use when there is no
+  // doubt to overcome -- teach the SHAPE, the script writes its own line for this product.
+  var CLOSE_MODES = [
+    "GIFT / IDENTITY: close on who this is for, not on overcoming a doubt. Land it as the viewer picturing the person (themselves, or someone they are buying for) with the product in hand. Shape, in a creator's voice: \"If you've got a golfer in your life, they want this.\" / \"Imagine their faces when you show up with this.\" Never invent a doubt to answer -- there is none here.",
+    "SCARCITY / URGENCY: close on a real reason to act now -- selling out, a limited run, a sale ending -- stated plainly. Shape, in a creator's voice: \"These sold out last year, grab them before they're gone.\" / \"When these sell out they're not restocking.\" Use only a scarcity that is actually in the brief; never invent a countdown, a deadline, a discount, or a number. If the brief names no real scarcity, keep it to \"grab it before it's gone\" with nothing invented."
+  ];
   // Assign a hook source per script IN CODE (deterministic, one per source), then pass explicit per-script
   // assignments to the model -- never a single "vary the hook type" instruction, which converges.
   function hookPlanFor(n){ var out = []; for (var i = 0; i < n; i++){ out.push(HOOK_SOURCES[i % HOOK_SOURCES.length]); } return out; }
@@ -15442,7 +15461,13 @@ function genOneScript(opts){
     var safe = [], claimed = [];
     ["whoWords","emotionWords","desireWords","socialProofWords"].forEach(function(k){ (ctx[k] || []).forEach(function(x){ if (x && safe.indexOf(x) < 0) safe.push(x); }); });
     ctx.pains.concat(ctx.objections).forEach(function(f){ f.words.forEach(function(x){ if (x && safe.indexOf(x) < 0) safe.push(x); }); f.claims.forEach(function(x){ if (x && claimed.indexOf(x) < 0) claimed.push(x); }); });
-    var lead = ctx.leadPain, defuse = ctx.defuseObjection, L = [];
+    var lead = ctx.leadPain, L = [];
+    // Only grounded objections are defusable. objPool is the whole defusable set (weight-ranked, capped);
+    // defuse is the heaviest one for the objection-as-curiosity hook. When objPool is empty the brief has no
+    // real objection, so no script writes an objection turn -- the assignments below hand those scripts a
+    // close mode instead. There is deliberately NO fallback that promotes an ungrounded objection.
+    var objPool = SB.groundedObjections(ctx.objections);
+    var defuse = objPool[0] || null;
     L.push("Write " + GEN_COUNT + " short-form video scripts for this product. Each is a complete, ready-to-film script.");
     L.push("");
     // VOICE. Default is RECOMMENDER: you are pointing the viewer at what the product will mean for THEM,
@@ -15451,28 +15476,33 @@ function genOneScript(opts){
     L.push("");
     L.push(block("WHO THIS IS FOR", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning));
     if (lead) L.push("LEAD WITH THIS PAIN across the batch (the emotional core of the setups): " + lead.value + (lead.words.length ? "\n  phrasing you may reuse as the VIEWER'S own words: " + lead.words.join(", ") : ""));
-    if (defuse) L.push("THE BIGGEST OBJECTION (the objection-as-curiosity hook reframes THIS one -- it has the richest detail; the pre-closes rotate through all of them below): " + defuse.value + (defuse.words.length ? "\n  phrasing: " + defuse.words.join(", ") : ""));
+    if (defuse) L.push("THE BIGGEST OBJECTION (the objection-as-curiosity hook reframes THIS one -- it has the richest detail): " + defuse.value + (defuse.words.length ? "\n  phrasing: " + defuse.words.join(", ") : ""));
     var op = ctx.pains.filter(function(p){ return !lead || p.value !== lead.value; }).map(function(p){ return "- " + p.value; });
     if (op.length) L.push("OTHER PAINS you may touch on:\n" + op.join("\n"));
-    var oo = ctx.objections.filter(function(o){ return !defuse || o.value !== defuse.value; }).map(function(o){ return "- " + o.value; });
-    if (oo.length) L.push("OTHER OBJECTIONS you may defuse (this is the ONLY list -- if it is short, reuse one, never invent a new hesitation):\n" + oo.join("\n"));
+    var oo = objPool.filter(function(o){ return !defuse || o.value !== defuse.value; }).map(function(o){ return "- " + o.value; });
+    if (oo.length) L.push("OTHER GROUNDED OBJECTIONS (the ONLY objections that may ever be defused -- never invent a hesitation beyond these):\n" + oo.join("\n"));
     L.push(block("WHY IT WINS (as a felt outcome in the viewer's world, never cited as proof)", ctx.socialProof) + block("HOW THE VALUE FEELS WORTH IT", ctx.priceAnchor) + block("WHY TO TRUST THIS", ctx.authority) + block("REAL SCARCITY", ctx.scarcity));
     if (ctx.features.length) L.push("WHAT IT IS (factual attributes, your ingredient list only -- never call these \"specs\" in a script):\n" + ctx.features.map(function(f){ return "- " + f.feature + (f.benefit ? " -> " + f.benefit : ""); }).join("\n"));
     if (safe.length) L.push("LANGUAGE you may reuse verbatim as the VIEWER'S own words (never attributed to buyers or reviews): " + safe.slice(0, 20).join(" | "));
     if (claimed.length) L.push("DO NOT USE THESE in any script -- not as fact, not as \"people say\" (they are performance claims): " + claimed.slice(0, 12).join(" | "));
     if (ctx.description) L.push("PRODUCT LISTING (ingredient list only -- ignore any marketing or claim language in it): " + ctx.description);
     L.push("");
-    // Per-script assignment: rotate the HOOK SOURCE and the PRE-CLOSE angle so the batch never converges.
+    // Per-script assignment: rotate the HOOK SOURCE deterministically so the batch never converges. The
+    // objection turn is MECHANICAL, not the model's judgement: each grounded objection is handed to one
+    // script in weight order; once they run out, a script gets NO objection turn and closes another way
+    // (gift/identity or scarcity/urgency). A script never manufactures an objection to fill the slot.
     var plan = hookPlanFor(GEN_COUNT);
-    // Rotate the defused objection ONLY over objections with real weight -- the top few by review count,
-    // never a one-mention non-issue (spending a whole script defusing a 1-of-20 objection is worse than
-    // reusing a real one from a new angle). If the weighty pool is shorter than the batch, it reuses.
-    var objPool = ctx.objections.filter(function(o){ return (o.count | 0) >= 2; }).slice(0, 5);
-    if (!objPool.length) objPool = ctx.objections.slice(0, 1);
-    L.push("PER-SCRIPT ASSIGNMENTS (each script MUST follow its own hook source and pre-close style, and defuse its OWN assigned objection. Prefer a different objection per script; where the list below repeats one, those scripts MUST defuse it from their different angles. Never introduce any objection not assigned to that script):");
+    L.push("PER-SCRIPT ASSIGNMENTS (each script MUST follow its own hook source; it then EITHER defuses its one assigned objection OR, if it has no objection assigned, closes with its assigned close mode. Never introduce an objection not assigned to that script, and never invent one to fill an empty slot):");
     plan.forEach(function(hs, i){
-      var line = "Script " + (i + 1) + ":\n  HOOK SOURCE: " + hs.instr + "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
-      if (objPool.length){ var o = objPool[i % objPool.length]; line += "\n  PRE-CLOSE DEFUSES THIS OBJECTION AND NO OTHER: " + o.value + (o.words.length ? " (viewer's words: " + o.words.join(", ") + ")" : ""); }
+      var line = "Script " + (i + 1) + ":\n  HOOK SOURCE: " + hs.instr;
+      if (i < objPool.length){
+        var o = objPool[i];
+        line += "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
+        line += "\n  PRE-CLOSE DEFUSES THIS OBJECTION AND NO OTHER: " + o.value + (o.words.length ? " (viewer's words: " + o.words.join(", ") + ")" : "");
+      } else {
+        line += "\n  NO OBJECTION TO DEFUSE (the brief has no grounded objection left for this script): do NOT write a pre-close objection turn, leave preclose empty (\"\"), and close another way.";
+        line += "\n  CLOSE MODE: " + CLOSE_MODES[(i - objPool.length) % CLOSE_MODES.length];
+      }
       L.push(line);
     });
     L.push("");
@@ -15488,10 +15518,10 @@ function genOneScript(opts){
     L.push("STAY WITH WHAT IT IS -- never escalate a seller claim (if the listing says \"no scratches,\" you may not say \"wrecks your blender\"). Speak to what the product plainly is and what the buyer felt.");
     L.push("LENGTH: aim the WHOLE script -- hook through CTA -- at about 60 to 110 spoken words, a finished video of 25 to 45 seconds. Let the sections balance within that budget and land all four scripts at a similar total length. No hard per-section word count.");
     L.push("SETUP (body1): one specific moment, jump straight to the feeling. Do not restate the hook, and let the objection turn do DIFFERENT work than the setup.");
-    L.push("PRE-CLOSE: one sentence, a statement not a question, doing DIFFERENT work than the setup. It defuses the objection assigned to this script and no other.");
-    L.push("OVERCOME OBJECTIONS INSIDE THE PRODUCT: answer every objection with the product and how it is USED -- something the viewer can do or see for themselves (the model is the filter: same battery doubt, but the fix is a quick thing the viewer does). Answer inside the product, never by pointing at the company behind it.");
+    L.push("PRE-CLOSE: only the scripts with an assigned objection write one -- one sentence, a statement not a question, doing DIFFERENT work than the setup, defusing that script's assigned objection and no other. A script with a CLOSE MODE instead leaves preclose empty and carries its close in body2 and the cta; never invent an objection just to have a pre-close.");
+    L.push("OVERCOME OBJECTIONS INSIDE THE PRODUCT: when a script does defuse an objection, answer it with the product and how it is USED -- something the viewer can do or see for themselves (the model is the filter: same battery doubt, but the fix is a quick thing the viewer does). Answer inside the product, never by pointing at the company behind it.");
     L.push("");
-    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the tight setup; preclose = the assigned pre-close; body2 = the desire/payoff (describe the moment, do not say "you become the person who"); cta = the shopping-button call to action, echoing the hook. Keep every script tight and speakable. No em dashes.');
+    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the tight setup; preclose = the assigned objection turn, or "" when the script has a CLOSE MODE instead of an objection; body2 = the desire/payoff, or the gift/identity or scarcity close for a close-mode script (describe the moment, do not say "you become the person who"); cta = the shopping-button call to action, echoing the hook. Keep every script tight and speakable. No em dashes.');
     return L.join("\n");
   }
   // Ask for ONE script rewritten -- reuses the full batch prompt (all context + this script's assignment +

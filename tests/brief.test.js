@@ -572,5 +572,28 @@ ok(gfOut.indexOf('invented, no evidence') < 0, 'groundedFindings: drops a derive
 ok(gfOut.indexOf('real objection') >= 0 && gfOut.indexOf('from the comments') >= 0 && gfOut.indexOf('my own line') >= 0, 'groundedFindings: keeps evidence-backed, comment-only, and added lines');
 ok(B.groundedFindings(gf, false).length === 4, 'groundedFindings: an UNclassified brief drops nothing (counts not trustworthy yet)');
 
+// groundedObjections: the mechanical defusable pool for generation. >=2 reviews OR >=2 comments OR owner-added.
+let goHeavy = { value: 'battery only lasts', count: 6, ccount: 0, added: false };
+let goComment = { value: 'raised in comments', count: 0, ccount: 3, added: false };
+let goAdded = { value: 'owner added this', count: 0, ccount: 0, added: true };
+let goOneReview = { value: 'one lonely mention', count: 1, ccount: 0, added: false };
+let goZero = { value: 'not counted in the reviews', count: 0, ccount: 0, added: false };
+let goOneComment = { value: 'single comment only', count: 0, ccount: 1, added: false };
+let goPool = B.groundedObjections([goZero, goOneReview, goComment, goHeavy, goAdded, goOneComment]).map(o => o.value);
+ok(goPool.indexOf('battery only lasts') >= 0, 'groundedObjections: keeps a >=2-review objection');
+ok(goPool.indexOf('raised in comments') >= 0, 'groundedObjections: keeps a >=2-comment objection');
+ok(goPool.indexOf('owner added this') >= 0, 'groundedObjections: keeps an owner-added objection');
+ok(goPool.indexOf('one lonely mention') < 0, 'groundedObjections: drops a 1-of-N non-issue (count 1)');
+ok(goPool.indexOf('single comment only') < 0, 'groundedObjections: drops a lone-comment objection (ccount 1)');
+ok(goPool.indexOf('not counted in the reviews') < 0, 'groundedObjections: drops the ice-maker case (0 reviews, 0 comments)');
+ok(goPool[0] === 'battery only lasts', 'groundedObjections: sorted heaviest first');
+// The ice-maker batch: EVERY objection reads "not counted" -> empty pool, so no script manufactures one.
+ok(B.groundedObjections([goZero, goOneReview, goOneComment]).length === 0, 'groundedObjections: all-ungrounded -> empty pool (no manufactured fallback)');
+ok(B.groundedObjections([]).length === 0, 'groundedObjections: empty in, empty out');
+// Cap at 5 so a giant brief never floods the batch.
+let goMany = [];
+for (let i = 0; i < 9; i++) goMany.push({ value: 'obj ' + i, count: 9 - i, ccount: 0, added: false });
+ok(B.groundedObjections(goMany).length === 5, 'groundedObjections: caps the pool at 5');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
