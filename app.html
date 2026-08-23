@@ -14300,16 +14300,16 @@ function genOneScript(opts){
     var body = [str(script.body1), str(script.preclose), str(script.body2), str(script.cta)].join("\n").toLowerCase();
     var v = [];
     if (/[—–]/.test(whole)) v.push("em-dash");
-    if (/\b(kill|killed|killing|die|dies|dying|dead|death|haunting)\b/.test(lc)) v.push("moderation");
+    if (/\b(kills?|killed|killing|dies?|died|dying|dead|deadly|death|haunts?|haunted|haunting)\b/.test(lc)) v.push("moderation");
     if (!opts.priceAllowed && /\b(price|prices|priced|pricing|pricey|cost|costs|costly|expensive|cheap|cheaper|overpriced|afford|affordable|unaffordable)\b/.test(lc)) v.push("price");
     // Company/service as a selling lever -- broadened past a warranty word list to the way it actually shows
     // up ("the maker stood behind it," "they make it right"). Bare "maker" is avoided so "ice maker" is safe.
     if (/(customer service|support team|\bwarranty\b|\bguarantee\b|\brefunds?\b|money back|the seller|\bmanufacturer\b|\bthe company\b|\bthe brand\b|\breturn it\b|\breturns\b|\breplacements?\b|replace it|stands behind|stood behind|backs it up|makes? it right|honou?rs? it|contact (?:them|shark|support|the company|the seller|the maker))/.test(lc)) v.push("company");
     if (/\bmy\b/.test(body) || /\bi (?:use|used|grab|grabbed|reach|reached|keep|kept|love|loved|own|owned|bought|got|have|had|tried|noticed|realized)\b/.test(body)) v.push("ownership");
-    // A specific figure asserted as fact -- a number+unit that came from the source material, seller OR
-    // buyer. A buyer's "six or seven minutes" is no more the creator's to state as fact than a seller's
-    // "33 pounds a day"; the creator measured neither. Flags either.
-    if (arr(opts.sourceNumbers).some(function(s){ return s && lc.indexOf(str(s).toLowerCase()) >= 0; })) v.push("asserted-number");
+    // ANY specific figure asserted as fact -- the creator measured nothing, so no number+unit belongs in
+    // the script, whether it came from the seller, a buyer, or was invented. This flags the figure directly
+    // in the SCRIPT (not by matching the source, which missed fabricated figures like "90-degree heat").
+    if (numberUnits(whole).length) v.push("asserted-number");
     // Verbatim lifting: buyer phrases are for wording, not for copying a whole review sentence into a line.
     if (opts.reviewsText){
       var hay = " " + str(opts.reviewsText).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ") + " ";
@@ -14325,17 +14325,12 @@ function genOneScript(opts){
   // range ("six or seven minutes," "ten to twelve hours"). Used to catch a specific figure asserted as
   // fact in a script. Vague quantifiers (a few, a couple) are deliberately excluded -- they are not figures.
   function numberUnits(text){
-    var NW = "(?:\\d[\\d.,]*|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)";
-    var U = "(?:pounds?|lbs?|inches?|feet|foot|ft|cm|mm|ounces?|oz|grams?|kg|watts?|w|decibels?|db|hours?|hrs?|minutes?|mins?|seconds?|secs?|liters?|litres?|ml|gallons?|gal|degrees?|percent|%|days?|weeks?|months?|years?)";
-    var re = new RegExp("\\b" + NW + "(?:\\s+(?:or|to|and|a)\\s+" + NW + ")?\\s?" + U + "\\b", "gi"), out = [], m;
+    var NW = "(?:\\d[\\d.,]*|once|twice|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)";
+    var U = "(?:pounds?|lbs?|inches?|feet|foot|ft|cm|mm|ounces?|oz|grams?|kg|watts?|w|decibels?|db|hours?|hrs?|minutes?|mins?|seconds?|secs?|liters?|litres?|ml|gallons?|gal|degrees?|percent|%|days?|weeks?|months?|years?|times)";
+    // number (optional range) then an optional "a"/"per" and a space OR hyphen before the unit, so
+    // "six or seven minutes", "90-degree heat", "once a month" and "five times a day" all match.
+    var re = new RegExp("\\b" + NW + "(?:\\s*(?:or|to|and)\\s*" + NW + ")*(?:\\s+(?:a|per))?[\\s-]?" + U + "\\b", "gi"), out = [], m;
     while ((m = re.exec(str(text)))) out.push(m[0].toLowerCase().replace(/\s+/g, " ").trim());
-    return out;
-  }
-  // Every specific figure in the source material -- listing AND reviews. A buyer's number is no more the
-  // creator's to assert than the seller's, so both channels feed the guard. Fed to scriptViolations.
-  function sourceNumbers(description, reviewsText){
-    var seen = {}, out = [];
-    numberUnits(str(description) + "\n" + str(reviewsText)).forEach(function(s){ if (!seen[s]){ seen[s] = true; out.push(s); } });
     return out;
   }
   // Grounding, enforced in code (a prompt rule alone let invented objections through): once the brief is
@@ -14408,7 +14403,7 @@ function genOneScript(opts){
     briefToGenContext: briefToGenContext,
     scriptViolations: scriptViolations,
     scriptRepeats: scriptRepeats,
-    sourceNumbers: sourceNumbers,
+    numberUnits: numberUnits,
     groundedFindings: groundedFindings
   };
 })();
@@ -15429,7 +15424,7 @@ function genOneScript(opts){
     { key: "reversal",  instr: "IT IS NOT YOU, IT IS X. Move the blame the buyer quietly puts on themselves onto the thing that actually failed them. START WITH THE THING -- no \"it is not that you...\" throat-clearing at the front. One concrete idea, no explanation attached. In this creator's voice: \"Your fur baby isn't the problem, it's your vacuum.\" Never an abstract state, never a first-person story." },
     { key: "flat",      instr: "FLAT ABSURDITY. State one specific, concrete absurdity as a plain fact and stop -- let the viewer feel it. Start with the thing, one idea, no explanation. In this creator's voice: \"It shouldn't take 15 minutes to set up your vacuum.\" These show the SHAPE (write your OWN for this product, do not reuse the topic): \"You clean the vacuum more than it cleans your floors.\" \"The timer goes off and the one thing you needed is still not ready.\" \"You reach for the good pan and it is the one already soaking in the sink.\" \"The counters are spotless and then you open the cabinet of mismatched lids.\" \"Your drink is warm by the back nine.\"" },
     { key: "objection", instr: "OBJECTION AS CURIOSITY. Take the biggest objection and frame it as a curiosity gap the viewer must close -- resolve or reframe it, NEVER a flat negative that plants doubt in someone who did not have it. The reframe MUST name a cause that is ALL THREE: REAL (it appears in the brief's pains or features, never invented), SURPRISING (not the obvious blame), and FIXABLE by the viewer (something they can act on, like cleaning a filter). \"It's the filter\" passes all three. Banned: any category shrug (the design, the build, the quality, how it's made) AND anything outside the viewer's control (the version or model you ordered, customer service, the warranty, the seller). If NO cause in the brief meets all three, do NOT name a cause -- instead reframe the objection as an intended benefit and keep the whole script on the product's real use. In this creator's voice: \"Everyone blames the battery. It's the filter.\" \"It shuts off after sixty seconds. Here's why.\"" },
-    { key: "curiosity", instr: "CURIOSITY LOOP. Open a loop the viewer must keep watching to close -- an unexpected pattern or reaction, in RECOMMENDER voice: never imply you own it or have used it, never borrow a reviewer's personal history. In this creator's voice: \"Somehow people keep buying a second one.\" \"There's a reason this stays by the door.\"" }
+    { key: "curiosity", instr: "CURIOSITY LOOP. Open a loop the viewer must keep watching to close -- an unexpected pattern or reaction, in RECOMMENDER voice: never imply you own it or have used it, never borrow a reviewer's personal history. WITHHOLD the reason: never answer the loop inside the hook. \"Somehow people keep buying a second one\" works because the why is withheld; \"a second one for the RV\" answers it and kills the hook. In this creator's voice: \"Somehow people keep buying a second one.\" \"There's a reason this stays by the door.\"" }
   ];
   // Pre-close angles rotate too, so one focus per batch never means the same rebuttal four times.
   var PRECLOSE_ANGLES = [
@@ -15482,18 +15477,19 @@ function genOneScript(opts){
     });
     L.push("");
     L.push("HOOK RULES (all scripts): frame the hook as curiosity or tension, never a trend observation. Never start with \"Everyone is talking about.\" Never use the word gap. 6 to 8 words is the sweet spot, 10 words is the hard limit, and it must be a complete sentence. Never reference a specific year in any line (wrong: still doing this in 2024; right: still doing this somehow).");
+    L.push("HOOK ASSUMPTION RULE (all scripts): a hook may ONLY assume what is true of ANYONE this product is for (they have a pet, they have a freezer, they drink cold drinks). NEVER invent a situation the viewer may not be in: do not assume she owned a previous machine, that it broke, or diagnose why; do not describe something nobody actually does (\"melting ice in your blender\"). Reframe a situation she is ALREADY in -- the fur-baby hook works because it assumes only a pet and this product, both true by definition.");
     L.push("HARD MODERATION RULE -- ABSOLUTE, applies to EVERY line of EVERY script (these exact words get videos suppressed by the platform, so this is not stylistic): never use kill, killed, killing, die, dies, dying, dead, death, or haunting anywhere. Say lost, gave up, stopped surviving, brown leaves, browned out, or did not make it instead.");
     // The brief is SOURCE, never something the script names. This ban is the fix for research leaking into
     // the body ("every buyer mentions the battery," "social proof speaks louder than specs").
     L.push("NO-META RULE -- ABSOLUTE, every line: you are talking TO the viewer about THEIR life, never ABOUT your research. NEVER mention reviews, reviewers, buyers, customers, ratings, \"social proof,\" \"specs,\" or what people \"mention\" or \"say.\" The brief above is your SOURCE and the viewer has never seen it. Wrong: \"Every buyer mentions the battery.\" / \"Social proof speaks louder than specs.\" Right: put the battery inside the viewer's own moment.");
     L.push("HARD RULE -- PRICE: never raise price, cost, expensive, cheap, \"too much,\" or \"the price is too high\" as a doubt or objection ANYWHERE, unless the word price or cost literally appears in the objection list above (it does not by default). Value and worth belong ONLY in the payoff as a good feeling, never as a hesitation to overcome. Inventing a price objection plants a doubt the viewer never had.");
     L.push("HARD RULE -- SPECS, FIGURES AND CLAIMS (quarantined like buyer claims): NEVER state a specific figure as your own fact -- not the seller's (\"33 pounds a day,\" \"16 inches deep\") AND not a number a BUYER mentioned about their own unit (\"six or seven minutes\"). You measured none of them. Describe speed, size and amount in FEEL, not figures. NEVER repeat a seller performance claim as fact and NEVER escalate one -- if the listing says \"no scratches,\" you may NOT say \"wrecks your blender.\" Speak only to what the product plainly IS and what the buyer felt.");
-    L.push("HARD RULE -- INVENT NOTHING: every fact, number, timeframe, cause, and outcome must come from the brief above or the listing. Do NOT add a time (\"under ten minutes\"), a statistic (\"most people adjust in a week\"), or a mechanism (\"water running through the freezing chamber\") that is not in the material. A reframe's cause must be stated in the reviews or listing; if you cannot point to where, reframe as a benefit instead of naming a cause. If you cannot ground something, leave it out.");
+    L.push("HARD RULE -- INVENT NOTHING: every fact, number, timeframe, cause, and outcome must come from the brief above or the listing. Do NOT add a time (\"under ten minutes\"), a statistic (\"most people adjust in a week\"), or a mechanism (\"water running through the freezing chamber\") that is not in the material. A reframe's cause must be stated in the reviews or listing; if you cannot point to where, reframe as a benefit instead of naming a cause. Do NOT diagnose the viewer's situation or explain a cause that is not in the material (\"hard water is why your machine died\"). Do NOT make ANY claim about other products or competitors (\"most machines produce small cubes\"). If you cannot ground something, leave it out.");
     L.push("REUSE PHRASES, NOT SENTENCES: the buyer language above is for wording and rhythm, never for copying a whole review sentence verbatim into a line (do not lift \"the first batch of cubes that drop are always smaller\" as-is). Rewrite every line in your own words.");
     L.push("LENGTH: aim the WHOLE script -- hook through CTA -- at about 60 to 110 spoken words, a finished video of 25 to 45 seconds. Let the sections balance within that budget, do not pad to fill it, and land all four scripts at a similar total length. No hard per-section word count.");
     L.push("SETUP RULE (body1): one specific moment, jump straight to the feeling. Do not restate the hook. The objection turn must do DIFFERENT work than the setup.");
     L.push("PRE-CLOSE RULE (all scripts): one sentence, a statement not a question, and it must do DIFFERENT work than the setup -- never restate it. It must defuse an objection that ACTUALLY appears in the objections above; NEVER introduce a hesitation the buyer did not raise (do NOT mention price or cost unless price is in the objections list). BANNED, never use it: the first-person resolved testimony \"I thought / I assumed / I kept telling myself X and then I realized Y.\"");
-    L.push("OVERCOME OBJECTIONS INSIDE THE PRODUCT -- ABSOLUTE, all scripts: every objection is answered by the product and how it is USED -- something the viewer can do or see for themselves (the model is the filter: same battery doubt, but the fix is a two-minute thing the viewer does). NEVER overcome an objection by pointing at the company behind the product: no support team, warranty, returns, replacements, customer service, or \"the seller will make it right.\" Those are not selling levers in a shop video -- they are what you reach for when you have run out of product to talk about.");
+    L.push("OVERCOME OBJECTIONS INSIDE THE PRODUCT -- ABSOLUTE, all scripts: every objection is answered by the product and how it is USED -- something the viewer can do or see for themselves (the model is the filter: same battery doubt, but the fix is a quick thing the viewer does, no numbers attached). NEVER overcome an objection by pointing at the company behind the product: no support team, warranty, returns, replacements, customer service, or \"the seller will make it right.\" Those are not selling levers in a shop video -- they are what you reach for when you have run out of product to talk about.");
     L.push("VARIETY (all scripts): no two scripts may open their HOOK or their OBJECTION TURN with the same construction (the same first few words), and every CTA must be worded differently from the others.");
     L.push("");
     L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the tight setup; preclose = the assigned pre-close; body2 = the desire/payoff (describe the moment, do not say "you become the person who"); cta = the shopping-button call to action, echoing the hook. Keep every script tight and speakable. No em dashes.');
@@ -15538,7 +15534,6 @@ function genOneScript(opts){
     var reviewsText = (raw.reviews || []).map(function(r){ return String(r.full || r.quote || ""); }).join(" ");
     var guardOpts = {
       priceAllowed: ctx.objections.some(function(o){ return /\b(price|cost)\b/i.test(o.value); }),
-      sourceNumbers: SB.sourceNumbers(raw.description, reviewsText),
       reviewsText: reviewsText
     };
     claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){

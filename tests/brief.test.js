@@ -520,8 +520,8 @@ ok(gce.leadPain === null && gce.defuseObjection === null && gce.pains.length ===
 // 19. script validator (Phase 5 guard): prompt rules were not enforcing the hard bans, so every generated
 // script is checked in code -- a violation regenerates it, a second failure drops it. Must catch the exact
 // misses the owner saw in the browser.
-let clean = { hook: "Your fur baby isn't the problem, it's your vacuum", body1: "You chase the same corner twice a day", preclose: "Pull the filter, tap it out, done in two minutes", body2: "The floor stays clear and you move on", cta: "Grab yours from the orange cart" };
-ok(B.scriptViolations(clean, { priceAllowed: false }).length === 0, 'validator: a clean script passes');
+let clean = { hook: "Your fur baby isn't the problem, it's your vacuum", body1: "You chase the same corner over and over", preclose: "Pull the filter, tap it out, and it breathes again", body2: "The floor stays clear and you move on", cta: "Grab yours from the orange cart" };
+ok(B.scriptViolations(clean, { priceAllowed: false }).length === 0, 'validator: a clean script (no figures, no bans) passes');
 ok(B.scriptViolations({ preclose: "Shark's customer service will point you to the right one" }, {}).indexOf("company") >= 0, 'validator: catches company customer-service defuse');
 ok(B.scriptViolations({ body2: "the warranty covers it and returns are easy" }, {}).indexOf("company") >= 0, 'validator: catches warranty/returns');
 ok(B.scriptViolations({ preclose: "The price is hard to justify at first" }, { priceAllowed: false }).indexOf("price") >= 0, 'validator: catches invented price doubt');
@@ -531,23 +531,28 @@ ok(B.scriptViolations({ body2: "so good I use it every single day now" }, {}).in
 ok(B.scriptViolations({ preclose: "my wrist finally stopped aching" }, {}).indexOf("ownership") >= 0, 'validator: catches ownership possessive (my)');
 ok(B.scriptViolations({ hook: "It shouldn't take 15 minutes — set up your vacuum" }, {}).indexOf("em-dash") >= 0, 'validator: flags an em dash');
 // the hook may confess with "I"; ownership check is body-only
-ok(B.scriptViolations({ hook: "I almost talked myself out of this", body1: "You clean the corner twice a day", preclose: "Tap the filter out in two minutes", body2: "The floor stays clear", cta: "Grab one today" }, {}).indexOf("ownership") < 0, 'validator: a confession hook with "I" is allowed (ownership is body-only)');
+ok(B.scriptViolations({ hook: "I almost talked myself out of this", body1: "You clean the corner over and over", preclose: "Tap the filter out and it breathes again", body2: "The floor stays clear", cta: "Grab one today" }, {}).indexOf("ownership") < 0, 'validator: a confession hook with "I" is allowed (ownership is body-only)');
 // batch repetition: same objection-turn opening or near-identical CTA
 let acc = [{ preclose: "Pull the filter and tap it out", cta: "Grab yours from the orange cart" }];
 ok(B.scriptRepeats({ preclose: "Pull the filter, then wipe the housing", cta: "Get one before they sell out" }, acc) === true, 'repeats: same first words of the objection turn is a repeat');
 ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Grab yours from the orange cart today" }, acc) === true, 'repeats: near-identical CTA opening is a repeat');
 ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Add it to your cart now" }, acc) === false, 'repeats: a genuinely different turn and CTA passes');
 
-// 20. asserted-number quarantine: a specific figure from the source -- seller OR buyer, digit OR word --
-// stated as fact in the script is caught. The creator measured none of them.
-let nums = B.sourceNumbers("Makes 33 pounds of ice a day. Basket is 16 inches deep.", "one reviewer said it drops fresh ice every six or seven minutes, another gets about 10 minutes of run");
-ok(nums.indexOf("33 pounds") >= 0 && nums.indexOf("16 inches") >= 0, 'sourceNumbers: pulls listing figures');
-ok(nums.indexOf("six or seven minutes") >= 0, 'sourceNumbers: pulls a WORD-form range from a review');
-ok(nums.indexOf("10 minutes") >= 0, 'sourceNumbers: a review figure is included (a buyer number counts too)');
-ok(B.scriptViolations({ body1: "This thing pumps out 33 pounds a day" }, { sourceNumbers: nums }).indexOf("asserted-number") >= 0, 'validator: catches a seller figure asserted as fact');
-ok(B.scriptViolations({ body1: "Fresh ice every six or seven minutes flat" }, { sourceNumbers: nums }).indexOf("asserted-number") >= 0, 'validator: catches a BUYER figure asserted as fact (the exact ice-maker miss)');
-ok(B.scriptViolations({ body1: "Fresh ice before your coffee even brews" }, { sourceNumbers: nums }).indexOf("asserted-number") < 0, 'validator: a script that states no figure passes');
-ok(B.sourceNumbers("comes in a few pieces", "takes a couple minutes").length === 0, 'sourceNumbers: vague quantifiers (a few, a couple) are NOT figures');
+// 20. asserted-number quarantine: ANY specific figure in the SCRIPT is caught, whether it came from the
+// seller, a buyer, or was invented -- the creator measured none of them. This is the fix for figures that
+// slipped because they were fabricated (not in the source) or in a form the extractor missed.
+ok(B.numberUnits("It's ready every six or seven minutes").indexOf("six or seven minutes") >= 0, 'numberUnits: word-form range');
+ok(B.numberUnits("survives 90-degree heat").length > 0, 'numberUnits: hyphenated 90-degree (was missed)');
+ok(B.numberUnits("descale it once a month").length > 0, 'numberUnits: frequency "once a month" (was missed)');
+ok(B.numberUnits("five minutes and done").length > 0, 'numberUnits: plain "five minutes"');
+ok(B.numberUnits("grab a second one today").length === 0, 'numberUnits: "a second one" is an ordinal, not a figure');
+ok(B.scriptViolations({ body1: "It's ready every six or seven minutes" }, {}).indexOf("asserted-number") >= 0, 'validator: catches the exact ice-maker miss (six or seven minutes)');
+ok(B.scriptViolations({ hook: "Your patio survives 90-degree heat" }, {}).indexOf("asserted-number") >= 0, 'validator: catches a FABRICATED figure not in any source (90-degree)');
+ok(B.scriptViolations({ preclose: "Descale it once a month and forget it" }, {}).indexOf("asserted-number") >= 0, 'validator: catches a fabricated frequency (once a month)');
+ok(B.scriptViolations({ body1: "Fresh ice before your coffee even brews" }, {}).indexOf("asserted-number") < 0, 'validator: a script with no figure passes');
+// moderation: the past tense "died" was slipping through
+ok(B.scriptViolations({ hook: "Your last machine died on you" }, {}).indexOf("moderation") >= 0, 'validator: catches "died" (past tense was missed)');
+ok(B.scriptViolations({ hook: "It kills the mess in seconds" }, {}).indexOf("moderation") >= 0, 'validator: catches "kills"');
 
 // 21. broadened company net + verbatim-lift + code grounding (the exact misses in the ice-maker batch).
 ok(B.scriptViolations({ preclose: "The maker stood behind it when the first unit had issues" }, {}).indexOf("company") >= 0, 'validator: catches "the maker stood behind it" (was slipping through)');
