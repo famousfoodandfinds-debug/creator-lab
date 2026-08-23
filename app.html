@@ -867,7 +867,10 @@ body.home-landing #homeLanding { display: block !important; }
   </div>
   <div id="textPanel">
 
-    <!-- The brief LEADS (the daily artifact). Generated scripts will render above it in Phase 5. -->
+    <!-- Generated scripts render ABOVE the brief (the brief is the source; scripts are the product). -->
+    <div id="genScripts" style="margin-top:16px;max-width:760px;margin-left:auto;margin-right:auto;"></div>
+
+    <!-- The brief LEADS (the daily artifact). Scripts above are generated from it. -->
     <div id="briefBelow" style="margin-top:16px;max-width:760px;margin-left:auto;margin-right:auto;"></div>
 
     <!-- Product setup is collapsible: expanded for a new product, collapsed once a brief exists. -->
@@ -14246,6 +14249,117 @@ function genOneScript(opts){
   function mustHaveKeys(){ return LINE_KEYS.filter(function(k){ return k.must; }).map(function(k){ return k.key; }); }
   function isThin(brief){ return (normalizeBrief(brief).meta.reviewCount|0) < 5; }   // "based on N reviews, add more"
 
+  // ---- generation adapter (Phase 5) -------------------------------------------------------------
+  // The single seam between the derived brief and script generation. Turns brief + raw into the flat
+  // context a generator needs, keeping the compliance split intact: `words` are buyer LANGUAGE (safe to
+  // say), `claims` are buyer performance CLAIMS (never asserted). The default focus is the top-count pain
+  // to lead with and the top-count objection to defuse -- so generation works with zero picking (the
+  // picker UI comes later). Pure and DOM-free, so it can be unit-tested against a stored brief.
+  function briefToGenContext(brief, raw){
+    var b = normalizeBrief(brief); raw = normalizeRaw(raw);
+    function v(k){ return str(b.lines[k] && b.lines[k].value); }
+    function w(k){ return arr(b.lines[k] && b.lines[k].words).map(str); }
+    function listOf(k){
+      return arr(b.lines[k]).filter(function(it){ return it && it.value; }).map(function(it){
+        return { value: str(it.value), words: arr(it.words).map(str), claims: arr(it.claims).map(str),
+                 count: it.count|0, total: it.total|0, ccount: it.ccount|0, ctotal: it.ctotal|0, added: !!it.added };
+      });
+    }
+    // Top by REVIEW count, then comment count -- evidence-ranked, added (count 0) lines never lead by default.
+    function top(list){ return list.slice().sort(function(x, y){ return (y.count - x.count) || (y.ccount - x.ccount); })[0] || null; }
+    var pains = listOf("pains"), objections = listOf("objections");
+    return {
+      who: v("who"), whoWords: w("who"),
+      emotion: v("emotion"), emotionWords: w("emotion"),
+      desire: v("desire"), desireWords: w("desire"),
+      problem: v("problem"),
+      positioning: v("positioning"),
+      socialProof: v("socialProof"), socialProofWords: w("socialProof"),
+      priceAnchor: v("priceAnchor"),
+      authority: v("authority"),
+      scarcity: v("scarcity"),
+      pains: pains, objections: objections,
+      features: arr(b.features).map(function(f){ f = obj(f); return { feature: str(f.feature), benefit: str(f.benefit) }; }),
+      description: str(raw.description),
+      winningAngles: arr(raw.winningAngles).map(function(a){ a = obj(a); return { transcript: str(a.transcript), topic: str(a.topic) }; }),
+      leadPain: top(pains),               // default focus: lead with this pain
+      defuseObjection: top(objections),   // default focus: defuse this objection
+      reviewCount: b.meta.reviewCount|0,
+      commentCount: b.meta.commentCount|0
+    };
+  }
+  // Deterministic post-generation GUARD. Prompt rules were not enforcing the hard bans (price invented as a
+  // doubt, company-service defuses, first-person ownership, moderation words, em dashes all reached the
+  // screen after being "banned"). So every generated script is checked here in CODE: a violation regenerates
+  // the script, a second failure drops it. Pure + testable; returns an array of violation codes.
+  // opts.priceAllowed = true only when "price"/"cost" is an actual objection in the brief.
+  function scriptViolations(script, opts){
+    script = obj(script); opts = obj(opts);
+    var whole = [str(script.hook), str(script.body1), str(script.preclose), str(script.body2), str(script.cta)].join("\n");
+    var lc = whole.toLowerCase();
+    var body = [str(script.body1), str(script.preclose), str(script.body2), str(script.cta)].join("\n").toLowerCase();
+    var v = [];
+    if (/[—–]/.test(whole)) v.push("em-dash");
+    if (/\b(kills?|killed|killing|dies?|died|dying|dead|deadly|death|haunts?|haunted|haunting)\b/.test(lc)) v.push("moderation");
+    if (!opts.priceAllowed && /\b(price|prices|priced|pricing|pricey|cost|costs|costly|expensive|cheap|cheaper|overpriced|afford|affordable|unaffordable)\b/.test(lc)) v.push("price");
+    // Company/service as a selling lever -- broadened past a warranty word list to the way it actually shows
+    // up ("the maker stood behind it," "they make it right"). Bare "maker" is avoided so "ice maker" is safe.
+    if (/(customer service|support team|\bwarranty\b|\bguarantee\b|\brefunds?\b|money back|the seller|\bmanufacturer\b|\bthe company\b|\bthe brand\b|\breturn it\b|\breturns\b|\breplacements?\b|replace it|stands behind|stood behind|backs it up|makes? it right|honou?rs? it|contact (?:them|shark|support|the company|the seller|the maker))/.test(lc)) v.push("company");
+    if (/\bmy\b/.test(body) || /\bi (?:use|used|grab|grabbed|reach|reached|keep|kept|love|loved|own|owned|bought|got|have|had|tried|noticed|realized)\b/.test(body)) v.push("ownership");
+    // ANY specific figure asserted as fact -- the creator measured nothing, so no number+unit belongs in
+    // the script, whether it came from the seller, a buyer, or was invented. This flags the figure directly
+    // in the SCRIPT (not by matching the source, which missed fabricated figures like "90-degree heat").
+    if (numberUnits(whole).length) v.push("asserted-number");
+    // Verbatim lifting: buyer phrases are for wording, not for copying a whole review sentence into a line.
+    if (opts.reviewsText){
+      var hay = " " + str(opts.reviewsText).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ") + " ";
+      [str(script.hook), str(script.body1), str(script.preclose), str(script.body2)].some(function(t){
+        var n = t.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim();
+        if (n.split(" ").length >= 6 && hay.indexOf(" " + n + " ") >= 0){ v.push("lifted"); return true; }
+        return false;
+      });
+    }
+    return v;
+  }
+  // Number+unit phrases in a block of text -- DIGIT ("33 pounds," "16 inches") AND WORD form, including a
+  // range ("six or seven minutes," "ten to twelve hours"). Used to catch a specific figure asserted as
+  // fact in a script. Vague quantifiers (a few, a couple) are deliberately excluded -- they are not figures.
+  function numberUnits(text){
+    var NW = "(?:\\d[\\d.,]*|once|twice|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)";
+    var U = "(?:pounds?|lbs?|inches?|feet|foot|ft|cm|mm|ounces?|oz|grams?|kg|watts?|w|decibels?|db|hours?|hrs?|minutes?|mins?|seconds?|secs?|liters?|litres?|ml|gallons?|gal|degrees?|percent|%|days?|weeks?|months?|years?|times)";
+    // number (optional range) then an optional "a"/"per" and a space OR hyphen before the unit, so
+    // "six or seven minutes", "90-degree heat", "once a month" and "five times a day" all match.
+    var re = new RegExp("\\b" + NW + "(?:\\s*(?:or|to|and)\\s*" + NW + ")*(?:\\s+(?:a|per))?[\\s-]?" + U + "\\b", "gi"), out = [], m;
+    while ((m = re.exec(str(text)))) out.push(m[0].toLowerCase().replace(/\s+/g, " ").trim());
+    return out;
+  }
+  // Grounding, enforced in code (a prompt rule alone let invented objections through): once the brief is
+  // classified, a DERIVED pain/objection with zero review hits AND zero comment hits is grounded in
+  // nothing -- it was invented -- so it is dropped. Hand-edited and added lines are always kept (they are
+  // the owner's), and comment-only findings (ccount > 0) are kept. Only runs on a classified brief.
+  function groundedFindings(list, classified){
+    if (!classified) return arr(list);
+    return arr(list).filter(function(it){ it = obj(it); return it.edited || it.added || (it.count | 0) > 0 || (it.ccount | 0) > 0; });
+  }
+  // The defusable-objection pool for generation. An objection is grounded -- real enough to build a script's
+  // objection turn on -- only if it carries real evidence weight (raised in at least two reviews OR at least
+  // two comments) or the owner added it by hand. Everything else is excluded, and there is NO fallback that
+  // grabs an ungrounded objection to fill a slot. This is the mechanical fix for the ice maker, where every
+  // derived objection read "not counted in the reviews" and a forced objection turn made the model invent a
+  // price doubt and a customer-service defuse. Empty pool -> scripts close another way, never manufacture one.
+  function groundedObjections(objections){
+    return arr(objections).filter(function(o){ o = obj(o); return (o.count | 0) >= 2 || (o.ccount | 0) >= 2 || !!o.added; })
+      .slice().sort(function(a, b){ return ((b.count | 0) - (a.count | 0)) || ((b.ccount | 0) - (a.ccount | 0)); })
+      .slice(0, 5);
+  }
+  // Batch-level repetition: two scripts must not open their objection turn with the same construction, and
+  // CTAs must not be near-identical. Compares one script against those already accepted.
+  function firstWords(t, n){ return str(t).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).slice(0, n).join(" "); }
+  function scriptRepeats(script, accepted){
+    var pc = firstWords(script.preclose, 3), ct = firstWords(script.cta, 4);
+    return arr(accepted).some(function(a){ return (pc && firstWords(a.preclose, 3) === pc) || (ct && firstWords(a.cta, 4) === ct); });
+  }
+
   window.SaxeBrief = {
     VERSION: BRIEF_V,
     STORED_REVIEW_CAP: STORED_REVIEW_CAP,
@@ -14296,7 +14410,13 @@ function genOneScript(opts){
     safeWords: safeWords,
     claims: claims,
     mustHaveKeys: mustHaveKeys,
-    isThin: isThin
+    isThin: isThin,
+    briefToGenContext: briefToGenContext,
+    scriptViolations: scriptViolations,
+    scriptRepeats: scriptRepeats,
+    numberUnits: numberUnits,
+    groundedFindings: groundedFindings,
+    groundedObjections: groundedObjections
   };
 })();
 </script>
@@ -14311,7 +14431,7 @@ function genOneScript(opts){
   var raw = SB.emptyRaw();
   var brief = SB.emptyBrief();          // derived, light column; loaded on open, rebuilt by deriveBrief
   var deriving = false;                 // guards the derive button against double-fire
-  var DERIVE_PROMPT_V = "brief-derive-5";
+  var DERIVE_PROMPT_V = "brief-derive-6";   // reviews-primary framing + no invented objections
   var DERIVE_BATCH = 8;                 // reviews per derivation call -- smaller so each call stays inside
   var DERIVE_REVIEW_CHARS = 2000;       // Netlify's ~26s sync gateway even with the larger per-review excerpt
   var DERIVE_MODEL = "claude-haiku-4-5-20251001"; // fast enough not to hit the gateway 504
@@ -14457,7 +14577,7 @@ function genOneScript(opts){
     lastSavedAt = null; showForm(true); renderInputs(); setSetupOpen(true); status("New product. Saved automatically as you type.");
   }
   function fill(product){
-    editingLine = null; restOpen = false;   // fresh product: no open editor, list collapsed
+    editingLine = null; restOpen = false; generatedScripts = [];   // fresh product: no open editor, no stale scripts
     raw = SB.getRaw(product);
     brief = SB.getBrief(product);
     currentProductId = product.id;
@@ -14706,15 +14826,15 @@ function genOneScript(opts){
       return "Review " + (i+1) + ": " + reviewExcerpt(r.full || r.quote || "");
     }).join("\n");
     var ctx = [];
-    if (raw.description) ctx.push("PRODUCT LISTING (what the seller says):\n" + raw.description);
+    if (raw.description) ctx.push("SELLER LISTING (the seller's marketing copy -- use ONLY to name factual FEATURES; NEVER a source of pains, objections, emotions, desires, or buyer words):\n" + raw.description);
     if (raw.authorityRaw) ctx.push("CREATOR AUTHORITY (only if given):\n" + raw.authorityRaw);
     if (raw.competitorComments) ctx.push("COMPETITOR / VIRAL-VIDEO COMMENTS (buyer language and objections from similar products):\n" + raw.competitorComments);
     return [
-      "You are building a conversion brief for a TikTok Shop product. Analyse the material below and return a strict JSON object with the buyer's psychology in THEIR words.",
+      "You are building a conversion brief for a short-form video product. The CUSTOMER REVIEWS (and any COMMENTS) are your ONLY source for buyer psychology -- who this is for, what they feel and want, their pains, their objections, their social proof, and their exact words. The SELLER LISTING is marketing copy: use it ONLY to name factual features, NEVER to source a pain, objection, emotion, desire, or buyer phrase. When reviews are present, build the whole brief FROM THEM.",
+      "",
+      (revs ? ("CUSTOMER REVIEWS (" + reviewsChunk.length + " reviews) -- your primary source, read every one:\n" + revs) : "There are no customer reviews yet; derive what you can from the listing and comments, and set every count to 0."),
       "",
       ctx.join("\n\n"),
-      "",
-      (revs ? ("CUSTOMER REVIEWS FOR THIS BATCH (" + reviewsChunk.length + " reviews):\n" + revs) : "There are no customer reviews yet; derive what you can from the listing and comments, and set every count to 0."),
       "",
       "Return ONLY this JSON object, nothing else. Every line has words, claims, and terms:",
       '{"lines":{',
@@ -14732,14 +14852,17 @@ function genOneScript(opts){
       '"features":[{"feature":"a concrete product feature","benefit":"what it does for the buyer"}]}',
       "",
       "RULES:",
-      "- words = the buyer's own emotional or identity phrases, quoted short and verbatim, SAFE to reuse in marketing. At most 3 per line.",
+      "- words = the buyer's own emotional or identity phrases, quoted short and verbatim, SAFE to reuse in marketing. At most 3 per line. Words MUST match the sentiment of their line: under a complaint use the buyer's NEGATIVE phrasing only, never a positive phrase as evidence of a problem (do not put 'not too loud' under a noise complaint).",
       "- claims = performance or result claims a buyer makes (e.g. 'cured my back pain'). Keep SEPARATE from words. At most 3 per line.",
       "- terms = 5 to 10 SHORT distinctive keywords a buyer might use for THIS point, including synonyms and symptoms, so it can be counted across different wordings. Example for a battery-life complaint: battery, charge, run time, runtime, minutes, dies, recharge, lasts. Pick DISTINCTIVE words that would not show up in unrelated reviews (avoid generic words like good, product, use). No counts are needed; do not include a count field.",
       "- pains = a complaint about how the product actually PERFORMS or holds up in use (rusts, stops working, wears out). objections = a hesitation, doubt, risk, or QUESTION about buying (would it be worth it, will it fit, is it durable, is the info clear, will the colour match). Put each concept in ONE of the two, never both. A positive or a reason they DID buy is NOT an objection.",
       "- The COMPETITOR / VIRAL-VIDEO COMMENTS above come from people reacting to a video, most of whom have NOT bought. Doubts they raise -- unclear or missing product information, colours or looks not matching what they already own, price worry, whether it will fit or suit them -- are OBJECTIONS, not pains. Only call something a pain when someone describes the product actually failing or wearing out in hand. When the source is a comment and you are unsure, prefer objection.",
       "- pains and objections are arrays; return AT MOST 4 distinct items each, most-common first.",
+      "- who, emotion, desire, pains, objections, socialProof, priceAnchor and ALL words come from the REVIEWS and COMMENTS only. features come from the listing. NEVER fill a buyer-psychology line or a buyer word from the seller listing.",
+      "- Every pain and objection MUST be something a reviewer or commenter actually said or plainly implied. If the reviews do not raise it, leave it out. NEVER invent an objection the reviews do not contain (for example a price-versus-bagged-ice comparison no one wrote). A specific complaint a reviewer made (watery first ice, slow to fill, awkward drain, noisy) belongs in pains, in their words.",
+      "- Customer service, warranty, returns, refunds, or the seller/maker standing behind the product are NEVER pains or objections -- they are about the company, not the product. Leave them out entirely, even when a review praises the seller. The brief is about the product and the buyer, never the company.",
       "- Keep every value under 15 words. Return AT MOST 5 features.",
-      "- Leave value empty ('') for anything the material does not support. Do not invent.",
+      "- Leave value empty ('') for anything the reviews and comments do not support. Do not invent. An empty line is better than a listing-derived guess.",
       "- NEVER state a number of reviews, a star rating, a percentage, or any statistic in a value. Describe the pattern in words only.",
       "- Do not use em dashes anywhere. Use plain sentences.",
       "- Return ONLY the JSON object. No preamble, no explanation, no markdown fences."
@@ -14927,6 +15050,10 @@ function genOneScript(opts){
             mergedBrief.lines.pains = lockP.concat(cP);
             mergedBrief.lines.objections = lockO.concat(cO);
             SB.recountFindings(mergedBrief, raw.reviews, comments);
+            // Drop derived pains/objections with no review AND no comment evidence -- they were invented.
+            // Hand-edited/added and comment-sourced lines are kept.
+            mergedBrief.lines.pains = SB.groundedFindings(mergedBrief.lines.pains, mergedBrief.meta.classified);
+            mergedBrief.lines.objections = SB.groundedFindings(mergedBrief.lines.objections, mergedBrief.meta.classified);
             // Order each list by review count (stable), so my added lines (count 0) settle at the bottom
             // and edited derived lines keep their evidence-based place.
             var byCount = function(a, b){ return (b.count|0) - (a.count|0); };
@@ -15284,6 +15411,206 @@ function genOneScript(opts){
     } catch(e){
       var er = document.createElement("div"); er.style.cssText = "font-size:12px;color:var(--red);margin-top:10px;"; er.textContent = "Could not render the brief details, but you can still build."; card.appendChild(er);
     }
+    renderGenScripts();   // scripts render above the brief; keep them in sync with every brief re-render
+  }
+
+  // ---- script generation (Phase 5, step 1a) -----------------------------------------------------
+  // Generation reads the DERIVED brief through SB.briefToGenContext and reuses the tuned global `system`
+  // prompt (voice + compliance + framework rules). A DEFAULT focus is threaded -- lead with the top-count
+  // pain, defuse the top-count objection -- with no picker UI yet (that is step 1b) and NO gating: the
+  // brief is the source, and generation is the primary action, so it is never blocked by an untidy brief
+  // or a missing price. One model call returns a small batch of complete, editable scripts.
+  var GEN_MODEL = "claude-haiku-4-5-20251001";
+  var GEN_COUNT = 4;   // one script per hook source, so all four shapes fire every batch (matches filming 3-4/day)
+  var generatedScripts = [];
+  var generating = false;
+  // Ported from the old orchestration (this lived ABOVE the system prompt, in the per-script user prompt,
+  // and was lost when generation moved to a single generic call). Hook SOURCES rotate across the batch so
+  // three videos are not the same shape; REVERSAL ("it is not you, it is X") is forced into the batch as
+  // the high-converting lever the plain flow never picks. Each entry says where that hook comes from.
+  // The teaching EXAMPLES are the real lever (the model imitates them, and no rule survives a bad example).
+  // These are curated in the creator's own voice: start with the thing, one idea, no explanation attached,
+  // a gap the viewer closes themselves. Four sources, one per script, so every shape fires every batch --
+  // including FLAT ABSURDITY, which is neither a reversal nor a curiosity loop and had no slot before.
+  var HOOK_SOURCES = [
+    { key: "reversal",  instr: "IT IS NOT YOU, IT IS X. Move the blame the buyer quietly puts on themselves onto the thing that actually failed them. START WITH THE THING -- no \"it is not that you...\" throat-clearing at the front. One concrete idea, no explanation attached. In this creator's voice: \"Your fur baby isn't the problem, it's your vacuum.\" Never an abstract state, never a first-person story." },
+    { key: "flat",      instr: "FLAT ABSURDITY. State one specific, concrete absurdity as a plain fact and stop -- let the viewer feel it. Start with the thing, one idea, no explanation. In this creator's voice: \"It shouldn't take 15 minutes to set up your vacuum.\" These show the SHAPE (write your OWN for this product, do not reuse the topic): \"You clean the vacuum more than it cleans your floors.\" \"The timer goes off and the one thing you needed is still not ready.\" \"You reach for the good pan and it is the one already soaking in the sink.\" \"The counters are spotless and then you open the cabinet of mismatched lids.\" \"Your drink is warm by the back nine.\"" },
+    { key: "objection", instr: "OBJECTION AS CURIOSITY. Take the biggest objection and frame it as a curiosity gap the viewer must close -- resolve or reframe it, NEVER a flat negative that plants doubt in someone who did not have it. The reframe MUST name a cause that is ALL THREE: REAL (it appears in the brief's pains or features, never invented), SURPRISING (not the obvious blame), and FIXABLE by the viewer (something they can act on, like cleaning a filter). \"It's the filter\" passes all three. Banned: any category shrug (the design, the build, the quality, how it's made) AND anything outside the viewer's control (the version or model you ordered, customer service, the warranty, the seller). If NO cause in the brief meets all three, do NOT name a cause -- instead reframe the objection as an intended benefit and keep the whole script on the product's real use. In this creator's voice: \"Everyone blames the battery. It's the filter.\" \"It shuts off after sixty seconds. Here's why.\"" },
+    { key: "curiosity", instr: "CURIOSITY LOOP. Open a loop the viewer must keep watching to close -- an unexpected pattern or reaction, in RECOMMENDER voice: never imply you own it or have used it, never borrow a reviewer's personal history. WITHHOLD the reason: never answer the loop inside the hook. \"Somehow people keep buying a second one\" works because the why is withheld; \"a second one for the RV\" answers it and kills the hook. In this creator's voice: \"Somehow people keep buying a second one.\" \"There's a reason this stays by the door.\"" }
+  ];
+  // Pre-close angles rotate too, so one focus per batch never means the same rebuttal four times.
+  var PRECLOSE_ANGLES = [
+    "Head on: name the assigned objection in the viewer's own words, then defuse it with ONE concrete, specific counter.",
+    "Worse-alternative contrast: what the assigned objection costs them if they keep doing it the old way (never a price the list does not raise).",
+    "Shrink it: cut the assigned objection down to the smallest real risk, then dissolve that risk with one specific fact.",
+    "Reframe it as the point: show the assigned objection is the intended trade-off and why that is exactly right for this viewer (e.g. a short battery IS the design of a grab-and-go tool)."
+  ];
+  // Close modes for a script that has NO grounded objection to defuse. It does not write an objection turn at
+  // all; it closes another way. These are the two closes real high-performing scripts use when there is no
+  // doubt to overcome -- teach the SHAPE, the script writes its own line for this product.
+  var CLOSE_MODES = [
+    "GIFT / IDENTITY: close on who this is for, not on overcoming a doubt. Land it as the viewer picturing the person (themselves, or someone they are buying for) with the product in hand. Shape, in a creator's voice: \"If you've got a golfer in your life, they want this.\" / \"Imagine their faces when you show up with this.\" Never invent a doubt to answer -- there is none here.",
+    "SCARCITY / URGENCY: close on a real reason to act now -- selling out, a limited run, a sale ending -- stated plainly. Shape, in a creator's voice: \"These sold out last year, grab them before they're gone.\" / \"When these sell out they're not restocking.\" Use only a scarcity that is actually in the brief; never invent a countdown, a deadline, a discount, or a number. If the brief names no real scarcity, keep it to \"grab it before it's gone\" with nothing invented."
+  ];
+  // Assign a hook source per script IN CODE (deterministic, one per source), then pass explicit per-script
+  // assignments to the model -- never a single "vary the hook type" instruction, which converges.
+  function hookPlanFor(n){ var out = []; for (var i = 0; i < n; i++){ out.push(HOOK_SOURCES[i % HOOK_SOURCES.length]); } return out; }
+  function genStatus(msg, color){ var s = el("genStatus"); if (!s) return; if (msg){ s.style.display = "block"; s.style.color = color || "var(--muted)"; s.textContent = msg; } else { s.style.display = "none"; s.textContent = ""; } }
+  function genPrompt(ctx){
+    function block(label, val){ return val ? (label + ": " + val + "\n") : ""; }
+    var safe = [], claimed = [];
+    ["whoWords","emotionWords","desireWords","socialProofWords"].forEach(function(k){ (ctx[k] || []).forEach(function(x){ if (x && safe.indexOf(x) < 0) safe.push(x); }); });
+    ctx.pains.concat(ctx.objections).forEach(function(f){ f.words.forEach(function(x){ if (x && safe.indexOf(x) < 0) safe.push(x); }); f.claims.forEach(function(x){ if (x && claimed.indexOf(x) < 0) claimed.push(x); }); });
+    var lead = ctx.leadPain, L = [];
+    // Only grounded objections are defusable. objPool is the whole defusable set (weight-ranked, capped);
+    // defuse is the heaviest one for the objection-as-curiosity hook. When objPool is empty the brief has no
+    // real objection, so no script writes an objection turn -- the assignments below hand those scripts a
+    // close mode instead. There is deliberately NO fallback that promotes an ungrounded objection.
+    var objPool = SB.groundedObjections(ctx.objections);
+    var defuse = objPool[0] || null;
+    L.push("Write " + GEN_COUNT + " short-form video scripts for this product. Each is a complete, ready-to-film script.");
+    L.push("");
+    // VOICE. Default is RECOMMENDER: you are pointing the viewer at what the product will mean for THEM,
+    // not confessing your own ownership. (The ownership ban is enforced in code, not by piling on rules.)
+    L.push("VOICE -- you are recommending this to the viewer, not confessing your own ownership. Talk TO the viewer about THEIR life in second person (you, your). \"I\" is fine only as a short honest aside the viewer recognizes in themselves.");
+    L.push("");
+    L.push(block("WHO THIS IS FOR", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning));
+    if (lead) L.push("LEAD WITH THIS PAIN across the batch (the emotional core of the setups): " + lead.value + (lead.words.length ? "\n  phrasing you may reuse as the VIEWER'S own words: " + lead.words.join(", ") : ""));
+    if (defuse) L.push("THE BIGGEST OBJECTION (the objection-as-curiosity hook reframes THIS one -- it has the richest detail): " + defuse.value + (defuse.words.length ? "\n  phrasing: " + defuse.words.join(", ") : ""));
+    var op = ctx.pains.filter(function(p){ return !lead || p.value !== lead.value; }).map(function(p){ return "- " + p.value; });
+    if (op.length) L.push("OTHER PAINS you may touch on:\n" + op.join("\n"));
+    var oo = objPool.filter(function(o){ return !defuse || o.value !== defuse.value; }).map(function(o){ return "- " + o.value; });
+    if (oo.length) L.push("OTHER GROUNDED OBJECTIONS (the ONLY objections that may ever be defused -- never invent a hesitation beyond these):\n" + oo.join("\n"));
+    L.push(block("WHY IT WINS (as a felt outcome in the viewer's world, never cited as proof)", ctx.socialProof) + block("HOW THE VALUE FEELS WORTH IT", ctx.priceAnchor) + block("WHY TO TRUST THIS", ctx.authority) + block("REAL SCARCITY", ctx.scarcity));
+    if (ctx.features.length) L.push("WHAT IT IS (factual attributes, your ingredient list only -- never call these \"specs\" in a script):\n" + ctx.features.map(function(f){ return "- " + f.feature + (f.benefit ? " -> " + f.benefit : ""); }).join("\n"));
+    if (safe.length) L.push("LANGUAGE you may reuse verbatim as the VIEWER'S own words (never attributed to buyers or reviews): " + safe.slice(0, 20).join(" | "));
+    if (claimed.length) L.push("DO NOT USE THESE in any script -- not as fact, not as \"people say\" (they are performance claims): " + claimed.slice(0, 12).join(" | "));
+    if (ctx.description) L.push("PRODUCT LISTING (ingredient list only -- ignore any marketing or claim language in it): " + ctx.description);
+    L.push("");
+    // Per-script assignment: rotate the HOOK SOURCE deterministically so the batch never converges. The
+    // objection turn is MECHANICAL, not the model's judgement: each grounded objection is handed to one
+    // script in weight order; once they run out, a script gets NO objection turn and closes another way
+    // (gift/identity or scarcity/urgency). A script never manufactures an objection to fill the slot.
+    var plan = hookPlanFor(GEN_COUNT);
+    L.push("PER-SCRIPT ASSIGNMENTS (each script MUST follow its own hook source; it then EITHER defuses its one assigned objection OR, if it has no objection assigned, closes with its assigned close mode. Never introduce an objection not assigned to that script, and never invent one to fill an empty slot):");
+    plan.forEach(function(hs, i){
+      var line = "Script " + (i + 1) + ":\n  HOOK SOURCE: " + hs.instr;
+      if (i < objPool.length){
+        var o = objPool[i];
+        line += "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
+        line += "\n  PRE-CLOSE DEFUSES THIS OBJECTION AND NO OTHER: " + o.value + (o.words.length ? " (viewer's words: " + o.words.join(", ") + ")" : "");
+      } else {
+        line += "\n  NO OBJECTION TO DEFUSE (the brief has no grounded objection left for this script): do NOT write a pre-close objection turn, leave preclose empty (\"\"), and close another way.";
+        line += "\n  CLOSE MODE: " + CLOSE_MODES[(i - objPool.length) % CLOSE_MODES.length];
+      }
+      L.push(line);
+    });
+    L.push("");
+    // Positive directions only. The hard bans (moderation words, price-as-doubt, asserted figures, company
+    // service, first-person ownership, verbatim lifts) are enforced by the code validator, which regenerates
+    // on a violation and drops on a second -- so a banned line never reaches the screen. Repeating those bans
+    // in the prompt only narrows the writing; the examples in each HOOK SOURCE do the teaching.
+    L.push("HOOK -- open on a curiosity or tension the viewer already feels, in one speakable sentence. Each script's HOOK SOURCE below shows the shape by example; match the shape, do not copy the words.");
+    L.push("HOOK ASSUMPTION -- assume only what is true of ANYONE this product is for (they have a pet, a freezer, a cold drink). The fur-baby hook works because it assumes only a pet and this product. Reframe a situation the viewer is ALREADY in; do not invent one she may not be in (a machine that broke, something nobody actually does).");
+    // The three risks below are real and NOT catchable in code, so they stay -- one line each.
+    L.push("NO-META -- talk to the viewer about THEIR life, never about your research. The brief is your source and the viewer has never seen it; never name reviews, buyers, ratings, social proof or specs. Put the detail inside the viewer's own moment instead.");
+    L.push("INVENT NOTHING -- every fact, number, cause and outcome comes from the brief or listing. If you cannot point to where a cause is stated, reframe it as a benefit rather than naming it. Do not diagnose the viewer, and make no claim about other products.");
+    L.push("STAY WITH WHAT IT IS -- never escalate a seller claim (if the listing says \"no scratches,\" you may not say \"wrecks your blender\"). Speak to what the product plainly is and what the buyer felt.");
+    L.push("LENGTH: aim the WHOLE script -- hook through CTA -- at about 60 to 110 spoken words, a finished video of 25 to 45 seconds. Let the sections balance within that budget and land all four scripts at a similar total length. No hard per-section word count.");
+    L.push("SETUP (body1): one specific moment, jump straight to the feeling. Do not restate the hook, and let the objection turn do DIFFERENT work than the setup.");
+    L.push("PRE-CLOSE: only the scripts with an assigned objection write one -- one sentence, a statement not a question, doing DIFFERENT work than the setup, defusing that script's assigned objection and no other. A script with a CLOSE MODE instead leaves preclose empty and carries its close in body2 and the cta; never invent an objection just to have a pre-close.");
+    L.push("OVERCOME OBJECTIONS INSIDE THE PRODUCT: when a script does defuse an objection, answer it with the product and how it is USED -- something the viewer can do or see for themselves (the model is the filter: same battery doubt, but the fix is a quick thing the viewer does). Answer inside the product, never by pointing at the company behind it.");
+    L.push("");
+    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the tight setup; preclose = the assigned objection turn, or "" when the script has a CLOSE MODE instead of an objection; body2 = the desire/payoff, or the gift/identity or scarcity close for a close-mode script (describe the moment, do not say "you become the person who"); cta = the shopping-button call to action, echoing the hook. Keep every script tight and speakable. No em dashes.');
+    return L.join("\n");
+  }
+  // Ask for ONE script rewritten -- reuses the full batch prompt (all context + this script's assignment +
+  // every rule) and just changes the output instruction, so nothing diverges from the batch rules.
+  function genOnePrompt(ctx, i, prev, violations){
+    return genPrompt(ctx) +
+      "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for breaking these hard rules: " + violations.join("; ") + "." +
+      " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
+      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, no price raised as a doubt, no company service or warranty or returns, no first-person ownership, no moderation words." +
+      " Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
+  }
+  // Em dashes are stripped outright (never regenerate for a mechanical fix); the owner wants none, ever.
+  function stripDashes(t){ return String(t == null ? "" : t).replace(/\s*[—–]\s*/g, ", ").replace(/,\s*,/g, ",").replace(/\s+,/g, ",").replace(/\s{2,}/g, " ").trim(); }
+  function cleanScript(o){ o = o || {}; return { hook: stripDashes(o.hook), body1: stripDashes(o.body1), preclose: stripDashes(o.preclose), body2: stripDashes(o.body2), cta: stripDashes(o.cta) }; }
+  function finalizeScript(s, ctx){ return { hook: s.hook, body1: s.body1, preclose: s.preclose, body2: s.body2, cta: s.cta, angle: lead0(ctx), desire: ctx.desire }; }
+  // The GUARD: check each script; a violation regenerates it once; a second failure DROPS it. A banned
+  // move never reaches the screen. Sequential so `scriptRepeats` can compare against already-accepted ones.
+  function validateBatch(ctx, guardOpts, scripts, done){
+    var accepted = [], dropped = 0, i = 0;
+    function problems(s){ return SB.scriptViolations(s, guardOpts).concat(SB.scriptRepeats(s, accepted) ? ["repetition"] : []); }
+    (function next(){
+      if (i >= scripts.length){ done(accepted, dropped); return; }
+      var idx = i, s = scripts[idx], viol = problems(s);
+      if (!viol.length){ accepted.push(finalizeScript(s, ctx)); i++; next(); return; }
+      genStatus("Fixing a script that broke a rule (" + viol.join(", ") + ")...");
+      claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genOnePrompt(ctx, idx, s, viol) }] }, function(t, e){
+        var s2 = null; if (!e){ var o = parseJson(t, "{", "}"); if (o) s2 = cleanScript(o); }
+        if (s2 && !problems(s2).length){ accepted.push(finalizeScript(s2, ctx)); }
+        else { dropped++; }   // failed twice (or the retry errored): drop it, never show a violation
+        i++; next();
+      });
+    })();
+  }
+  function generateScripts(){
+    if (generating) return;
+    if (!brief.meta.lastDerivedAt){ genStatus("Build the brief first, then generate.", "var(--red)"); return; }
+    generating = true; renderGenScripts();
+    var ctx = SB.briefToGenContext(brief, raw);
+    var reviewsText = (raw.reviews || []).map(function(r){ return String(r.full || r.quote || ""); }).join(" ");
+    var guardOpts = {
+      priceAllowed: ctx.objections.some(function(o){ return /\b(price|cost)\b/i.test(o.value); }),
+      reviewsText: reviewsText
+    };
+    claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
+      if (err){ generating = false; renderGenScripts(); genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + "). Nothing was lost.", "var(--red)"); return; }
+      var out = parseJson(text, "[", "]");
+      if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
+      genStatus("Checking each script against the hard rules...");
+      validateBatch(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), function(clean, dropped){
+        generating = false; generatedScripts = clean; renderGenScripts();
+        var msg = clean.length ? (clean.length + " script" + (clean.length === 1 ? "" : "s") + " from your brief" + (dropped ? " (" + dropped + " dropped for breaking a rule)" : "") + ". Save the ones you want.")
+                               : "Every draft broke a rule and was dropped. Try again.";
+        genStatus(msg, clean.length ? "var(--green)" : "var(--red)");
+      });
+    });
+  }
+  function lead0(ctx){ return ctx.leadPain ? ctx.leadPain.value : ""; }
+  function scriptCard(s){
+    var card = document.createElement("div"); card.style.cssText = "background:var(--panel,var(--surface));border:1px solid var(--border-md);border-radius:14px;padding:16px 18px;margin-bottom:12px;";
+    [["Hook","hook"],["Setup","body1"],["Objection turn","preclose"],["Payoff","body2"],["CTA","cta"]].forEach(function(p){
+      if (!s[p[1]]) return;
+      var lbl = document.createElement("div"); lbl.style.cssText = "font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:8px 0 2px;"; lbl.textContent = p[0]; card.appendChild(lbl);
+      var v = document.createElement("div"); v.style.cssText = "font-size:14px;line-height:1.55;color:var(--white);white-space:pre-wrap;"; v.textContent = s[p[1]]; card.appendChild(v);
+    });
+    var row = document.createElement("div"); row.style.cssText = "display:flex;gap:8px;margin-top:12px;";
+    var save = document.createElement("button"); save.type = "button"; save.textContent = "Save to scripts";
+    save.style.cssText = "background:var(--purple);border:none;border-radius:8px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:700;padding:8px 14px;cursor:pointer;";
+    save.addEventListener("click", function(){
+      if (typeof saveScriptToCloud !== "function"){ return; }
+      saveScriptToCloud({ hook: s.hook, body1: s.body1, body2: s.body2, cta: s.cta, preclose: s.preclose, angle: s.angle, desire: s.desire }, function(){ save.textContent = "Saved ✓"; save.disabled = true; save.style.opacity = ".6"; save.style.cursor = "default"; });
+    });
+    row.appendChild(save); card.appendChild(row);
+    return card;
+  }
+  function renderGenScripts(){
+    var host = el("genScripts"); if (!host) return;
+    host.innerHTML = "";
+    // The brief is the source, so generation only appears once a brief has been built. Never gated on a
+    // COMPLETE brief -- a thin brief still generates.
+    if (!brief || !brief.meta || !brief.meta.lastDerivedAt) return;
+    var head = document.createElement("div"); head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:10px;";
+    var btn = document.createElement("button"); btn.type = "button";
+    btn.textContent = generating ? "Writing scripts..." : (generatedScripts.length ? "Generate again" : "Generate scripts");
+    btn.disabled = generating;
+    btn.style.cssText = "background:" + (generating ? "var(--surface)" : "var(--gold)") + ";border:none;border-radius:10px;color:" + (generating ? "var(--white)" : "#080808") + ";font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:700;padding:11px 18px;cursor:" + (generating ? "default" : "pointer") + ";opacity:" + (generating ? ".6" : "1") + ";";
+    btn.addEventListener("click", generateScripts);
+    head.appendChild(btn); host.appendChild(head);
+    var stat = document.createElement("div"); stat.id = "genStatus"; stat.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:10px;display:none;line-height:1.5;"; host.appendChild(stat);
+    generatedScripts.forEach(function(s){ host.appendChild(scriptCard(s)); });
   }
 
   function init(){

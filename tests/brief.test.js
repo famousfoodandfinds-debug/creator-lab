@@ -486,5 +486,114 @@ ok(B.revertFeature(fa, 1).features.length === 1, 'revertFeature: an added featur
 // a locked feature is preserved by mergeIncremental (never dropped by a rebuild's dedup)
 ok(B.mergeIncremental(fa, { features: [{ feature: 'a new derived feature', benefit: 'x' }] }, {}).features.some(f => f.added && f.feature === 'dishwasher safe'), 'feature: my added feature survives a rebuild');
 
+// 18. generation adapter (Phase 5 step 1a): brief -> flat context with a DEFAULT focus.
+let gcBrief = B.emptyBrief();
+gcBrief.meta.reviewCount = 22;
+gcBrief.lines.who = B.normalizeBrief({lines:{who:{value:'busy parents', words:['no time','exhausted']}}}).lines.who;
+gcBrief.lines.emotion = B.normalizeBrief({lines:{emotion:{value:'overwhelmed'}}}).lines.emotion;
+gcBrief.lines.desire = B.normalizeBrief({lines:{desire:{value:'a calm kitchen'}}}).lines.desire;
+gcBrief.lines.pains = B.normalizeBrief({lines:{pains:[
+  {value:'knives dull fast', count:4, words:['goes dull'], claims:['ruined my tomatoes']},
+  {value:'blocks wear out', count:9, words:['fell apart']}
+]}}).lines.pains;
+gcBrief.lines.objections = B.normalizeBrief({lines:{objections:[
+  {value:'too pricey', count:2, words:['not worth it']},
+  {value:'will it fit my drawer', count:6, words:['drawer']}
+]}}).lines.objections;
+gcBrief.features = [{feature:'German steel', benefit:'holds an edge'}];
+let gctx = B.briefToGenContext(gcBrief, { description: 'a knife set', winningAngles: [] });
+ok(gctx.who === 'busy parents' && gctx.desire === 'a calm kitchen', 'adapter: single lines carried across');
+ok(gctx.leadPain && gctx.leadPain.value === 'blocks wear out', 'adapter: default lead pain is the HIGHEST-count pain (9 > 4)');
+ok(gctx.defuseObjection && gctx.defuseObjection.value === 'will it fit my drawer', 'adapter: default defuse objection is the highest-count objection (6 > 2)');
+ok(gctx.pains.length === 2 && gctx.features.length === 1, 'adapter: lists and features carried');
+// compliance split preserved: words are safe, claims are separate
+let leadForClaims = gctx.pains.find(p => p.value === 'knives dull fast');
+ok(leadForClaims.words.join() === 'goes dull' && leadForClaims.claims.join() === 'ruined my tomatoes', 'adapter: buyer LANGUAGE and buyer CLAIMS stay separated (compliance)');
+// an added (mine) line never leads by default: count 0 sinks below evidence-backed findings
+let gcAdded = B.addListItem(gcBrief, 'pains', 'my own hand-added pain');
+let gctx2 = B.briefToGenContext(gcAdded, {});
+ok(gctx2.leadPain.value === 'blocks wear out', 'adapter: an added (count 0) line never becomes the default lead');
+// empty brief -> safe empty context, no throw, no default focus
+let gce = B.briefToGenContext(B.emptyBrief(), B.emptyRaw());
+ok(gce.leadPain === null && gce.defuseObjection === null && gce.pains.length === 0, 'adapter: empty brief yields a safe empty context');
+
+// 19. script validator (Phase 5 guard): prompt rules were not enforcing the hard bans, so every generated
+// script is checked in code -- a violation regenerates it, a second failure drops it. Must catch the exact
+// misses the owner saw in the browser.
+let clean = { hook: "Your fur baby isn't the problem, it's your vacuum", body1: "You chase the same corner over and over", preclose: "Pull the filter, tap it out, and it breathes again", body2: "The floor stays clear and you move on", cta: "Grab yours from the orange cart" };
+ok(B.scriptViolations(clean, { priceAllowed: false }).length === 0, 'validator: a clean script (no figures, no bans) passes');
+ok(B.scriptViolations({ preclose: "Shark's customer service will point you to the right one" }, {}).indexOf("company") >= 0, 'validator: catches company customer-service defuse');
+ok(B.scriptViolations({ body2: "the warranty covers it and returns are easy" }, {}).indexOf("company") >= 0, 'validator: catches warranty/returns');
+ok(B.scriptViolations({ preclose: "The price is hard to justify at first" }, { priceAllowed: false }).indexOf("price") >= 0, 'validator: catches invented price doubt');
+ok(B.scriptViolations({ preclose: "It costs less than what you already waste" }, { priceAllowed: true }).indexOf("price") < 0, 'validator: price allowed when price IS an objection');
+ok(B.scriptViolations({ body1: "It shuts off and the plant is dead by morning" }, {}).indexOf("moderation") >= 0, 'validator: catches a moderation word (dead)');
+ok(B.scriptViolations({ body2: "so good I use it every single day now" }, {}).indexOf("ownership") >= 0, 'validator: catches first-person ownership (I use)');
+ok(B.scriptViolations({ preclose: "my wrist finally stopped aching" }, {}).indexOf("ownership") >= 0, 'validator: catches ownership possessive (my)');
+ok(B.scriptViolations({ hook: "It shouldn't take 15 minutes — set up your vacuum" }, {}).indexOf("em-dash") >= 0, 'validator: flags an em dash');
+// the hook may confess with "I"; ownership check is body-only
+ok(B.scriptViolations({ hook: "I almost talked myself out of this", body1: "You clean the corner over and over", preclose: "Tap the filter out and it breathes again", body2: "The floor stays clear", cta: "Grab one today" }, {}).indexOf("ownership") < 0, 'validator: a confession hook with "I" is allowed (ownership is body-only)');
+// batch repetition: same objection-turn opening or near-identical CTA
+let acc = [{ preclose: "Pull the filter and tap it out", cta: "Grab yours from the orange cart" }];
+ok(B.scriptRepeats({ preclose: "Pull the filter, then wipe the housing", cta: "Get one before they sell out" }, acc) === true, 'repeats: same first words of the objection turn is a repeat');
+ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Grab yours from the orange cart today" }, acc) === true, 'repeats: near-identical CTA opening is a repeat');
+ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Add it to your cart now" }, acc) === false, 'repeats: a genuinely different turn and CTA passes');
+
+// 20. asserted-number quarantine: ANY specific figure in the SCRIPT is caught, whether it came from the
+// seller, a buyer, or was invented -- the creator measured none of them. This is the fix for figures that
+// slipped because they were fabricated (not in the source) or in a form the extractor missed.
+ok(B.numberUnits("It's ready every six or seven minutes").indexOf("six or seven minutes") >= 0, 'numberUnits: word-form range');
+ok(B.numberUnits("survives 90-degree heat").length > 0, 'numberUnits: hyphenated 90-degree (was missed)');
+ok(B.numberUnits("descale it once a month").length > 0, 'numberUnits: frequency "once a month" (was missed)');
+ok(B.numberUnits("five minutes and done").length > 0, 'numberUnits: plain "five minutes"');
+ok(B.numberUnits("grab a second one today").length === 0, 'numberUnits: "a second one" is an ordinal, not a figure');
+ok(B.scriptViolations({ body1: "It's ready every six or seven minutes" }, {}).indexOf("asserted-number") >= 0, 'validator: catches the exact ice-maker miss (six or seven minutes)');
+ok(B.scriptViolations({ hook: "Your patio survives 90-degree heat" }, {}).indexOf("asserted-number") >= 0, 'validator: catches a FABRICATED figure not in any source (90-degree)');
+ok(B.scriptViolations({ preclose: "Descale it once a month and forget it" }, {}).indexOf("asserted-number") >= 0, 'validator: catches a fabricated frequency (once a month)');
+ok(B.scriptViolations({ body1: "Fresh ice before your coffee even brews" }, {}).indexOf("asserted-number") < 0, 'validator: a script with no figure passes');
+// moderation: the past tense "died" was slipping through
+ok(B.scriptViolations({ hook: "Your last machine died on you" }, {}).indexOf("moderation") >= 0, 'validator: catches "died" (past tense was missed)');
+ok(B.scriptViolations({ hook: "It kills the mess in seconds" }, {}).indexOf("moderation") >= 0, 'validator: catches "kills"');
+
+// 21. broadened company net + verbatim-lift + code grounding (the exact misses in the ice-maker batch).
+ok(B.scriptViolations({ preclose: "The maker stood behind it when the first unit had issues" }, {}).indexOf("company") >= 0, 'validator: catches "the maker stood behind it" (was slipping through)');
+ok(B.scriptViolations({ preclose: "If anything goes wrong they make it right fast" }, {}).indexOf("company") >= 0, 'validator: catches "they make it right"');
+ok(B.scriptViolations({ hook: "This little ice maker lives on your counter" }, {}).indexOf("company") < 0, 'validator: "ice maker" is NOT a company hit (bare maker avoided)');
+ok(B.scriptViolations({ hook: "The first batch of cubes that drop are always smaller" }, { reviewsText: "honestly the first batch of cubes that drop are always smaller and watery" }).indexOf("lifted") >= 0, 'validator: catches a review sentence lifted verbatim');
+ok(B.scriptViolations({ hook: "Your morning ice should not taste like effort" }, { reviewsText: "the first batch of cubes that drop are always smaller" }).indexOf("lifted") < 0, 'validator: an original line is not a lift');
+// groundedFindings: a classified brief drops derived 0/0 findings but keeps evidence-backed, comment-only, and user lines
+let gf = [
+  B.normalizeBrief({lines:{objections:[{value:'real objection', count:4}]}}).lines.objections[0],
+  B.normalizeBrief({lines:{objections:[{value:'invented, no evidence', count:0, ccount:0}]}}).lines.objections[0],
+  B.normalizeBrief({lines:{objections:[{value:'from the comments', count:0, ccount:3}]}}).lines.objections[0],
+  B.normalizeBrief({lines:{objections:[{value:'my own line', count:0, ccount:0, added:true}]}}).lines.objections[0]
+];
+let gfOut = B.groundedFindings(gf, true).map(o=>o.value);
+ok(gfOut.indexOf('invented, no evidence') < 0, 'groundedFindings: drops a derived 0-review 0-comment finding');
+ok(gfOut.indexOf('real objection') >= 0 && gfOut.indexOf('from the comments') >= 0 && gfOut.indexOf('my own line') >= 0, 'groundedFindings: keeps evidence-backed, comment-only, and added lines');
+ok(B.groundedFindings(gf, false).length === 4, 'groundedFindings: an UNclassified brief drops nothing (counts not trustworthy yet)');
+
+// groundedObjections: the mechanical defusable pool for generation. >=2 reviews OR >=2 comments OR owner-added.
+let goHeavy = { value: 'battery only lasts', count: 6, ccount: 0, added: false };
+let goComment = { value: 'raised in comments', count: 0, ccount: 3, added: false };
+let goAdded = { value: 'owner added this', count: 0, ccount: 0, added: true };
+let goOneReview = { value: 'one lonely mention', count: 1, ccount: 0, added: false };
+let goZero = { value: 'not counted in the reviews', count: 0, ccount: 0, added: false };
+let goOneComment = { value: 'single comment only', count: 0, ccount: 1, added: false };
+let goPool = B.groundedObjections([goZero, goOneReview, goComment, goHeavy, goAdded, goOneComment]).map(o => o.value);
+ok(goPool.indexOf('battery only lasts') >= 0, 'groundedObjections: keeps a >=2-review objection');
+ok(goPool.indexOf('raised in comments') >= 0, 'groundedObjections: keeps a >=2-comment objection');
+ok(goPool.indexOf('owner added this') >= 0, 'groundedObjections: keeps an owner-added objection');
+ok(goPool.indexOf('one lonely mention') < 0, 'groundedObjections: drops a 1-of-N non-issue (count 1)');
+ok(goPool.indexOf('single comment only') < 0, 'groundedObjections: drops a lone-comment objection (ccount 1)');
+ok(goPool.indexOf('not counted in the reviews') < 0, 'groundedObjections: drops the ice-maker case (0 reviews, 0 comments)');
+ok(goPool[0] === 'battery only lasts', 'groundedObjections: sorted heaviest first');
+// The ice-maker batch: EVERY objection reads "not counted" -> empty pool, so no script manufactures one.
+ok(B.groundedObjections([goZero, goOneReview, goOneComment]).length === 0, 'groundedObjections: all-ungrounded -> empty pool (no manufactured fallback)');
+ok(B.groundedObjections([]).length === 0, 'groundedObjections: empty in, empty out');
+// Cap at 5 so a giant brief never floods the batch.
+let goMany = [];
+for (let i = 0; i < 9; i++) goMany.push({ value: 'obj ' + i, count: 9 - i, ccount: 0, added: false });
+ok(B.groundedObjections(goMany).length === 5, 'groundedObjections: caps the pool at 5');
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
