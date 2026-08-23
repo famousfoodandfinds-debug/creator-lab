@@ -550,6 +550,17 @@ ok(B.scriptViolations({ body1: "It's ready every six or seven minutes" }, {}).in
 ok(B.scriptViolations({ hook: "Your patio survives 90-degree heat" }, {}).indexOf("asserted-number") >= 0, 'validator: catches a FABRICATED figure not in any source (90-degree)');
 ok(B.scriptViolations({ preclose: "Descale it once a month and forget it" }, {}).indexOf("asserted-number") >= 0, 'validator: catches a fabricated frequency (once a month)');
 ok(B.scriptViolations({ body1: "Fresh ice before your coffee even brews" }, {}).indexOf("asserted-number") < 0, 'validator: a script with no figure passes');
+// PROVENANCE: a figure in the LISTING is a verifiable spec and is allowed; review-only or invented is blocked.
+let listing = "Makes up to 33 pounds of ice a day. Holds 25 ounces. Measures 26 inches deep.";
+ok(B.scriptViolations({ body1: "It quietly makes 33 pounds of ice a day" }, { listingText: listing }).indexOf("asserted-number") < 0, 'validator: a listing spec (33 pounds a day) is ALLOWED');
+ok(B.scriptViolations({ hook: "Holds 25 ounces so it lasts", body2: "and it is 26 inches deep" }, { listingText: listing }).indexOf("asserted-number") < 0, 'validator: multiple listing specs (25 ounces, 26 inches) allowed');
+ok(B.scriptViolations({ body1: "It's ready every six or seven minutes" }, { listingText: listing }).indexOf("asserted-number") >= 0, 'validator: a REVIEW-only figure is blocked even with a listing (six or seven minutes not in listing)');
+ok(B.scriptViolations({ hook: "It survives 90-degree heat" }, { listingText: listing }).indexOf("asserted-number") >= 0, 'validator: an INVENTED figure is blocked even with a listing (90-degree not in listing)');
+ok(B.scriptViolations({ body1: "It makes 33 pounds a day and chills in 5 minutes" }, { listingText: listing }).indexOf("asserted-number") >= 0, 'validator: one allowed + one invented figure -> still flagged (5 minutes not in listing)');
+ok(B.scriptViolations({ cta: "You get 20 percent more ice" }, { listingText: "20 percent more efficient than the last model" }).indexOf("asserted-number") >= 0, 'validator: percent is blocked REGARDLESS of the listing');
+ok(B.scriptViolations({ cta: "Grab it for just $40 today" }, {}).indexOf("price") >= 0, 'validator: a currency figure ($40) is blocked as price');
+ok(B.scriptViolations({ cta: "Only 40 bucks right now" }, {}).indexOf("price") >= 0, 'validator: "40 bucks" is blocked as price');
+ok(B.scriptViolations({ body2: "The ice is ready before you know it" }, { listingText: listing }).indexOf("asserted-number") < 0, 'validator: a figure-free script with a listing still passes');
 // moderation: the past tense "died" was slipping through
 ok(B.scriptViolations({ hook: "Your last machine died on you" }, {}).indexOf("moderation") >= 0, 'validator: catches "died" (past tense was missed)');
 ok(B.scriptViolations({ hook: "It kills the mess in seconds" }, {}).indexOf("moderation") >= 0, 'validator: catches "kills"');
