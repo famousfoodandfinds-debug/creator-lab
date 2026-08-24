@@ -15581,41 +15581,56 @@ function genOneScript(opts){
   // Human labels for the guard codes, used when a drop has to be explained to the owner.
   var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", lifted: "lifted review line", repetition: "repeated opening" };
   function fmtDrops(codes){ return Object.keys(codes || {}).map(function(c){ return (GUARD_LABELS[c] || c) + ((codes[c] | 0) > 1 ? " x" + codes[c] : ""); }).join(", "); }
+  // A thrown error anywhere on the Generate path must SURFACE, not stall. The crash that took production down
+  // was a ReferenceError before the model call ever fired, so the spinner spun forever and the never-empty
+  // net never ran. Every layer below (sync setup, the model-call callback, the validate callback) is wrapped
+  // so any throw clears the spinner and shows a visible message instead of a silent hang.
+  function genFail(e){
+    generating = false;
+    try { renderGenScripts(); } catch (_e) {}
+    genStatus("Generation hit an error and stopped: " + ((e && e.message) ? e.message : String(e)) + ". Nothing was saved. Please send me this message.", "var(--red)");
+  }
   function generateScripts(){
     if (generating) return;
     if (!brief.meta.lastDerivedAt){ genStatus("Build the brief first, then generate.", "var(--red)"); return; }
     generating = true; renderGenScripts();
-    var ctx = SB.briefToGenContext(brief, raw);
-    var reviewsText = (raw.reviews || []).map(function(r){ return String(r.full || r.quote || ""); }).join(" ");
-    // The listing is the product's verifiable spec sheet: the raw description plus the brief's features (which
-    // are seller specs lifted from the listing). Figures found here are allowed in a script; everything else
-    // (review-only or invented) is blocked. This is what lets "makes 33 pounds a day" through.
-    var listingText = [str(ctx.description)].concat((ctx.features || []).map(function(f){ return (f.feature || "") + " " + (f.benefit || ""); })).join(" ");
-    var guardOpts = {
-      priceAllowed: ctx.objections.some(function(o){ return /\b(price|cost)\b/i.test(o.value); }),
-      reviewsText: reviewsText,
-      listingText: listingText
-    };
-    claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
-      if (err){ generating = false; renderGenScripts(); genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + "). Nothing was lost.", "var(--red)"); return; }
-      var out = parseJson(text, "[", "]");
-      if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
-      genStatus("Checking each script against the hard rules...");
-      validateBatch(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), function(clean, dropped, dropCodes){
-        generating = false;
-        if (clean.length){
-          generatedScripts = clean; renderGenScripts();
-          genStatus(clean.length + " script" + (clean.length === 1 ? "" : "s") + " from your brief" + (dropped ? " (" + dropped + " dropped: " + fmtDrops(dropCodes) + ")" : "") + ". Save the ones you want.", "var(--green)");
-        } else {
-          // NEVER an empty screen. If every draft was flagged, show the drafts anyway (dashes stripped,
-          // finalized) with a warning naming the guards -- producing nothing is worse than a flagged script.
-          // A whole batch flagged almost always means a rule is too strict, not that the brief is wrong.
-          var drafts = out.slice(0, GEN_COUNT).map(function(o){ return finalizeScript(cleanScript(o), ctx); });
-          generatedScripts = drafts; renderGenScripts();
-          genStatus("Showing " + drafts.length + " unverified draft" + (drafts.length === 1 ? "" : "s") + " -- the guards flagged " + fmtDrops(dropCodes) + ", so read them before posting. A whole batch flagged usually means a rule is too strict, not your brief.", "var(--red)");
-        }
+    try {
+      var ctx = SB.briefToGenContext(brief, raw);
+      var reviewsText = (raw.reviews || []).map(function(r){ return String(r.full || r.quote || ""); }).join(" ");
+      // The listing is the product's verifiable spec sheet: the raw description plus the brief's features (which
+      // are seller specs lifted from the listing). Figures found here are allowed in a script; everything else
+      // (review-only or invented) is blocked. This is what lets "makes 33 pounds a day" through.
+      var listingText = [(ctx.description || "")].concat((ctx.features || []).map(function(f){ return (f.feature || "") + " " + (f.benefit || ""); })).join(" ");
+      var guardOpts = {
+        priceAllowed: ctx.objections.some(function(o){ return /\b(price|cost)\b/i.test(o.value); }),
+        reviewsText: reviewsText,
+        listingText: listingText
+      };
+      claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
+        try {
+          if (err){ generating = false; renderGenScripts(); genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + "). Nothing was lost.", "var(--red)"); return; }
+          var out = parseJson(text, "[", "]");
+          if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
+          genStatus("Checking each script against the hard rules...");
+          validateBatch(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), function(clean, dropped, dropCodes){
+            try {
+              generating = false;
+              if (clean.length){
+                generatedScripts = clean; renderGenScripts();
+                genStatus(clean.length + " script" + (clean.length === 1 ? "" : "s") + " from your brief" + (dropped ? " (" + dropped + " dropped: " + fmtDrops(dropCodes) + ")" : "") + ". Save the ones you want.", "var(--green)");
+              } else {
+                // NEVER an empty screen. If every draft was flagged, show the drafts anyway (dashes stripped,
+                // finalized) with a warning naming the guards -- producing nothing is worse than a flagged script.
+                // A whole batch flagged almost always means a rule is too strict, not that the brief is wrong.
+                var drafts = out.slice(0, GEN_COUNT).map(function(o){ return finalizeScript(cleanScript(o), ctx); });
+                generatedScripts = drafts; renderGenScripts();
+                genStatus("Showing " + drafts.length + " unverified draft" + (drafts.length === 1 ? "" : "s") + " -- the guards flagged " + fmtDrops(dropCodes) + ", so read them before posting. A whole batch flagged usually means a rule is too strict, not your brief.", "var(--red)");
+              }
+            } catch (e2){ genFail(e2); }
+          });
+        } catch (e1){ genFail(e1); }
       });
-    });
+    } catch (e0){ genFail(e0); }
   }
   function lead0(ctx){ return ctx.leadPain ? ctx.leadPain.value : ""; }
   function scriptCard(s){
@@ -15672,7 +15687,7 @@ function genOneScript(opts){
     if (el("homePickerSearch")) el("homePickerSearch").addEventListener("input", function(){ renderHomePicker(this.value); });
   }
   // Export FIRST, so a throw inside init() can never leave window.ProductScreen undefined.
-  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome, openPicker: openPicker };
+  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome, openPicker: openPicker, generateScripts: generateScripts };
   function safeInit(){ try { init(); } catch(e){ if (window.console) console.error("ProductScreen init failed", e); } }
   if (document.readyState !== "loading") safeInit(); else document.addEventListener("DOMContentLoaded", safeInit);
 })();
