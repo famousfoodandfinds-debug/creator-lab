@@ -14322,12 +14322,16 @@ function genOneScript(opts){
     // is pure downside -- it silently nuked whole batches on review-only products that have no listing text
     // (the ice maker). Percent is always blocked: that is a claim/price rule, not a provenance question.
     var listingText = str(opts.listingText).trim();
-    var allowedFig = {};
-    if (listingText) numberUnits(listingText).forEach(function(f){ allowedFig[f] = true; });
+    var listNums = listingText ? numbersIn(listingText) : null;   // every number the listing states (any unit)
     var badFigure = false;
     numberUnits(whole).forEach(function(fig){
       if (/percent|%/.test(fig)) { badFigure = true; return; }     // percent: always blocked
-      if (listingText && !allowedFig[fig]) badFigure = true;       // listing present: block anything not in it
+      if (!listNums) return;                                       // no listing: cannot judge provenance, allow
+      // A figure is allowed only if EVERY number in it is one the listing states. Match on the number, not
+      // the unit word, so "33 pounds" clears against listing "33 lbs" and a review figure ("six or seven
+      // minutes") whose numbers are absent from the listing is still blocked.
+      var figNums = Object.keys(numbersIn(fig));
+      if (!figNums.every(function(n){ return listNums[n]; })) badFigure = true;
     });
     if (badFigure) v.push("asserted-number");
     // Verbatim lifting: buyer phrases are for wording, not for copying a whole review sentence into a line.
@@ -14351,6 +14355,17 @@ function genOneScript(opts){
     // "six or seven minutes", "90-degree heat", "once a month" and "five times a day" all match.
     var re = new RegExp("\\b" + NW + "(?:\\s*(?:or|to|and)\\s*" + NW + ")*(?:\\s+(?:a|per))?[\\s-]?" + U + "\\b", "gi"), out = [], m;
     while ((m = re.exec(str(text)))) out.push(m[0].toLowerCase().replace(/\s+/g, " ").trim());
+    return out;
+  }
+  // Every numeric VALUE in a block of text, as canonical strings -- digits ("16.33", "33") and word forms
+  // ("six" -> "6"). Provenance is judged by NUMBER, not by the unit spelling: the listing "33 lbs per 24
+  // hours" must allow a script's "33 pounds a day" (same number, reworded unit), and a dimension list like
+  // "16.33 x 6.7 x 13.58 inches" must contribute all three numbers even though only one sits next to a unit.
+  var WORD_NUM = { once:"1", twice:"2", one:"1", two:"2", three:"3", four:"4", five:"5", six:"6", seven:"7", eight:"8", nine:"9", ten:"10", eleven:"11", twelve:"12", thirteen:"13", fourteen:"14", fifteen:"15", sixteen:"16", seventeen:"17", eighteen:"18", nineteen:"19", twenty:"20", thirty:"30", forty:"40", fifty:"50", sixty:"60", seventy:"70", eighty:"80", ninety:"90", hundred:"100" };
+  function numbersIn(text){
+    var out = {}, t = str(text).toLowerCase();
+    (t.match(/\d[\d.,]*/g) || []).forEach(function(n){ n = n.replace(/,/g, "").replace(/\.+$/, ""); if (n) out[n] = true; });
+    t.replace(/[^a-z ]/g, " ").split(/\s+/).forEach(function(w){ if (WORD_NUM[w]) out[WORD_NUM[w]] = true; });
     return out;
   }
   // Grounding, enforced in code (a prompt rule alone let invented objections through): once the brief is
@@ -14435,6 +14450,7 @@ function genOneScript(opts){
     scriptViolations: scriptViolations,
     scriptRepeats: scriptRepeats,
     numberUnits: numberUnits,
+    numbersIn: numbersIn,
     groundedFindings: groundedFindings,
     groundedObjections: groundedObjections
   };
@@ -14451,7 +14467,7 @@ function genOneScript(opts){
   var raw = SB.emptyRaw();
   var brief = SB.emptyBrief();          // derived, light column; loaded on open, rebuilt by deriveBrief
   var deriving = false;                 // guards the derive button against double-fire
-  var DERIVE_PROMPT_V = "brief-derive-6";   // reviews-primary framing + no invented objections
+  var DERIVE_PROMPT_V = "brief-derive-7";   // features are seller-listing specs only, never a reviewer's figure
   var DERIVE_BATCH = 8;                 // reviews per derivation call -- smaller so each call stays inside
   var DERIVE_REVIEW_CHARS = 2000;       // Netlify's ~26s sync gateway even with the larger per-review excerpt
   var DERIVE_MODEL = "claude-haiku-4-5-20251001"; // fast enough not to hit the gateway 504
@@ -14878,7 +14894,8 @@ function genOneScript(opts){
       "- pains = a complaint about how the product actually PERFORMS or holds up in use (rusts, stops working, wears out). objections = a hesitation, doubt, risk, or QUESTION about buying (would it be worth it, will it fit, is it durable, is the info clear, will the colour match). Put each concept in ONE of the two, never both. A positive or a reason they DID buy is NOT an objection.",
       "- The COMPETITOR / VIRAL-VIDEO COMMENTS above come from people reacting to a video, most of whom have NOT bought. Doubts they raise -- unclear or missing product information, colours or looks not matching what they already own, price worry, whether it will fit or suit them -- are OBJECTIONS, not pains. Only call something a pain when someone describes the product actually failing or wearing out in hand. When the source is a comment and you are unsure, prefer objection.",
       "- pains and objections are arrays; return AT MOST 4 distinct items each, most-common first.",
-      "- who, emotion, desire, pains, objections, socialProof, priceAnchor and ALL words come from the REVIEWS and COMMENTS only. features come from the listing. NEVER fill a buyer-psychology line or a buyer word from the seller listing.",
+      "- who, emotion, desire, pains, objections, socialProof, priceAnchor and ALL words come from the REVIEWS and COMMENTS only. features come from the SELLER LISTING only. NEVER fill a buyer-psychology line or a buyer word from the seller listing.",
+      "- A feature is a spec the SELLER states in the listing (a size, capacity, material, wattage). NEVER put a figure a REVIEWER gave about their own unit into features -- 'makes ice every six or seven minutes' is one buyer's timing of their machine, not a listed spec, so it is not a feature. If a number is not in the seller listing, it does not belong in the features list.",
       "- Every pain and objection MUST be something a reviewer or commenter actually said or plainly implied. If the reviews do not raise it, leave it out. NEVER invent an objection the reviews do not contain (for example a price-versus-bagged-ice comparison no one wrote). A specific complaint a reviewer made (watery first ice, slow to fill, awkward drain, noisy) belongs in pains, in their words.",
       "- Customer service, warranty, returns, refunds, or the seller/maker standing behind the product are NEVER pains or objections -- they are about the company, not the product. Leave them out entirely, even when a review praises the seller. The brief is about the product and the buyer, never the company.",
       "- Keep every value under 15 words. Return AT MOST 5 features.",
@@ -15520,8 +15537,8 @@ function genOneScript(opts){
         line += "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
         line += "\n  PRE-CLOSE DEFUSES THIS OBJECTION AND NO OTHER: " + o.value + (o.words.length ? " (viewer's words: " + o.words.join(", ") + ")" : "");
       } else {
-        line += "\n  NO OBJECTION TO DEFUSE (the brief has no grounded objection left for this script): do NOT write a pre-close objection turn, leave preclose empty (\"\"), and close another way.";
-        line += "\n  CLOSE MODE: " + CLOSE_MODES[(i - objPool.length) % CLOSE_MODES.length];
+        line += "\n  NO OBJECTION TO DEFUSE (the brief has no grounded objection left for this script): do NOT write a pre-close objection turn, leave preclose empty (\"\"). body2 stays the payoff. The close mode lands in the CTA ONLY -- one ending, never a close in body2 and again in the cta.";
+        line += "\n  CLOSE MODE (goes in the CTA): " + CLOSE_MODES[(i - objPool.length) % CLOSE_MODES.length];
       }
       L.push(line);
     });
@@ -15538,10 +15555,10 @@ function genOneScript(opts){
     L.push("STAY WITH WHAT IT IS -- never escalate a seller claim (if the listing says \"no scratches,\" you may not say \"wrecks your blender\"). Speak to what the product plainly is and what the buyer felt.");
     L.push("LENGTH: aim the WHOLE script -- hook through CTA -- at about 60 to 110 spoken words, a finished video of 25 to 45 seconds. Let the sections balance within that budget and land all four scripts at a similar total length. No hard per-section word count.");
     L.push("SETUP (body1): one specific moment, jump straight to the feeling. Do not restate the hook, and let the objection turn do DIFFERENT work than the setup.");
-    L.push("PRE-CLOSE: only the scripts with an assigned objection write one -- one sentence, a statement not a question, doing DIFFERENT work than the setup, defusing that script's assigned objection and no other. A script with a CLOSE MODE instead leaves preclose empty and carries its close in body2 and the cta; never invent an objection just to have a pre-close.");
+    L.push("PRE-CLOSE: only the scripts with an assigned objection write one -- one sentence, a statement not a question, doing DIFFERENT work than the setup, defusing that script's assigned objection and no other. A script with a CLOSE MODE instead leaves preclose empty; its body2 stays the payoff and the close lands in the CTA only, so the script has ONE ending, not two. Never invent an objection just to have a pre-close.");
     L.push("OVERCOME OBJECTIONS INSIDE THE PRODUCT: when a script does defuse an objection, answer it with the product and how it is USED -- something the viewer can do or see for themselves (the model is the filter: same battery doubt, but the fix is a quick thing the viewer does). Answer inside the product, never by pointing at the company behind it.");
     L.push("");
-    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the tight setup; preclose = the assigned objection turn, or "" when the script has a CLOSE MODE instead of an objection; body2 = the desire/payoff, or the gift/identity or scarcity close for a close-mode script (describe the moment, do not say "you become the person who"); cta = the shopping-button call to action, echoing the hook. Keep every script tight and speakable. No em dashes.');
+    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the tight setup; preclose = the assigned objection turn, or "" when the script has a CLOSE MODE instead of an objection; body2 = the desire/payoff for EVERY script (describe the moment, do not say "you become the person who"); it is never a gift or scarcity close; cta = the shopping-button call to action -- for an objection script it echoes the hook, for a close-mode script it IS the gift/identity or scarcity close. Keep every script tight and speakable. No em dashes.');
     return L.join("\n");
   }
   // Ask for ONE script rewritten -- reuses the full batch prompt (all context + this script's assignment +
