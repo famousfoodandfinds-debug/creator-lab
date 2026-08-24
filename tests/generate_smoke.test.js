@@ -30,12 +30,13 @@ const document = {
 };
 global.setTimeout = function(fn){ try { fn(); } catch(e){} };
 
-// Four clean scripts (no figure, no banned word) so validateBatch accepts all without a regen call.
+// Four clean scripts. One asserts a LISTING figure ("33 pounds a day", listing says "33 lbs per 24 hours")
+// to guard the provenance wiring bug end to end: it must be ACCEPTED, not dropped as an unverifiable figure.
 const SCRIPTS = [
-  { hook:"Your floor deserves better than this", body1:"You keep sweeping the same corner", preclose:"The brush lifts what a broom leaves behind", body2:"The room finally feels clean", cta:"Grab yours before they go" },
-  { hook:"Somehow the mess keeps coming back", body1:"You wipe it and it returns fast", preclose:"One pass and the dust is gone", body2:"You get your evening back", cta:"Tap the link to try it" },
-  { hook:"There is a reason this stays out", body1:"You reach for it every single day", preclose:"It tucks away without a fight", body2:"Your space stays effortless now", cta:"Check it out right here" },
-  { hook:"Cleaning should not feel like a chore", body1:"You dread the weekend scrub", preclose:"A quick glide and it is done", body2:"You enjoy the result now", cta:"See it on the shop page" }
+  { hook:"Your drink deserves better than this", body1:"You keep chewing weak hollow cubes", preclose:"The nugget ice is soft and craveable", body2:"It makes 33 pounds of ice a day", cta:"Grab yours before they go" },
+  { hook:"Somehow the ice runs out too fast", body1:"You refill the tray again and again", preclose:"One tank keeps the glasses full", body2:"You host without a second thought", cta:"Tap the link to try it" },
+  { hook:"There is a reason this stays out", body1:"You reach for it every single day", preclose:"It tucks into a small corner", body2:"Your counter stays effortless now", cta:"Check it out right here" },
+  { hook:"Cold drinks should not feel like work", body1:"You dread the empty freezer tray", preclose:"A quiet cycle and it is done", body2:"You enjoy the crunch now", cta:"See it on the shop page" }
 ];
 let fetchCalls = 0;
 const fetchStub = function(){
@@ -62,14 +63,16 @@ const PS = win.ProductScreen;
 let pass = 0, fail = 0; function ok(c,m){ if(c) pass++; else { fail++; console.log('  ✗ ' + m); } }
 ok(typeof PS.generateScripts === 'function', 'generateScripts is exported for testing');
 
-// A DERIVED brief with a pain and a grounded objection, and NO listing (exercises the no-listing figure path).
+// A DERIVED brief WITH a listing (features carry the seller specs, as on the real product) so the provenance
+// guard has a source of truth -- this is the case that was failing closed and dropping every figure.
 let brief = SB.emptyBrief();
 brief.meta.lastDerivedAt = '2026-01-01T00:00:00Z';
 brief.meta.reviewCount = 12;
-brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'floor never stays clean', count:6, classified:true}]}}).lines.pains;
-brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it loses suction', count:4, classified:true}]}}).lines.objections;
-let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'it works great on pet hair' }];
-const product = { id:'p1', name:'Vacuum', updated_at:'2026-01-01T00:00:00Z', brief:brief, raw:raw };
+brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out too fast', count:6, classified:true}]}}).lines.pains;
+brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true}]}}).lines.objections;
+brief.features = SB.normalizeBrief({features:[{feature:'makes 33 lbs per 24 hours', benefit:'plenty of ice'}, {feature:'1.8 L tank', benefit:'fewer refills'}]}).features;
+let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'the nugget ice is so good' }];
+const product = { id:'p1', name:'Ice maker', updated_at:'2026-01-01T00:00:00Z', brief:brief, raw:raw };
 
 let fillErr = null;
 try { PS.fill(product); } catch(e){ fillErr = e; }
@@ -88,12 +91,14 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   const status = (byId['genStatus'] && byId['genStatus'].textContent) || '';
   ok(status.indexOf('hit an error') < 0, 'no error status was surfaced (would fire if any layer threw)');
   ok(status.indexOf('from your brief') >= 0, 'success status shown: "' + status.slice(0, 60) + '..."');
+  ok(status.indexOf('4 script') >= 0 && status.indexOf('dropped') < 0, 'all four accepted, none dropped -- the listing figure ("33 pounds a day") was NOT falsely flagged');
 
   // Scripts actually rendered into the host.
   function walkText(el, acc, depth){ if(!el||depth>12) return; (el._children||[]).forEach(function(c){ if(c.textContent) acc.push(c.textContent); walkText(c, acc, depth+1); }); }
   let texts = []; walkText(byId['genScripts'], texts, 0);
   const joined = texts.join(' | ');
-  ok(joined.indexOf('Your floor deserves better than this') >= 0, 'the first script rendered into #genScripts');
+  ok(joined.indexOf('Your drink deserves better than this') >= 0, 'the first script rendered into #genScripts');
+  ok(joined.indexOf('It makes 33 pounds of ice a day') >= 0, 'the listing-figure script survived and rendered');
   ok(joined.indexOf('See it on the shop page') >= 0, 'the fourth script rendered too (all four accepted, no regen)');
 
   console.log(`\n${pass} passed, ${fail} failed`);

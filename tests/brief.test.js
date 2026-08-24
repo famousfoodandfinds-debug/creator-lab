@@ -564,6 +564,20 @@ ok(B.scriptViolations({ body1: "It's ready every six or seven minutes" }, { list
 ok(B.scriptViolations({ hook: "It survives 90-degree heat" }, { listingText: listing }).indexOf("asserted-number") >= 0, 'validator: an INVENTED figure is blocked even with a listing (90-degree not in listing)');
 ok(B.scriptViolations({ body1: "It makes 33 pounds a day and chills in 5 minutes" }, { listingText: listing }).indexOf("asserted-number") >= 0, 'validator: one allowed + one invented figure -> still flagged (5 minutes not in listing)');
 ok(B.scriptViolations({ cta: "You get 20 percent more ice" }, { listingText: "20 percent more efficient than the last model" }).indexOf("asserted-number") >= 0, 'validator: percent is blocked REGARDLESS of the listing');
+// The wiring bug: provenance is judged by NUMBER, not the unit spelling. A listing that says "33 lbs per 24
+// hours" must clear a script that says "33 pounds a day", and a dimension list must expose all its numbers.
+let specListing = "Ice output 33 lbs per 24 hours. 1.8 L tank. Dimensions 16.33 x 6.7 x 13.58 inches.";
+ok(B.scriptViolations({ body1: "It makes 33 pounds of ice a day" }, { listingText: specListing }).indexOf("asserted-number") < 0, 'validator: "33 pounds" clears against listing "33 lbs" (match by number, not unit word)');
+ok(B.scriptViolations({ hook: "A 1.8 liter tank keeps it going" }, { listingText: specListing }).indexOf("asserted-number") < 0, 'validator: "1.8 liter" clears against listing "1.8 L"');
+ok(B.scriptViolations({ body2: "Just 13.58 inches of counter and it fits" }, { listingText: specListing }).indexOf("asserted-number") < 0, 'validator: a dimension figure (13.58) from the listing is allowed');
+ok(B.scriptViolations({ body2: "Only 6.7 inches wide on the shelf" }, { listingText: specListing }).indexOf("asserted-number") < 0, 'validator: a mid-dimension number (6.7) with no adjacent unit is still recognized from the listing');
+ok(B.scriptViolations({ preclose: "Ready every six or seven minutes" }, { listingText: specListing }).indexOf("asserted-number") >= 0, 'validator: a review figure (6 or 7 minutes) is still blocked -- those numbers are not in the listing');
+ok(B.scriptViolations({ hook: "Descale it once a month" }, { listingText: specListing }).indexOf("asserted-number") >= 0, 'validator: "once a month" (1) blocked -- 1 is not a listing number (1.8 is)');
+// numbersIn: the shared helper, digit and word form.
+ok(B.numbersIn("33 lbs per 24 hours")["33"] && B.numbersIn("33 lbs per 24 hours")["24"], 'numbersIn: pulls 33 and 24 from a spec');
+ok(B.numbersIn("16.33 x 6.7 x 13.58")["16.33"] && B.numbersIn("16.33 x 6.7 x 13.58")["6.7"] && B.numbersIn("16.33 x 6.7 x 13.58")["13.58"], 'numbersIn: pulls all three dimension numbers');
+ok(B.numbersIn("six or seven minutes")["6"] && B.numbersIn("six or seven minutes")["7"], 'numbersIn: converts word numbers to digits');
+ok(!B.numbersIn("1.8 L tank")["1"], 'numbersIn: "1.8" is one number, not also "1"');
 ok(B.scriptViolations({ cta: "Grab it for just $40 today" }, {}).indexOf("price") >= 0, 'validator: a currency figure ($40) is blocked as price');
 ok(B.scriptViolations({ cta: "Only 40 bucks right now" }, {}).indexOf("price") >= 0, 'validator: "40 bucks" is blocked as price');
 ok(B.scriptViolations({ body2: "The ice is ready before you know it" }, { listingText: listing }).indexOf("asserted-number") < 0, 'validator: a figure-free script with a listing still passes');
