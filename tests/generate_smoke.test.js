@@ -35,7 +35,7 @@ global.setTimeout = function(fn){ try { fn(); } catch(e){} };
 const SCRIPTS = [
   { hook:"Your drink deserves better than this", body1:"You keep chewing weak hollow cubes", preclose:"The nugget ice is soft and craveable", body2:"It makes 33 pounds of ice a day", cta:"Grab yours before they go" },
   { hook:"Somehow the ice runs out too fast", body1:"You refill the tray again and again", preclose:"One tank keeps the glasses full", body2:"You host without a second thought", cta:"Tap the link to try it" },
-  { hook:"There is a reason this stays out", body1:"You reach for it every single day", preclose:"It tucks into a small corner", body2:"Your counter stays effortless now", cta:"Check it out right here" },
+  { hook:"The freezer tray can't keep up anymore", body1:"You wait around for a slow refill", preclose:"It tucks into a small corner", body2:"Your counter stays effortless now", cta:"Check it out right here" },
   { hook:"Cold drinks should not feel like work", body1:"You dread the empty freezer tray", preclose:"A quiet cycle and it is done", body2:"You enjoy the crunch now", cta:"See it on the shop page" }
 ];
 let fetchCalls = 0;

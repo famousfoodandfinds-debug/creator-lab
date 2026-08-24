@@ -14343,7 +14343,32 @@ function genOneScript(opts){
         return false;
       });
     }
+    // Teaching examples are shapes to learn, not text to reuse. A line that copies an exemplar (verbatim or
+    // close paraphrase) is rejected the same way a lifted review is -- the fix for a curiosity-loop hook that
+    // recited the example word for word instead of writing its own line for the product.
+    if (opts.exemplars && opts.exemplars.length && exemplarLift(script, opts.exemplars)) v.push("example-lift");
     return v;
+  }
+  // True if any script line copies a teaching exemplar. Normalizes both, then matches on containment or a
+  // high shared-word ratio (>=0.7 against the longer of the two), so verbatim AND light paraphrase are caught
+  // while a short generic line that merely shares a few common words with a long exemplar is not.
+  function exemplarLift(script, exemplars){
+    script = obj(script);
+    function norm(s){ return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim(); }
+    var exs = arr(exemplars).map(norm).filter(function(e){ return e.split(" ").length >= 5; });
+    if (!exs.length) return false;
+    var fields = [str(script.hook), str(script.body1), str(script.preclose), str(script.body2), str(script.cta)];
+    return fields.some(function(f){
+      var nf = norm(f); if (!nf || nf.split(" ").length < 4) return false;
+      var fw = nf.split(" ");
+      return exs.some(function(e){
+        if (nf === e || nf.indexOf(e) >= 0 || e.indexOf(nf) >= 0) return true;
+        var ew = e.split(" "), eset = {}; ew.forEach(function(w){ eset[w] = true; });
+        var seen = {}, shared = 0;
+        fw.forEach(function(w){ if (eset[w] && !seen[w]){ seen[w] = true; shared++; } });
+        return shared / Math.max(fw.length, ew.length) >= 0.7;
+      });
+    });
   }
   // Number+unit phrases in a block of text -- DIGIT ("33 pounds," "16 inches") AND WORD form, including a
   // range ("six or seven minutes," "ten to twelve hours"). Used to catch a specific figure asserted as
@@ -14451,6 +14476,7 @@ function genOneScript(opts){
     scriptRepeats: scriptRepeats,
     numberUnits: numberUnits,
     numbersIn: numbersIn,
+    exemplarLift: exemplarLift,
     groundedFindings: groundedFindings,
     groundedObjections: groundedObjections
   };
@@ -15469,12 +15495,26 @@ function genOneScript(opts){
   // These are curated in the creator's own voice: start with the thing, one idea, no explanation attached,
   // a gap the viewer closes themselves. Four sources, one per script, so every shape fires every batch --
   // including FLAT ABSURDITY, which is neither a reversal nor a curiosity loop and had no slot before.
+  // Shape is taught separately from examples: the examples demonstrate the SHAPE and are never text to reuse
+  // (one example per shape is exactly what gets copied verbatim -- "Somehow people keep buying a second one"
+  // came back word for word on an ice maker). Every example is also fed to the code guard, which rejects and
+  // regenerates any line that copies one -- the same protection reviews already had.
   var HOOK_SOURCES = [
-    { key: "reversal",  instr: "IT IS NOT YOU, IT IS X. Move the blame the buyer quietly puts on themselves onto the thing that actually failed them. START WITH THE THING -- no \"it is not that you...\" throat-clearing at the front. One concrete idea, no explanation attached. In this creator's voice: \"Your fur baby isn't the problem, it's your vacuum.\" Never an abstract state, never a first-person story." },
-    { key: "flat",      instr: "FLAT ABSURDITY. State one specific, concrete absurdity as a plain fact and stop -- let the viewer feel it. Start with the thing, one idea, no explanation. In this creator's voice: \"It shouldn't take 15 minutes to set up your vacuum.\" These show the SHAPE (write your OWN for this product, do not reuse the topic): \"You clean the vacuum more than it cleans your floors.\" \"The timer goes off and the one thing you needed is still not ready.\" \"You reach for the good pan and it is the one already soaking in the sink.\" \"The counters are spotless and then you open the cabinet of mismatched lids.\" \"Your drink is warm by the back nine.\"" },
-    { key: "objection", instr: "OBJECTION AS CURIOSITY. Take the biggest objection and frame it as a curiosity gap the viewer must close -- resolve or reframe it, NEVER a flat negative that plants doubt in someone who did not have it. The reframe MUST name a cause that is ALL THREE: REAL (it appears in the brief's pains or features, never invented), SURPRISING (not the obvious blame), and FIXABLE by the viewer (something they can act on, like cleaning a filter). \"It's the filter\" passes all three. Banned: any category shrug (the design, the build, the quality, how it's made) AND anything outside the viewer's control (the version or model you ordered, customer service, the warranty, the seller). If NO cause in the brief meets all three, do NOT name a cause -- instead reframe the objection as an intended benefit and keep the whole script on the product's real use. In this creator's voice: \"Everyone blames the battery. It's the filter.\" \"It shuts off after sixty seconds. Here's why.\"" },
-    { key: "curiosity", instr: "CURIOSITY LOOP. Open a loop the viewer must keep watching to close -- an unexpected pattern or reaction, in RECOMMENDER voice: never imply you own it or have used it, never borrow a reviewer's personal history. WITHHOLD the reason: never answer the loop inside the hook. \"Somehow people keep buying a second one\" works because the why is withheld; \"a second one for the RV\" answers it and kills the hook. In this creator's voice: \"Somehow people keep buying a second one.\" \"There's a reason this stays by the door.\"" }
+    { key: "reversal", shape: "IT IS NOT YOU, IT IS X. Move the blame the buyer quietly puts on themselves onto the thing that actually failed them. START WITH THE THING -- no \"it is not that you...\" throat-clearing. One concrete idea, no explanation. The X must be the product's real weakness or the OLD way of doing it, NEVER an invented event the viewer may not have had (do not say the viewer's machine broke). Never an abstract state, never a first-person story.",
+      examples: ["Your fur baby isn't the problem, it's your vacuum."] },
+    { key: "flat", shape: "FLAT ABSURDITY. State one specific, concrete absurdity as a plain fact and stop -- let the viewer feel it. Start with the thing, one idea, no explanation.",
+      examples: ["It shouldn't take 15 minutes to set up your vacuum.", "You clean the vacuum more than it cleans your floors.", "The timer goes off and the one thing you needed is still not ready.", "You reach for the good pan and it is the one already soaking in the sink.", "The counters are spotless and then you open the cabinet of mismatched lids.", "Your drink is warm by the back nine."] },
+    { key: "objection", shape: "OBJECTION AS CURIOSITY. Open a curiosity GAP: take the biggest objection and redirect it to a SURPRISING real cause the viewer can act on -- do NOT answer or resolve it in the hook, and NEVER end by telling the viewer to skip, avoid, or not buy it (that plants the doubt instead of dissolving it). The cause must be ALL THREE: REAL (in the brief's pains or features, never invented), SURPRISING (not the obvious blame), and FIXABLE by the viewer (like cleaning a filter). Banned: any category shrug (the design, the build, the quality) AND anything outside the viewer's control (the version ordered, customer service, the warranty, the seller). If NO cause in the brief meets all three, reframe the objection as an intended benefit instead of naming a cause.",
+      examples: ["Everyone blames the battery. It's the filter.", "It shuts off after sixty seconds. Here's why."] },
+    { key: "curiosity", shape: "CURIOSITY LOOP. Open a loop the viewer must keep watching to close -- an unexpected pattern or reaction, in RECOMMENDER voice: never imply you own it or have used it, never borrow a reviewer's personal history. WITHHOLD the reason: never answer the loop inside the hook (\"a second one for the RV\" answers it and kills the hook).",
+      examples: ["Somehow people keep buying a second one.", "There's a reason this stays by the door."] }
   ];
+  // Build the per-source instruction from shape + examples, framing the examples as shape demonstrations to
+  // learn from, never lines to reuse. One flat list of every exemplar feeds the anti-copy guard.
+  function hookInstr(hs){
+    return hs.shape + "\nThese show the SHAPE only -- write your OWN line for THIS product; never reuse an example's words or its topic:\n" + hs.examples.map(function(e){ return "  - \"" + e + "\""; }).join("\n");
+  }
+  var HOOK_EXEMPLARS = HOOK_SOURCES.reduce(function(acc, hs){ return acc.concat(hs.examples); }, []);
   // Pre-close angles rotate too, so one focus per batch never means the same rebuttal four times.
   var PRECLOSE_ANGLES = [
     "Head on: name the assigned objection in the viewer's own words, then defuse it with ONE concrete, specific counter.",
@@ -15531,7 +15571,7 @@ function genOneScript(opts){
     var plan = hookPlanFor(GEN_COUNT);
     L.push("PER-SCRIPT ASSIGNMENTS (each script MUST follow its own hook source; it then EITHER defuses its one assigned objection OR, if it has no objection assigned, closes with its assigned close mode. Never introduce an objection not assigned to that script, and never invent one to fill an empty slot):");
     plan.forEach(function(hs, i){
-      var line = "Script " + (i + 1) + ":\n  HOOK SOURCE: " + hs.instr;
+      var line = "Script " + (i + 1) + ":\n  HOOK SOURCE: " + hookInstr(hs);
       if (i < objPool.length){
         var o = objPool[i];
         line += "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
@@ -15567,7 +15607,7 @@ function genOneScript(opts){
     return genPrompt(ctx) +
       "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for breaking these hard rules: " + violations.join("; ") + "." +
       " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
-      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, no price raised as a doubt, no company service or warranty or returns, no first-person ownership, no moderation words." +
+      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, no price raised as a doubt, no company service or warranty or returns, no first-person ownership, no moderation words, and NEVER reuse the words of a teaching example (write your own line for this product)." +
       " Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
   }
   // Em dashes are stripped outright (never regenerate for a mechanical fix); the owner wants none, ever.
@@ -15596,7 +15636,7 @@ function genOneScript(opts){
     })();
   }
   // Human labels for the guard codes, used when a drop has to be explained to the owner.
-  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", lifted: "lifted review line", repetition: "repeated opening" };
+  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", lifted: "lifted review line", "example-lift": "copied a teaching example", repetition: "repeated opening" };
   function fmtDrops(codes){ return Object.keys(codes || {}).map(function(c){ return (GUARD_LABELS[c] || c) + ((codes[c] | 0) > 1 ? " x" + codes[c] : ""); }).join(", "); }
   // A thrown error anywhere on the Generate path must SURFACE, not stall. The crash that took production down
   // was a ReferenceError before the model call ever fired, so the spinner spun forever and the never-empty
@@ -15621,7 +15661,8 @@ function genOneScript(opts){
       var guardOpts = {
         priceAllowed: ctx.objections.some(function(o){ return /\b(price|cost)\b/i.test(o.value); }),
         reviewsText: reviewsText,
-        listingText: listingText
+        listingText: listingText,
+        exemplars: HOOK_EXEMPLARS
       };
       claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
         try {
