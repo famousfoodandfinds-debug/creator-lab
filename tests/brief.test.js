@@ -581,6 +581,15 @@ ok(!B.numbersIn("1.8 L tank")["1"], 'numbersIn: "1.8" is one number, not also "1
 ok(B.scriptViolations({ cta: "Grab it for just $40 today" }, {}).indexOf("price") >= 0, 'validator: a currency figure ($40) is blocked as price');
 ok(B.scriptViolations({ cta: "Only 40 bucks right now" }, {}).indexOf("price") >= 0, 'validator: "40 bucks" is blocked as price');
 ok(B.scriptViolations({ body2: "The ice is ready before you know it" }, { listingText: listing }).indexOf("asserted-number") < 0, 'validator: a figure-free script with a listing still passes');
+// example-lift: a teaching exemplar recited (verbatim or close) is rejected, the same as a lifted review.
+let EX = ["Somehow people keep buying a second one.", "Your fur baby isn't the problem, it's your vacuum.", "Everyone blames the battery. It's the filter."];
+ok(B.exemplarLift({ hook: "Somehow people keep buying a second one" }, EX), 'exemplarLift: verbatim exemplar caught');
+ok(B.exemplarLift({ hook: "Somehow people keep buying a second unit" }, EX), 'exemplarLift: close paraphrase caught (one/unit swap)');
+ok(B.exemplarLift({ hook: "Your fur baby isn't the problem, it's your ice maker" }, EX), 'exemplarLift: reworded tail still caught (fur baby template)');
+ok(!B.exemplarLift({ hook: "Your morning drink deserves real nugget ice" }, EX), 'exemplarLift: an original line is NOT flagged');
+ok(!B.exemplarLift({ cta: "Grab yours before they go" }, EX), 'exemplarLift: a short generic CTA is not flagged');
+ok(B.scriptViolations({ hook: "Somehow people keep buying a second one" }, { exemplars: EX }).indexOf("example-lift") >= 0, 'validator: example-lift wired through scriptViolations');
+ok(B.scriptViolations({ hook: "Cold drinks should not feel like a chore" }, { exemplars: EX }).indexOf("example-lift") < 0, 'validator: an original hook passes the exemplar check');
 // moderation: the past tense "died" was slipping through
 ok(B.scriptViolations({ hook: "Your last machine died on you" }, {}).indexOf("moderation") >= 0, 'validator: catches "died" (past tense was missed)');
 ok(B.scriptViolations({ hook: "It kills the mess in seconds" }, {}).indexOf("moderation") >= 0, 'validator: catches "kills"');
