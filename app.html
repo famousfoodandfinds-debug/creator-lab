@@ -14301,6 +14301,7 @@ function genOneScript(opts){
   // the script, a second failure drops it. Pure + testable; returns an array of violation codes.
   // opts.priceAllowed = true only when "price"/"cost" is an actual objection in the brief.
   // opts.listingText = the product listing (plus seller-spec features); figures found in it are allowed.
+  // opts.nowYear = the real current year; a year at or after it (asserting "now") is blocked, older is allowed.
   function scriptViolations(script, opts){
     script = obj(script); opts = obj(opts);
     var whole = [str(script.hook), str(script.body1), str(script.preclose), str(script.body2), str(script.cta)].join("\n");
@@ -14341,6 +14342,13 @@ function genOneScript(opts){
       if (!figNums.every(function(n){ return listNums[n]; })) badFigure = true;
     });
     if (badFigure) v.push("asserted-number");
+    // Year: a PAST year is a legitimate contrast device ("this isn't 2010"), but asserting the CURRENT or a
+    // future year dates the video the instant it is watched (and the model got the current year wrong). Block
+    // any 4-digit year at or after the real current year; allow older ones as contrast.
+    if (opts.nowYear){
+      var years = str(whole).match(/\b(?:19|20)\d{2}\b/g) || [];
+      if (years.some(function(y){ return parseInt(y, 10) >= (opts.nowYear | 0); })) v.push("current-year");
+    }
     // Verbatim lifting: buyer phrases are for wording, not for copying a whole review sentence into a line.
     if (opts.reviewsText){
       var hay = " " + str(opts.reviewsText).toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ") + " ";
@@ -15563,11 +15571,16 @@ function genOneScript(opts){
     // close mode instead. There is deliberately NO fallback that promotes an ungrounded objection.
     var objPool = SB.groundedObjections(ctx.objections);
     var defuse = objPool[0] || null;
-    // The objection-as-curiosity hook may only fire when the MATERIAL names a mechanism for an objection.
-    // If none does, that source drops out of the rotation for this product (another shape takes its slot) so
-    // the hook can never invent a cause. When it IS available, causeObj carries the grounded mechanism to use.
+    // Two hook shapes make a CAUSAL claim -- objection-as-curiosity ("it's the filter") and reversal
+    // ("it's not you, it's X"). Both only work when the MATERIAL supports a real cause a person would
+    // recognise as true; with none they produce sentences that look like the shape and mean nothing ("ice
+    // trays are why you're waiting for ice"). So both fire ONLY when a grounded cause exists; otherwise they
+    // drop from the rotation and a shape that needs no cause (flat absurdity, curiosity loop) takes the slot.
     var causeObj = SB.causedObjection(ctx.objections);
-    var hookSources = HOOK_SOURCES.filter(function(hs){ return hs.key !== "objection" || causeObj; });
+    var hookSources = HOOK_SOURCES.filter(function(hs){ return (hs.key !== "objection" && hs.key !== "reversal") || causeObj; });
+    // The real current year is passed in so a past-year contrast device can be used correctly; the guard
+    // blocks any assertion of the current or a future year (a wrong or stated "now" year dates the video).
+    var nowYear = (ctx.nowYear | 0) || (new Date()).getFullYear();
     L.push("Write " + GEN_COUNT + " short-form video scripts for this product. Each is a complete, ready-to-film script.");
     L.push("");
     // THE JOB, above every rule below: make a viewer WANT this product enough to stop scrolling and tap the
@@ -15601,9 +15614,10 @@ function genOneScript(opts){
     L.push("PER-SCRIPT ASSIGNMENTS (each script MUST follow its own hook source; it then EITHER defuses its one assigned objection OR, if it has no objection assigned, closes with its assigned close mode. Never introduce an objection not assigned to that script, and never invent one to fill an empty slot):");
     plan.forEach(function(hs, i){
       var line = "Script " + (i + 1) + ":\n  HOOK SOURCE: " + hookInstr(hs);
-      // The objection-as-curiosity hook only appears when a mechanism is grounded; hand it that exact cause so
-      // it reframes onto the real reason from the material and never invents one (the tank-size fabrication).
+      // The two causal-claim hooks only appear when a mechanism is grounded; hand each the EXACT cause from
+      // the material so it builds on the real reason and never invents one (the tank-size fabrication).
       if (hs.key === "objection" && causeObj) line += "\n  REFRAME THIS OBJECTION ONTO THIS EXACT CAUSE FROM THE MATERIAL (never invent another): objection \"" + causeObj.value + "\", cause \"" + causeObj.cause + "\".";
+      if (hs.key === "reversal" && causeObj) line += "\n  BUILD THE REVERSAL ON THIS REAL CAUSE THE MATERIAL NAMES (never an invented one): \"" + causeObj.cause + "\" is the true reason behind \"" + causeObj.value + "\". The X you move the blame onto is that real cause, not a guess.";
       if (i < objPool.length){
         var o = objPool[i];
         line += "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
@@ -15621,6 +15635,7 @@ function genOneScript(opts){
     // in the prompt only narrows the writing; the examples in each HOOK SOURCE do the teaching.
     L.push("HOOK -- open on a curiosity or tension the viewer already feels, in one speakable sentence. It must FLIP, surprise, or open a gap; it is never the pain simply restated (a restated pain is not a hook). Each script's HOOK SOURCE below shows the shape by example; match the shape, do not copy the words.");
     L.push("HOOK ASSUMPTION -- assume only what is true of ANYONE this product is for (they have a pet, a freezer, a cold drink). The fur-baby hook works because it assumes only a pet and this product. Reframe a situation the viewer is ALREADY in; do not invent one she may not be in (a machine that broke, something nobody actually does).");
+    L.push("YEAR -- the current year is " + nowYear + ". A PAST year is a fine contrast device (\"this isn't 2010\", \"it's not the 1990s\"). But NEVER state what year it is now: no \"in " + nowYear + "\", no \"still doing this in " + nowYear + "\", no asserting the current or a future year -- a stated current year dates the video the moment it is watched.");
     // The three risks below are real and NOT catchable in code, so they stay -- one line each.
     L.push("NO-META -- talk to the viewer about THEIR life, never about your research. The brief is your source and the viewer has never seen it; never name reviews, buyers, ratings, social proof or specs. Put the detail inside the viewer's own moment instead.");
     L.push("INVENT NOTHING -- every fact, number, cause and outcome comes from the brief or listing. If you cannot point to where a cause is stated, reframe it as a benefit rather than naming it. Do not diagnose the viewer, and make no claim about other products.");
@@ -15639,7 +15654,7 @@ function genOneScript(opts){
     return genPrompt(ctx) +
       "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for breaking these hard rules: " + violations.join("; ") + "." +
       " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
-      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, no price raised as a doubt, no company service or warranty or returns, no first-person ownership, no moderation words, and NEVER reuse the words of a teaching example (write your own line for this product)." +
+      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, no price raised as a doubt, no company service or warranty or returns, no first-person ownership, no moderation words, never state the current year, and NEVER reuse the words of a teaching example (write your own line for this product)." +
       " Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
   }
   // Em dashes are stripped outright (never regenerate for a mechanical fix); the owner wants none, ever.
@@ -15668,7 +15683,7 @@ function genOneScript(opts){
     })();
   }
   // Human labels for the guard codes, used when a drop has to be explained to the owner.
-  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", lifted: "lifted review line", "example-lift": "copied a teaching example", repetition: "repeated opening" };
+  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", lifted: "lifted review line", "example-lift": "copied a teaching example", repetition: "repeated opening" };
   function fmtDrops(codes){ return Object.keys(codes || {}).map(function(c){ return (GUARD_LABELS[c] || c) + ((codes[c] | 0) > 1 ? " x" + codes[c] : ""); }).join(", "); }
   // A thrown error anywhere on the Generate path must SURFACE, not stall. The crash that took production down
   // was a ReferenceError before the model call ever fired, so the spinner spun forever and the never-empty
@@ -15690,11 +15705,14 @@ function genOneScript(opts){
       // are seller specs lifted from the listing). Figures found here are allowed in a script; everything else
       // (review-only or invented) is blocked. This is what lets "makes 33 pounds a day" through.
       var listingText = [(ctx.description || "")].concat((ctx.features || []).map(function(f){ return (f.feature || "") + " " + (f.benefit || ""); })).join(" ");
+      var nowYear = (new Date()).getFullYear();
+      ctx.nowYear = nowYear;   // so genPrompt can offer the past-year contrast device with the real year
       var guardOpts = {
         priceAllowed: ctx.objections.some(function(o){ return /\b(price|cost)\b/i.test(o.value); }),
         reviewsText: reviewsText,
         listingText: listingText,
-        exemplars: HOOK_EXEMPLARS
+        exemplars: HOOK_EXEMPLARS,
+        nowYear: nowYear
       };
       claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
         try {

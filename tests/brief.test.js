@@ -636,6 +636,11 @@ ok(B.causedObjection([{ value:'shuts off early', count:5, ccount:0, cause:'the f
 ok(B.causedObjection([{ value:'shuts off early', count:5, ccount:0, cause:'' }]) === null, 'causedObjection: grounded objection with NO cause does not qualify (hook unavailable)');
 ok(B.causedObjection([{ value:'noisy', count:1, ccount:0, cause:'the fan' }]) === null, 'causedObjection: an ungrounded objection (count 1) never qualifies even with a cause');
 ok(B.causedObjection([]) === null, 'causedObjection: no objections -> null');
+// Year: a past year is a legit contrast device; asserting the current or a future year is blocked.
+ok(B.scriptViolations({ hook: "You're still making ice by hand in 2026" }, { nowYear: 2026 }).indexOf("current-year") >= 0, 'validator: asserting the current year (2026) is blocked');
+ok(B.scriptViolations({ hook: "This isn't 2010, your ice should be instant" }, { nowYear: 2026 }).indexOf("current-year") < 0, 'validator: a PAST year as contrast (2010) is allowed');
+ok(B.scriptViolations({ cta: "The future is 2027, get yours" }, { nowYear: 2026 }).indexOf("current-year") >= 0, 'validator: a future year is blocked too');
+ok(B.scriptViolations({ hook: "Still doing this in 2026" }, {}).indexOf("current-year") < 0, 'validator: with no nowYear passed, the year guard does not fire');
 // cause survives normalize + adapter, and consolidation carries it on the representative.
 let bWithCause = B.normalizeBrief({ lines:{ objections:[{ value:'it shuts off', count:4, classified:true, cause:'the filter clogs' }] } });
 ok(bWithCause.lines.objections[0].cause === 'the filter clogs', 'normalizeBrief: preserves objection.cause');
