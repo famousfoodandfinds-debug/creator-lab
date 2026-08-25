@@ -630,6 +630,19 @@ ok(goPool[0] === 'battery only lasts', 'groundedObjections: sorted heaviest firs
 // The ice-maker batch: EVERY objection reads "not counted" -> empty pool, so no script manufactures one.
 ok(B.groundedObjections([goZero, goOneReview, goOneComment]).length === 0, 'groundedObjections: all-ungrounded -> empty pool (no manufactured fallback)');
 ok(B.groundedObjections([]).length === 0, 'groundedObjections: empty in, empty out');
+// causedObjection: the gate for the objection-as-curiosity hook. Only a GROUNDED objection whose mechanism the
+// material names (non-empty cause) qualifies; without one, the hook source must not be available.
+ok(B.causedObjection([{ value:'shuts off early', count:5, ccount:0, cause:'the filter clogs' }]).value === 'shuts off early', 'causedObjection: grounded objection WITH a cause qualifies');
+ok(B.causedObjection([{ value:'shuts off early', count:5, ccount:0, cause:'' }]) === null, 'causedObjection: grounded objection with NO cause does not qualify (hook unavailable)');
+ok(B.causedObjection([{ value:'noisy', count:1, ccount:0, cause:'the fan' }]) === null, 'causedObjection: an ungrounded objection (count 1) never qualifies even with a cause');
+ok(B.causedObjection([]) === null, 'causedObjection: no objections -> null');
+// cause survives normalize + adapter, and consolidation carries it on the representative.
+let bWithCause = B.normalizeBrief({ lines:{ objections:[{ value:'it shuts off', count:4, classified:true, cause:'the filter clogs' }] } });
+ok(bWithCause.lines.objections[0].cause === 'the filter clogs', 'normalizeBrief: preserves objection.cause');
+let ctxC = B.briefToGenContext(bWithCause, B.emptyRaw());
+ok(ctxC.objections[0].cause === 'the filter clogs', 'briefToGenContext: exposes objection.cause');
+let clusteredC = B.applyClusters([{ value:'shuts off', count:2, cause:'the filter clogs' }, { value:'stops early', count:3, cause:'' }], { groups:[{ value:'shuts off early', members:[0,1] }] }, 10);
+ok(clusteredC[0].cause === 'the filter clogs', 'applyClusters: representative carries the first grounded cause through consolidation');
 // Cap at 5 so a giant brief never floods the batch.
 let goMany = [];
 for (let i = 0; i < 9; i++) goMany.push({ value: 'obj ' + i, count: 9 - i, ccount: 0, added: false });
