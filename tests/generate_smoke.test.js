@@ -38,9 +38,10 @@ const SCRIPTS = [
   { hook:"The freezer tray can't keep up anymore", body1:"You wait around for a slow refill", preclose:"It tucks into a small corner", body2:"Your counter stays effortless now", cta:"Check it out right here" },
   { hook:"Cold drinks should not feel like work", body1:"You dread the empty freezer tray", preclose:"A quiet cycle and it is done", body2:"You enjoy the crunch now", cta:"See it on the shop page" }
 ];
-let fetchCalls = 0;
-const fetchStub = function(){
+let fetchCalls = 0, capturedPrompt = '';
+const fetchStub = function(url, opts){
   fetchCalls++;
+  try { if (!capturedPrompt) capturedPrompt = JSON.parse(opts.body).messages[0].content; } catch(e){}
   const payload = JSON.stringify({ content: [{ type:'text', text: JSON.stringify(SCRIPTS) }] });
   return Promise.resolve({ status: 200, text: function(){ return Promise.resolve(payload); } });
 };
@@ -69,7 +70,7 @@ let brief = SB.emptyBrief();
 brief.meta.lastDerivedAt = '2026-01-01T00:00:00Z';
 brief.meta.reviewCount = 12;
 brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out too fast', count:6, classified:true}]}}).lines.pains;
-brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true}]}}).lines.objections;
+brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true, cause:'the tank holds less'}]}}).lines.objections;
 brief.features = SB.normalizeBrief({features:[{feature:'makes 33 lbs per 24 hours', benefit:'plenty of ice'}, {feature:'1.8 L tank', benefit:'fewer refills'}]}).features;
 let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'the nugget ice is so good' }];
 const product = { id:'p1', name:'Ice maker', updated_at:'2026-01-01T00:00:00Z', brief:brief, raw:raw };
@@ -87,6 +88,9 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   // The crux: the sync setup (including the listingText line that had `str is not defined`) must complete and
   // reach the model call. With the bug, generateScripts fails before fetch and fetchCalls stays 0.
   ok(fetchCalls >= 1, 'the Generate path reaches the model call (sync setup did not crash) -- catches `str is not defined`');
+  ok(capturedPrompt.indexOf('THE JOB') >= 0 && capturedPrompt.toLowerCase().indexOf('tap the link to buy') >= 0, 'the prompt leads with the selling directive above the rules');
+  ok(capturedPrompt.indexOf('OBJECTION AS CURIOSITY') >= 0, 'objection-as-curiosity hook IS in rotation when the material names a cause');
+  ok(capturedPrompt.indexOf('the tank holds less') >= 0, 'the grounded cause is fed to the objection hook (never invented)');
 
   const status = (byId['genStatus'] && byId['genStatus'].textContent) || '';
   ok(status.indexOf('hit an error') < 0, 'no error status was surfaced (would fire if any layer threw)');
