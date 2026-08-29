@@ -1,14 +1,61 @@
-const DAILY_LIMIT = 30;
+// Monthly GENERATION cap. A "generation" is one batch of scripts (the creator presses Generate once and gets
+// four angles). The old cap counted every model API call in `rate_limits` and blocked at 30/day -- one batch
+// fires several calls, so the real limit was a handful of batches a day and impossible to price. This counts
+// distinct batches per member per calendar month instead.
+//
+// How a batch is counted: every model call for one batch carries the SAME `generation_id` and `call_name`
+// "script_batch". The FIRST call for a new id records one row; every later call for that same id (guard
+// retries, a single-script regeneration) finds the row already there and rides free. So starting a NEW batch
+// is the only thing that consumes a slot -- iterating on what you already generated never does.
+//
+// What is NEVER counted: any call without a `generation_id` or whose `call_name` is not "script_batch" --
+// derivation, classification, review OCR, the Planner, the carousel, description-cleaning and buyer discovery.
+// Research spend does not eat a creator's script allowance.
+const MONTHLY_BATCH_LIMIT = 150;                 // batches per member per UTC calendar month
+const SCRIPT_CALL_NAMES = new Set(["script_batch"]); // the definition of "a script batch"; add here if the batch gains a new call
+
 const SUPABASE_URL = "https://ysacpditbxcrairmypsp.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYWNwZGl0YnhjcmFpcm15cHNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjU4MjYsImV4cCI6MjA4OTM0MTgyNn0.U8W_KpDkYCT-jVBbXneAP1q_W9ChfhTi69DD0SS6G3o";
-// Service-role key (already present in the Netlify env; used by the other webhook
-// functions). Used ONLY here to write model_usage rows, which are service-role-write
-// only and never exposed to the browser.
+// Service-role key (already present in the Netlify env; used by the other webhook functions). Used here to
+// read/write `script_generations`, which is service-role only and never exposed to the browser.
 const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_KEY;
 
-// Insert one model_usage row. Fire-and-forget in spirit but awaited with a hard timeout
-// so a slow/unreachable Supabase can never stall a member's generation. ALL failures are
-// swallowed: logging must NEVER break generation.
+function svcHeaders() {
+  return {
+    "apikey": SUPABASE_SERVICE_KEY,
+    "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+    "Content-Type": "application/json"
+  };
+}
+function json(statusCode, obj) {
+  return { statusCode, headers: { "Content-Type": "application/json" }, body: JSON.stringify(obj) };
+}
+// UTC 'YYYY-MM'. This is the reset key: it rolls over on the 1st automatically, regardless of month length.
+function monthKey() { return new Date().toISOString().slice(0, 7); }
+
+// Every distinct batch id this member has recorded in the given month. Length == batches used. Throws on a
+// read failure so the caller can decide to FAIL OPEN (a DB blip must never wrongly block a paying member).
+async function fetchMonthBatchIds(userId, month) {
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/script_generations?select=generation_id&user_id=eq.${userId}&month=eq.${encodeURIComponent(month)}`,
+    { headers: svcHeaders() }
+  );
+  if (!res.ok) throw new Error("script_generations read failed: " + res.status);
+  const rows = await res.json();
+  return Array.isArray(rows) ? rows.map((r) => r.generation_id) : [];
+}
+// Record a new batch. PK (user_id, generation_id) makes a repeat insert of the same batch a no-op, so a retry
+// that raced the first insert can never double-count.
+async function recordBatch(userId, generationId, month) {
+  await fetch(`${SUPABASE_URL}/rest/v1/script_generations`, {
+    method: "POST",
+    headers: Object.assign(svcHeaders(), { "Prefer": "return=minimal,resolution=ignore-duplicates" }),
+    body: JSON.stringify({ user_id: userId, generation_id: generationId, month })
+  });
+}
+
+// Insert one model_usage row. Awaited with a hard timeout so a slow/unreachable Supabase can never stall a
+// member's generation. ALL failures are swallowed: cost logging must NEVER break generation.
 async function logModelUsage(row) {
   try {
     if (!SUPABASE_SERVICE_KEY) return; // not configured -> silently skip
@@ -41,129 +88,100 @@ exports.handler = async function(event) {
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
-    return { statusCode: 500, body: JSON.stringify({ error: "API key not configured" }) };
+    return json(500, { error: "API key not configured" });
   }
 
-  // Authenticate: require a valid Supabase session JWT, verified server-side.
-  // The x-user-id header is no longer trusted on its own; the user id is taken from
-  // the verified token, so a forged or rotated header cannot burn API credits.
+  // Authenticate: require a valid Supabase session JWT, verified server-side. The x-user-id header is not
+  // trusted on its own; the user id is taken from the verified token, so a forged header cannot burn credits.
   const authHeader = event.headers["authorization"] || event.headers["Authorization"] || "";
   const token = authHeader.replace(/^Bearer\s+/i, "").trim();
   if (!token) {
-    return { statusCode: 401, body: JSON.stringify({ error: "Not authenticated" }) };
+    return json(401, { error: "Not authenticated" });
   }
   let userId;
   try {
     const authRes = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
       headers: { "apikey": SUPABASE_ANON, "Authorization": `Bearer ${token}` }
     });
-    if (!authRes.ok) {
-      return { statusCode: 401, body: JSON.stringify({ error: "Not authenticated" }) };
-    }
+    if (!authRes.ok) return json(401, { error: "Not authenticated" });
     const authUser = await authRes.json();
     userId = authUser && authUser.id;
-    if (!userId) {
-      return { statusCode: 401, body: JSON.stringify({ error: "Not authenticated" }) };
-    }
+    if (!userId) return json(401, { error: "Not authenticated" });
   } catch (err) {
-    // Auth verification is fail-closed by design: if the token cannot be verified, reject.
-    return { statusCode: 401, body: JSON.stringify({ error: "Not authenticated" }) };
+    // Auth verification is fail-CLOSED by design: an unverifiable token is rejected.
+    return json(401, { error: "Not authenticated" });
   }
 
-  // Get today's date in YYYY-MM-DD format
-  const today = new Date().toISOString().split("T")[0];
-
-  // Check and increment rate limit in Supabase
+  // Parse the body once, up front, so the cap can read the batch tags before the request is forwarded.
+  let body;
   try {
-    // Get current count for today
-    const checkRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/rate_limits?user_id=eq.${userId}&date=eq.${today}`,
-      {
-        headers: {
-          "apikey": SUPABASE_ANON,
-          "Authorization": `Bearer ${SUPABASE_ANON}`,
-          "Content-Type": "application/json"
+    body = JSON.parse(event.body);
+  } catch (err) {
+    return json(400, { error: "Invalid request body" });
+  }
+
+  const callName = (typeof body.call_name === "string" && body.call_name) ? body.call_name : "other";
+  const generationId = (typeof body.generation_id === "string" && body.generation_id) ? body.generation_id : null;
+  const month = monthKey();
+
+  // ---- count-only endpoint: the app asks how many batches remain, so it can show the counter and warnings.
+  // Never forwards to Anthropic. FAILS OPEN: on a read error it returns ok:false and the app simply hides the
+  // counter rather than showing a wrong number or blocking anything.
+  if (body.count_only === true) {
+    try {
+      const used = (await fetchMonthBatchIds(userId, month)).length;
+      return json(200, { ok: true, used, limit: MONTHLY_BATCH_LIMIT, remaining: Math.max(0, MONTHLY_BATCH_LIMIT - used), month });
+    } catch (err) {
+      return json(200, { ok: false, limit: MONTHLY_BATCH_LIMIT });
+    }
+  }
+
+  // ---- the monthly BATCH cap. Only a real script batch (has a generation_id AND call_name "script_batch") is
+  // gated. A new batch id at the limit is blocked; an id already on file (a retry or single-script regen) rides
+  // free; everything untagged (derivation, classification, Planner, carousel, ...) is never touched here.
+  const isScriptBatch = generationId && SCRIPT_CALL_NAMES.has(callName);
+  if (isScriptBatch) {
+    try {
+      const ids = await fetchMonthBatchIds(userId, month);
+      const alreadyCounted = ids.indexOf(generationId) >= 0;
+      if (!alreadyCounted) {
+        if (ids.length >= MONTHLY_BATCH_LIMIT) {
+          // Generate-ONLY block: 429 here stops a brand-new batch, but the library and Planner are direct
+          // Supabase reads / untagged calls that never reach this branch, so they stay fully open.
+          return json(429, {
+            error: "monthly_limit_reached",
+            message: "You've used all " + MONTHLY_BATCH_LIMIT + " generations this month. They reset on the 1st -- your library and Planner stay open in the meantime.",
+            used: ids.length,
+            limit: MONTHLY_BATCH_LIMIT
+          });
         }
+        await recordBatch(userId, generationId, month); // count this new batch
       }
-    );
-    const rows = await checkRes.json();
-    const currentCount = rows.length > 0 ? rows[0].count : 0;
-
-    // Block if over limit
-    if (currentCount >= DAILY_LIMIT) {
-      return {
-        statusCode: 429,
-        body: JSON.stringify({
-          error: "daily_limit_reached",
-          message: "You have reached your 30 generations for today. Your limit resets at midnight.",
-          count: currentCount,
-          limit: DAILY_LIMIT
-        })
-      };
+    } catch (err) {
+      // FAIL OPEN: any cap-check error lets the request through. A DB blip never wrongly blocks a paying member.
+      console.error("Monthly cap check failed (failing open):", err && err.message);
     }
-
-    // Upsert incremented count
-    await fetch(`${SUPABASE_URL}/rest/v1/rate_limits`, {
-      method: "POST",
-      headers: {
-        "apikey": SUPABASE_ANON,
-        "Authorization": `Bearer ${SUPABASE_ANON}`,
-        "Content-Type": "application/json",
-        "Prefer": "resolution=merge-duplicates"
-      },
-      body: JSON.stringify({
-        user_id: userId,
-        date: today,
-        count: currentCount + 1
-      })
-    });
-
-  } catch (err) {
-    // If rate limit check fails, allow the request through rather than blocking users
-    console.error("Rate limit check failed:", err.message);
   }
 
-  // Forward request to Anthropic
+  // ---- forward to Anthropic. Strip the non-API metadata so Anthropic never sees these fields.
   try {
-    const body = JSON.parse(event.body);
-
-    // Usage-logging metadata travels in the body from the client. Pull it out and STRIP
-    // it before forwarding, so Anthropic never sees these non-API fields. Unlabeled calls
-    // are logged as "other" so no model spend is ever silently uncosted.
-    const callName = (typeof body.call_name === "string" && body.call_name) ? body.call_name : "other";
-    const generationId = (typeof body.generation_id === "string" && body.generation_id) ? body.generation_id : null;
     const modelUsed = body.model || null;
     delete body.call_name;
     delete body.generation_id;
+    delete body.count_only;
 
     const headers = {
       "Content-Type": "application/json",
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
-      // Enables the 1-hour cache TTL (cache_control: { ttl: "1h" }) used by the batch body
-      // prompt. Without this beta header the extended TTL is ignored and caching falls back
-      // to the 5-minute default, which expires between generations (0% read rate).
+      // Enables the 1-hour cache TTL used by the batch prompt; without it caching falls back to 5 minutes.
       "anthropic-beta": "extended-cache-ttl-2025-04-11"
     };
 
-    // Safe diagnostic about the TokScript auth shape, surfaced in the response so
-    // the test panel can display it. NEVER contains the key value, only its length.
+    // Optional: enable the TokScript MCP connector for this single request only. The key is read only here.
     let tokscriptDebug = null;
-
-    // Optional: enable the TokScript MCP connector for this single request only.
-    // The TokScript key is read ONLY here on the backend from the environment.
     if (body.useTokscript === true) {
       delete body.useTokscript;
-
-      // Configurable auth shape so we can test what TokScript's MCP server expects.
-      // Anthropic's mcp_servers only supports authorization_token, which is ALWAYS
-      // sent to the MCP server as "Authorization: Bearer <token>" -- there is no
-      // custom-header option. To send the token a different way, embed it in the URL.
-      //   bearer (default): authorization_token -> "Authorization: Bearer <token>"
-      //   query:            token added as a URL query parameter, NO Authorization header
-      //   path:             token appended to the URL path, NO Authorization header
-      // Mode and param name can come from the request body or from env (body wins),
-      // so alternatives can be tried without changing this code.
       const tokscriptKey = process.env.TOKSCRIPT_API_KEY || "";
       const authMode = String(body.tokscriptAuthMode || process.env.TOKSCRIPT_AUTH_MODE || "bearer").toLowerCase();
       const authParam = String(body.tokscriptAuthParam || process.env.TOKSCRIPT_AUTH_PARAM || "key");
@@ -172,10 +190,7 @@ exports.handler = async function(event) {
 
       const BASE_URL = "https://api.tokscript.com/mcp";
       const server = { type: "url", url: BASE_URL, name: "tokscript" };
-      let bearerPresent = false;
-      let headerName = null;
-      let keyInUrl = false;
-
+      let bearerPresent = false, headerName = null, keyInUrl = false;
       if (authMode === "query") {
         server.url = BASE_URL + (BASE_URL.indexOf("?") > -1 ? "&" : "?") + encodeURIComponent(authParam) + "=" + encodeURIComponent(tokscriptKey);
         keyInUrl = true;
@@ -183,31 +198,13 @@ exports.handler = async function(event) {
         server.url = BASE_URL.replace(/\/+$/, "") + "/" + encodeURIComponent(tokscriptKey);
         keyInUrl = true;
       } else {
-        // bearer (default) -- unchanged from the original behavior
         server.authorization_token = tokscriptKey;
         bearerPresent = true;
         headerName = "Authorization";
       }
-
       body.mcp_servers = [server];
-      // Anthropic MCP connector beta header. If this exact value is outdated,
-      // it may need adjustment.
       headers["anthropic-beta"] = "mcp-client-2025-04-04";
-
-      // Safe diagnostic shared by the log line and the response. NEVER contains the
-      // key value, nor any URL that contains it -- only the shape and the key length.
-      tokscriptDebug = {
-        authMode: authMode,
-        headerName: headerName,          // "Authorization" in bearer mode, null otherwise
-        bearerPresent: bearerPresent,    // true only when "Authorization: Bearer <token>" is sent
-        keyInUrl: keyInUrl,              // true in query/path mode (the key-bearing URL is never logged)
-        keyLength: tokscriptKey.length,  // length only, never the value
-        baseUrl: BASE_URL,               // key-free base URL, safe to log
-        queryParam: keyInUrl ? authParam : null // the param/segment name only, never the value
-      };
-
-      // Log the outbound auth config for diagnosis. NEVER log the key itself, nor any
-      // URL that contains it -- only the shape, the header name, and the key length.
+      tokscriptDebug = { authMode, headerName, bearerPresent, keyInUrl, keyLength: tokscriptKey.length, baseUrl: BASE_URL, queryParam: keyInUrl ? authParam : null };
       console.log("TokScript MCP auth config: " + JSON.stringify(tokscriptDebug));
     }
 
@@ -216,11 +213,9 @@ exports.handler = async function(event) {
       headers: headers,
       body: JSON.stringify(body)
     });
-
     const data = await response.json();
 
-    // Record what this call cost. Token counts + labels only -- never prompt or output
-    // text. Wrapped so a logging failure can never fail the generation.
+    // Record what this call cost. Token counts + labels only -- never prompt or output text.
     const usage = (data && data.usage) || {};
     await logModelUsage({
       user_id: userId,
@@ -234,20 +229,11 @@ exports.handler = async function(event) {
       success: response.ok && !(data && data.error)
     });
 
-    // Merge the safe TokScript diagnostic into the response so the test panel can
-    // display it (auth mode + key length, never the key value).
     if (tokscriptDebug && data && typeof data === "object" && !Array.isArray(data)) {
       data.tokscriptDebug = tokscriptDebug;
     }
-    return {
-      statusCode: response.status,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(data)
-    };
+    return { statusCode: response.status, headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) };
   } catch (err) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: err.message })
-    };
+    return json(500, { error: err.message });
   }
 };
