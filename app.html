@@ -15732,10 +15732,11 @@ function genOneScript(opts){
     else L.push("VOICE -- you are recommending this to the viewer, not confessing your own ownership. Talk TO the viewer about THEIR life in second person (you, your). \"I\" is fine only as a short honest aside the viewer recognizes in themselves.");
     L.push("");
     L.push(block("WHO THIS IS FOR", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning));
-    if (lead) L.push("LEAD WITH THIS PAIN across the batch, as the VIEWER'S own frustration in their life (never as a description of the product performing badly): " + lead.value + (lead.words.length ? "\n  phrasing you may reuse as the VIEWER'S own words: " + lead.words.join(", ") : "") + "\n  If a pain is really about the product doing something poorly, that is a DOUBT to defuse in the pre-close, NOT a line to open on.");
+    // Each script is pinned to a DIFFERENT situation below, so the batch never tells four versions of the same
+    // scene. The pool is the brief's distinct pains, rotated one per script.
+    var scenarioPool = (ctx.pains && ctx.pains.length) ? ctx.pains : (lead ? [lead] : []);
+    if (scenarioPool.length) L.push("VARY THE SCENARIO across the batch -- each script opens on a DIFFERENT real situation from the brief (assigned per script below), never four scripts about the same one. A situation is the VIEWER'S own frustration in their life, never a description of the product performing badly; if a situation is really the product doing something poorly, that is a DOUBT to defuse in the pre-close, not a line to open on. The situations available:\n" + scenarioPool.map(function(p){ return "- " + p.value; }).join("\n"));
     if (defuse) L.push("THE BIGGEST OBJECTION (the objection-as-curiosity hook reframes THIS one -- it has the richest detail): " + defuse.value + (defuse.words.length ? "\n  phrasing: " + defuse.words.join(", ") : ""));
-    var op = ctx.pains.filter(function(p){ return !lead || p.value !== lead.value; }).map(function(p){ return "- " + p.value; });
-    if (op.length) L.push("OTHER PAINS you may touch on:\n" + op.join("\n"));
     var oo = objPool.filter(function(o){ return !defuse || o.value !== defuse.value; }).map(function(o){ return "- " + o.value; });
     if (oo.length) L.push("OTHER GROUNDED OBJECTIONS (the ONLY objections that may ever be defused -- never invent a hesitation beyond these):\n" + oo.join("\n"));
     L.push(block("WHY IT WINS (as a felt outcome in the viewer's world, never cited as proof)", ctx.socialProof) + block("HOW THE VALUE FEELS WORTH IT", ctx.priceAnchor) + block("WHY TO TRUST THIS", ctx.authority) + block("REAL SCARCITY", ctx.scarcity));
@@ -15751,14 +15752,19 @@ function genOneScript(opts){
     var plan = hookPlanFor(GEN_COUNT, hookSources, ctx.hookOffset | 0);
     L.push("PER-SCRIPT ASSIGNMENTS (each script MUST follow its own hook source; it then EITHER defuses its one assigned objection OR, if it has no objection assigned, closes with its assigned close mode. Never introduce an objection not assigned to that script, and never invent one to fill an empty slot):");
     plan.forEach(function(hs, i){
+      // Each script gets a DIFFERENT situation from the pool (rotated with the same offset as the hooks), so
+      // the batch never runs four variations of one scene (hosting a party) when the brief has RV trips, heat,
+      // a broken fridge and a full freezer sitting unused.
+      var scen = scenarioPool.length ? scenarioPool[((ctx.hookOffset | 0) + i) % scenarioPool.length] : null;
       var line = "Script " + (i + 1) + ":\n  HOOK SOURCE: " + hs.instr;
+      if (scen) line += "\n  SCENARIO (open the setup on THIS situation from the brief, a different one from the other scripts): " + scen.value + (scen.words.length ? " (viewer's words: " + scen.words.join(", ") + ")" : "");
       // The two causal-claim hooks only appear when a mechanism is grounded; hand each the EXACT cause from
       // the material so it builds on the real reason and never invents one (the tank-size fabrication).
       if (hs.key === "objection" && causeObj) line += "\n  REFRAME THIS OBJECTION ONTO THIS EXACT CAUSE FROM THE MATERIAL (never invent another): objection \"" + causeObj.value + "\", cause \"" + causeObj.cause + "\".";
       if (hs.key === "reversal" && causeObj) line += "\n  BUILD THE REVERSAL ON THIS REAL CAUSE THE MATERIAL NAMES (never an invented one): \"" + causeObj.cause + "\" is the true reason behind \"" + causeObj.value + "\". The X you move the blame onto is that real cause, not a guess.";
-      // Fear/visual is handed the exact concern the material names and may never escalate it into an
+      // Fear/visual is handed the exact concern (this script's scenario) and may never escalate it into an
       // unsupported danger or health claim -- this is the shape that can get a creator in trouble.
-      if (hs.key === "fearvisual" && lead) line += "\n  POINT ONLY AT THIS CONCERN THE MATERIAL NAMES, and NEVER turn it into a health claim or danger the material does not state: \"" + lead.value + "\".";
+      if (hs.key === "fearvisual" && (scen || lead)) line += "\n  POINT ONLY AT THIS CONCERN THE MATERIAL NAMES, and NEVER turn it into a health claim or danger the material does not state: \"" + (scen ? scen.value : lead.value) + "\".";
       if (i < objPool.length){
         var o = objPool[i];
         line += "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
@@ -15794,7 +15800,8 @@ function genOneScript(opts){
     L.push("STAY WITH WHAT IT IS -- never escalate a seller claim (if the listing says \"no scratches,\" you may not say \"wrecks your blender\"). Speak to what the product plainly is and what the buyer felt.");
     L.push("LENGTH: aim the WHOLE script -- hook through CTA -- at about 60 to 110 spoken words, a finished video of 25 to 45 seconds. Let the sections balance within that budget and land all four scripts at a similar total length. No hard per-section word count.");
     L.push("ONE VIEWER, START TO FINISH: \"you\" is the SAME person from hook to CTA -- the buyer described in WHO THIS IS FOR. If the buyer is the host, the viewer is always the host, never a guest at someone else's party. Never switch who \"you\" is between the hook, the setup, the payoff and the CTA.");
-    L.push("SETUP (body1) is a SCENE from the viewer's own day, one concrete moment they recognise -- NOT a list of what the product has or does. NO product features, specs, or description in the setup; the product barely appears yet. NEVER open by saying the product does something badly (a pain is the viewer's frustration or a doubt you defuse later, never a product weakness stated as fact -- do not write \"the first batch comes out watery\"). If the hook opened a loop or asked a question, the setup must ANSWER or advance it, never pivot to a spec list. Do not restate the hook.");
+    L.push("HOOK vs SETUP ARE DIFFERENT BEATS: the hook is the way IN (a spoken line, a flip, a curiosity); the setup is a DIFFERENT, deeper moment of the same scene -- never a reworded or compressed version of the hook. If the hook already showed the party and the warm drinks, the setup must go somewhere the hook did not. If hook and setup carry the same content, the hook is doing no work.");
+    L.push("SETUP (body1) is a SCENE from the viewer's own day, one concrete moment they recognise -- NOT a list of what the product has or does. NO product features, specs, or description in the setup; the product barely appears yet. NEVER open by saying the product does something badly (a pain is the viewer's frustration or a doubt you defuse later, never a product weakness stated as fact -- do not write \"the first batch comes out watery\"). If the hook opened a loop or asked a question, the setup must ANSWER or advance it, never pivot to a spec list.");
     L.push("PRE-CLOSE: only the scripts with an assigned objection write one -- one sentence, a statement not a question, doing DIFFERENT work than the setup, defusing that script's assigned objection and no other. A script with a CLOSE MODE instead leaves preclose empty; its body2 stays the payoff and the close lands in the CTA only, so the script has ONE ending, not two. Never invent an objection just to have a pre-close.");
     L.push("OVERCOME OBJECTIONS INSIDE THE PRODUCT: when a script does defuse an objection, answer it with the product and how it is USED -- something the viewer can do or see for themselves (the model is the filter: same battery doubt, but the fix is a quick thing the viewer does). Answer inside the product, never by pointing at the company behind it.");
     L.push("");
@@ -15816,27 +15823,40 @@ function genOneScript(opts){
   function finalizeScript(s, ctx){ return { hook: s.hook, body1: s.body1, preclose: s.preclose, body2: s.body2, cta: s.cta, angle: lead0(ctx), desire: ctx.desire }; }
   // The GUARD: check each script; a violation regenerates it once; a second failure DROPS it. A banned
   // move never reaches the screen. Sequential so `scriptRepeats` can compare against already-accepted ones.
-  function validateBatch(ctx, guardOpts, scripts, done){
+  // Validate to a TARGET count, never just to whatever the model returned. If the model gives back fewer than
+  // GEN_COUNT objects (it sometimes does), the skipped slots are GENERATED fresh to their assignment -- so the
+  // batch is never silently short, and a slot that still cannot be produced is recorded as a drop and named,
+  // instead of two scripts quietly coming back with no message (the exact silent failure we keep hitting).
+  function validateBatch(ctx, guardOpts, scripts, target, done){
     var accepted = [], dropped = 0, dropCodes = {}, i = 0;
+    target = target | 0;
     function problems(s){ return SB.scriptViolations(s, guardOpts).concat(SB.scriptRepeats(s, accepted) ? ["repetition"] : []); }
-    // Record WHICH rule dropped a script, so a wholesale drop can be explained instead of showing an empty
-    // screen. A batch that drops entirely is a rule bug (a guard too aggressive), not a run of bad luck.
     function recordDrop(codes){ dropped++; (codes || []).forEach(function(c){ dropCodes[c] = (dropCodes[c] | 0) + 1; }); }
-    (function next(){
-      if (i >= scripts.length){ done(accepted, dropped, dropCodes); return; }
-      var idx = i, s = scripts[idx], viol = problems(s);
-      if (!viol.length){ accepted.push(finalizeScript(s, ctx)); i++; next(); return; }
-      genStatus("Fixing a script that broke a rule (" + viol.join(", ") + ")...");
-      claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genOnePrompt(ctx, idx, s, viol) }] }, function(t, e){
+    function regen(idx, prev, viol, missing){
+      claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genOnePrompt(ctx, idx, prev, viol) }] }, function(t, e){
         var s2 = null; if (!e){ var o = parseJson(t, "{", "}"); if (o) s2 = cleanScript(o); }
         if (s2){ var v2 = problems(s2); if (!v2.length){ accepted.push(finalizeScript(s2, ctx)); } else { recordDrop(v2); } }
-        else { recordDrop(viol); }   // the retry errored: attribute the drop to the first-attempt violations
+        else { recordDrop(missing ? ["generation-failed"] : viol); }
         i++; next();
       });
-    })();
+    }
+    function next(){
+      if (i >= target){ done(accepted, dropped, dropCodes); return; }
+      var idx = i, s = scripts[idx];
+      if (!s){   // the model returned fewer than target -> write the skipped slot to its assignment
+        genStatus("Writing script " + (idx + 1) + " (the model skipped it)...");
+        regen(idx, { hook: "", body1: "", preclose: "", body2: "", cta: "" }, ["missing from the batch"], true);
+        return;
+      }
+      var viol = problems(s);
+      if (!viol.length){ accepted.push(finalizeScript(s, ctx)); i++; next(); return; }
+      genStatus("Fixing a script that broke a rule (" + viol.join(", ") + ")...");
+      regen(idx, s, viol, false);
+    }
+    next();
   }
   // Human labels for the guard codes, used when a drop has to be explained to the owner.
-  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", repetition: "repeated opening" };
+  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated opening" };
   function fmtDrops(codes){ return Object.keys(codes || {}).map(function(c){ return (GUARD_LABELS[c] || c) + ((codes[c] | 0) > 1 ? " x" + codes[c] : ""); }).join(", "); }
   // A thrown error anywhere on the Generate path must SURFACE, not stall. The crash that took production down
   // was a ReferenceError before the model call ever fired, so the spinner spun forever and the never-empty
@@ -15876,12 +15896,12 @@ function genOneScript(opts){
           var out = parseJson(text, "[", "]");
           if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
           genStatus("Checking each script against the hard rules...");
-          validateBatch(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), function(clean, dropped, dropCodes){
+          validateBatch(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), GEN_COUNT, function(clean, dropped, dropCodes){
             try {
               generating = false;
               if (clean.length){
                 generatedScripts = clean; renderGenScripts();
-                genStatus(clean.length + " script" + (clean.length === 1 ? "" : "s") + " from your brief" + (dropped ? " (" + dropped + " dropped: " + fmtDrops(dropCodes) + ")" : "") + ". Save the ones you want.", "var(--green)");
+                genStatus(clean.length + " of " + GEN_COUNT + " script" + (GEN_COUNT === 1 ? "" : "s") + " from your brief" + (dropped ? " (" + dropped + " dropped: " + fmtDrops(dropCodes) + ")" : "") + ". Save the ones you want.", "var(--green)");
               } else {
                 // NEVER an empty screen. If every draft was flagged, show the drafts anyway (dashes stripped,
                 // finalized) with a warning naming the guards -- producing nothing is worse than a flagged script.
