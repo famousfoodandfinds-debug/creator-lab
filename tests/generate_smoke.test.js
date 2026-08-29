@@ -123,6 +123,14 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   // sounds fine aloud but fails on sense; the prompt must demand the WHOLE thought, every link of a chain.
   ok(capturedPrompt.indexOf('COMPLETE (comprehension)') >= 0, 'the hook comprehension test is in the prompt');
   ok(capturedPrompt.indexOf('say EVERY link') >= 0 && /middle/i.test(capturedPrompt), 'the comprehension test forbids dropping a middle step of a causal chain');
+  // Objection-turn construction must vary across the batch (not four concede-then-counter openings).
+  ok(capturedPrompt.indexOf('VARY THE OBJECTION-TURN CONSTRUCTION') >= 0, 'the pre-close construction is told to vary across the batch');
+  // A conceded downside must be answered about the SAME thing (the slow-production gap that never closed).
+  ok(capturedPrompt.indexOf('A CONCESSION MUST RESOLVE ITSELF') >= 0, 'a concession must resolve the same downside it raises');
+  // The action hook must not be a spec/operating sequence ("fill the tank, press the button"). Check the
+  // source directly (it may or may not land in this batch's rotation, so do not rely on the prompt text).
+  const actionSrc = (PS.__availableHooks(ctxT) || []).find(h => h.key === 'action');
+  ok(actionSrc && /spec sequence/.test(actionSrc.instr) && /FELT payoff/.test(actionSrc.instr), 'the action hook forbids an operating-step sequence and demands a felt payoff');
   // Architecture selection: objections -> C, else scarcity -> B, else A.
   ok(PS.__architecture(ctxT).label.indexOf('TRANSFORMATION') >= 0, 'objections present -> architecture C');
   const bBrief = SB.emptyBrief(); bBrief.lines.scarcity = SB.normalizeBrief({lines:{scarcity:{value:'limited run this month'}}}).lines.scarcity;

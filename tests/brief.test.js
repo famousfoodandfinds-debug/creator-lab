@@ -552,6 +552,14 @@ ok(B.scriptViolations({ preclose: "my wrist finally stopped aching" }, {}).index
 ok(B.scriptViolations({ hook: "It shouldn't take 15 minutes — set up your vacuum" }, {}).indexOf("em-dash") >= 0, 'validator: flags an em dash');
 // the hook may confess with "I"; ownership check is body-only
 ok(B.scriptViolations({ hook: "I almost talked myself out of this", body1: "You clean the corner over and over", preclose: "Tap the filter out and it breathes again", body2: "The floor stays clear", cta: "Grab one today" }, {}).indexOf("ownership") < 0, 'validator: a confession hook with "I" is allowed (ownership is body-only)');
+// the exact leaked line: a CONTRACTED first person ("I've") plus the possessive "mine" -- the old whitelist
+// (\bmy\b OR "i <space> <verb>") caught none of it and let invented ownership through with the toggle off.
+ok(B.scriptViolations({ preclose: "I've been running mine for months and haven't seen any mold yet" }, {}).indexOf("ownership") >= 0, 'validator: catches contracted first-person ownership ("I\'ve ... mine")');
+ok(B.scriptViolations({ preclose: "I've been running mine for months and haven't seen any mold yet" }, { ownsAllowed: true }).indexOf("ownership") < 0, 'validator: that same line is allowed when the creator owns the product');
+ok(B.scriptViolations({ body2: "mine sits on the counter and never clogs" }, {}).indexOf("ownership") >= 0, 'validator: catches the possessive "mine" (not just "my")');
+ok(B.scriptViolations({ body2: "I'm never going back to bagged ice" }, {}).indexOf("ownership") >= 0, 'validator: catches the contraction "I\'m"');
+// generic second-person copy with no first person is still clean (no over-block of "you"/"your")
+ok(B.scriptViolations({ body1: "You pour a glass without a second thought", body2: "Your counter stays clear", cta: "Grab one today" }, {}).indexOf("ownership") < 0, 'validator: pure second-person recommender copy is not flagged');
 // batch repetition: same objection-turn opening or near-identical CTA
 let acc = [{ preclose: "Pull the filter and tap it out", cta: "Grab yours from the orange cart" }];
 ok(B.scriptRepeats({ preclose: "Pull the filter, then wipe the housing", cta: "Get one before they sell out" }, acc) === true, 'repeats: same first words of the objection turn is a repeat');
