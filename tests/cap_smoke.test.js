@@ -23,7 +23,7 @@ let regenIds = [];           // generation_ids seen on regen (max_tokens 1500) c
 function resp(status, text){ return { status, text: function(){ return Promise.resolve(text); } }; }
 const fetchStub = function(url, opts){
   let body = {}; try { body = JSON.parse(opts.body); } catch(e){}
-  if (body.count_only) return Promise.resolve(resp(200, JSON.stringify({ ok:true, used:10, limit:150, remaining:140 })));
+  if (body.count_only) return Promise.resolve(resp(200, JSON.stringify({ ok:true, used:0, limit:7, remaining:7 }))); // distinctive limit (not 150) to prove the copy reads the EFFECTIVE limit
   if (body.call_name === "script_batch" && body.max_tokens >= 4000 && !batchBody) batchBody = body;
   if (body.call_name === "script_batch" && body.max_tokens < 4000) regenIds.push(body.generation_id);
   if (mode === "limit") return Promise.resolve(resp(429, JSON.stringify({ error:"monthly_limit_reached", message:"blocked", used:150, limit:150 })));
@@ -57,7 +57,8 @@ PS.fill({ id:'p1', name:'Ice maker', updated_at:'2026-01-01', brief, raw });
   PS.generateScripts();
   for (let k=0;k<120;k++) await Promise.resolve();
   const blockStatus = (byId['genStatus'] && byId['genStatus'].textContent) || '';
-  ok(/all 150 generations this month/.test(blockStatus), 'the 429 shows the monthly-cap block message: "' + blockStatus.slice(0,80) + '"');
+  ok(/all 7 generations this month/.test(blockStatus), 'the 429 block cites the EFFECTIVE limit from the server (7), not a hardcoded 150: "' + blockStatus.slice(0,80) + '"');
+  ok(!/150/.test(blockStatus), 'the block message never shows a stale hardcoded 150');
   ok(/library and Planner stay open/.test(blockStatus) && /resets? on the 1st/i.test(blockStatus), 'the block copy keeps library/Planner open and says it resets on the 1st');
   ok(!/try again|hit an error/i.test(blockStatus), 'the 429 is NOT shown as a generic failure');
 

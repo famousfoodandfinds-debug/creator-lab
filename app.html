@@ -15763,11 +15763,20 @@ function genOneScript(opts){
         try {
           if (err){
             generating = false; renderGenScripts();
-            // The monthly cap returns 429 with a member-facing message. Show THAT (points to the library,
-            // "resets on the 1st"), never a generic "try again", and mark the counter empty so the wall is clear.
-            // 429 = monthly cap. claudeCall surfaces the error CODE, not the body message, so use the member-
-            // facing copy directly (identical to the server's): library/Planner stay open, resets on the 1st.
-            if (err.status === 429){ genCount = { used: (genCount && genCount.used) || MONTHLY_BATCH_LIMIT, limit: MONTHLY_BATCH_LIMIT, remaining: 0 }; renderGenScripts(); genStatus("You've used all " + MONTHLY_BATCH_LIMIT + " generations this month. They reset on the 1st -- your library and Planner stay open in the meantime.", "var(--red)"); return; }
+            // The monthly cap returns 429. claudeCall surfaces the error CODE, not the body, so build the copy
+            // here -- but cite the EFFECTIVE limit (from count_only, genCount.limit), never a hardcoded 150, so a
+            // changed cap can never make the message lie. If the real limit is not known yet (count_only failed),
+            // omit the number entirely rather than guess. Library/Planner stay open; resets on the 1st.
+            if (err.status === 429){
+              var capLim = (genCount && genCount.limit) || 0;
+              if (capLim) genCount = { used: capLim, limit: capLim, remaining: 0 };   // known -> counter shows 0 left
+              renderGenScripts();
+              genStatus(capLim
+                ? ("You've used all " + capLim + " generations this month. They reset on the 1st -- your library and Planner stay open in the meantime.")
+                : "You've reached your monthly generation limit. It resets on the 1st -- your library and Planner stay open in the meantime.",
+                "var(--red)");
+              return;
+            }
             genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + "). Nothing was lost.", "var(--red)"); return;
           }
           // The batch was accepted by the cap (a 429 would have taken the branch above), so a slot was spent.
@@ -15833,10 +15842,11 @@ function genOneScript(opts){
     // Persistent counter beside the button, in batches ("generations"), never scripts.
     if (genCount){ var cnt = document.createElement("div"); cnt.style.cssText = "font-size:12px;font-weight:600;color:var(--" + genCountTone() + ");"; cnt.textContent = genCountLabel(); head.appendChild(cnt); }
     host.appendChild(head);
-    // Threshold warnings: 80% used (30 left of 150), 5 left, and the at-limit block copy. Same wording the
-    // server sends on a 429, so the app reads consistently whether the block is predicted or hit.
-    if (genCount){
-      var r = genCount.remaining | 0, lim = genCount.limit || MONTHLY_BATCH_LIMIT;
+    // Threshold warnings: 80% used, 5 left, and the at-limit block copy. Every number comes from the server's
+    // EFFECTIVE limit (genCount.limit), never a hardcoded constant, so changing the cap can't make copy lie.
+    // Guarded on limit > 0 so a not-yet-loaded count never renders a "0 of 0" line.
+    if (genCount && genCount.limit > 0){
+      var r = genCount.remaining | 0, lim = genCount.limit;
       if (r <= Math.ceil(lim * 0.2)){
         var warn = document.createElement("div"); warn.style.cssText = "font-size:12px;color:var(--" + genCountTone() + ");margin-bottom:8px;line-height:1.5;";
         warn.textContent = r <= 0
