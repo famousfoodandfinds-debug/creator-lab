@@ -6,6 +6,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Saxe · Getting Started</title>
 <!-- Same fonts as the app: Marcellus for display, Instrument Sans for body. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+PHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMTIiIGZpbGw9IiMyNjI0MUYiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNTYsMjU2KSBzY2FsZSgzLjMpIj48ZyB0cmFuc2Zvcm09InJvdGF0ZSgtMjIpIj48cGF0aCBkPSJNMzkuMzkgMi42MDUgQTQwIDE1IDAgMSAxIDM0LjY0IC03LjUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0NFOUE4MCIgc3Ryb2tlLXdpZHRoPSIxLjEiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxwYXRoIGQ9Ik0zMi4xNCAtMTIuNDEgTDM0LjY0IC03LjUgTDI5LjE0IC03Ljc5IiBmaWxsPSJub25lIiBzdHJva2U9IiNDRTlBODAiIHN0cm9rZS13aWR0aD0iMS40IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L2c+PHBvbHlnb24gcG9pbnRzPSIwLC0zNCAzLC0zIDIyLDAgMywzIDAsMzQgLTMsMyAtMjIsMCAtMywtMyIgZmlsbD0iI0NFOUE4MCIvPjwvZz48L3N2Zz4=">
+<!-- Saxe compass mark on the charcoal app tile, inline so no asset file is needed. -->
 <link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
@@ -34,8 +36,8 @@ html, body { background: var(--black); color: var(--white); font-family: 'Instru
 body { padding-bottom: 80px; }
 
 .header { padding: 16px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(26,23,20,0.95); backdrop-filter: blur(20px); z-index: 100; }
-/* Text wordmark matching the app's .brand-wordmark. Swap for the rose-gold compass logo <img> when you send it. */
-.header-logo-text { font-family: 'Marcellus', serif; font-size: 22px; font-weight: 400; color: var(--white); letter-spacing: 0.2em; text-transform: uppercase; line-height: 1; }
+/* Saxe horizontal logo, inline SVG so it stays crisp: rose-gold compass mark, cream wordmark, rose-gold X. */
+.header-logo { display: block; height: 30px; width: auto; }
 .header-label { margin-left: auto; font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
 
 .hero { padding: 48px 20px 40px; text-align: center; border-bottom: 1px solid var(--border); }
@@ -86,7 +88,19 @@ body { padding-bottom: 80px; }
 <body>
 
 <div class="header">
-  <div class="header-logo-text">Saxe</div>
+  <svg class="header-logo" viewBox="0 0 300 120" role="img" aria-label="Saxe">
+    <g transform="translate(66,60) scale(0.9)">
+      <g transform="rotate(-22)">
+        <path d="M39.39 2.605 A40 15 0 1 1 34.64 -7.5" fill="none" stroke="#CE9A80" stroke-width="1.1" stroke-linecap="round"/>
+        <path d="M32.14 -12.41 L34.64 -7.5 L29.14 -7.79" fill="none" stroke="#CE9A80" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <polygon points="0,-34 3,-3 22,0 3,3 0,34 -3,3 -22,0 -3,-3" fill="#CE9A80"/>
+    </g>
+    <text x="135" y="74" text-anchor="middle" font-family="Marcellus, serif" font-size="40" fill="#F4EEE8">S</text>
+    <text x="172" y="74" text-anchor="middle" font-family="Marcellus, serif" font-size="40" fill="#F4EEE8">A</text>
+    <text x="209" y="74" text-anchor="middle" font-family="Marcellus, serif" font-size="40" fill="#CE9A80">X</text>
+    <text x="246" y="74" text-anchor="middle" font-family="Marcellus, serif" font-size="40" fill="#F4EEE8">E</text>
+  </svg>
   <div class="header-label">Getting Started</div>
 </div>
 
