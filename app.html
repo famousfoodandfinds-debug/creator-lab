@@ -13587,6 +13587,9 @@ function genOneScript(opts){
                                       // (a flaw or annoyance with THIS product). Only "alternative" pains may
                                       // lead a hook/setup/payoff; a "product" pain is a doubt to defuse in the
                                       // pre-close, never advertised earlier. Unknown is treated as "product".
+      need: "",                       // pains + desire: the Maslow level this motivates at -- "safety",
+                                      // "belonging", "esteem" or "convenience". Generation ROTATES need across
+                                      // the batch so four scripts serve four different drives, not one.
       derivedValue: "",               // snapshot of the wording as DERIVED, for per-line revert. Persisted,
       edited: false                   // so revert keeps working after later rebuilds. Empty until first edit.
     };
@@ -13614,6 +13617,7 @@ function genOneScript(opts){
     l.added = !!x.added;
     l.cause = str(x.cause);
     l.about = str(x.about);
+    l.need = str(x.need);
     l.derivedValue = str(x.derivedValue);
     l.edited = !!x.edited;
     if (x.id) l.id = str(x.id);
@@ -14136,18 +14140,19 @@ function genOneScript(opts){
       g = obj(g);
       var mem = arr(g.members).map(function(i){ return i|0; }).filter(function(i){ return items[i] && !used[i]; });
       if (!mem.length) return;
-      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false, cause = "", about = "";
+      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false, cause = "", about = "", need = "";
       mem.forEach(function(i){ used[i] = true; var it = items[i]; count += (it.count|0); cls = cls || !!it.classified; ccls = ccls || !!it.cclassified;
         if (!cause && str(it.cause)) cause = str(it.cause);   // carry the first grounded mechanism forward
-        if (!about && str(it.about)) about = str(it.about);   // carry the alternative-vs-product classification
+        if (!about && str(it.about)) about = str(it.about);
+        if (!need && str(it.need)) need = str(it.need);
         unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits); unionInto(chits, it.chits);
       });
       if (total > 0) count = Math.min(count, total);
-      out.push(normLine({ value: str(g.value) || items[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls, cause: cause, about: about }));
+      out.push(normLine({ value: str(g.value) || items[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls, cause: cause, about: about, need: need }));
     });
     // keep anything the model neither grouped nor explicitly dropped -- never silently lose a finding
     items.forEach(function(it, i){ if (used[i] || dropped[i]) return;
-      out.push(normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified, cause: it.cause, about: it.about }));
+      out.push(normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified, cause: it.cause, about: it.about, need: it.need }));
     });
     out.sort(function(a,b){ return b.count - a.count; });
     return out;
@@ -14163,13 +14168,14 @@ function genOneScript(opts){
     var dropped = {}; arr(spec.dropped).forEach(function(i){ dropped[i|0] = true; });
     var used = {}, outP = [], outO = [];
     function build(g, mem){
-      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false, cause = "", about = "";
+      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false, cause = "", about = "", need = "";
       mem.forEach(function(i){ used[i] = true; var it = combined[i]; count += (it.count|0); cls = cls || !!it.classified; ccls = ccls || !!it.cclassified;
         if (!cause && str(it.cause)) cause = str(it.cause);
         if (!about && str(it.about)) about = str(it.about);
+        if (!need && str(it.need)) need = str(it.need);
         unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits); unionInto(chits, it.chits); });
       if (total > 0) count = Math.min(count, total);
-      return normLine({ value: str(g.value) || combined[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls, cause: cause, about: about });
+      return normLine({ value: str(g.value) || combined[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls, cause: cause, about: about, need: need });
     }
     arr(spec.clusters).forEach(function(g){
       g = obj(g);
@@ -14179,7 +14185,7 @@ function genOneScript(opts){
       (cat.indexOf("objection") >= 0 ? outO : outP).push(f);
     });
     combined.forEach(function(it, i){ if (used[i] || dropped[i]) return;   // keep forgotten in its origin list
-      var f = normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified, cause: it.cause, about: it.about });
+      var f = normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified, cause: it.cause, about: it.about, need: it.need });
       (i < A.length ? outP : outO).push(f);
     });
     return { pains: outP, objections: outO };
@@ -14286,7 +14292,7 @@ function genOneScript(opts){
     function listOf(k){
       return arr(b.lines[k]).filter(function(it){ return it && it.value; }).map(function(it){
         return { value: str(it.value), words: arr(it.words).map(str), claims: arr(it.claims).map(str),
-                 count: it.count|0, total: it.total|0, ccount: it.ccount|0, ctotal: it.ctotal|0, added: !!it.added, cause: str(it.cause), about: str(it.about) };
+                 count: it.count|0, total: it.total|0, ccount: it.ccount|0, ctotal: it.ctotal|0, added: !!it.added, cause: str(it.cause), about: str(it.about), need: str(it.need) };
       });
     }
     // Top by REVIEW count, then comment count -- evidence-ranked, added (count 0) lines never lead by default.
@@ -14295,7 +14301,7 @@ function genOneScript(opts){
     return {
       who: v("who"), whoWords: w("who"),
       emotion: v("emotion"), emotionWords: w("emotion"),
-      desire: v("desire"), desireWords: w("desire"),
+      desire: v("desire"), desireWords: w("desire"), desireNeed: str(b.lines.desire && b.lines.desire.need),
       problem: v("problem"),
       positioning: v("positioning"),
       socialProof: v("socialProof"), socialProofWords: w("socialProof"),
@@ -14541,7 +14547,7 @@ function genOneScript(opts){
   var raw = SB.emptyRaw();
   var brief = SB.emptyBrief();          // derived, light column; loaded on open, rebuilt by deriveBrief
   var deriving = false;                 // guards the derive button against double-fire
-  var DERIVE_PROMPT_V = "brief-derive-9";   // pains carry `about` (alternative/old-way vs this-product) so a flaw never leads
+  var DERIVE_PROMPT_V = "brief-derive-10";  // pains + desire carry a Maslow `need`, rotated across the batch
   var DERIVE_BATCH = 8;                 // reviews per derivation call -- smaller so each call stays inside
   var DERIVE_REVIEW_CHARS = 2000;       // Netlify's ~26s sync gateway even with the larger per-review excerpt
   var DERIVE_MODEL = "claude-haiku-4-5-20251001"; // fast enough not to hit the gateway 504
@@ -14952,8 +14958,8 @@ function genOneScript(opts){
       '{"lines":{',
       '"who":{"value":"who this is really for, one sentence","words":[],"claims":[],"terms":[]},',
       '"emotion":{"value":"the dominant emotion driving the purchase","words":[],"claims":[],"terms":[]},',
-      '"desire":{"value":"the outcome they actually want","words":[],"claims":[],"terms":[]},',
-      '"pains":[{"value":"a specific pain in their words","words":[],"claims":[],"terms":[],"about":""}],',
+      '"desire":{"value":"the outcome they actually want","words":[],"claims":[],"terms":[],"need":""},',
+      '"pains":[{"value":"a specific pain in their words","words":[],"claims":[],"terms":[],"about":"","need":""}],',
       '"problem":{"value":"the core problem the product solves","words":[],"claims":[],"terms":[]},',
       '"objections":[{"value":"a hesitation or question buyers raise","words":[],"claims":[],"terms":[],"cause":""}],',
       '"scarcity":{"value":"any real scarcity or urgency, else empty","words":[],"claims":[],"terms":[]},',
@@ -14971,6 +14977,7 @@ function genOneScript(opts){
       "- The COMPETITOR / VIRAL-VIDEO COMMENTS above come from people reacting to a video, most of whom have NOT bought. Doubts they raise -- unclear or missing product information, colours or looks not matching what they already own, price worry, whether it will fit or suit them -- are OBJECTIONS, not pains. Only call something a pain when someone describes the product actually failing or wearing out in hand. When the source is a comment and you are unsure, prefer objection.",
       "- pains and objections are arrays; return AT MOST 4 distinct items each, most-common first.",
       "- cause (objections only) = the specific MECHANISM the reviews or listing actually name as the reason for this objection, in a few words (e.g. for a shutoff objection where reviewers say the filter clogs: 'the filter clogs'). Fill it ONLY when the material genuinely states the cause. If the reviews and listing do not name a reason, leave cause empty (''). NEVER guess or invent a cause -- an empty cause is correct and expected, and a made-up one is worse than none.",
+      "- need (pains and desire) = the Maslow level this MOTIVATES at, one of: 'safety' (a real risk or worry removed -- e.g. a mother relieved her kid cannot choke on sharp ice), 'belonging' (being part of it, no one left out or waiting -- e.g. nobody at the table waiting for ice), 'esteem' (status, being noticed -- e.g. everyone asks where you got the ice), or 'convenience' (effort simply gone -- e.g. no more store runs for bags). Pick the ONE that fits best. Safety motivates hardest, so never mislabel a safety relief as convenience. Fill it for every pain and for the desire.",
       "- about (pains only) = 'alternative' if the pain is about the OLD way, a DIFFERENT or previous product, or life WITHOUT this one -- i.e. the problem THIS product solves ('my old vacuum was too heavy', 'the last ice maker's ice never stayed frozen', 'we kept running to the store for bags of ice'). Use 'product' if the pain is a complaint about THIS product itself -- a flaw, defect, quirk or annoyance with the thing being sold ('the first batch comes out watery', 'you have to descale it often', 'the drain plug is awkward to reach'). This matters: only 'alternative' pains may ever lead a hook or setup; a 'product' pain is a doubt to defuse, and leading with one advertises the flaw. When you are not sure, use 'product' (the safe default -- a product complaint must never open a script).",
       "- who, emotion, desire, pains, objections, socialProof, priceAnchor and ALL words come from the REVIEWS and COMMENTS only. features come from the SELLER LISTING only. NEVER fill a buyer-psychology line or a buyer word from the seller listing.",
       "- A feature is a spec the SELLER states in the listing (a size, capacity, material, wattage). NEVER put a figure a REVIEWER gave about their own unit into features -- 'makes ice every six or seven minutes' is one buyer's timing of their machine, not a listed spec, so it is not a feature. If a number is not in the seller listing, it does not belong in the features list.",
@@ -15375,6 +15382,13 @@ function genOneScript(opts){
       v.textContent = "• " + (it.value || "");
       if (it.added || it.edited) v.appendChild(mineTag(!!it.added));
       row.appendChild(v);
+      // Pains show how derivation classified them: an "old way" pain may lead a hook/setup; a "this product"
+      // pain is defuse-only. Lets the owner see a mislabel (a flaw tagged as the old way leaks into a setup).
+      if (key === "pains"){
+        var ab = String(it.about || ""), abT = ab === "alternative" ? "about the old way" : ab === "product" ? "about this product · defuse only" : "unclassified · rebuild to label";
+        var abC = ab === "alternative" ? "background:rgba(120,200,120,.12);color:#7bd07b;border:1px solid rgba(120,200,120,.35);" : ab === "product" ? "background:rgba(240,160,90,.12);color:#f0a05a;border:1px solid rgba(240,160,90,.35);" : "background:var(--surface);color:var(--muted);border:1px solid var(--border-md);";
+        var abx = document.createElement("span"); abx.textContent = abT; abx.style.cssText = "display:inline-block;font-size:10px;padding:2px 7px;border-radius:999px;margin-top:3px;" + abC; row.appendChild(abx);
+      }
       if (it.added){ var yn = document.createElement("div"); yn.style.cssText = "font-size:11px;color:var(--purple);margin-top:2px;"; yn.textContent = "Your line -- not counted"; row.appendChild(yn); }
       else { var e = evidenceLine(it); if (e) row.appendChild(e); row.appendChild(wordsAndClaims(it)); }
       var acts = document.createElement("div"); acts.style.cssText = "margin-top:5px;";
@@ -15707,20 +15721,26 @@ function genOneScript(opts){
   function genStatus(msg, color){ var s = el("genStatus"); if (!s) return; if (msg){ s.style.display = "block"; s.style.color = color || "var(--muted)"; s.textContent = msg; } else { s.style.display = "none"; s.textContent = ""; } }
   function genPrompt(ctx){
     function block(label, val){ return val ? (label + ": " + val + "\n") : ""; }
-    var safe = [], claimed = [];
-    ["whoWords","emotionWords","desireWords","socialProofWords"].forEach(function(k){ (ctx[k] || []).forEach(function(x){ if (x && safe.indexOf(x) < 0) safe.push(x); }); });
-    ctx.pains.concat(ctx.objections).forEach(function(f){ f.words.forEach(function(x){ if (x && safe.indexOf(x) < 0) safe.push(x); }); f.claims.forEach(function(x){ if (x && claimed.indexOf(x) < 0) claimed.push(x); }); });
     var lead = ctx.leadPain, L = [];
-    // Only grounded objections are defusable. objPool is the whole defusable set (weight-ranked, capped);
-    // defuse is the heaviest one for the objection-as-curiosity hook. When objPool is empty the brief has no
-    // real objection, so no script writes an objection turn -- the assignments below hand those scripts a
-    // close mode instead. There is deliberately NO fallback that promotes an ungrounded objection.
     // Pains split by what they are ABOUT. An ALTERNATIVE pain (the old way, a previous product, life without
     // this) is the problem the product solves -- it may lead a hook/setup/payoff. A PRODUCT pain (a flaw in
     // the thing being sold) is a DOUBT: it joins the defuse pool and may NEVER open a script. Leading with a
     // product pain advertises the flaw (watery cubes, the awkward drain plug), the exact fault to prevent.
     var altPainList = (ctx.pains || []).filter(function(p){ return String(p.about || "") === "alternative"; });
     var productPainList = (ctx.pains || []).filter(function(p){ return String(p.about || "") !== "alternative"; });
+    // MASLOW NEED, rotated across the batch so four scripts serve four different DRIVES, not four wordings of
+    // one. Safety converts hardest and kept getting skipped (party scripts only), so it leads the rotation.
+    var NEED_GLOSS = { safety: "removing a real risk or worry -- someone is safe, nothing can go wrong (this drive converts hardest)", belonging: "being included and together -- no one left out, no one waiting", esteem: "status and being noticed -- others ask about it, others are impressed", convenience: "the effort simply gone -- one easy motion instead of the old hassle" };
+    function needOf(f){ var n = String((f && f.need) || "").toLowerCase(); return NEED_GLOSS[n] ? n : ""; }
+    var needsPresent = ["safety","belonging","esteem","convenience"].filter(function(n){ return altPainList.some(function(p){ return needOf(p) === n; }) || needOf({ need: ctx.desireNeed }) === n; });
+    // Opener-safe language is who/feel/want/proof plus ALTERNATIVE-pain words only. Product-pain words
+    // ("watery", "hard water", "mold") are the vocabulary of the flaw -- they leaked into setups when they sat
+    // in this pool, so they are excluded here; they only ever surface when a pre-close defuses that doubt.
+    var safe = [], claimed = [];
+    ["whoWords","emotionWords","desireWords","socialProofWords"].forEach(function(k){ (ctx[k] || []).forEach(function(x){ if (x && safe.indexOf(x) < 0) safe.push(x); }); });
+    altPainList.forEach(function(f){ f.words.forEach(function(x){ if (x && safe.indexOf(x) < 0) safe.push(x); }); });
+    // The claim BAN list still draws from every pain and objection -- these are never assertable anywhere.
+    ctx.pains.concat(ctx.objections).forEach(function(f){ f.claims.forEach(function(x){ if (x && claimed.indexOf(x) < 0) claimed.push(x); }); });
     // Defuse pool = grounded objections PLUS grounded product-pains (both are doubts to answer in the pre-close).
     var objPool = SB.groundedObjections(ctx.objections.concat(productPainList));
     var defuse = objPool[0] || null;
@@ -15745,6 +15765,8 @@ function genOneScript(opts){
     // makes no one want the product has failed. Write to sell; obey the rules while you do.
     L.push("THE JOB (above everything else): make the viewer WANT this product enough to stop scrolling and tap the link to buy. That is the whole point of the script. Everything below is how to do that honestly -- the constraints keep us from lying or getting the video suppressed, they are not the goal. A script that is perfectly safe but makes no one want the product is a failure. Sell.");
     L.push("");
+    L.push("THE ARC (a script is ONE move, not five boxes): the HOOK opens a gap, the SETUP makes that gap FELT, the payoff CLOSES that exact gap, and the pre-close removes the risk of changing. The hook and the payoff are two ends of ONE move -- before you write the payoff, name the gap the hook opened and resolve THAT specific gap, never a different benefit. A hook about waiting for ice must pay off as ice with no waiting, never as something else. If the payoff does not close the hook's gap, the script is broken.");
+    L.push("");
     // VOICE. Two modes, set by the owner's "I own or use this product" toggle. OWNS -> first-person testimony
     // is honest and allowed (it usually sells harder). Otherwise RECOMMENDER: point the viewer at what the
     // product will mean for THEM, no first person. The ownership ban is enforced in code, so the prompt only
@@ -15757,7 +15779,7 @@ function genOneScript(opts){
     // scene. The pool is ONLY the ALTERNATIVE pains (the old way / the problem this product solves). A product
     // flaw is never a scenario -- it goes in the defuse list, not here.
     var scenarioPool = altPainList;
-    if (scenarioPool.length) L.push("VARY THE SCENARIO across the batch -- each script opens on a DIFFERENT real situation from the brief (assigned per script below), never four scripts about the same one. Every situation here is about the OLD way or life WITHOUT this product (the problem it solves), never about this product performing badly. The situations available:\n" + scenarioPool.map(function(p){ return "- " + p.value; }).join("\n"));
+    if (scenarioPool.length) L.push("VARY THE SCENARIO AND THE NEED across the batch -- each script opens on a DIFFERENT real situation AND serves a DIFFERENT Maslow drive (assigned per script below), so four scripts are four genuinely different videos, not four wordings of one. Every situation here is about the OLD way or life WITHOUT this product (the problem it solves), never about this product performing badly. The situations available:\n" + scenarioPool.map(function(p){ return "- " + p.value + (needOf(p) ? "  [" + needOf(p) + "]" : ""); }).join("\n"));
     if (productPainList.length) L.push("PRODUCT FLAWS ARE DOUBTS, NEVER OPENERS: these are complaints about THIS product -- each may ONLY be defused in the pre-close (if assigned), and must NEVER appear in a hook, setup, or payoff. Do not open a video on any of them:\n" + productPainList.map(function(p){ return "- " + p.value; }).join("\n"));
     if (defuse) L.push("THE BIGGEST DOUBT (a pre-close may answer this one; it is a doubt to DEFUSE, never a line to open on): " + defuse.value + (defuse.words.length ? "\n  phrasing: " + defuse.words.join(", ") : ""));
     var oo = objPool.filter(function(o){ return !defuse || o.value !== defuse.value; }).map(function(o){ return "- " + o.value; });
@@ -15775,12 +15797,17 @@ function genOneScript(opts){
     var plan = hookPlanFor(GEN_COUNT, hookSources, ctx.hookOffset | 0);
     L.push("PER-SCRIPT ASSIGNMENTS (each script MUST follow its own hook source; it then EITHER defuses its one assigned objection OR, if it has no objection assigned, closes with its assigned close mode. Never introduce an objection not assigned to that script, and never invent one to fill an empty slot):");
     plan.forEach(function(hs, i){
-      // Each script gets a DIFFERENT situation from the pool (rotated with the same offset as the hooks), so
-      // the batch never runs four variations of one scene (hosting a party) when the brief has RV trips, heat,
-      // a broken fridge and a full freezer sitting unused.
-      var scen = scenarioPool.length ? scenarioPool[((ctx.hookOffset | 0) + i) % scenarioPool.length] : null;
+      var off = (ctx.hookOffset | 0) + i;
+      // Each script serves a DIFFERENT Maslow need (safety, belonging, esteem, convenience), rotated, and gets
+      // a situation that matches it -- so the batch gives four genuinely different videos, not four party
+      // rewordings, and safety (a mother relieved her kid can't choke) finally gets its own script.
+      var need = needsPresent.length ? needsPresent[off % needsPresent.length] : "";
+      var needScen = need ? altPainList.filter(function(p){ return needOf(p) === need; }) : [];
+      var scen = needScen.length ? needScen[off % needScen.length]
+               : (scenarioPool.length ? scenarioPool[off % scenarioPool.length] : null);
       var line = "Script " + (i + 1) + ":\n  HOOK SOURCE: " + hs.instr;
-      if (scen) line += "\n  SCENARIO (open the setup on THIS situation from the brief, a different one from the other scripts): " + scen.value + (scen.words.length ? " (viewer's words: " + scen.words.join(", ") + ")" : "");
+      if (need) line += "\n  NEED (the drive this script serves -- frame the WHOLE script at this level, it is the emotional core): " + need.toUpperCase() + " -- " + NEED_GLOSS[need] + (needOf({ need: ctx.desireNeed }) === need && ctx.desire ? " The payoff at this level is the desire: \"" + ctx.desire + "\"." : "");
+      if (scen) line += "\n  SCENARIO (open the setup on THIS situation, a different one from the other scripts): " + scen.value + (scen.words.length ? " (viewer's words: " + scen.words.join(", ") + ")" : "");
       // The two causal-claim hooks only appear when a mechanism is grounded; hand each the EXACT cause from
       // the material so it builds on the real reason and never invents one (the tank-size fabrication).
       if (hs.key === "objection" && causeObj) line += "\n  REFRAME THIS OBJECTION ONTO THIS EXACT CAUSE FROM THE MATERIAL (never invent another): objection \"" + causeObj.value + "\", cause \"" + causeObj.cause + "\".";
@@ -15824,13 +15851,13 @@ function genOneScript(opts){
     L.push("LENGTH: aim the WHOLE script -- hook through CTA -- at about 60 to 110 spoken words, a finished video of 25 to 45 seconds. Let the sections balance within that budget and land all four scripts at a similar total length. No hard per-section word count.");
     L.push("ONE VIEWER, START TO FINISH: \"you\" is the SAME person from hook to CTA -- the buyer described in WHO THIS IS FOR. If the buyer is the host, the viewer is always the host, never a guest at someone else's party. Never switch who \"you\" is between the hook, the setup, the payoff and the CTA.");
     L.push("HOOK vs SETUP ARE DIFFERENT BEATS: the hook is the way IN (a spoken line, a flip, a curiosity); the setup is a DIFFERENT, deeper moment of the same scene -- never a reworded or compressed version of the hook. If the hook already showed the party and the warm drinks, the setup must go somewhere the hook did not. If hook and setup carry the same content, the hook is doing no work.");
-    L.push("SETUP (body1) is a SCENE from the viewer's own day -- NOT a list of what the product has or does. NO product features, specs, or description in the setup; the product barely appears yet. NEVER open by saying the product does something badly (a pain is the viewer's frustration or a doubt you defuse later, never a product weakness stated as fact -- do not write \"the first batch comes out watery\"). If the hook opened a loop or asked a question, the setup must ANSWER or advance it, never pivot to a spec list.");
+    L.push("SETUP (body1) names the FEELING, not just the situation. \"You got suckered\", \"you hated people digging around in your ice with their hands\", \"that's sharp\" are FEELINGS; \"a hot day, people over\" is only a situation. A situation beats a spec list, but a feeling beats a situation -- lead with what it FELT like, in the viewer's own words. Still a SCENE from the viewer's day, NEVER a list of what the product has or does, no features or specs; and NEVER a complaint about this product (that is a doubt to defuse later, never \"the first batch comes out watery\"). If the hook opened a loop or a question, the setup ANSWERS or advances it, never pivots to a spec list.");
     L.push("STACK THE IRRITATIONS: when the SITUATIONS list holds several distinct annoyances, name TWO OR THREE of them in the setup -- each a different feeling, none of them a feature, and every one drawn ONLY from the SITUATIONS list (the old way / the problem this product solves), NEVER a product flaw -- and let them all land before the product appears. Lead with this script's assigned scenario, then add one or two more from that list. (Real example of the shape, all about the WRONG earlier product, not the one being sold: the ice doesn't stay frozen, then people digging around in your ice with their hands, then the sharp cubes -- three separate feelings, THEN the product arrives.)");
     L.push("PRE-CLOSE: only the scripts with an assigned objection write one -- one sentence, a statement not a question, doing DIFFERENT work than the setup, defusing that script's assigned objection and no other. A script with a CLOSE MODE instead leaves preclose empty; its body2 stays the payoff and the close lands in the CTA only, so the script has ONE ending, not two. Never invent an objection just to have a pre-close.");
     L.push("OVERCOME OBJECTIONS INSIDE THE PRODUCT: when a script does defuse an objection, answer it with the product and how it is USED -- something the viewer can do or see for themselves (the model is the filter: same battery doubt, but the fix is a quick thing the viewer does). Answer inside the product, never by pointing at the company behind it.");
     L.push("CREDIBILITY BEAT (only when the material supports it): if the brief shows the product was IMPROVED in response to buyers -- a second generation, a fixed complaint, a change the makers made -- you may sell that improvement through credibility rather than a spec (\"they listened and moved the tank to the front\"). It lands harder than a feature. Use it ONLY when the material actually names the improvement; never invent a previous version or a change that is not there.");
     L.push("");
-    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the tight setup; preclose = the assigned objection turn, or "" when the script has a CLOSE MODE instead of an objection; body2 = the desire/payoff for EVERY script (describe the moment using only a setting the material supports; do not invent a place or context the material never mentions, like an office or a cabin; do not say "you become the person who"); it is never a gift or scarcity close; cta = the shopping-button call to action -- for an objection script it echoes the hook, for a close-mode script it IS the gift/identity or scarcity close. Keep every script tight and speakable. No em dashes.');
+    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the tight setup; preclose = the assigned objection turn, or "" when the script has a CLOSE MODE instead of an objection; body2 = the payoff, which must CLOSE THE EXACT GAP THE HOOK OPENED (the same subject, now resolved -- not a different benefit) at the NEED level assigned to this script (describe the moment using only a setting the material supports; do not invent a place or context the material never mentions, like an office or a cabin; do not say "you become the person who"); it is never a gift or scarcity close; cta = the shopping-button call to action -- for an objection script it echoes the hook, for a close-mode script it IS the gift/identity or scarcity close. Keep every script tight and speakable. No em dashes.');
     return L.join("\n");
   }
   // Ask for ONE script rewritten -- reuses the full batch prompt (all context + this script's assignment +

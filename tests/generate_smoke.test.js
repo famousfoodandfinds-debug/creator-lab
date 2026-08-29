@@ -71,7 +71,7 @@ brief.meta.lastDerivedAt = '2026-01-01T00:00:00Z';
 brief.meta.reviewCount = 12;
 brief.lines.who = SB.normalizeBrief({lines:{who:{value:'people who host and always run out of ice'}}}).lines.who;
 brief.lines.desire = SB.normalizeBrief({lines:{desire:{value:'never run dry mid-party'}}}).lines.desire;
-brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out too fast', count:6, classified:true, about:'alternative'}, {value:'the first batch is watery', count:3, classified:true, about:'product'}]}}).lines.pains;
+brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out too fast', count:6, classified:true, about:'alternative', need:'convenience'}, {value:'the last cooler let it melt on a hot day', count:5, classified:true, about:'alternative', need:'safety'}, {value:'the first batch is watery', count:3, classified:true, about:'product'}]}}).lines.pains;
 brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true, cause:'the tank holds less'}]}}).lines.objections;
 brief.features = SB.normalizeBrief({features:[{feature:'makes 33 lbs per 24 hours', benefit:'plenty of ice'}, {feature:'1.8 L tank', benefit:'fewer refills'}]}).features;
 let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'the nugget ice is so good' }];
@@ -114,6 +114,11 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(varyIdx >= 0 && capturedPrompt.slice(varyIdx, flawIdx > varyIdx ? flawIdx : varyIdx + 400).indexOf('ice runs out too fast') >= 0, 'the ALTERNATIVE pain is in the scenario/opener list');
   ok(flawIdx >= 0 && capturedPrompt.slice(flawIdx, flawIdx + 300).indexOf('the first batch is watery') >= 0, 'the PRODUCT flaw is listed as a doubt, never an opener');
   ok(varyIdx >= 0 && capturedPrompt.slice(varyIdx, flawIdx > varyIdx ? flawIdx : varyIdx + 400).indexOf('the first batch is watery') < 0, 'the product flaw does NOT appear in the scenario/opener list');
+  // Maslow need is rotated per script; the arc and feeling-first setup are present.
+  ok(/NEED \(the drive this script serves/.test(capturedPrompt), 'each script is assigned a Maslow need');
+  ok(capturedPrompt.indexOf('SAFETY') >= 0, 'the safety drive gets a script (it converts hardest and kept being skipped)');
+  ok(capturedPrompt.indexOf('THE ARC') >= 0 && capturedPrompt.indexOf('CLOSE THE EXACT GAP THE HOOK OPENED') >= 0, 'the arc is in the prompt: hook opens a gap, payoff closes that gap');
+  ok(capturedPrompt.indexOf('names the FEELING') >= 0, 'the setup rule leads with the feeling, not just the situation');
   // Architecture selection: objections -> C, else scarcity -> B, else A.
   ok(PS.__architecture(ctxT).label.indexOf('TRANSFORMATION') >= 0, 'objections present -> architecture C');
   const bBrief = SB.emptyBrief(); bBrief.lines.scarcity = SB.normalizeBrief({lines:{scarcity:{value:'limited run this month'}}}).lines.scarcity;

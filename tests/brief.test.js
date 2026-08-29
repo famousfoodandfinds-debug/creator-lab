@@ -664,6 +664,13 @@ let clusteredA = B.applyClusters([{ value:'old vacuum too heavy', count:2, about
 ok(clusteredA[0].about === 'alternative', 'applyClusters: representative carries the first pain.about through consolidation');
 let uni = B.applyUnifiedClusters([{ value:'watery first batch', count:2, about:'product' }], [{ value:'worth it', count:2 }], { clusters:[{ value:'watery first batch', category:'pain', members:[0] }] }, 10);
 ok(uni.pains[0].about === 'product', 'applyUnifiedClusters: pain.about survives the unified merge');
+// Maslow `need` on pains and desire round-trips through normalize, adapter, and consolidation.
+let bNeed = B.normalizeBrief({ lines:{ desire:{ value:'everyone asks', need:'esteem' }, pains:[{ value:'kid could choke on sharp ice', count:5, need:'safety' }] } });
+ok(bNeed.lines.pains[0].need === 'safety' && bNeed.lines.desire.need === 'esteem', 'normalizeBrief: preserves pain.need and desire.need');
+let ctxN = B.briefToGenContext(bNeed, B.emptyRaw());
+ok(ctxN.pains[0].need === 'safety' && ctxN.desireNeed === 'esteem', 'briefToGenContext: exposes pain.need and desireNeed');
+let clN = B.applyClusters([{ value:'sharp ice', count:2, need:'safety' }, { value:'kids around', count:3, need:'' }], { groups:[{ value:'sharp ice near kids', members:[0,1] }] }, 10);
+ok(clN[0].need === 'safety', 'applyClusters: representative carries the first need through consolidation');
 // Cap at 5 so a giant brief never floods the batch.
 let goMany = [];
 for (let i = 0; i < 9; i++) goMany.push({ value: 'obj ' + i, count: 9 - i, ccount: 0, added: false });
