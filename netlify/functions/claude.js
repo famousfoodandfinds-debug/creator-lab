@@ -38,11 +38,17 @@ function monthKey() { return new Date().toISOString().slice(0, 7); }
 // Every distinct batch id this member has recorded in the given month. Length == batches used. Throws on a
 // read failure so the caller can decide to FAIL OPEN (a DB blip must never wrongly block a paying member).
 async function fetchMonthBatchIds(userId, month) {
+  if (!SUPABASE_SERVICE_KEY) throw new Error("SUPABASE_SERVICE_KEY is not set for this function/deploy context");
   const res = await fetch(
     `${SUPABASE_URL}/rest/v1/script_generations?select=generation_id&user_id=eq.${userId}&month=eq.${encodeURIComponent(month)}`,
     { headers: svcHeaders() }
   );
-  if (!res.ok) throw new Error("script_generations read failed: " + res.status);
+  if (!res.ok) {
+    // Include the PostgREST body (truncated) so the real cause is visible: 401 invalid key, 404 relation does
+    // not exist, permission denied, etc. -- instead of a bare status that leaves the failure a mystery.
+    let detail = ""; try { detail = String(await res.text() || "").replace(/\s+/g, " ").slice(0, 300); } catch (e) {}
+    throw new Error("script_generations read failed: " + res.status + (detail ? " " + detail : ""));
+  }
   const rows = await res.json();
   return Array.isArray(rows) ? rows.map((r) => r.generation_id) : [];
 }
@@ -134,7 +140,11 @@ exports.handler = async function(event) {
       const used = (await fetchMonthBatchIds(userId, month)).length;
       return json(200, { ok: true, used, limit: MONTHLY_BATCH_LIMIT, remaining: Math.max(0, MONTHLY_BATCH_LIMIT - used), month });
     } catch (err) {
-      return json(200, { ok: false, limit: MONTHLY_BATCH_LIMIT });
+      // The count check failed. It fails open (no counter shown, nothing blocked), but the reason must NOT be
+      // silent -- log it, and return it (no secrets in it, just a status + PostgREST message) so it is visible
+      // in the browser Network tab too. This is exactly the "no counter + nothing enforced" symptom.
+      console.error("count_only failed (cap will fail OPEN):", err && err.message);
+      return json(200, { ok: false, limit: MONTHLY_BATCH_LIMIT, reason: String((err && err.message) || "unknown").slice(0, 300) });
     }
   }
 
