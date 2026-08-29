@@ -5,64 +5,79 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Saxe · Getting Started</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!-- Same fonts as the app: Marcellus for display, Instrument Sans for body. -->
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+/* These tokens are copied from app.html's :root so the page shares the app's exact palette and cannot drift
+   into off-brand colours again. The accent is rose gold (#CE9A80) -- there is no indigo, amber, or green. */
 :root {
-  --black: #080808; --surface: #111111; --surface2: #181818; --surface3: #222222;
-  --border: rgba(255,255,255,0.07); --border-md: rgba(255,255,255,0.14); --border-strong: rgba(255,255,255,0.25);
-  --silver: #C0C0C0; --silver-bright: #E8E8E8; --silver-dim: rgba(192,192,192,0.12);
-  --white: #F0F0F0; --white-dim: rgba(240,240,240,0.55); --muted: #666666;
-  --green: #2DC98A; --purple: #9090F0; --gold: #C8A84A;
-  --radius: 14px; --radius-sm: 9px;
+  --black: #1A1714;
+  --surface: #232019;
+  --surface2: #2B2A27;
+  --surface3: #34302A;
+  --border: rgba(244,238,232,0.08);
+  --border-md: rgba(244,238,232,0.15);
+  --border-strong: rgba(244,238,232,0.26);
+  --white: #F4EEE8;
+  --white-dim: rgba(244,238,232,0.6);
+  --white-faint: rgba(244,238,232,0.22);
+  --muted: #9A9082;
+  --muted2: #6B6459;
+  --gold: #CE9A80;            /* rose gold -- the one accent */
+  --gold-dim: rgba(206,154,128,0.12);
+  --gold-glow: rgba(206,154,128,0.22);
+  --rose-bright: #E6CDBC;
+  --radius: 14px; --radius-sm: 9px; --radius-xs: 6px;
 }
 html, body { background: var(--black); color: var(--white); font-family: 'Instrument Sans', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
 body { padding-bottom: 80px; }
 
-.header { padding: 16px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(8,8,8,0.95); backdrop-filter: blur(20px); z-index: 100; }
-/* Replace this text wordmark with your real Saxe logo <img> when you have the asset. */
-.header-logo-text { font-family: 'Playfair Display', serif; font-size: 22px; font-weight: 900; font-style: italic; color: var(--white); letter-spacing: 0.02em; }
+.header { padding: 16px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(26,23,20,0.95); backdrop-filter: blur(20px); z-index: 100; }
+/* Text wordmark matching the app's .brand-wordmark. Swap for the rose-gold compass logo <img> when you send it. */
+.header-logo-text { font-family: 'Marcellus', serif; font-size: 22px; font-weight: 400; color: var(--white); letter-spacing: 0.2em; text-transform: uppercase; line-height: 1; }
 .header-label { margin-left: auto; font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
 
 .hero { padding: 48px 20px 40px; text-align: center; border-bottom: 1px solid var(--border); }
-.hero-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border-md); border-radius: 999px; padding: 5px 14px; font-size: 11px; font-weight: 500; color: var(--silver); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 20px; }
-.hero-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s ease-in-out infinite; }
+.hero-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border-md); border-radius: 999px; padding: 5px 14px; font-size: 11px; font-weight: 500; color: var(--gold); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 20px; }
+.hero-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); animation: pulse 2s ease-in-out infinite; }
 @keyframes pulse { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.3)} }
-.hero-title { font-family: 'Playfair Display', serif; font-size: clamp(32px, 8vw, 46px); font-weight: 900; line-height: 1.05; color: var(--white); margin-bottom: 12px; }
-.hero-title em { font-style: italic; color: var(--silver-bright); }
+.hero-title { font-family: 'Marcellus', serif; font-size: clamp(30px, 7.5vw, 42px); font-weight: 400; line-height: 1.1; color: var(--white); margin-bottom: 12px; }
+.hero-title em { font-style: normal; color: var(--gold); }
 .hero-sub { font-size: 15px; color: var(--white-dim); font-weight: 300; max-width: 360px; margin: 0 auto; line-height: 1.7; }
 
 .steps { padding: 0 20px; }
 .step { padding: 32px 0; border-bottom: 1px solid var(--border); opacity: 0; transform: translateY(16px); transition: opacity 0.5s ease, transform 0.5s ease; }
 .step.visible { opacity: 1; transform: translateY(0); }
 .step-num-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-.step-circle { width: 32px; height: 32px; flex-shrink: 0; background: var(--silver-dim); border: 1px solid rgba(192,192,192,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 14px; font-weight: 700; font-style: italic; color: var(--silver-bright); }
-.step-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--white); }
-.step-title em { font-style: italic; color: var(--silver-bright); }
+.step-circle { width: 32px; height: 32px; flex-shrink: 0; background: var(--gold-dim); border: 1px solid rgba(206,154,128,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Marcellus', serif; font-size: 15px; font-weight: 400; color: var(--gold); }
+.step-title { font-family: 'Marcellus', serif; font-size: 20px; font-weight: 400; color: var(--white); }
+.step-title em { font-style: normal; color: var(--gold); }
 .step-body { font-size: 14px; color: var(--white-dim); line-height: 1.75; font-weight: 300; }
-.step-body strong { color: var(--white); font-weight: 600; }
+.step-body strong { color: var(--white); font-weight: 500; }
 
-.callout { background: var(--silver-dim); border: 1px solid rgba(192,192,192,0.25); border-radius: var(--radius-sm); padding: 16px; margin-top: 14px; font-size: 14px; color: var(--white); line-height: 1.7; font-weight: 300; font-style: italic; }
-/* The empty-objections warning: the single most likely first-run mistake, so it must not be skimmable. */
-.callout.warn { background: rgba(200,168,74,0.12); border-color: rgba(200,168,74,0.45); color: var(--white); font-style: normal; }
-.callout.warn strong { color: var(--gold); font-weight: 700; }
+.callout { background: var(--gold-dim); border: 1px solid rgba(206,154,128,0.25); border-radius: var(--radius-sm); padding: 16px; margin-top: 14px; font-size: 14px; color: var(--white); line-height: 1.7; font-weight: 300; }
+/* The empty-objections warning is the single most likely first-run mistake, so it stands out -- but in the
+   brand's rose gold, by weight not by a foreign colour: full accent border, glow, and a bold rose heading. */
+.callout.warn { border: 1px solid var(--gold); box-shadow: 0 0 30px var(--gold-glow); }
+.callout.warn strong { color: var(--gold); font-weight: 600; }
 
 .input-cards { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .input-card { background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 14px 16px; }
-.input-card.key { border-color: rgba(144,144,240,0.4); background: linear-gradient(135deg,rgba(144,144,240,0.1),rgba(144,144,240,0.03)); }
-.input-card-flag { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--purple); margin-bottom: 5px; }
+.input-card.key { border-color: rgba(206,154,128,0.4); background: linear-gradient(135deg, rgba(206,154,128,0.1), rgba(206,154,128,0.03)); }
+.input-card-flag { font-size: 9px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin-bottom: 5px; }
 .input-card-name { font-size: 13px; font-weight: 600; color: var(--white); margin-bottom: 5px; }
 .input-card-desc { font-size: 12px; color: var(--white-dim); line-height: 1.6; font-weight: 300; }
-.input-card-desc strong { color: var(--white); font-weight: 600; }
+.input-card-desc strong { color: var(--white); font-weight: 500; }
 
 .note { background: var(--surface); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 14px 16px; margin-top: 14px; font-size: 13px; color: var(--white-dim); line-height: 1.65; font-weight: 300; }
-.note a { color: var(--silver-bright); }
+.note a { color: var(--gold); }
 
 .cta-wrap { margin: 40px 20px 0; text-align: center; }
-.cta-btn { display: inline-block; background: linear-gradient(135deg, #C0C0C0, #E8E8E8); color: #080808; border: none; border-radius: var(--radius); font-family: 'Instrument Sans', sans-serif; font-size: 15px; font-weight: 600; padding: 18px 40px; text-decoration: none; transition: all 0.2s; }
-.cta-btn:hover { transform: scale(1.03); box-shadow: 0 0 40px rgba(232,232,232,0.2); }
+.cta-btn { display: inline-block; background: var(--gold); color: var(--black); border: none; border-radius: var(--radius); font-family: 'Instrument Sans', sans-serif; font-size: 15px; font-weight: 600; padding: 18px 40px; text-decoration: none; transition: all 0.2s; }
+.cta-btn:hover { transform: scale(1.03); box-shadow: 0 0 40px var(--gold-glow); }
 .faq-link { display: block; margin-top: 16px; font-size: 13px; color: var(--muted); text-decoration: none; transition: color 0.2s; }
-.faq-link:hover { color: var(--silver-bright); }
+.faq-link:hover { color: var(--gold); }
 
 .footer { text-align: center; padding: 32px 20px 16px; font-size: 12px; color: var(--muted); }
 .footer strong { color: var(--white-dim); }
@@ -166,7 +181,7 @@ body { padding-bottom: 80px; }
 
 <div class="cta-wrap">
   <a class="cta-btn" href="https://saxe.app">Open Saxe</a>
-  <a class="faq-link" href="faq.html">Read the FAQ &rarr;</a>
+  <a class="faq-link" href="/faq.html">Read the FAQ &rarr;</a>
 </div>
 
 <div class="footer">Built by <strong>Famous</strong> &nbsp;&middot;&nbsp; Saxe &nbsp;&middot;&nbsp; &copy; 2026</div>
