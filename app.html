@@ -14096,10 +14096,14 @@ function genOneScript(opts){
         f = normLine(f);
         if (!f.value) return;
         var k = norm(f.value);
-        if (!by[k]){ by[k] = { value:f.value, words:[], claims:[], terms:[], hits:[], count:0, total:total }; order.push(k); }
+        if (!by[k]){ by[k] = { value:f.value, words:[], claims:[], terms:[], hits:[], count:0, total:total, about:"", cause:"", need:"" }; order.push(k); }
         var g = by[k];
         g.count += (f.count|0);
         unionInto(g.words, f.words); unionInto(g.claims, f.claims); unionInto(g.terms, f.terms); unionInto(g.hits, f.hits);
+        // classification fields are per-finding, not per-mention: carry the first non-empty label across chunks.
+        if (!g.about && f.about) g.about = f.about;
+        if (!g.cause && f.cause) g.cause = f.cause;
+        if (!g.need && f.need) g.need = f.need;
       });
       return order.map(function(k){ return by[k]; }).sort(function(a,b){ return b.count - a.count; });
     }
@@ -15863,10 +15867,12 @@ function genOneScript(opts){
   // Ask for ONE script rewritten -- reuses the full batch prompt (all context + this script's assignment +
   // every rule) and just changes the output instruction, so nothing diverges from the batch rules.
   function genOnePrompt(ctx, i, prev, violations){
+    var reasons = (violations || []).map(function(c){ return GUARD_LABELS[c] || c; }).join("; ");
     return genPrompt(ctx) +
-      "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for breaking these hard rules: " + violations.join("; ") + "." +
+      "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for: " + reasons + "." +
       " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
       " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, no price raised as a doubt, no company service or warranty or returns, " + (ctx.owns ? "" : "no first-person ownership, ") + "no moderation words, no invented market trend, never state the current year, keep the SAME viewer from hook to CTA, and NEVER reuse the words of a teaching example (write your own line for this product)." +
+      " Above all, use NO number or figure that is not in the PRODUCT LISTING above -- no invented count, weight, size, time, percentage or price; if you are unsure a figure is in the listing, drop it and describe the outcome in words instead." +
       " Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
   }
   // Em dashes are stripped outright (never regenerate for a mechanical fix); the owner wants none, ever.
@@ -15881,29 +15887,35 @@ function genOneScript(opts){
   // instead of two scripts quietly coming back with no message (the exact silent failure we keep hitting).
   function validateBatch(ctx, guardOpts, scripts, target, done){
     var accepted = [], dropped = 0, dropCodes = {}, i = 0;
+    // A slot gets MAX_TRIES rewrites before it is finally dropped -- one retry was not enough: a script that
+    // invents a figure tends to invent another on the first rewrite, and two of four kept dropping, so the
+    // owner only ever saw half a batch. Retrying the SAME slot to its assignment costs one slot at most on a
+    // persistent fault, instead of surrendering the slot after a single miss. It is bounded so it cannot loop.
+    var MAX_TRIES = 3;
     target = target | 0;
     function problems(s){ return SB.scriptViolations(s, guardOpts).concat(SB.scriptRepeats(s, accepted) ? ["repetition"] : []); }
     function recordDrop(codes){ dropped++; (codes || []).forEach(function(c){ dropCodes[c] = (dropCodes[c] | 0) + 1; }); }
-    function regen(idx, prev, viol, missing){
+    function label(codes){ return (codes || []).map(function(c){ return GUARD_LABELS[c] || c; }).join(", "); }
+    // Rewrite one slot to its assignment and re-check it. `tries` is how many rewrites this slot has already
+    // spent; a rewrite that STILL breaks a rule is retried up to MAX_TRIES before the slot is dropped and
+    // named. `missing` marks a slot the model never returned (recorded as generation-failed if it never comes).
+    function regen(idx, prev, viol, tries, missing){
+      genStatus((missing ? "Writing script " : "Fixing script ") + (idx + 1) + (missing ? " (the model skipped it)" : " (" + label(viol) + ")") + (tries > 1 ? ", attempt " + tries : "") + "...");
       claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genOnePrompt(ctx, idx, prev, viol) }] }, function(t, e){
         var s2 = null; if (!e){ var o = parseJson(t, "{", "}"); if (o) s2 = cleanScript(o); }
-        if (s2){ var v2 = problems(s2); if (!v2.length){ accepted.push(finalizeScript(s2, ctx)); } else { recordDrop(v2); } }
-        else { recordDrop(missing ? ["generation-failed"] : viol); }
-        i++; next();
+        var v2 = s2 ? problems(s2) : (missing ? ["generation-failed"] : viol);
+        if (s2 && !v2.length){ accepted.push(finalizeScript(s2, ctx)); i++; next(); return; }
+        if (tries < MAX_TRIES){ regen(idx, s2 || prev, v2, tries + 1, missing && !s2); return; }
+        recordDrop(v2); i++; next();
       });
     }
     function next(){
       if (i >= target){ done(accepted, dropped, dropCodes); return; }
       var idx = i, s = scripts[idx];
-      if (!s){   // the model returned fewer than target -> write the skipped slot to its assignment
-        genStatus("Writing script " + (idx + 1) + " (the model skipped it)...");
-        regen(idx, { hook: "", body1: "", preclose: "", body2: "", cta: "" }, ["missing from the batch"], true);
-        return;
-      }
+      if (!s){ regen(idx, { hook: "", body1: "", preclose: "", body2: "", cta: "" }, ["missing from the batch"], 1, true); return; }   // model returned fewer than target -> write the skipped slot
       var viol = problems(s);
       if (!viol.length){ accepted.push(finalizeScript(s, ctx)); i++; next(); return; }
-      genStatus("Fixing a script that broke a rule (" + viol.join(", ") + ")...");
-      regen(idx, s, viol, false);
+      regen(idx, s, viol, 1, false);
     }
     next();
   }

@@ -114,6 +114,24 @@ ok(mcEmpty.lines.who.value === '' && Array.isArray(mcEmpty.lines.pains), 'merge:
 let am = B.applyDerivation(B.emptyBrief(), mc);
 ok(am.brief.lines.who.count === 9 && am.brief.lines.who.total === 50, 'merge -> applyDerivation carries counts');
 
+// 9b-2. mergeChunkDerivations preserves the CLASSIFICATION fields (about/cause/need) -- the fold used to
+// rebuild each finding without them, so the derived brief lost every label and every pain defaulted to
+// "product" (nothing could open a script). First non-empty label wins when chunks disagree on emptiness.
+let lc1 = { lines: { pains: [ { value:'trays never keep up', count:3, about:'alternative', need:'convenience' },
+                              { value:'first batch is watery', count:2 } ],   // unlabelled in this chunk
+                     objections: [ { value:'cubes look hollow', count:4 } ] } };   // no cause here
+let lc2 = { lines: { pains: [ { value:'trays never keep up', count:2 },        // same pain, no label this chunk
+                              { value:'first batch is watery', count:1, about:'product', need:'safety' } ],
+                     objections: [ { value:'cubes look hollow', count:3, cause:'the mold cavity is oversized' } ] } };
+let lm = B.mergeChunkDerivations([lc1, lc2], 30);
+let alt = lm.lines.pains.find(p => p.value === 'trays never keep up');
+ok(alt && alt.about === 'alternative' && alt.need === 'convenience', 'merge: carries about+need from the chunk that had them (survives an unlabelled duplicate)');
+ok(alt.count === 5, 'merge: labelled finding still sums counts across chunks (3+2=5)');
+let prodPain = lm.lines.pains.find(p => p.value === 'first batch is watery');
+ok(prodPain && prodPain.about === 'product' && prodPain.need === 'safety', 'merge: carries a label that only appears in the SECOND chunk');
+let hollow = lm.lines.objections.find(o => o.value === 'cubes look hollow');
+ok(hollow && hollow.cause === 'the mold cavity is oversized', 'merge: carries the objection cause across chunks');
+
 // 9c. applyClusters: semantic merge sums member counts (capped at total), drops non-members, keeps forgotten
 let clItems = [
   { value:'dull knives', count:3, words:['blunt'] },
