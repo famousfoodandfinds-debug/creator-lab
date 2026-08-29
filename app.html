@@ -13582,6 +13582,11 @@ function genOneScript(opts){
                                       // this objection (e.g. "the filter clogs"). Empty unless the reviews or
                                       // listing actually state it. Gates the objection-as-curiosity hook, so
                                       // it can never invent a cause. Never filled from a guess.
+      about: "",                      // pains only: "alternative" (the pain is about the OLD way / a different
+                                      // product / life WITHOUT this -- what this product SOLVES) or "product"
+                                      // (a flaw or annoyance with THIS product). Only "alternative" pains may
+                                      // lead a hook/setup/payoff; a "product" pain is a doubt to defuse in the
+                                      // pre-close, never advertised earlier. Unknown is treated as "product".
       derivedValue: "",               // snapshot of the wording as DERIVED, for per-line revert. Persisted,
       edited: false                   // so revert keeps working after later rebuilds. Empty until first edit.
     };
@@ -13608,6 +13613,7 @@ function genOneScript(opts){
     l.cclassified = !!x.cclassified;
     l.added = !!x.added;
     l.cause = str(x.cause);
+    l.about = str(x.about);
     l.derivedValue = str(x.derivedValue);
     l.edited = !!x.edited;
     if (x.id) l.id = str(x.id);
@@ -14130,17 +14136,18 @@ function genOneScript(opts){
       g = obj(g);
       var mem = arr(g.members).map(function(i){ return i|0; }).filter(function(i){ return items[i] && !used[i]; });
       if (!mem.length) return;
-      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false, cause = "";
+      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false, cause = "", about = "";
       mem.forEach(function(i){ used[i] = true; var it = items[i]; count += (it.count|0); cls = cls || !!it.classified; ccls = ccls || !!it.cclassified;
         if (!cause && str(it.cause)) cause = str(it.cause);   // carry the first grounded mechanism forward
+        if (!about && str(it.about)) about = str(it.about);   // carry the alternative-vs-product classification
         unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits); unionInto(chits, it.chits);
       });
       if (total > 0) count = Math.min(count, total);
-      out.push(normLine({ value: str(g.value) || items[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls, cause: cause }));
+      out.push(normLine({ value: str(g.value) || items[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls, cause: cause, about: about }));
     });
     // keep anything the model neither grouped nor explicitly dropped -- never silently lose a finding
     items.forEach(function(it, i){ if (used[i] || dropped[i]) return;
-      out.push(normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified, cause: it.cause }));
+      out.push(normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified, cause: it.cause, about: it.about }));
     });
     out.sort(function(a,b){ return b.count - a.count; });
     return out;
@@ -14156,12 +14163,13 @@ function genOneScript(opts){
     var dropped = {}; arr(spec.dropped).forEach(function(i){ dropped[i|0] = true; });
     var used = {}, outP = [], outO = [];
     function build(g, mem){
-      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false, cause = "";
+      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false, cause = "", about = "";
       mem.forEach(function(i){ used[i] = true; var it = combined[i]; count += (it.count|0); cls = cls || !!it.classified; ccls = ccls || !!it.cclassified;
         if (!cause && str(it.cause)) cause = str(it.cause);
+        if (!about && str(it.about)) about = str(it.about);
         unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits); unionInto(chits, it.chits); });
       if (total > 0) count = Math.min(count, total);
-      return normLine({ value: str(g.value) || combined[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls, cause: cause });
+      return normLine({ value: str(g.value) || combined[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls, cause: cause, about: about });
     }
     arr(spec.clusters).forEach(function(g){
       g = obj(g);
@@ -14171,7 +14179,7 @@ function genOneScript(opts){
       (cat.indexOf("objection") >= 0 ? outO : outP).push(f);
     });
     combined.forEach(function(it, i){ if (used[i] || dropped[i]) return;   // keep forgotten in its origin list
-      var f = normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified });
+      var f = normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified, cause: it.cause, about: it.about });
       (i < A.length ? outP : outO).push(f);
     });
     return { pains: outP, objections: outO };
@@ -14278,7 +14286,7 @@ function genOneScript(opts){
     function listOf(k){
       return arr(b.lines[k]).filter(function(it){ return it && it.value; }).map(function(it){
         return { value: str(it.value), words: arr(it.words).map(str), claims: arr(it.claims).map(str),
-                 count: it.count|0, total: it.total|0, ccount: it.ccount|0, ctotal: it.ctotal|0, added: !!it.added, cause: str(it.cause) };
+                 count: it.count|0, total: it.total|0, ccount: it.ccount|0, ctotal: it.ctotal|0, added: !!it.added, cause: str(it.cause), about: str(it.about) };
       });
     }
     // Top by REVIEW count, then comment count -- evidence-ranked, added (count 0) lines never lead by default.
@@ -14533,7 +14541,7 @@ function genOneScript(opts){
   var raw = SB.emptyRaw();
   var brief = SB.emptyBrief();          // derived, light column; loaded on open, rebuilt by deriveBrief
   var deriving = false;                 // guards the derive button against double-fire
-  var DERIVE_PROMPT_V = "brief-derive-8";   // objections carry a grounded `cause` (mechanism) when the material names one
+  var DERIVE_PROMPT_V = "brief-derive-9";   // pains carry `about` (alternative/old-way vs this-product) so a flaw never leads
   var DERIVE_BATCH = 8;                 // reviews per derivation call -- smaller so each call stays inside
   var DERIVE_REVIEW_CHARS = 2000;       // Netlify's ~26s sync gateway even with the larger per-review excerpt
   var DERIVE_MODEL = "claude-haiku-4-5-20251001"; // fast enough not to hit the gateway 504
@@ -14945,7 +14953,7 @@ function genOneScript(opts){
       '"who":{"value":"who this is really for, one sentence","words":[],"claims":[],"terms":[]},',
       '"emotion":{"value":"the dominant emotion driving the purchase","words":[],"claims":[],"terms":[]},',
       '"desire":{"value":"the outcome they actually want","words":[],"claims":[],"terms":[]},',
-      '"pains":[{"value":"a specific pain in their words","words":[],"claims":[],"terms":[]}],',
+      '"pains":[{"value":"a specific pain in their words","words":[],"claims":[],"terms":[],"about":""}],',
       '"problem":{"value":"the core problem the product solves","words":[],"claims":[],"terms":[]},',
       '"objections":[{"value":"a hesitation or question buyers raise","words":[],"claims":[],"terms":[],"cause":""}],',
       '"scarcity":{"value":"any real scarcity or urgency, else empty","words":[],"claims":[],"terms":[]},',
@@ -14963,6 +14971,7 @@ function genOneScript(opts){
       "- The COMPETITOR / VIRAL-VIDEO COMMENTS above come from people reacting to a video, most of whom have NOT bought. Doubts they raise -- unclear or missing product information, colours or looks not matching what they already own, price worry, whether it will fit or suit them -- are OBJECTIONS, not pains. Only call something a pain when someone describes the product actually failing or wearing out in hand. When the source is a comment and you are unsure, prefer objection.",
       "- pains and objections are arrays; return AT MOST 4 distinct items each, most-common first.",
       "- cause (objections only) = the specific MECHANISM the reviews or listing actually name as the reason for this objection, in a few words (e.g. for a shutoff objection where reviewers say the filter clogs: 'the filter clogs'). Fill it ONLY when the material genuinely states the cause. If the reviews and listing do not name a reason, leave cause empty (''). NEVER guess or invent a cause -- an empty cause is correct and expected, and a made-up one is worse than none.",
+      "- about (pains only) = 'alternative' if the pain is about the OLD way, a DIFFERENT or previous product, or life WITHOUT this one -- i.e. the problem THIS product solves ('my old vacuum was too heavy', 'the last ice maker's ice never stayed frozen', 'we kept running to the store for bags of ice'). Use 'product' if the pain is a complaint about THIS product itself -- a flaw, defect, quirk or annoyance with the thing being sold ('the first batch comes out watery', 'you have to descale it often', 'the drain plug is awkward to reach'). This matters: only 'alternative' pains may ever lead a hook or setup; a 'product' pain is a doubt to defuse, and leading with one advertises the flaw. When you are not sure, use 'product' (the safe default -- a product complaint must never open a script).",
       "- who, emotion, desire, pains, objections, socialProof, priceAnchor and ALL words come from the REVIEWS and COMMENTS only. features come from the SELLER LISTING only. NEVER fill a buyer-psychology line or a buyer word from the seller listing.",
       "- A feature is a spec the SELLER states in the listing (a size, capacity, material, wattage). NEVER put a figure a REVIEWER gave about their own unit into features -- 'makes ice every six or seven minutes' is one buyer's timing of their machine, not a listed spec, so it is not a feature. If a number is not in the seller listing, it does not belong in the features list.",
       "- Every pain and objection MUST be something a reviewer or commenter actually said or plainly implied. If the reviews do not raise it, leave it out. NEVER invent an objection the reviews do not contain (for example a price-versus-bagged-ice comparison no one wrote). A specific complaint a reviewer made (watery first ice, slow to fill, awkward drain, noisy) belongs in pains, in their words.",
@@ -15592,8 +15601,11 @@ function genOneScript(opts){
   // model completes. This is also the only place "who this is for" does real work in generation. Bone-to-pick
   // is a reversal that needs NO product mechanism (blame an unnamed villain, not a component), so it runs on
   // the pain alone and keeps the reversal family alive on products where the cause gate finds nothing.
+  // A pain is usable as HOOK/SETUP material only when it is about the OLD way / the alternative, never when it
+  // is a complaint about THIS product (that would advertise the flaw). Unknown ("") is treated as product.
+  function altPains(ctx){ return (ctx.pains || []).filter(function(p){ return String(p.about || "") === "alternative"; }); }
   function fieldHooks(ctx){
-    var out = [], who = String(ctx.who || ""), pain = ctx.leadPain, desire = String(ctx.desire || "");
+    var out = [], who = String(ctx.who || ""), pain = altPains(ctx)[0] || null, desire = String(ctx.desire || "");
     if (who && pain) out.push({ key: "audience", instr: "TO THE AUDIENCE WHO WERE TOLD (validation reversal). Speak straight to the exact people this is for and reject what they were told to just accept, then let the product answer it. Shape: 'To the [audience] who were told [problem] is just how it is. This is for you.' Fill from the brief, do not invent: AUDIENCE = \"" + who + "\"; WHAT THEY WERE TOLD TO ACCEPT = \"" + pain.value + "\". The \"you\" for the WHOLE script is this audience, never repositioned as a bystander." });
     if (who && desire) out.push({ key: "group", instr: "ALL THE [GROUP] KEEP SAYING (social proof toward the desire). Shape: 'All the [group] keep saying this is how they finally [desire].' Fill from the brief, do not invent a statistic: GROUP = \"" + who + "\"; DESIRE = \"" + desire + "\"." });
     if (pain) out.push({ key: "bonepick", instr: "BONE TO PICK (a reversal that needs NO product mechanism). Pick a fight with the unnamed villain who let the viewer's problem exist -- move the blame OFF the viewer and onto whoever is responsible, WITHOUT naming a product part or inventing a cause. Shape: 'I have a bone to pick with whoever decided [problem] was fine.' Use THIS problem from the brief: \"" + pain.value + "\"." });
@@ -15602,10 +15614,10 @@ function genOneScript(opts){
   // The hook sources AVAILABLE for this product: exemplar shapes whose `needs` the material supports, plus the
   // field hooks whose brief fields exist. Each entry is {key, instr}; the rotation picks GEN_COUNT of them.
   function availableHookSources(ctx, causeObj){
-    var pain = ctx.leadPain;
+    var hasAltPain = altPains(ctx).length > 0;   // fear-visual / fell-victim need a real ALTERNATIVE pain
     var ex = HOOK_SOURCES.filter(function(hs){
       if (hs.needs === "cause") return !!causeObj;
-      if (hs.needs === "pain")  return !!pain;
+      if (hs.needs === "pain")  return hasAltPain;
       return true;
     }).map(function(hs){ return { key: hs.key, instr: hookInstr(hs) }; });
     return ex.concat(fieldHooks(ctx));
@@ -15703,7 +15715,14 @@ function genOneScript(opts){
     // defuse is the heaviest one for the objection-as-curiosity hook. When objPool is empty the brief has no
     // real objection, so no script writes an objection turn -- the assignments below hand those scripts a
     // close mode instead. There is deliberately NO fallback that promotes an ungrounded objection.
-    var objPool = SB.groundedObjections(ctx.objections);
+    // Pains split by what they are ABOUT. An ALTERNATIVE pain (the old way, a previous product, life without
+    // this) is the problem the product solves -- it may lead a hook/setup/payoff. A PRODUCT pain (a flaw in
+    // the thing being sold) is a DOUBT: it joins the defuse pool and may NEVER open a script. Leading with a
+    // product pain advertises the flaw (watery cubes, the awkward drain plug), the exact fault to prevent.
+    var altPainList = (ctx.pains || []).filter(function(p){ return String(p.about || "") === "alternative"; });
+    var productPainList = (ctx.pains || []).filter(function(p){ return String(p.about || "") !== "alternative"; });
+    // Defuse pool = grounded objections PLUS grounded product-pains (both are doubts to answer in the pre-close).
+    var objPool = SB.groundedObjections(ctx.objections.concat(productPainList));
     var defuse = objPool[0] || null;
     // Two hook shapes make a CAUSAL claim -- objection-as-curiosity ("it's the filter") and reversal
     // ("it's not you, it's X"). Both only work when the MATERIAL supports a real cause a person would
@@ -15735,12 +15754,14 @@ function genOneScript(opts){
     L.push("");
     L.push(block("WHO THIS IS FOR", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning));
     // Each script is pinned to a DIFFERENT situation below, so the batch never tells four versions of the same
-    // scene. The pool is the brief's distinct pains, rotated one per script.
-    var scenarioPool = (ctx.pains && ctx.pains.length) ? ctx.pains : (lead ? [lead] : []);
-    if (scenarioPool.length) L.push("VARY THE SCENARIO across the batch -- each script opens on a DIFFERENT real situation from the brief (assigned per script below), never four scripts about the same one. A situation is the VIEWER'S own frustration in their life, never a description of the product performing badly; if a situation is really the product doing something poorly, that is a DOUBT to defuse in the pre-close, not a line to open on. The situations available:\n" + scenarioPool.map(function(p){ return "- " + p.value; }).join("\n"));
-    if (defuse) L.push("THE BIGGEST OBJECTION (the objection-as-curiosity hook reframes THIS one -- it has the richest detail): " + defuse.value + (defuse.words.length ? "\n  phrasing: " + defuse.words.join(", ") : ""));
+    // scene. The pool is ONLY the ALTERNATIVE pains (the old way / the problem this product solves). A product
+    // flaw is never a scenario -- it goes in the defuse list, not here.
+    var scenarioPool = altPainList;
+    if (scenarioPool.length) L.push("VARY THE SCENARIO across the batch -- each script opens on a DIFFERENT real situation from the brief (assigned per script below), never four scripts about the same one. Every situation here is about the OLD way or life WITHOUT this product (the problem it solves), never about this product performing badly. The situations available:\n" + scenarioPool.map(function(p){ return "- " + p.value; }).join("\n"));
+    if (productPainList.length) L.push("PRODUCT FLAWS ARE DOUBTS, NEVER OPENERS: these are complaints about THIS product -- each may ONLY be defused in the pre-close (if assigned), and must NEVER appear in a hook, setup, or payoff. Do not open a video on any of them:\n" + productPainList.map(function(p){ return "- " + p.value; }).join("\n"));
+    if (defuse) L.push("THE BIGGEST DOUBT (a pre-close may answer this one; it is a doubt to DEFUSE, never a line to open on): " + defuse.value + (defuse.words.length ? "\n  phrasing: " + defuse.words.join(", ") : ""));
     var oo = objPool.filter(function(o){ return !defuse || o.value !== defuse.value; }).map(function(o){ return "- " + o.value; });
-    if (oo.length) L.push("OTHER GROUNDED OBJECTIONS (the ONLY objections that may ever be defused -- never invent a hesitation beyond these):\n" + oo.join("\n"));
+    if (oo.length) L.push("OTHER GROUNDED DOUBTS (objections and product complaints -- the ONLY doubts that may ever be defused; never invent a hesitation beyond these):\n" + oo.join("\n"));
     L.push(block("WHY IT WINS (as a felt outcome in the viewer's world, never cited as proof)", ctx.socialProof) + block("HOW THE VALUE FEELS WORTH IT", ctx.priceAnchor) + block("WHY TO TRUST THIS", ctx.authority) + block("REAL SCARCITY", ctx.scarcity));
     if (ctx.features.length) L.push("WHAT IT IS (factual attributes, your ingredient list only -- never call these \"specs\" in a script):\n" + ctx.features.map(function(f){ return "- " + f.feature + (f.benefit ? " -> " + f.benefit : ""); }).join("\n"));
     if (safe.length) L.push("LANGUAGE you may reuse verbatim as the VIEWER'S own words (never attributed to buyers or reviews): " + safe.slice(0, 20).join(" | "));
@@ -15766,7 +15787,7 @@ function genOneScript(opts){
       if (hs.key === "reversal" && causeObj) line += "\n  BUILD THE REVERSAL ON THIS REAL CAUSE THE MATERIAL NAMES (never an invented one): \"" + causeObj.cause + "\" is the true reason behind \"" + causeObj.value + "\". The X you move the blame onto is that real cause, not a guess.";
       // Fear/visual is handed the exact concern (this script's scenario) and may never escalate it into an
       // unsupported danger or health claim -- this is the shape that can get a creator in trouble.
-      if (hs.key === "fearvisual" && (scen || lead)) line += "\n  POINT ONLY AT THIS CONCERN THE MATERIAL NAMES, and NEVER turn it into a health claim or danger the material does not state: \"" + (scen ? scen.value : lead.value) + "\".";
+      if (hs.key === "fearvisual" && scen) line += "\n  POINT ONLY AT THIS CONCERN THE MATERIAL NAMES (an old-way problem, never a flaw of this product), and NEVER turn it into a health claim or danger the material does not state: \"" + scen.value + "\".";
       if (i < objPool.length){
         var o = objPool[i];
         line += "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
@@ -15804,7 +15825,7 @@ function genOneScript(opts){
     L.push("ONE VIEWER, START TO FINISH: \"you\" is the SAME person from hook to CTA -- the buyer described in WHO THIS IS FOR. If the buyer is the host, the viewer is always the host, never a guest at someone else's party. Never switch who \"you\" is between the hook, the setup, the payoff and the CTA.");
     L.push("HOOK vs SETUP ARE DIFFERENT BEATS: the hook is the way IN (a spoken line, a flip, a curiosity); the setup is a DIFFERENT, deeper moment of the same scene -- never a reworded or compressed version of the hook. If the hook already showed the party and the warm drinks, the setup must go somewhere the hook did not. If hook and setup carry the same content, the hook is doing no work.");
     L.push("SETUP (body1) is a SCENE from the viewer's own day -- NOT a list of what the product has or does. NO product features, specs, or description in the setup; the product barely appears yet. NEVER open by saying the product does something badly (a pain is the viewer's frustration or a doubt you defuse later, never a product weakness stated as fact -- do not write \"the first batch comes out watery\"). If the hook opened a loop or asked a question, the setup must ANSWER or advance it, never pivot to a spec list.");
-    L.push("STACK THE IRRITATIONS: when the brief holds several distinct felt annoyances, name TWO OR THREE of them in the setup -- each a different feeling, none of them a feature -- and let them ALL land before the product appears. Lead with this script's assigned scenario, then add one or two more real irritations from the brief. Do not settle for one and jump to the product. (Real example of the shape: the ice doesn't stay frozen, then people digging around in your ice with their hands, then the sharp cubes -- three separate feelings, THEN the product arrives.)");
+    L.push("STACK THE IRRITATIONS: when the SITUATIONS list holds several distinct annoyances, name TWO OR THREE of them in the setup -- each a different feeling, none of them a feature, and every one drawn ONLY from the SITUATIONS list (the old way / the problem this product solves), NEVER a product flaw -- and let them all land before the product appears. Lead with this script's assigned scenario, then add one or two more from that list. (Real example of the shape, all about the WRONG earlier product, not the one being sold: the ice doesn't stay frozen, then people digging around in your ice with their hands, then the sharp cubes -- three separate feelings, THEN the product arrives.)");
     L.push("PRE-CLOSE: only the scripts with an assigned objection write one -- one sentence, a statement not a question, doing DIFFERENT work than the setup, defusing that script's assigned objection and no other. A script with a CLOSE MODE instead leaves preclose empty; its body2 stays the payoff and the close lands in the CTA only, so the script has ONE ending, not two. Never invent an objection just to have a pre-close.");
     L.push("OVERCOME OBJECTIONS INSIDE THE PRODUCT: when a script does defuse an objection, answer it with the product and how it is USED -- something the viewer can do or see for themselves (the model is the filter: same battery doubt, but the fix is a quick thing the viewer does). Answer inside the product, never by pointing at the company behind it.");
     L.push("CREDIBILITY BEAT (only when the material supports it): if the brief shows the product was IMPROVED in response to buyers -- a second generation, a fixed complaint, a change the makers made -- you may sell that improvement through credibility rather than a spec (\"they listened and moved the tank to the front\"). It lands harder than a feature. Use it ONLY when the material actually names the improvement; never invent a previous version or a change that is not there.");

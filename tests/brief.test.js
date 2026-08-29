@@ -655,6 +655,15 @@ let ctxC = B.briefToGenContext(bWithCause, B.emptyRaw());
 ok(ctxC.objections[0].cause === 'the filter clogs', 'briefToGenContext: exposes objection.cause');
 let clusteredC = B.applyClusters([{ value:'shuts off', count:2, cause:'the filter clogs' }, { value:'stops early', count:3, cause:'' }], { groups:[{ value:'shuts off early', members:[0,1] }] }, 10);
 ok(clusteredC[0].cause === 'the filter clogs', 'applyClusters: representative carries the first grounded cause through consolidation');
+// pain `about`: alternative (old way) may lead; product (this product's flaw) is a doubt only. Round-trips.
+let bAbout = B.normalizeBrief({ lines:{ pains:[{ value:'my old vacuum was too heavy', count:4, about:'alternative' }, { value:'the first batch is watery', count:3, about:'product' }] } });
+ok(bAbout.lines.pains[0].about === 'alternative' && bAbout.lines.pains[1].about === 'product', 'normalizeBrief: preserves pain.about');
+let ctxA = B.briefToGenContext(bAbout, B.emptyRaw());
+ok(ctxA.pains[0].about === 'alternative' && ctxA.pains[1].about === 'product', 'briefToGenContext: exposes pain.about');
+let clusteredA = B.applyClusters([{ value:'old vacuum too heavy', count:2, about:'alternative' }, { value:'lugging it upstairs', count:3, about:'' }], { groups:[{ value:'the old way was heavy', members:[0,1] }] }, 10);
+ok(clusteredA[0].about === 'alternative', 'applyClusters: representative carries the first pain.about through consolidation');
+let uni = B.applyUnifiedClusters([{ value:'watery first batch', count:2, about:'product' }], [{ value:'worth it', count:2 }], { clusters:[{ value:'watery first batch', category:'pain', members:[0] }] }, 10);
+ok(uni.pains[0].about === 'product', 'applyUnifiedClusters: pain.about survives the unified merge');
 // Cap at 5 so a giant brief never floods the batch.
 let goMany = [];
 for (let i = 0; i < 9; i++) goMany.push({ value: 'obj ' + i, count: 9 - i, ccount: 0, added: false });
