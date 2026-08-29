@@ -131,6 +131,18 @@ let prodPain = lm.lines.pains.find(p => p.value === 'first batch is watery');
 ok(prodPain && prodPain.about === 'product' && prodPain.need === 'safety', 'merge: carries a label that only appears in the SECOND chunk');
 let hollow = lm.lines.objections.find(o => o.value === 'cubes look hollow');
 ok(hollow && hollow.cause === 'the mold cavity is oversized', 'merge: carries the objection cause across chunks');
+// resolve (the action that answers an objection) rides through the same paths as cause -- normalize, merge,
+// both cluster helpers, and the gen adapter -- so generation can SHOW the action without naming the doubt.
+ok(B.normalizeBrief({lines:{objections:[{value:'worried about mold',resolve:'rinse with vinegar and water'}]}}).lines.objections[0].resolve === 'rinse with vinegar and water', 'normalize: objection resolve round-trips');
+let ro1 = { lines: { objections: [ { value:'worried about mold', count:3, resolve:'rinse with vinegar and water' } ] } };
+let ro2 = { lines: { objections: [ { value:'worried about mold', count:2 } ] } };
+let rmerge = B.mergeChunkDerivations([ro1, ro2], 20);
+ok(rmerge.lines.objections[0].resolve === 'rinse with vinegar and water' && rmerge.lines.objections[0].count === 5, 'merge: carries objection resolve across chunks and still sums count');
+let roClust = B.applyClusters([{ value:'mold worry', count:2, resolve:'rinse it out' }, { value:'mildew worry', count:1 }], { groups:[{ value:'mold', members:[0,1] }], dropped:[] }, 10);
+ok(roClust[0].resolve === 'rinse it out', 'applyClusters: representative carries the first resolving action');
+let roUni = B.applyUnifiedClusters([], [{ value:'mold worry', count:2, resolve:'rinse it out' }], { clusters:[{ value:'mold', category:'objection', members:[0] }], dropped:[] }, 10);
+ok(roUni.objections[0].resolve === 'rinse it out', 'applyUnifiedClusters: objection carries the resolving action');
+ok(B.briefToGenContext(B.normalizeBrief({lines:{objections:[{value:'worried about mold',resolve:'rinse with vinegar and water'}]}}), B.emptyRaw()).objections[0].resolve === 'rinse with vinegar and water', 'adapter: exposes objection resolve to generation');
 
 // 9c. applyClusters: semantic merge sums member counts (capped at total), drops non-members, keeps forgotten
 let clItems = [

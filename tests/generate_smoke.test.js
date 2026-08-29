@@ -72,7 +72,7 @@ brief.meta.reviewCount = 12;
 brief.lines.who = SB.normalizeBrief({lines:{who:{value:'people who host and always run out of ice'}}}).lines.who;
 brief.lines.desire = SB.normalizeBrief({lines:{desire:{value:'never run dry mid-party'}}}).lines.desire;
 brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out too fast', count:6, classified:true, about:'alternative', need:'convenience'}, {value:'the last cooler let it melt on a hot day', count:5, classified:true, about:'alternative', need:'safety'}, {value:'the first batch is watery', count:3, classified:true, about:'product'}]}}).lines.pains;
-brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true, cause:'the tank holds less'}]}}).lines.objections;
+brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true, cause:'the tank holds less', resolve:'you top it off once and it keeps going'}]}}).lines.objections;
 brief.features = SB.normalizeBrief({features:[{feature:'makes 33 lbs per 24 hours', benefit:'plenty of ice'}, {feature:'1.8 L tank', benefit:'fewer refills'}]}).features;
 let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'the nugget ice is so good' }];
 const product = { id:'p1', name:'Ice maker', updated_at:'2026-01-01T00:00:00Z', brief:brief, raw:raw };
@@ -130,6 +130,12 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   // The objection turn must never NAME the doubt (planting mold/price/noise in the viewer's head); show the fix.
   ok(capturedPrompt.indexOf('NEVER NAME THE DOUBT') >= 0 && /PLANTS it/.test(capturedPrompt), 'the objection turn is told to resolve a doubt without ever stating it');
   ok(/RESOLVE THIS DOUBT WITHOUT EVER NAMING IT/.test(capturedPrompt), 'the per-script objection is framed as what to resolve, not a line to speak');
+  // The brief is intelligence: a finding tells the script what to SHOW, never a label to say. Objections
+  // carry a resolving ACTION derivation worked out, handed to the script to put on screen.
+  ok(capturedPrompt.indexOf('THE BRIEF IS INTELLIGENCE, NOT COPY') >= 0, 'the intelligence-not-copy principle is in the prompt');
+  ok(capturedPrompt.indexOf('SHOW THIS ACTION as the answer') >= 0 && capturedPrompt.indexOf('you top it off once and it keeps going') >= 0, 'the resolving action is handed to the script to show');
+  const dp2 = PS.__derivePrompt([{ full: 'worried about mold' }]);
+  ok(/resolve \(objections only\)/.test(dp2) && /resolving action/.test(dp2), 'derivation is told to capture each objection\'s resolving action');
   // The action hook must not be a spec/operating sequence ("fill the tank, press the button"). Check the
   // source directly (it may or may not land in this batch's rotation, so do not rely on the prompt text).
   const actionSrc = (PS.__availableHooks(ctxT) || []).find(h => h.key === 'action');

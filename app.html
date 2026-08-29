@@ -13582,6 +13582,11 @@ function genOneScript(opts){
                                       // this objection (e.g. "the filter clogs"). Empty unless the reviews or
                                       // listing actually state it. Gates the objection-as-curiosity hook, so
                                       // it can never invent a cause. Never filled from a guess.
+      resolve: "",                    // objections only: the ACTION of using the product that makes this doubt
+                                      // a non-issue (mold -> "rinse it with vinegar and water"; slow ice -> "it
+                                      // runs while you do everything else"). The brief is intelligence: the
+                                      // script SHOWS this action and never speaks the doubt. Empty unless the
+                                      // material supports a real resolving action; never invented.
       about: "",                      // pains only: "alternative" (the pain is about the OLD way / a different
                                       // product / life WITHOUT this -- what this product SOLVES) or "product"
                                       // (a flaw or annoyance with THIS product). Only "alternative" pains may
@@ -13616,6 +13621,7 @@ function genOneScript(opts){
     l.cclassified = !!x.cclassified;
     l.added = !!x.added;
     l.cause = str(x.cause);
+    l.resolve = str(x.resolve);
     l.about = str(x.about);
     l.need = str(x.need);
     l.derivedValue = str(x.derivedValue);
@@ -14096,13 +14102,14 @@ function genOneScript(opts){
         f = normLine(f);
         if (!f.value) return;
         var k = norm(f.value);
-        if (!by[k]){ by[k] = { value:f.value, words:[], claims:[], terms:[], hits:[], count:0, total:total, about:"", cause:"", need:"" }; order.push(k); }
+        if (!by[k]){ by[k] = { value:f.value, words:[], claims:[], terms:[], hits:[], count:0, total:total, about:"", cause:"", resolve:"", need:"" }; order.push(k); }
         var g = by[k];
         g.count += (f.count|0);
         unionInto(g.words, f.words); unionInto(g.claims, f.claims); unionInto(g.terms, f.terms); unionInto(g.hits, f.hits);
         // classification fields are per-finding, not per-mention: carry the first non-empty label across chunks.
         if (!g.about && f.about) g.about = f.about;
         if (!g.cause && f.cause) g.cause = f.cause;
+        if (!g.resolve && f.resolve) g.resolve = f.resolve;
         if (!g.need && f.need) g.need = f.need;
       });
       return order.map(function(k){ return by[k]; }).sort(function(a,b){ return b.count - a.count; });
@@ -14144,19 +14151,20 @@ function genOneScript(opts){
       g = obj(g);
       var mem = arr(g.members).map(function(i){ return i|0; }).filter(function(i){ return items[i] && !used[i]; });
       if (!mem.length) return;
-      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false, cause = "", about = "", need = "";
+      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false, cause = "", resolve = "", about = "", need = "";
       mem.forEach(function(i){ used[i] = true; var it = items[i]; count += (it.count|0); cls = cls || !!it.classified; ccls = ccls || !!it.cclassified;
         if (!cause && str(it.cause)) cause = str(it.cause);   // carry the first grounded mechanism forward
+        if (!resolve && str(it.resolve)) resolve = str(it.resolve);   // and the first resolving action
         if (!about && str(it.about)) about = str(it.about);
         if (!need && str(it.need)) need = str(it.need);
         unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits); unionInto(chits, it.chits);
       });
       if (total > 0) count = Math.min(count, total);
-      out.push(normLine({ value: str(g.value) || items[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls, cause: cause, about: about, need: need }));
+      out.push(normLine({ value: str(g.value) || items[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls, cause: cause, resolve: resolve, about: about, need: need }));
     });
     // keep anything the model neither grouped nor explicitly dropped -- never silently lose a finding
     items.forEach(function(it, i){ if (used[i] || dropped[i]) return;
-      out.push(normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified, cause: it.cause, about: it.about, need: it.need }));
+      out.push(normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified, cause: it.cause, resolve: it.resolve, about: it.about, need: it.need }));
     });
     out.sort(function(a,b){ return b.count - a.count; });
     return out;
@@ -14172,14 +14180,15 @@ function genOneScript(opts){
     var dropped = {}; arr(spec.dropped).forEach(function(i){ dropped[i|0] = true; });
     var used = {}, outP = [], outO = [];
     function build(g, mem){
-      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false, cause = "", about = "", need = "";
+      var count = 0, words = [], claims = [], terms = [], hits = [], chits = [], cls = false, ccls = false, cause = "", resolve = "", about = "", need = "";
       mem.forEach(function(i){ used[i] = true; var it = combined[i]; count += (it.count|0); cls = cls || !!it.classified; ccls = ccls || !!it.cclassified;
         if (!cause && str(it.cause)) cause = str(it.cause);
+        if (!resolve && str(it.resolve)) resolve = str(it.resolve);
         if (!about && str(it.about)) about = str(it.about);
         if (!need && str(it.need)) need = str(it.need);
         unionInto(words, it.words); unionInto(claims, it.claims); unionInto(terms, it.terms); unionInto(hits, it.hits); unionInto(chits, it.chits); });
       if (total > 0) count = Math.min(count, total);
-      return normLine({ value: str(g.value) || combined[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls, cause: cause, about: about, need: need });
+      return normLine({ value: str(g.value) || combined[mem[0]].value, words: words, claims: claims, terms: terms, hits: hits, chits: chits, count: count, total: total, classified: cls, cclassified: ccls, cause: cause, resolve: resolve, about: about, need: need });
     }
     arr(spec.clusters).forEach(function(g){
       g = obj(g);
@@ -14189,7 +14198,7 @@ function genOneScript(opts){
       (cat.indexOf("objection") >= 0 ? outO : outP).push(f);
     });
     combined.forEach(function(it, i){ if (used[i] || dropped[i]) return;   // keep forgotten in its origin list
-      var f = normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified, cause: it.cause, about: it.about, need: it.need });
+      var f = normLine({ value: it.value, words: it.words, claims: it.claims, terms: arr(it.terms), hits: arr(it.hits), chits: arr(it.chits), count: (total > 0 ? Math.min(it.count|0, total) : (it.count|0)), total: total, classified: !!it.classified, cclassified: !!it.cclassified, cause: it.cause, resolve: it.resolve, about: it.about, need: it.need });
       (i < A.length ? outP : outO).push(f);
     });
     return { pains: outP, objections: outO };
@@ -14296,7 +14305,7 @@ function genOneScript(opts){
     function listOf(k){
       return arr(b.lines[k]).filter(function(it){ return it && it.value; }).map(function(it){
         return { value: str(it.value), words: arr(it.words).map(str), claims: arr(it.claims).map(str),
-                 count: it.count|0, total: it.total|0, ccount: it.ccount|0, ctotal: it.ctotal|0, added: !!it.added, cause: str(it.cause), about: str(it.about), need: str(it.need) };
+                 count: it.count|0, total: it.total|0, ccount: it.ccount|0, ctotal: it.ctotal|0, added: !!it.added, cause: str(it.cause), resolve: str(it.resolve), about: str(it.about), need: str(it.need) };
       });
     }
     // Top by REVIEW count, then comment count -- evidence-ranked, added (count 0) lines never lead by default.
@@ -14559,7 +14568,7 @@ function genOneScript(opts){
   var raw = SB.emptyRaw();
   var brief = SB.emptyBrief();          // derived, light column; loaded on open, rebuilt by deriveBrief
   var deriving = false;                 // guards the derive button against double-fire
-  var DERIVE_PROMPT_V = "brief-derive-11";  // de-seasonalize: review dates are not buyer facts; no narrowing qualifiers
+  var DERIVE_PROMPT_V = "brief-derive-12";  // objections carry a resolving ACTION the script shows instead of naming the doubt
   var DERIVE_BATCH = 8;                 // reviews per derivation call -- smaller so each call stays inside
   var DERIVE_REVIEW_CHARS = 2000;       // Netlify's ~26s sync gateway even with the larger per-review excerpt
   var DERIVE_MODEL = "claude-haiku-4-5-20251001"; // fast enough not to hit the gateway 504
@@ -14973,7 +14982,7 @@ function genOneScript(opts){
       '"desire":{"value":"the outcome they actually want","words":[],"claims":[],"terms":[],"need":""},',
       '"pains":[{"value":"a specific pain in their words","words":[],"claims":[],"terms":[],"about":"","need":""}],',
       '"problem":{"value":"the core problem the product solves","words":[],"claims":[],"terms":[]},',
-      '"objections":[{"value":"a hesitation or question buyers raise","words":[],"claims":[],"terms":[],"cause":""}],',
+      '"objections":[{"value":"a hesitation or question buyers raise","words":[],"claims":[],"terms":[],"cause":"","resolve":""}],',
       '"scarcity":{"value":"any real scarcity or urgency, else empty","words":[],"claims":[],"terms":[]},',
       '"authority":{"value":"why to trust this (creator authority or social proof), else empty","words":[],"claims":[],"terms":[]},',
       '"socialProof":{"value":"proof others love it, in their words","words":[],"claims":[],"terms":[]},',
@@ -14989,6 +14998,7 @@ function genOneScript(opts){
       "- The COMPETITOR / VIRAL-VIDEO COMMENTS above come from people reacting to a video, most of whom have NOT bought. Doubts they raise -- unclear or missing product information, colours or looks not matching what they already own, price worry, whether it will fit or suit them -- are OBJECTIONS, not pains. Only call something a pain when someone describes the product actually failing or wearing out in hand. When the source is a comment and you are unsure, prefer objection.",
       "- pains and objections are arrays; return AT MOST 4 distinct items each, most-common first.",
       "- cause (objections only) = the specific MECHANISM the reviews or listing actually name as the reason for this objection, in a few words (e.g. for a shutoff objection where reviewers say the filter clogs: 'the filter clogs'). Fill it ONLY when the material genuinely states the cause. If the reviews and listing do not name a reason, leave cause empty (''). NEVER guess or invent a cause -- an empty cause is correct and expected, and a made-up one is worse than none.",
+      "- resolve (objections only) = the ACTION of using the product that makes this doubt a non-issue, in a few words, so the script can SHOW that action and never speak the doubt. The brief is intelligence, not copy: knowing buyers worried about mold tells the creator to show the cleaning, not to say 'mold'. Every objection has a resolving action -- mold resolves into 'rinse it with vinegar and water', slow ice into 'it runs while you do everything else', an awkward drain into 'how you tip it out'. Name the action from the reviews, listing, or how the product is plainly used. Fill it whenever a real action resolves the doubt; leave it empty ('') only when nothing the product does answers it. NEVER invent a capability the product does not have.",
       "- need (pains and desire) = the Maslow level this MOTIVATES at, one of: 'safety' (a real risk or worry removed -- e.g. a mother relieved her kid cannot choke on sharp ice), 'belonging' (being part of it, no one left out or waiting -- e.g. nobody at the table waiting for ice), 'esteem' (status, being noticed -- e.g. everyone asks where you got the ice), or 'convenience' (effort simply gone -- e.g. no more store runs for bags). Pick the ONE that fits best. Safety motivates hardest, so never mislabel a safety relief as convenience. Fill it for every pain and for the desire.",
       "- about (pains only) = 'alternative' if the pain is about the OLD way, a DIFFERENT or previous product, or life WITHOUT this one -- i.e. the problem THIS product solves ('my old vacuum was too heavy', 'the last ice maker's ice never stayed frozen', 'we kept running to the store for bags of ice'). Use 'product' if the pain is a complaint about THIS product itself -- a flaw, defect, quirk or annoyance with the thing being sold ('the first batch comes out watery', 'you have to descale it often', 'the drain plug is awkward to reach'). This matters: only 'alternative' pains may ever lead a hook or setup; a 'product' pain is a doubt to defuse, and leading with one advertises the flaw. When you are not sure, use 'product' (the safe default -- a product complaint must never open a script).",
       "- who, emotion, desire, pains, objections, socialProof, priceAnchor and ALL words come from the REVIEWS and COMMENTS only. features come from the SELLER LISTING only. NEVER fill a buyer-psychology line or a buyer word from the seller listing.",
@@ -15402,6 +15412,11 @@ function genOneScript(opts){
         var ab = String(it.about || ""), abT = ab === "alternative" ? "about the old way" : ab === "product" ? "about this product · defuse only" : "unclassified · rebuild to label";
         var abC = ab === "alternative" ? "background:rgba(120,200,120,.12);color:#7bd07b;border:1px solid rgba(120,200,120,.35);" : ab === "product" ? "background:rgba(240,160,90,.12);color:#f0a05a;border:1px solid rgba(240,160,90,.35);" : "background:var(--surface);color:var(--muted);border:1px solid var(--border-md);";
         var abx = document.createElement("span"); abx.textContent = abT; abx.style.cssText = "display:inline-block;font-size:10px;padding:2px 7px;border-radius:999px;margin-top:3px;" + abC; row.appendChild(abx);
+      }
+      // Objections show the RESOLVING ACTION derivation found -- the thing the script SHOWS instead of naming
+      // the doubt. Lets the owner confirm the intelligence is right, or notice a doubt with no resolving action.
+      if (key === "objections" && String(it.resolve || "")){
+        var rz = document.createElement("div"); rz.style.cssText = "font-size:11px;color:#7bd07b;margin-top:3px;"; rz.textContent = "shows (never says the doubt): " + it.resolve; row.appendChild(rz);
       }
       if (it.added){ var yn = document.createElement("div"); yn.style.cssText = "font-size:11px;color:var(--purple);margin-top:2px;"; yn.textContent = "Your line -- not counted"; row.appendChild(yn); }
       else { var e = evidenceLine(it); if (e) row.appendChild(e); row.appendChild(wordsAndClaims(it)); }
@@ -15833,6 +15848,7 @@ function genOneScript(opts){
         var o = objPool[i];
         line += "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
         line += "\n  RESOLVE THIS DOUBT WITHOUT EVER NAMING IT (this tells you what to answer; it is NOT a line to speak -- show the fact that makes it a non-issue, never state the doubt): " + o.value + (o.words.length ? " (the worry, for your understanding only, do not voice it: " + o.words.join(", ") + ")" : "");
+        if (o.resolve) line += "\n  SHOW THIS ACTION as the answer (the resolving action already worked out for you -- put THIS on screen and let it stand as the reassurance; do not name the doubt it answers): " + o.resolve;
       } else {
         line += "\n  NO OBJECTION TO DEFUSE (the brief has no grounded objection left for this script): do NOT write a pre-close objection turn, leave preclose empty (\"\"). body2 stays the payoff. The close mode lands in the CTA ONLY -- one ending, never a close in body2 and again in the cta.";
         line += "\n  CLOSE MODE (goes in the CTA): " + CLOSE_MODES[(i - objPool.length) % CLOSE_MODES.length];
@@ -15862,6 +15878,7 @@ function genOneScript(opts){
     L.push("HOOK ASSUMPTION -- assume only what is true of ANYONE this product is for (they have a pet, a freezer, a cold drink). The fur-baby hook works because it assumes only a pet and this product. Reframe a situation the viewer is ALREADY in; do not invent one she may not be in (a machine that broke, something nobody actually does).");
     L.push("YEAR -- the current year is " + nowYear + ". A PAST year is a fine contrast device (\"this isn't 2010\", \"it's not the 1990s\"). But NEVER state what year it is now: no \"in " + nowYear + "\", no \"still doing this in " + nowYear + "\", no asserting the current or a future year -- a stated current year dates the video the moment it is watched.");
     // The three risks below are real and NOT catchable in code, so they stay -- one line each.
+    L.push("THE BRIEF IS INTELLIGENCE, NOT COPY: every line above tells you what to SHOW, never a phrase to say. Knowing three in ten buyers worried about mold tells you to show the cleaning, not to say 'mold'. Knowing the buyer is a Gen X woman does not mean the script says 'as a Gen X woman'. Translate every finding into something the viewer SEES, DOES, or FEELS in their own moment -- never speak the analytical label (a named worry, a demographic, a category) back at them.");
     L.push("NO-META -- talk to the viewer about THEIR life, never about your research. The brief is your source and the viewer has never seen it; never name reviews, buyers, ratings, social proof or specs. Put the detail inside the viewer's own moment instead.");
     L.push("INVENT NOTHING -- every fact, number, cause and outcome comes from the brief or listing. If you cannot point to where a cause is stated, reframe it as a benefit rather than naming it. Do not diagnose the viewer, make no claim about other products, and make NO sweeping claim about what people in general want or do (\"nobody wants regular ice anymore\", \"everyone is switching\") unless the material says it -- that is an invented market trend.");
     L.push("STAY WITH WHAT IT IS -- never escalate a seller claim (if the listing says \"no scratches,\" you may not say \"wrecks your blender\"). Speak to what the product plainly is and what the buyer felt.");
