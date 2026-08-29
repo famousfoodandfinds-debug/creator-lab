@@ -15608,38 +15608,62 @@ function genOneScript(opts){
     }).map(function(hs){ return { key: hs.key, instr: hookInstr(hs) }; });
     return ex.concat(fieldHooks(ctx));
   }
-  // Architecture-scoped body exemplars: pick ONE architecture per product and load only its setup / payoff /
-  // turn / cta examples (setup and payoff had none, which is why the weak scripts were vague). Owns-tagged
-  // lines load only when the creator owns/uses the product. C = problem->transformation (products with real
-  // objections), B = demo->scarcity/upgrade (an upgrade with real scarcity), A = demo->gift/identity (else).
+  // Body exemplars are spread DELIBERATELY across unrelated categories so the only thing they share is the
+  // SHAPE, never the product. Four kitchen appliances would teach "talk about kitchens"; a pillow, a cutting
+  // board, a golf flask and a lawn sweeper all opening on a moment teach "open on a moment". So SETUP is one
+  // SHARED cross-category set ("open on a scene from the viewer's day" is universal), while payoff / turn / cta
+  // differ by architecture (transformation vs identity vs upgrade) but stay cross-category within each.
+  // Categories present: bedding, kitchen, cleaning, yard, golf/drinkware, tools/auto, beauty.
+  var SETUP_EXEMPLARS = [
+    {ex:"You're lying on your side, your shoulder jammed into your neck, and your arm's gone numb under the pillow."},   // bedding
+    {ex:"You see these little flakes? That is going into your family's food, every meal."},                              // kitchen
+    {ex:"You pop the trunk and it's that same knot of tangled straps again."},                                          // tools/auto
+    {ex:"You rake the whole yard on Saturday and by Sunday it's buried again."},                                        // yard
+    {ex:"You're sweeping the same porch corner for the third time and it's still not clean."},                          // cleaning
+    {ex:"You're two holes from the clubhouse and your drink went warm ages ago."}                                       // golf/drinkware
+  ];
   var ARCH_EXEMPLARS = {
     C: { label: "PROBLEM -> TRANSFORMATION",
-      setup:  [ {ex:"You're lying on your side, your shoulder jammed up into your neck, and you shove your arm under the pillow until it goes numb."}, {ex:"You see these little flakes? That is going into your family's food, every meal."} ],
-      payoff: [ {ex:"Now your spine settles into a straight line, the pressure comes off your neck, and your shoulder can finally move."}, {ex:"One pass and it's a clean pile, no jamming, no scraping it out with a knife."} ],
-      turn:   [ {ex:"If it wasn't dishwasher safe I wouldn't own it, and this locks to the counter so it doesn't walk.", owns:true} ],
-      cta:    [ {ex:"If you're ready to wake up without the neck pain, the link's right here."} ] },
+      payoff: [ {ex:"Now your spine settles straight and the pressure lifts off your neck."},                            // bedding
+                {ex:"One pass and it's a clean pile, no jamming, no scraping it out with a knife."},                     // kitchen
+                {ex:"You run it across once and the floor is actually done, not just pushed around."},                  // cleaning
+                {ex:"The puffiness is gone before you've even finished your coffee."},                                  // beauty
+                {ex:"You walk it over the lawn once and the leaves are just gone."} ],                                  // yard
+      turn:   [ {ex:"If it wasn't dishwasher safe I wouldn't own it, and it locks to the counter so it doesn't walk.", owns:true}, // kitchen
+                {ex:"It's soft enough it doesn't feel like a brick, but it holds its shape all night."},                // bedding
+                {ex:"No bucket and no chemicals, it's just water, and it's done."} ],                                   // cleaning
+      cta:    [ {ex:"If you're ready to wake up without the neck pain, the link's right here."},                        // bedding
+                {ex:"If you're done scraping your grater out with a knife, grab one."} ] },                             // kitchen
     A: { label: "DEMO -> GIFT / IDENTITY",
-      setup:  [ {ex:"I got these for my dad and now he won't shut up about them.", owns:true}, {ex:"Picture walking into Thanksgiving carrying this."}, {ex:"Every golfer you know is going to want this in their bag."} ],
-      payoff: [ {ex:"It's the thing everyone at the table asks about."}, {ex:"He's out there serving drinks like he owns the course."}, {ex:"Movie night, the game, the kids over, and you're the house that has this."} ],
+      payoff: [ {ex:"It's the thing everyone at the table asks about."},                                                // kitchen/decor
+                {ex:"You're the one handing out cold drinks at the turn."},                                             // golf
+                {ex:"Your dad texts you a photo of everything strapped down tight."},                                   // tools/auto
+                {ex:"Your place turns into the one everyone shows up to."} ],                                           // kitchen
       turn:   [],
-      cta:    [ {ex:"If you've got a golfer in your life, they want this. Link's right here."}, {ex:"You already know who this is for. Maybe it's you."}, {ex:"Grab your color before it's gone."} ] },
+      cta:    [ {ex:"If you've got a golfer in your life, they want this. Link's right here."},                         // golf
+                {ex:"You already know who this is for. Maybe it's you."},                                               // (universal)
+                {ex:"Grab your color before it's gone."} ] },                                                          // decor
     B: { label: "DEMO -> SCARCITY / UPGRADE",
-      setup:  [ {ex:"You're still dragging out a mop, a bucket, and a separate vacuum."}, {ex:"You've been sweeping the porch by hand like it's the only option."}, {ex:"Your microwave makes everything soggy and your air fryer's already full."} ],
-      payoff: [ {ex:"One pass, it vacuums and steam-cleans, and you're done, no bucket, no chemicals."}, {ex:"It starts as a microwave and finishes crisping, so nothing comes out soggy."}, {ex:"One pass down the porch and it's clear, then it pops off into a handheld for the car."} ],
+      payoff: [ {ex:"One pass, it vacuums and steam-cleans, no bucket, no chemicals."},                                 // cleaning
+                {ex:"It starts as a microwave and finishes crisping, so nothing comes out soggy."},                     // kitchen
+                {ex:"You walk it across the yard once and the leaves are bagged, no raking."} ],                        // yard
       turn:   [],
-      cta:    [ {ex:"When these sell out they don't restock. Link's below while it's there."}, {ex:"These sold out fast last year, so grab it before it's gone."}, {ex:"It only just dropped and it's already moving, link's here."} ] }
+      cta:    [ {ex:"When these sell out they don't restock. Link's below while it's there."},                          // cleaning
+                {ex:"These sold out fast last year, so grab it before it's gone."},                                     // tools/auto
+                {ex:"It only just dropped and it's already moving, link's here."} ] }                                   // beauty
   };
   function pickArchitecture(ctx){
     if (SB.groundedObjections(ctx.objections).length) return "C";
     if (String(ctx.scarcity || "")) return "B";
     return "A";
   }
-  // The loaded (owns-filtered) body exemplars for this product's architecture; .all also feeds the anti-copy
-  // guard so a copied setup/payoff line is regenerated the same way a copied hook is.
+  // The loaded (owns-filtered) body exemplars for this product: the SHARED cross-category setup set plus this
+  // architecture's payoff / turn / cta. .all also feeds the anti-copy guard so a copied body line is
+  // regenerated the same way a copied hook is.
   function architectureExemplars(ctx){
     var a = ARCH_EXEMPLARS[pickArchitecture(ctx)] || ARCH_EXEMPLARS.A;
-    function load(slot){ return (a[slot] || []).filter(function(e){ return !e.owns || ctx.owns; }).map(function(e){ return e.ex; }); }
-    var setup = load("setup"), payoff = load("payoff"), turn = load("turn"), cta = load("cta");
+    function load(arr){ return (arr || []).filter(function(e){ return !e.owns || ctx.owns; }).map(function(e){ return e.ex; }); }
+    var setup = load(SETUP_EXEMPLARS), payoff = load(a.payoff), turn = load(a.turn), cta = load(a.cta);
     return { label: a.label, setup: setup, payoff: payoff, turn: turn, cta: cta, all: setup.concat(payoff, turn, cta) };
   }
   // Pre-close angles rotate too, so one focus per batch never means the same rebuttal four times.
@@ -15749,8 +15773,8 @@ function genOneScript(opts){
     // Architecture-scoped body exemplars: only THIS product's architecture is loaded, so setup and payoff
     // finally have concrete shapes to imitate (they had none, which is what produced the vague scripts).
     // Shape only, never text to reuse -- and they feed the anti-copy guard the same as the hook examples.
-    var exBlock = function(head, arr2){ return arr2.length ? (head + " -- these show the SHAPE only, write your OWN for THIS product, never reuse the words:\n" + arr2.map(function(e){ return "  - \"" + e + "\""; }).join("\n")) : ""; };
-    L.push("SCRIPT ARCHITECTURE for this product: " + arch.label + ". Build the setup and payoff along this spine.");
+    var exBlock = function(head, arr2){ return arr2.length ? (head + " -- these are from DIFFERENT, unrelated products ON PURPOSE, so the only thing to copy is the SHAPE. Write your OWN line for THIS product; never reuse the words or the topic:\n" + arr2.map(function(e){ return "  - \"" + e + "\""; }).join("\n")) : ""; };
+    L.push("SCRIPT ARCHITECTURE for this product: " + arch.label + ". Build the setup and payoff along this spine. The examples below span unrelated categories deliberately -- learn the shape, not the subject.");
     [["SETUP (body1) examples", arch.setup], ["PAYOFF (body2) examples", arch.payoff], ["OBJECTION-TURN examples", arch.turn], ["CTA examples", arch.cta]].forEach(function(p){ var b = exBlock(p[0], p[1]); if (b) L.push(b); });
     L.push("");
     // Positive directions only. The hard bans (moderation words, price-as-doubt, asserted figures, company
