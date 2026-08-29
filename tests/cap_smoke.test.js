@@ -23,7 +23,7 @@ let regenIds = [];           // generation_ids seen on regen (max_tokens 1500) c
 function resp(status, text){ return { status, text: function(){ return Promise.resolve(text); } }; }
 const fetchStub = function(url, opts){
   let body = {}; try { body = JSON.parse(opts.body); } catch(e){}
-  if (body.count_only) return Promise.resolve(resp(200, JSON.stringify({ ok:true, used:0, limit:7, remaining:7 }))); // distinctive limit (not 150) to prove the copy reads the EFFECTIVE limit
+  if (body.count_only) return Promise.resolve(resp(200, JSON.stringify({ ok:true, used:6, limit:7, remaining:1 }))); // limit 7 (not 150) proves copy reads the EFFECTIVE limit; remaining 1 exercises the singular warning
   if (body.call_name === "script_batch" && body.max_tokens >= 4000 && !batchBody) batchBody = body;
   if (body.call_name === "script_batch" && body.max_tokens < 4000) regenIds.push(body.generation_id);
   if (mode === "limit") return Promise.resolve(resp(429, JSON.stringify({ error:"monthly_limit_reached", message:"blocked", used:150, limit:150 })));
@@ -42,7 +42,14 @@ brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out too fa
 let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'great ice' }];
 PS.fill({ id:'p1', name:'Ice maker', updated_at:'2026-01-01', brief, raw });
 
+function walk(el, a, d){ if(!el||d>12) return; (el._children||[]).forEach(function(c){ if(c.textContent) a.push(c.textContent); walk(c, a, d+1); }); }
 (async () => {
+  // Let the initial count fetch (remaining 1) resolve and render, so the SINGULAR warning is checked.
+  for (let k=0;k<60;k++) await Promise.resolve();
+  let pre=[]; walk(byId['genScripts'], pre, 0); const preJoined = pre.join(' | ');
+  ok(/Only 1 generation left this month/.test(preJoined), 'the warning is singular at 1 left: "1 generation", not "1 generations"');
+  ok(!/1 generations left/.test(preJoined), 'no plural "1 generations" bug in the warning');
+
   PS.generateScripts();
   for (let k=0;k<120;k++) await Promise.resolve();
   ok(!!batchBody, 'the batch call was made');
@@ -61,6 +68,10 @@ PS.fill({ id:'p1', name:'Ice maker', updated_at:'2026-01-01', brief, raw });
   ok(!/150/.test(blockStatus), 'the block message never shows a stale hardcoded 150');
   ok(/library and Planner stay open/.test(blockStatus) && /resets? on the 1st/i.test(blockStatus), 'the block copy keeps library/Planner open and says it resets on the 1st');
   ok(!/try again|hit an error/i.test(blockStatus), 'the 429 is NOT shown as a generic failure');
+  // At the wall: the button is reworded/disabled, and the block message is NOT stacked twice.
+  let atl=[]; walk(byId['genScripts'], atl, 0); const atlJoined = atl.join(' | ');
+  ok(/Monthly limit reached/.test(atlJoined), 'the Generate button is reworded to "Monthly limit reached" at the wall, not "Generate again"');
+  ok((atlJoined.match(/all 7 generations this month/g) || []).length === 0, 'the block message is not duplicated as a warning line (genStatus owns it, so it renders once)');
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

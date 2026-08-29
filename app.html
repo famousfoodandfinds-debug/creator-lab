@@ -16155,25 +16155,28 @@ function genOneScript(opts){
     if (genCount === null && !genCountTried){ genCountTried = true; refreshGenCount(); }
     var head = document.createElement("div"); head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:10px;";
     var btn = document.createElement("button"); btn.type = "button";
-    btn.textContent = generating ? "Writing scripts..." : (generatedScripts.length ? "Generate again" : "Generate scripts");
-    btn.disabled = generating;
-    btn.style.cssText = "background:" + (generating ? "var(--surface)" : "var(--gold)") + ";border:none;border-radius:10px;color:" + (generating ? "var(--white)" : "#080808") + ";font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:700;padding:11px 18px;cursor:" + (generating ? "default" : "pointer") + ";opacity:" + (generating ? ".6" : "1") + ";";
-    btn.addEventListener("click", generateScripts);
+    // At the monthly limit the button must not invite a press that can only fail: disable it and say why.
+    var atLimit = !!(genCount && (genCount.remaining | 0) <= 0 && (genCount.limit | 0) > 0);
+    var btnOff = generating || atLimit;
+    btn.textContent = generating ? "Writing scripts..." : (atLimit ? "Monthly limit reached" : (generatedScripts.length ? "Generate again" : "Generate scripts"));
+    btn.disabled = btnOff;
+    btn.style.cssText = "background:" + (btnOff ? "var(--surface)" : "var(--gold)") + ";border:none;border-radius:10px;color:" + (btnOff ? "var(--white)" : "#080808") + ";font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:700;padding:11px 18px;cursor:" + (btnOff ? "default" : "pointer") + ";opacity:" + (btnOff ? ".6" : "1") + ";";
+    if (!atLimit) btn.addEventListener("click", generateScripts);
     head.appendChild(btn);
     // Persistent counter beside the button, in batches ("generations"), never scripts.
     if (genCount){ var cnt = document.createElement("div"); cnt.style.cssText = "font-size:12px;font-weight:600;color:var(--" + genCountTone() + ");"; cnt.textContent = genCountLabel(); head.appendChild(cnt); }
     host.appendChild(head);
-    // Threshold warnings: 80% used, 5 left, and the at-limit block copy. Every number comes from the server's
-    // EFFECTIVE limit (genCount.limit), never a hardcoded constant, so changing the cap can't make copy lie.
-    // Guarded on limit > 0 so a not-yet-loaded count never renders a "0 of 0" line.
+    // Threshold warnings as the wall approaches: 80% used, then 5 left. Numbers come from the server's EFFECTIVE
+    // limit (genCount.limit), never a hardcoded constant. The AT-limit (r<=0) case is deliberately NOT rendered
+    // here -- the 429 handler shows the block message via genStatus, and rendering it here too stacked it twice;
+    // at the limit the red counter and the disabled button already say so. Guarded on limit > 0.
     if (genCount && genCount.limit > 0){
       var r = genCount.remaining | 0, lim = genCount.limit;
-      if (r <= Math.ceil(lim * 0.2)){
+      if (r > 0 && r <= Math.ceil(lim * 0.2)){
         var warn = document.createElement("div"); warn.style.cssText = "font-size:12px;color:var(--" + genCountTone() + ");margin-bottom:8px;line-height:1.5;";
-        warn.textContent = r <= 0
-          ? "You've used all " + lim + " generations this month. They reset on the 1st -- your library and Planner stay open in the meantime."
-          : (r <= 5 ? "Only " + r + " generations left this month. They reset on the 1st."
-                    : "You've used " + (genCount.used | 0) + " of your " + lim + " generations this month. They reset on the 1st.");
+        warn.textContent = r <= 5
+          ? "Only " + r + " generation" + (r === 1 ? "" : "s") + " left this month. They reset on the 1st."
+          : "You've used " + (genCount.used | 0) + " of your " + lim + " generations this month. They reset on the 1st.";
         host.appendChild(warn);
       }
     }
