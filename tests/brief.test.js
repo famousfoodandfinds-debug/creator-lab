@@ -563,6 +563,16 @@ ok(B.scriptViolations({ body2: "honestly it is worth every penny" }, {}).indexOf
 ok(B.scriptViolations({ cta: "at this point it is a steal" }, {}).indexOf("price") >= 0, 'validator: catches "a steal"');
 ok(B.scriptViolations({ body2: "that is real bang for your buck" }, {}).indexOf("price") >= 0, 'validator: catches "bang for your buck"');
 ok(B.scriptViolations({ body2: "the ice is finally clear and crunchy" }, {}).indexOf("price") < 0, 'validator: an outcome line with no money is not flagged');
+// names-doubt: the objection turn may not NAME a doubt (its distinctive PHRASE), only SHOW the fix. doubtVocab
+// is multiword only, so it catches "hard water" but a benefit line that merely shares a common token passes.
+ok(B.scriptViolations({ preclose: "hard water just needs a vinegar rinse now and then" }, { doubtVocab: ["hard water"] }).indexOf("names-doubt") >= 0, 'validator: catches the objection turn NAMING a doubt phrase ("hard water")');
+ok(B.scriptViolations({ preclose: "run bottled water through it and it stays clean" }, { doubtVocab: ["hard water"] }).indexOf("names-doubt") < 0, 'validator: the fix ("bottled water") does not trip the "hard water" doubt');
+ok(B.scriptViolations({ preclose: "the first cubes are smaller and softer than the rest" }, { doubtVocab: ["smaller and softer"] }).indexOf("names-doubt") >= 0, 'validator: catches a multiword buyer doubt phrase in the turn');
+ok(B.scriptViolations({ body1: "it tucks into a small corner of the kitchen" }, { doubtVocab: ["hard water", "too small"] }).indexOf("names-doubt") < 0, 'validator: a benefit line ("small corner") is not flagged and names-doubt is preclose-only');
+// viewer-owns: a hook or setup that presupposes the viewer already owns the product.
+ok(B.scriptViolations({ hook: "there's a reason people end up with one in two different rooms" }, {}).indexOf("viewer-owns") >= 0, 'validator: catches a hook that assumes the viewer already owns it ("two different rooms")');
+ok(B.scriptViolations({ body1: "first one stays on the counter, then you grab one for the patio" }, {}).indexOf("viewer-owns") >= 0, 'validator: catches a setup that assumes ownership ("one for the patio")');
+ok(B.scriptViolations({ hook: "your ice runs out before the guests even arrive", body1: "you keep refilling the same tray" }, {}).indexOf("viewer-owns") < 0, 'validator: a normal problem-first hook/setup is not flagged as ownership');
 ok(B.scriptViolations({ body1: "It shuts off and the plant is dead by morning" }, {}).indexOf("moderation") >= 0, 'validator: catches a moderation word (dead)');
 ok(B.scriptViolations({ body2: "so good I use it every single day now" }, {}).indexOf("ownership") >= 0, 'validator: catches first-person ownership (I use)');
 ok(B.scriptViolations({ body2: "so good I use it every single day now" }, { ownsAllowed: true }).indexOf("ownership") < 0, 'validator: ownership ALLOWED when the creator owns/uses the product');

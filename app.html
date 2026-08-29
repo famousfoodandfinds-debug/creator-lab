@@ -14370,6 +14370,18 @@ function genOneScript(opts){
       || /\bi(?:['’]|\s)(?:ve|d|m|ll|have|had|am)\b/.test(body)
       || /\bi (?:use|used|using|run|ran|running|keep|kept|own|owned|bought|buy|buying|got|get|tried|trying|notice|noticed|realize|realized|reach|reached|grab|grabbed|love|loved|see|seen|saw|found|been)\b/.test(body);
     if (!opts.ownsAllowed && firstPerson) v.push("ownership");
+    // ---- objection-turn + viewer-ownership guards (moved from prompt to CODE) ----------------------
+    // Two faults that kept slipping past the PROMPT are enforced here, where the bans hold.
+    // (1) NAMING A DOUBT: the objection turn must SHOW the fix, never say the worry. opts.doubtVocab is every
+    // distinctive phrase/term buyers use for a DOUBT, with the sanctioned ANSWER words (the resolve actions)
+    // and safe/general language already removed -- so it fires only on the doubt's OWN vocabulary, in the
+    // preclose. It also catches an invented reassurance IF that reassurance reuses a known doubt's words; a
+    // wholly new concern (noise that no objection raised) is a topic-detection problem left to the prompt.
+    // (2) VIEWER OWNS IT: a hook or setup that presupposes the viewer already has the product.
+    var preLc = str(script.preclose).toLowerCase();
+    if (preLc && arr(opts.doubtVocab).some(function(t){ return termIn(preLc, t); })) v.push("names-doubt");
+    var openLc = [str(script.hook), str(script.body1)].join("\n").toLowerCase();
+    if (/\b(?:another one|a second one|the second one|second unit|one for (?:the|your|a|our|his|her)|wants? one|end(?:s|ed)? up with (?:one|two|a second|another)|one in (?:the|every|each|another|two|different)|(?:two|different) rooms?)\b/.test(openLc)) v.push("viewer-owns");
     // Figures are judged on PROVENANCE, not banned outright. A figure that appears in the product LISTING is
     // a verifiable seller spec ("33 pounds of ice a day," "25 ounces," "26 inches") -- exactly the concrete
     // detail that makes a script good, so it is allowed. A figure that appears only in a review (one buyer
@@ -14420,6 +14432,12 @@ function genOneScript(opts){
     if (opts.exemplars && opts.exemplars.length && exemplarLift(script, opts.exemplars)) v.push("example-lift");
     return v;
   }
+  // A doubt term matches the objection turn as a whole WORD (single token) or a SUBSTRING (multiword phrase,
+  // e.g. "hard water"): so "bottled water" never trips the "hard water" doubt, but "hard water just needs..."
+  // does. Used by the names-doubt / off-topic-preclose guards.
+  function termIn(text, term){ term = str(term).toLowerCase().trim(); if (!term) return false;
+    if (term.indexOf(" ") >= 0) return String(text).indexOf(term) >= 0;
+    return new RegExp("\\b" + term.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b").test(text); }
   // True if any script line copies a teaching exemplar. Normalizes both, then matches on containment or a
   // high shared-word ratio (>=0.7 against the longer of the two), so verbatim AND light paraphrase are caught
   // while a short generic line that merely shares a few common words with a long exemplar is not.
@@ -15963,7 +15981,7 @@ function genOneScript(opts){
     next();
   }
   // Human labels for the guard codes, used when a drop has to be explained to the owner.
-  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated opening" };
+  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated opening", "names-doubt": "named the doubt instead of showing the fix", "viewer-owns": "assumes the viewer already owns it" };
   function fmtDrops(codes){ return Object.keys(codes || {}).map(function(c){ return (GUARD_LABELS[c] || c) + ((codes[c] | 0) > 1 ? " x" + codes[c] : ""); }).join(", "); }
   // Per-script drop line: "Script 2: unverifiable figure; Script 4: copied a teaching example" -- so two
   // scripts' reasons never merge into one line the owner cannot attribute. Codes within one script join with
@@ -16000,6 +16018,31 @@ function genOneScript(opts){
         nowYear: nowYear,
         ownsAllowed: !!ctx.owns   // first-person testimony allowed only when the creator owns/uses it
       };
+      // The names-doubt guard needs doubt VOCABULARY (built in code, not trusted to the model). doubtVocab is
+      // the distinctive PHRASES buyers use for a DOUBT (objections + product-pains), MINUS the sanctioned ANSWER
+      // words (resolve actions), safe/general language, and features -- so it fires on a doubt's own phrasing,
+      // never on the fix. See addDoubt for why only multiword phrases qualify.
+      // Plain JS only (SaxeBrief helpers like str/arr/norm are NOT in this scope and throw here).
+      function tok(s){ return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean); }
+      var productPains = (ctx.pains || []).filter(function(p){ return String(p.about || "") !== "alternative"; });
+      var altPainList = (ctx.pains || []).filter(function(p){ return String(p.about || "") === "alternative"; });
+      var allDoubts = (ctx.objections || []).concat(productPains);
+      var safeSet = {};
+      function addSafe(list){ (list || []).forEach(function(w){ w = String(w || "").toLowerCase().trim(); if (!w) return; safeSet[w] = 1; tok(w).forEach(function(t){ safeSet[t] = 1; }); }); }
+      ["whoWords","emotionWords","desireWords","socialProofWords"].forEach(function(k){ addSafe(ctx[k]); });
+      altPainList.forEach(function(p){ addSafe(p.words); });
+      allDoubts.forEach(function(d){ addSafe([d.resolve]); });   // the resolve action is the sanctioned answer
+      (ctx.features || []).forEach(function(f){ addSafe([f.feature, f.benefit]); });
+      // MULTIWORD phrases ONLY. A single common token is ambiguous -- the doubt "too small" and the benefit
+      // "a small corner" share "small", so banning "small" would drop a good line. A distinctive PHRASE ("hard
+      // water", "first batch", buyer wording like "smaller and softer") does not collide with a benefit line,
+      // so the guard stays high-precision: it fires on a doubt's own phrasing, never on a legitimate feature.
+      var doubtVocab = [], seenDV = {};
+      function addDoubt(term){ term = String(term || "").toLowerCase().trim();
+        if (!term || term.indexOf(" ") < 0 || seenDV[term] || safeSet[term]) return;   // phrases only, not a safe phrase
+        seenDV[term] = 1; doubtVocab.push(term); }
+      allDoubts.forEach(function(d){ (d.terms || []).forEach(addDoubt); (d.words || []).forEach(addDoubt); });
+      guardOpts.doubtVocab = doubtVocab;
       claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
         try {
           if (err){ generating = false; renderGenScripts(); genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + "). Nothing was lost.", "var(--red)"); return; }
