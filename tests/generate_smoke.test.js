@@ -119,6 +119,10 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(capturedPrompt.indexOf('SAFETY') >= 0, 'the safety drive gets a script (it converts hardest and kept being skipped)');
   ok(capturedPrompt.indexOf('THE ARC') >= 0 && capturedPrompt.indexOf('CLOSE THE EXACT GAP THE HOOK OPENED') >= 0, 'the arc is in the prompt: hook opens a gap, payoff closes that gap');
   ok(capturedPrompt.indexOf('names the FEELING') >= 0, 'the setup rule leads with the feeling, not just the situation');
+  // The comprehension test: a hook that drops a middle step (step 1 + step 3, listener assembles the rest)
+  // sounds fine aloud but fails on sense; the prompt must demand the WHOLE thought, every link of a chain.
+  ok(capturedPrompt.indexOf('COMPLETE (comprehension)') >= 0, 'the hook comprehension test is in the prompt');
+  ok(capturedPrompt.indexOf('say EVERY link') >= 0 && /middle/i.test(capturedPrompt), 'the comprehension test forbids dropping a middle step of a causal chain');
   // Architecture selection: objections -> C, else scarcity -> B, else A.
   ok(PS.__architecture(ctxT).label.indexOf('TRANSFORMATION') >= 0, 'objections present -> architecture C');
   const bBrief = SB.emptyBrief(); bBrief.lines.scarcity = SB.normalizeBrief({lines:{scarcity:{value:'limited run this month'}}}).lines.scarcity;
