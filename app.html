@@ -15615,6 +15615,32 @@ function genOneScript(opts){
   var GEN_COUNT = 4;   // one script per hook source, so all four shapes fire every batch (matches filming 3-4/day)
   var generatedScripts = [];
   var generating = false;
+  // Monthly GENERATION cap (billing). A "generation" is one batch (one press of Generate = four scripts). The
+  // count lives server-side; the client shows what remains so nobody is surprised at the wall. `genCount` is
+  // { used, limit, remaining } once fetched, else null (fetch failed / not yet loaded -> show nothing, never
+  // block on a display error). `genCountTried` makes the fetch fire at most once per screen until it succeeds.
+  var MONTHLY_BATCH_LIMIT = 150;
+  var genCount = null, genCountTried = false;
+  // A fresh batch id per Generate press. Every model call in the batch (the batch call and any guard retries or
+  // single-script regenerations) carries this SAME id, so the server counts the batch once and everything that
+  // iterates on it rides free. Self-contained so it never depends on the legacy newGenerationId().
+  function newBatchId(){ return "sb_" + Date.now().toString(36) + "_" + Math.random().toString(36).slice(2, 8); }
+  // Ask the server how many batches remain this month (count-only; never hits Anthropic). Fail open: any error
+  // leaves genCount null and the counter simply hidden. Never throws into the caller.
+  function refreshGenCount(){
+    try {
+      if (typeof fetch !== "function" || typeof claudeHeaders !== "function") return;
+      fetch("/api/claude", { method: "POST", headers: claudeHeaders(), body: JSON.stringify({ count_only: true }) })
+        .then(function(r){ return r.text(); })
+        .then(function(t){ var d = null; try { d = JSON.parse(t); } catch(e){}
+          if (d && d.ok && typeof d.remaining === "number"){ genCount = { used: d.used | 0, limit: d.limit | 0 || MONTHLY_BATCH_LIMIT, remaining: d.remaining | 0 }; try { renderGenScripts(); } catch(e){} }
+        })
+        .catch(function(){});
+    } catch (e) { /* display convenience only; never surfaces */ }
+  }
+  // The counter + threshold warning shown by the Generate button. In BATCHES ("generations"), never scripts.
+  function genCountLabel(){ if (!genCount) return ""; var r = Math.max(0, genCount.remaining | 0); return r + " generation" + (r === 1 ? "" : "s") + " left this month"; }
+  function genCountTone(){ if (!genCount) return "muted"; var r = genCount.remaining | 0, lim = genCount.limit || MONTHLY_BATCH_LIMIT; if (r <= 0) return "red"; if (r <= 5) return "red"; if (r <= Math.ceil(lim * 0.2)) return "gold"; return "muted"; }
   // Ported from the old orchestration (this lived ABOVE the system prompt, in the per-script user prompt,
   // and was lost when generation moved to a single generic call). Hook SOURCES rotate across the batch so
   // three videos are not the same shape; REVERSAL ("it is not you, it is X") is forced into the batch as
@@ -15964,7 +15990,7 @@ function genOneScript(opts){
     // named. `missing` marks a slot the model never returned (recorded as generation-failed if it never comes).
     function regen(idx, prev, viol, tries, missing){
       genStatus((missing ? "Writing script " : "Fixing script ") + (idx + 1) + (missing ? " (the model skipped it)" : " (" + label(viol) + ")") + (tries > 1 ? ", attempt " + tries : "") + "...");
-      claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genOnePrompt(ctx, idx, prev, viol) }] }, function(t, e){
+      claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: guardOpts.generationId, messages: [{ role: "user", content: genOnePrompt(ctx, idx, prev, viol) }] }, function(t, e){
         var s2 = null; if (!e){ var o = parseJson(t, "{", "}"); if (o) s2 = cleanScript(o); }
         var v2 = s2 ? problems(s2) : (missing ? ["generation-failed"] : viol);
         if (s2 && !v2.length){ accepted.push(finalizeScript(s2, ctx)); i++; next(); return; }
@@ -16051,9 +16077,32 @@ function genOneScript(opts){
         seenDV[term] = 1; doubtVocab.push(term); }
       allDoubts.forEach(function(d){ (d.terms || []).forEach(addDoubt); (d.words || []).forEach(addDoubt); });
       guardOpts.doubtVocab = doubtVocab;
-      claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
+      // One batch id for the whole Generate press. The batch call and every guard retry share it, so the
+      // monthly cap counts this as ONE generation and the retries ride free.
+      var genBatchId = newBatchId();
+      guardOpts.generationId = genBatchId;   // carried into the regen calls so they ride free on this batch's id
+      claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: genBatchId, messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
         try {
-          if (err){ generating = false; renderGenScripts(); genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + "). Nothing was lost.", "var(--red)"); return; }
+          if (err){
+            generating = false; renderGenScripts();
+            // 429 = monthly cap. claudeCall surfaces the error CODE, not the body, so build the copy here and cite
+            // the EFFECTIVE limit (genCount.limit from count_only), never a hardcoded number. If the real limit is
+            // unknown (count_only failed), omit the number. Library/Planner stay open; resets on the 1st.
+            if (err.status === 429){
+              var capLim = (genCount && genCount.limit) || 0;
+              if (capLim) genCount = { used: capLim, limit: capLim, remaining: 0 };
+              renderGenScripts();
+              genStatus(capLim
+                ? ("You've used all " + capLim + " generations this month. They reset on the 1st -- your library and Planner stay open in the meantime.")
+                : "You've reached your monthly generation limit. It resets on the 1st -- your library and Planner stay open in the meantime.",
+                "var(--red)");
+              return;
+            }
+            genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + "). Nothing was lost.", "var(--red)"); return;
+          }
+          // The batch was accepted by the cap (a 429 would have returned above), so a slot was spent. Decrement
+          // the visible counter locally; the server stays the source of truth on the next screen.
+          if (genCount && typeof genCount.remaining === "number"){ genCount.used = (genCount.used | 0) + 1; genCount.remaining = Math.max(0, (genCount.remaining | 0) - 1); }
           var out = parseJson(text, "[", "]");
           if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
           genStatus("Checking each script against the hard rules...");
@@ -16101,13 +16150,33 @@ function genOneScript(opts){
     // The brief is the source, so generation only appears once a brief has been built. Never gated on a
     // COMPLETE brief -- a thin brief still generates.
     if (!brief || !brief.meta || !brief.meta.lastDerivedAt) return;
+    // Fetch the remaining-batches count once per screen, so the counter is accurate on arrival (not only after
+    // a generation). Fail-open and display-only; never gates the Generate button.
+    if (genCount === null && !genCountTried){ genCountTried = true; refreshGenCount(); }
     var head = document.createElement("div"); head.style.cssText = "display:flex;align-items:center;gap:12px;margin-bottom:10px;";
     var btn = document.createElement("button"); btn.type = "button";
     btn.textContent = generating ? "Writing scripts..." : (generatedScripts.length ? "Generate again" : "Generate scripts");
     btn.disabled = generating;
     btn.style.cssText = "background:" + (generating ? "var(--surface)" : "var(--gold)") + ";border:none;border-radius:10px;color:" + (generating ? "var(--white)" : "#080808") + ";font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:700;padding:11px 18px;cursor:" + (generating ? "default" : "pointer") + ";opacity:" + (generating ? ".6" : "1") + ";";
     btn.addEventListener("click", generateScripts);
-    head.appendChild(btn); host.appendChild(head);
+    head.appendChild(btn);
+    // Persistent counter beside the button, in batches ("generations"), never scripts.
+    if (genCount){ var cnt = document.createElement("div"); cnt.style.cssText = "font-size:12px;font-weight:600;color:var(--" + genCountTone() + ");"; cnt.textContent = genCountLabel(); head.appendChild(cnt); }
+    host.appendChild(head);
+    // Threshold warnings: 80% used, 5 left, and the at-limit block copy. Every number comes from the server's
+    // EFFECTIVE limit (genCount.limit), never a hardcoded constant, so changing the cap can't make copy lie.
+    // Guarded on limit > 0 so a not-yet-loaded count never renders a "0 of 0" line.
+    if (genCount && genCount.limit > 0){
+      var r = genCount.remaining | 0, lim = genCount.limit;
+      if (r <= Math.ceil(lim * 0.2)){
+        var warn = document.createElement("div"); warn.style.cssText = "font-size:12px;color:var(--" + genCountTone() + ");margin-bottom:8px;line-height:1.5;";
+        warn.textContent = r <= 0
+          ? "You've used all " + lim + " generations this month. They reset on the 1st -- your library and Planner stay open in the meantime."
+          : (r <= 5 ? "Only " + r + " generations left this month. They reset on the 1st."
+                    : "You've used " + (genCount.used | 0) + " of your " + lim + " generations this month. They reset on the 1st.");
+        host.appendChild(warn);
+      }
+    }
     var stat = document.createElement("div"); stat.id = "genStatus"; stat.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:10px;display:none;line-height:1.5;"; host.appendChild(stat);
     generatedScripts.forEach(function(s){ host.appendChild(scriptCard(s)); });
   }

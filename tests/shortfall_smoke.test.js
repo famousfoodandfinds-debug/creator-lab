@@ -20,7 +20,11 @@ const SINGLES = [
   { hook:"You keep running out at the worst time", body1:"You scramble for a bag of ice", preclose:"It refills itself overnight", body2:"You stop thinking about ice", cta:"Check it out right here" }
 ];
 let calls = 0, singleIdx = 0;
-const fetchStub = function(){
+const fetchStub = function(u, o){
+  // The monthly-cap counter fetch (count_only) is not a generation call -- ignore it and don't count it, so
+  // the batch stays the first generation call this test sequences on.
+  var b = {}; try { b = JSON.parse(o.body); } catch(e){}
+  if (b.count_only) return Promise.resolve({ status:200, text(){ return Promise.resolve(JSON.stringify({ ok:false })); } });
   calls++;
   var payload;
   if (calls === 1) payload = JSON.stringify({ content:[{ type:'text', text: JSON.stringify(BATCH2) }] });          // batch: only 2
