@@ -140,6 +140,10 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(capturedPrompt.indexOf('NO MONEY, EVER') >= 0 && /spending a fortune/.test(capturedPrompt), 'the absolute money ban is in the prompt');
   ok(capturedPrompt.indexOf('THE VIEWER DOES NOT OWN IT YET') >= 0, 'a hook/setup may never assume the viewer already owns it');
   ok(capturedPrompt.indexOf('ANSWER ONLY A DOUBT SOMEONE ACTUALLY HAS') >= 0, 'the objection turn may not invent a doubt nobody raised');
+  // A physical-behavior claim must come from the material (not "nugget ice melts slower"); no invented rival claim.
+  ok(capturedPrompt.indexOf('NEVER ASSERT A PHYSICAL PROPERTY THE MATERIAL DOES NOT STATE') >= 0 && /melts slower/.test(capturedPrompt), 'an invented physical-property claim is forbidden');
+  ok(capturedPrompt.indexOf('NO CLAIM ABOUT A COMPETING PRODUCT') >= 0, 'an invented claim about a competing product is forbidden');
+  ok(/the machine you already have/.test(capturedPrompt), 'the ownership rule now covers "the machine you already have" phrasing');
   // The action hook must not be a spec/operating sequence ("fill the tank, press the button"). Check the
   // source directly (it may or may not land in this batch's rotation, so do not rely on the prompt text).
   const actionSrc = (PS.__availableHooks(ctxT) || []).find(h => h.key === 'action');
