@@ -136,6 +136,10 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(capturedPrompt.indexOf('SHOW THIS ACTION as the answer') >= 0 && capturedPrompt.indexOf('you top it off once and it keeps going') >= 0, 'the resolving action is handed to the script to show');
   const dp2 = PS.__derivePrompt([{ full: 'worried about mold' }]);
   ok(/resolve \(objections only\)/.test(dp2) && /resolving action/.test(dp2), 'derivation is told to capture each objection\'s resolving action');
+  // Money is banned in any slot; a hook/setup may never assume the viewer owns it; reassure only a real doubt.
+  ok(capturedPrompt.indexOf('NO MONEY, EVER') >= 0 && /spending a fortune/.test(capturedPrompt), 'the absolute money ban is in the prompt');
+  ok(capturedPrompt.indexOf('THE VIEWER DOES NOT OWN IT YET') >= 0, 'a hook/setup may never assume the viewer already owns it');
+  ok(capturedPrompt.indexOf('ANSWER ONLY A DOUBT SOMEONE ACTUALLY HAS') >= 0, 'the objection turn may not invent a doubt nobody raised');
   // The action hook must not be a spec/operating sequence ("fill the tank, press the button"). Check the
   // source directly (it may or may not land in this batch's rotation, so do not rely on the prompt text).
   const actionSrc = (PS.__availableHooks(ctxT) || []).find(h => h.key === 'action');

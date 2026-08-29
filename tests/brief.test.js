@@ -554,8 +554,15 @@ let clean = { hook: "Your fur baby isn't the problem, it's your vacuum", body1: 
 ok(B.scriptViolations(clean, { priceAllowed: false }).length === 0, 'validator: a clean script (no figures, no bans) passes');
 ok(B.scriptViolations({ preclose: "Shark's customer service will point you to the right one" }, {}).indexOf("company") >= 0, 'validator: catches company customer-service defuse');
 ok(B.scriptViolations({ body2: "the warranty covers it and returns are easy" }, {}).indexOf("company") >= 0, 'validator: catches warranty/returns');
-ok(B.scriptViolations({ preclose: "The price is hard to justify at first" }, { priceAllowed: false }).indexOf("price") >= 0, 'validator: catches invented price doubt');
-ok(B.scriptViolations({ preclose: "It costs less than what you already waste" }, { priceAllowed: true }).indexOf("price") < 0, 'validator: price allowed when price IS an objection');
+ok(B.scriptViolations({ preclose: "The price is hard to justify at first" }, {}).indexOf("price") >= 0, 'validator: catches a price doubt');
+// Money is now UNCONDITIONAL: the tool cannot know a price or discount, so no money reference is allowed in
+// any slot, even when price IS an objection (a price doubt is answered by showing the outcome, never money).
+ok(B.scriptViolations({ preclose: "It costs less than what you already waste" }, { priceAllowed: true }).indexOf("price") >= 0, 'validator: money is banned even when price is an objection (priceAllowed no longer exempts)');
+ok(B.scriptViolations({ cta: "You get real ice without spending a fortune" }, {}).indexOf("price") >= 0, 'validator: catches value-in-money framing ("without spending a fortune")');
+ok(B.scriptViolations({ body2: "honestly it is worth every penny" }, {}).indexOf("price") >= 0, 'validator: catches "worth every penny"');
+ok(B.scriptViolations({ cta: "at this point it is a steal" }, {}).indexOf("price") >= 0, 'validator: catches "a steal"');
+ok(B.scriptViolations({ body2: "that is real bang for your buck" }, {}).indexOf("price") >= 0, 'validator: catches "bang for your buck"');
+ok(B.scriptViolations({ body2: "the ice is finally clear and crunchy" }, {}).indexOf("price") < 0, 'validator: an outcome line with no money is not flagged');
 ok(B.scriptViolations({ body1: "It shuts off and the plant is dead by morning" }, {}).indexOf("moderation") >= 0, 'validator: catches a moderation word (dead)');
 ok(B.scriptViolations({ body2: "so good I use it every single day now" }, {}).indexOf("ownership") >= 0, 'validator: catches first-person ownership (I use)');
 ok(B.scriptViolations({ body2: "so good I use it every single day now" }, { ownsAllowed: true }).indexOf("ownership") < 0, 'validator: ownership ALLOWED when the creator owns/uses the product');
