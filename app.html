@@ -852,7 +852,7 @@ body.home-landing #homeLanding { display: block !important; }
   </div>
   <div id="homeLanding" style="display:none;max-width:460px;margin:36px auto 0;">
     <div style="font-size:19px;font-weight:600;color:var(--white);margin-bottom:4px;text-align:center;">What do you want to do?</div>
-    <div style="font-size:13px;color:var(--muted);margin-bottom:22px;text-align:center;">Start something new, or open a product you are already working on.</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:22px;text-align:center;">Start something new, or open a product you are already working on. First time here? Tap New product to paste your reviews and build your first brief.</div>
     <div style="display:grid;gap:10px;">
       <button type="button" onclick="showNew()" style="width:100%;background:var(--gold);border:none;border-radius:12px;color:#080808;font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">New product</button>
       <button type="button" onclick="if(window.ProductScreen)ProductScreen.openPicker()" style="width:100%;background:var(--surface2);border:1px solid var(--border-md);border-radius:12px;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:15px;cursor:pointer;">My products</button>
@@ -903,7 +903,7 @@ body.home-landing #homeLanding { display: block !important; }
            reviews is always empty so it is never ambiguous whether you are editing or adding. -->
       <div id="psReviewBox" style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Customer reviews</div>
-        <div class="field-hints-line" style="margin-bottom:8px;">Paste a mix, leaning positive: the happy reviews give the emotion and desire, and a few 3-star-and-below reviews are where the objections live.</div>
+        <div class="field-hints-line" style="margin-bottom:8px;">Your whole brief is built from these. Paste a mix: the happy reviews give the emotion and desire, and the critical ones (3-star and below) are where the objections come from.</div>
         <div id="psReviewCount" style="font-size:13px;color:var(--muted);margin-bottom:8px;">No reviews yet.</div>
         <div id="psReviewList" style="max-height:260px;overflow-y:auto;margin-bottom:8px;"></div>
         <div id="psReviewAddArea" style="display:none;margin-bottom:8px;">
@@ -925,7 +925,7 @@ body.home-landing #homeLanding { display: block !important; }
       <!-- Competitor / viral comments (separate from winning angles; buyer language) -->
       <div id="psCompBox" style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Competitor &amp; viral video comments <span style="font-size:11px;font-weight:400;color:var(--muted);">optional</span></div>
-        <div class="field-hints-line" style="margin-bottom:8px;">Paste comments from competitor or viral videos. On a computer you can paste or drag a screenshot straight in; on a phone, upload one. Either way we read it. This is buyer language for objections and positioning. Keep product listings out of here.</div>
+        <div class="field-hints-line" style="margin-bottom:8px;">Paste comments from competitor or viral videos. On a computer you can paste or drag a screenshot straight in; on a phone, upload one. Either way we read it. This is where most objections come from, especially when your reviews are all positive. Keep product listings out of here.</div>
         <textarea id="psCompetitorText" maxlength="20000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste the comments people left on similar or viral videos."></textarea>
         <input type="file" id="psCompFiles" accept="image/*" multiple style="display:none;">
         <button type="button" id="psCompUpload" style="width:100%;margin-top:8px;background:transparent;border:1px dashed var(--border-md);border-radius:10px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:600;padding:10px;cursor:pointer;">＋ Upload comment screenshots</button>
@@ -15548,8 +15548,8 @@ function genOneScript(opts){
       if (!derived) sub.textContent = reviewsN
         ? ("No brief yet. Build it from your " + reviewsN + " review" + (reviewsN===1?"":"s") + " and material.")
         : "Saxe reads your reviews and material, then writes the brief that feeds every script.";
-      else if (SB.isThin(b)) sub.textContent = "Based on only " + n + " review" + (n===1?"":"s") + ". Add more for stronger evidence.";
-      else sub.textContent = "Based on " + n + " review" + (n===1?"":"s") + ".";
+      else if (SB.isThin(b)) sub.textContent = "Built from only " + n + " review" + (n===1?"":"s") + " (add more for stronger evidence). This is a draft of what buyers said, so check it and fix anything you know better than they do.";
+      else sub.textContent = "Built from " + n + " review" + (n===1?"":"s") + ". This is a draft of what buyers said, so check it and fix anything you know better than they do.";
 
       // Non-blocking notice: a stored review may hold more than one. Name the rows; Build stays enabled.
       var suspects = SB.suspectMergedIndices((raw && raw.reviews) || []);
@@ -16181,6 +16181,8 @@ function genOneScript(opts){
       }
     }
     var stat = document.createElement("div"); stat.id = "genStatus"; stat.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:10px;display:none;line-height:1.5;"; host.appendChild(stat);
+    // Frame the output so nobody expects word-for-word scripts: these are angles to mine, not final copy.
+    if (generatedScripts.length){ var mine = document.createElement("div"); mine.style.cssText = "font-size:12px;color:var(--muted);margin-bottom:12px;line-height:1.5;"; mine.textContent = "These are four different angles on the same product, not four finished scripts. Take the best parts from each and make them sound like you."; host.appendChild(mine); }
     generatedScripts.forEach(function(s){ host.appendChild(scriptCard(s)); });
   }
 
