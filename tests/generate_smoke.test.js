@@ -127,10 +127,24 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(capturedPrompt.indexOf('VARY THE OBJECTION-TURN CONSTRUCTION') >= 0, 'the pre-close construction is told to vary across the batch');
   // A conceded downside must be answered about the SAME thing (the slow-production gap that never closed).
   ok(capturedPrompt.indexOf('A CONCESSION MUST RESOLVE ITSELF') >= 0, 'a concession must resolve the same downside it raises');
+  // The objection turn must never NAME the doubt (planting mold/price/noise in the viewer's head); show the fix.
+  ok(capturedPrompt.indexOf('NEVER NAME THE DOUBT') >= 0 && /PLANTS it/.test(capturedPrompt), 'the objection turn is told to resolve a doubt without ever stating it');
+  ok(/RESOLVE THIS DOUBT WITHOUT EVER NAMING IT/.test(capturedPrompt), 'the per-script objection is framed as what to resolve, not a line to speak');
   // The action hook must not be a spec/operating sequence ("fill the tank, press the button"). Check the
   // source directly (it may or may not land in this batch's rotation, so do not rely on the prompt text).
   const actionSrc = (PS.__availableHooks(ctxT) || []).find(h => h.key === 'action');
   ok(actionSrc && /spec sequence/.test(actionSrc.instr) && /FELT payoff/.test(actionSrc.instr), 'the action hook forbids an operating-step sequence and demands a felt payoff');
+  // Participation over narration: the strongest hooks make the viewer act (answer/claim), not hear their
+  // life described back. And a hook must be as broad as the product, never narrowed by a season qualifier.
+  ok(capturedPrompt.indexOf('MAKE THE VIEWER DO SOMETHING') >= 0, 'the participation hook rule is in the prompt');
+  ok(capturedPrompt.indexOf('AS BROAD AS THE PRODUCT') >= 0 && /on a hot day/.test(capturedPrompt), 'the breadth rule rejects an excluding qualifier (the hot-day example)');
+  // Cultural moment must be a named ritual with a specific image, not a generic errand.
+  const cultSrc = (PS.__availableHooks(ctxT) || []).find(h => h.key === 'cultural');
+  ok(cultSrc && /ritual the group would name themselves/i.test(cultSrc.instr) && /GENERIC inconvenience is NOT/.test(cultSrc.instr), 'the cultural-moment shape demands a named ritual, not a generic inconvenience');
+  // Derivation must not turn WHEN reviews were written into a buyer fact, nor narrow a line with a qualifier.
+  const dp = PS.__derivePrompt([{ full: 'great in summer' }]);
+  ok(/WHEN the reviews were written/.test(dp) && /summer product/.test(dp), 'derivation is told not to treat a seasonal review cluster as a buyer fact');
+  ok(/narrow a value with a qualifier that only applies to SOME buyers/.test(dp), 'derivation is told not to narrow a line with a partial-audience qualifier');
   // Architecture selection: objections -> C, else scarcity -> B, else A.
   ok(PS.__architecture(ctxT).label.indexOf('TRANSFORMATION') >= 0, 'objections present -> architecture C');
   const bBrief = SB.emptyBrief(); bBrief.lines.scarcity = SB.normalizeBrief({lines:{scarcity:{value:'limited run this month'}}}).lines.scarcity;

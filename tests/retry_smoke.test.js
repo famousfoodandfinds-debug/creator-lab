@@ -58,6 +58,9 @@ PS.fill({id:'p1', name:'Ice maker', updated_at:'2026-01-01', brief, raw});
   ok(joined.indexOf('recovered') >= 0, 'the recoverable slot was regenerated clean and rendered (not lost)');
   ok(joined.indexOf('50 percent') < 0, 'no figure-inventing script reached the screen');
   ok(/3 of 4/.test(status) || /dropped/i.test(status), 'the one unrecoverable slot is named as a drop, not silently missing: "' + status.slice(0,90) + '"');
+  // The drop line attributes the reason to the SLOT it happened in ("Script 4: unverifiable figure"),
+  // never merging two scripts' reasons into one anonymous line.
+  ok(/Script 4: unverifiable figure/.test(status), 'the drop names which script hit which reason: "' + status.slice(0,120) + '"');
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();

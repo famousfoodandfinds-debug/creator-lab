@@ -14559,7 +14559,7 @@ function genOneScript(opts){
   var raw = SB.emptyRaw();
   var brief = SB.emptyBrief();          // derived, light column; loaded on open, rebuilt by deriveBrief
   var deriving = false;                 // guards the derive button against double-fire
-  var DERIVE_PROMPT_V = "brief-derive-10";  // pains + desire carry a Maslow `need`, rotated across the batch
+  var DERIVE_PROMPT_V = "brief-derive-11";  // de-seasonalize: review dates are not buyer facts; no narrowing qualifiers
   var DERIVE_BATCH = 8;                 // reviews per derivation call -- smaller so each call stays inside
   var DERIVE_REVIEW_CHARS = 2000;       // Netlify's ~26s sync gateway even with the larger per-review excerpt
   var DERIVE_MODEL = "claude-haiku-4-5-20251001"; // fast enough not to hit the gateway 504
@@ -14995,6 +14995,8 @@ function genOneScript(opts){
       "- A feature is a spec the SELLER states in the listing (a size, capacity, material, wattage). NEVER put a figure a REVIEWER gave about their own unit into features -- 'makes ice every six or seven minutes' is one buyer's timing of their machine, not a listed spec, so it is not a feature. If a number is not in the seller listing, it does not belong in the features list.",
       "- Every pain and objection MUST be something a reviewer or commenter actually said or plainly implied. If the reviews do not raise it, leave it out. NEVER invent an objection the reviews do not contain (for example a price-versus-bagged-ice comparison no one wrote). A specific complaint a reviewer made (watery first ice, slow to fill, awkward drain, noisy) belongs in pains, in their words.",
       "- Customer service, warranty, returns, refunds, or the seller/maker standing behind the product are NEVER pains or objections -- they are about the company, not the product. Leave them out entirely, even when a review praises the seller. The brief is about the product and the buyer, never the company.",
+      "- DO NOT let WHEN the reviews were written become a fact about the buyer. Reviews cluster in the season they were bought (a batch written in July and August is not proof this is a 'summer product'; a batch from December is not proof it is a 'Christmas product'). Describe what the product DOES and the problem it solves, not the season the reviews happened in. Strip any time-of-year framing that came from the review dates rather than the product's nature.",
+      "- DO NOT narrow a value with a qualifier that only applies to SOME buyers. If the product is used year round, the pain is 'we keep running to the store for ice', NOT 'on a hot day' or 'in the summer'. Write each line as BROAD as the product genuinely is, so it fits every buyer it could fit; a qualifier that excludes people (a season, a single occasion, one weather) costs more than it adds unless the product truly only works then. Keep a qualifier ONLY when it is essential to the product itself, never because the reviews happened to share it.",
       "- Keep every value under 15 words. Return AT MOST 5 features.",
       "- Leave value empty ('') for anything the reviews and comments do not support. Do not invent. An empty line is better than a listing-derived guess.",
       "- NEVER state a number of reviews, a star rating, a percentage, or any statistic in a value. Describe the pattern in words only.",
@@ -15603,8 +15605,8 @@ function genOneScript(opts){
       examples: ["Everyone blames the battery. It's the filter.", "It shuts off after sixty seconds. Here's why."] },
     { key: "curiosity", shape: "CURIOSITY LOOP. Open a loop the viewer must keep watching to close -- an unexpected pattern or reaction that could REALLY happen (never an impossible situation like guests asking about a product they don't know you own). WITHHOLD the reason: never answer the loop inside the hook (\"a second one for the RV\" answers it and kills the hook).",
       examples: ["Somehow people keep buying a second one.", "There's a reason this stays by the door."] },
-    { key: "cultural", shape: "CULTURAL MOMENT. Name a ritual or annoyance the whole audience instantly recognises and declare this product ends it, as an opinion stated flat as fact. Name the ritual clearly enough that anyone who lives it gets it at once -- not a compressed in-joke.",
-      examples: ["We're not waiting on the cart girl anymore."] },
+    { key: "cultural", shape: "CULTURAL MOMENT. Name a specific RITUAL the group would name themselves -- a shared moment they all picture the same way, with a concrete image in it -- and declare this product ends it, stated flat as fact. \"We're not waiting on the cart girl anymore\" works because every golfer knows that EXACT wait: a named ritual, a specific image, instantly recognised. A GENERIC inconvenience is NOT a cultural moment: 'running to the store for ice' is just an errand nobody feels ownership of, so it lands flat. Only use this shape when the brief gives a ritual vivid and specific enough that the group would say it about themselves; if all you have is a generic hassle, pick a different hook shape.",
+      examples: ["We're not waiting on the cart girl anymore.", "Sunday's not for untangling last week's charging cables anymore."] },
     { key: "fellvictim", needs: "pain", shape: "FELL VICTIM. Call out the group who did the wrong thing or bought the wrong version and hit a SPECIFIC real failure from the brief -- and admit you were one of them if you own it (\"like I did\"), or point at the group if you do not (\"a lot of us did\"). A PAST year is a fine CONTRAST here (\"the ice makers of 2024\"), never a claim about what year it is now. Ground the failure in the brief's material, never invent a defect or a version that did not exist. It can do several jobs at once -- name the group, name the failure, add the year -- as long as it still reads like one thing a person says out loud.",
       examples: ["If you fell victim to the ice makers of 2024, like I did, you found out fast the ice doesn't stay frozen."] },
     { key: "question", shape: "QUESTION. Ask a REAL spoken question -- it ends in a question mark and reads in the rhythm a person actually asks out loud, not a statement bent into a question. The viewer answers it in their own head: either picture the exact person this is for, or notice they are ALREADY doing the thing wrong.",
@@ -15708,10 +15710,10 @@ function genOneScript(opts){
   }
   // Pre-close angles rotate too, so one focus per batch never means the same rebuttal four times.
   var PRECLOSE_ANGLES = [
-    "Head on: name the assigned objection in the viewer's own words, then defuse it with ONE concrete, specific counter.",
-    "Worse-alternative contrast: what the assigned objection costs them if they keep doing it the old way (never a price the list does not raise).",
-    "Shrink it: cut the assigned objection down to the smallest real risk, then dissolve that risk with one specific fact.",
-    "Reframe it as the point: show the assigned objection is the intended trade-off and why that is exactly right for this viewer (e.g. a short battery IS the design of a grab-and-go tool)."
+    "Show the fix: state the thing that RESOLVES the doubt as a plain fact of using the product, WITHOUT ever naming the doubt -- the viewer who worried hears it answered, the viewer who did not hears nothing new.",
+    "Worse-alternative contrast: make the OLD way feel worse by comparison, so the resolution lands, without stating the doubt about this product or a price the list does not raise.",
+    "Quiet confidence: drop the reassuring fact in passing as if it were never in question, so the doubt dissolves without ever being spoken.",
+    "Reframe it as the point: show the very thing they might question is the intended design and exactly right for this viewer (e.g. a short battery IS the design of a grab-and-go tool) -- framed as the upside, never as a stated doubt."
   ];
   // Close modes for a script that has NO grounded objection to defuse. It does not write an objection turn at
   // all; it closes another way. These are the two closes real high-performing scripts use when there is no
@@ -15830,7 +15832,7 @@ function genOneScript(opts){
       if (i < objPool.length){
         var o = objPool[i];
         line += "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
-        line += "\n  PRE-CLOSE DEFUSES THIS OBJECTION AND NO OTHER: " + o.value + (o.words.length ? " (viewer's words: " + o.words.join(", ") + ")" : "");
+        line += "\n  RESOLVE THIS DOUBT WITHOUT EVER NAMING IT (this tells you what to answer; it is NOT a line to speak -- show the fact that makes it a non-issue, never state the doubt): " + o.value + (o.words.length ? " (the worry, for your understanding only, do not voice it: " + o.words.join(", ") + ")" : "");
       } else {
         line += "\n  NO OBJECTION TO DEFUSE (the brief has no grounded objection left for this script): do NOT write a pre-close objection turn, leave preclose empty (\"\"). body2 stays the payoff. The close mode lands in the CTA ONLY -- one ending, never a close in body2 and again in the cta.";
         line += "\n  CLOSE MODE (goes in the CTA): " + CLOSE_MODES[(i - objPool.length) % CLOSE_MODES.length];
@@ -15855,6 +15857,8 @@ function genOneScript(opts){
     L.push("  - SPECIFIC: it could NOT be pasted onto a different product without changing. If it would fit any product in the category, it has FAILED. (Contrast: \"these are some of the best nails you'll find and they're 30% off\" describes the product and fits anything; \"if your fake nails pop off doing the dishes, you're using the wrong kind\" drops you into a specific moment with a feeling and names no feature. The second wins.)");
     L.push("  - COMPLETE (comprehension): a stranger hearing it ONCE, with NO context, must understand the WHOLE thought without connecting anything themselves. Nobody assembles a hook while scrolling. If the thought is a CHAIN of steps, say EVERY link -- do not give step one and step three and leave the listener to fill in the middle. (Fault: \"your freezer's packed and you're still out of ice by dinner\" -- that is step 1, no room, and step 3, out of ice, with the middle dropped; the listener has to work out WHY a packed freezer means no ice. The whole thought is three steps: no room for trays or bags, SO you run out, AND you have nowhere to make more -- say all three: \"there's no room in your freezer for ice trays or bags, so you run out, and you've got nowhere to make more.\" A missing step is NOT fixed by reading it aloud, because it still sounds fine spoken; it fails only on sense. Put the missing step back even if the line gets LONGER -- a long hook that lands instantly beats a short one the listener has to piece together.)");
     L.push("  Plus: READ IT ALOUD -- it must sound like a real person TALKING, never a narrator DESCRIBING a person (\"you're standing at the cooler and the ice is gone by noon\" is narration, fail; \"we're not waiting on the cart girl anymore\" is a person talking, pass). Never a compressed fragment like \"your freezer is already full\" (not visual, no feeling, fits anything) or ad copy like \"no more waiting for ice\". It describes something that could ACTUALLY happen (not \"your guests keep asking if you have a second one\": they don't know you own it). It still FLIPS, surprises, or opens a gap. Length is whatever it takes to land the WHOLE thought spoken; short is a symptom, not the goal, and never a reason to drop a step. Match your HOOK SOURCE's shape by example, not its words.");
+    L.push("MAKE THE VIEWER DO SOMETHING (the single biggest lever): the strongest hooks ask the viewer to ACT in their own head -- recognise themselves, answer a question, raise their hand, or claim membership of a group -- not hear their life narrated back. \"Who's got limited freezer space but still needs ice constantly?\" makes them participate: they either raise their hand or scroll. \"You're hosting and the ice is gone by the time people arrive\" only DESCRIBES their situation at them, which is weaker. Whenever you can, turn the hook into something the viewer ANSWERS or CLAIMS, not a description of their day.");
+    L.push("AS BROAD AS THE PRODUCT GENUINELY IS: fit every viewer the product is for, and never add a qualifier that quietly excludes people unless the product truly only works then. \"We're not running to the store for ice on a hot day anymore\" is WORSE than \"We're not running to the store for ice anymore\" -- people use ice year round, so \"on a hot day\" narrows it for no reason and loses every viewer it does not fit. A qualifier that excludes people (a season, one occasion, one kind of weather) costs more than it adds; drop it unless it is essential to the product. If the brief itself carries a seasonal tint (it was built from reviews written in one season), do NOT inherit it -- write to the year-round buyer.");
     L.push("HOOK ASSUMPTION -- assume only what is true of ANYONE this product is for (they have a pet, a freezer, a cold drink). The fur-baby hook works because it assumes only a pet and this product. Reframe a situation the viewer is ALREADY in; do not invent one she may not be in (a machine that broke, something nobody actually does).");
     L.push("YEAR -- the current year is " + nowYear + ". A PAST year is a fine contrast device (\"this isn't 2010\", \"it's not the 1990s\"). But NEVER state what year it is now: no \"in " + nowYear + "\", no \"still doing this in " + nowYear + "\", no asserting the current or a future year -- a stated current year dates the video the moment it is watched.");
     // The three risks below are real and NOT catchable in code, so they stay -- one line each.
@@ -15867,6 +15871,7 @@ function genOneScript(opts){
     L.push("SETUP (body1) names the FEELING, not just the situation. \"You got suckered\", \"you hated people digging around in your ice with their hands\", \"that's sharp\" are FEELINGS; \"a hot day, people over\" is only a situation. A situation beats a spec list, but a feeling beats a situation -- lead with what it FELT like, in the viewer's own words. Still a SCENE from the viewer's day, NEVER a list of what the product has or does, no features or specs; and NEVER a complaint about this product (that is a doubt to defuse later, never \"the first batch comes out watery\"). If the hook opened a loop or a question, the setup ANSWERS or advances it, never pivots to a spec list.");
     L.push("STACK THE IRRITATIONS: when the SITUATIONS list holds several distinct annoyances, name TWO OR THREE of them in the setup -- each a different feeling, none of them a feature, and every one drawn ONLY from the SITUATIONS list (the old way / the problem this product solves), NEVER a product flaw -- and let them all land before the product appears. Lead with this script's assigned scenario, then add one or two more from that list. (Real example of the shape, all about the WRONG earlier product, not the one being sold: the ice doesn't stay frozen, then people digging around in your ice with their hands, then the sharp cubes -- three separate feelings, THEN the product arrives.)");
     L.push("PRE-CLOSE: only the scripts with an assigned objection write one -- one sentence, a statement not a question, doing DIFFERENT work than the setup, defusing that script's assigned objection and no other. A script with a CLOSE MODE instead leaves preclose empty; its body2 stays the payoff and the close lands in the CTA only, so the script has ONE ending, not two. Never invent an objection just to have a pre-close.");
+    L.push("NEVER NAME THE DOUBT (the objection turn's first law): overturn an objection by SHOWING the thing that resolves it, never by stating the doubt first. Most viewers were not thinking of it; naming it PLANTS it, and calling it real CONFIRMS it before you answer, so the doubt lands harder than the fix. Wrong: \"the mold thing everyone worries about is real, but you just run vinegar and water through it.\" Right: \"rinse it with vinegar and water and it stays clean\" -- that answers it for anyone who worried and creates nothing for anyone who did not. Same fault as \"the price is too high, but...\" and \"if you think it's noisy...\": each says the doubt out loud and plants it. The assigned objection tells YOU what to resolve; it is never a phrase to speak. The ONLY exception is a SKIT where one character voices the doubt and another answers it; in a single-voice script, NEVER state the doubt.");
     L.push("VARY THE OBJECTION-TURN CONSTRUCTION across the batch, the same way the hook openings vary -- do NOT open every pre-close with the same concede-then-counter frame. If one script opens with \"you might think...\", the others must NOT reach for \"it does take a while\", \"the motor does make some noise\", \"the first batch might...\" -- four turns that all start by conceding a flaw read as one turn written four times. Follow your assigned PRE-CLOSE STYLE and let it drive a genuinely different opening grammar (a question the viewer already asked, a flat fact, a comparison, a reframe), not the same \"here's the catch, but\" every time.");
     L.push("A CONCESSION MUST RESOLVE ITSELF, AND ABOUT THE SAME THING: if the pre-close concedes a downside, the SAME sentence has to answer THAT exact downside, not trail off. Conceding \"it takes a while to make a full batch\" opens a gap about SPEED, so the answer must close the SPEED gap (it runs while you do everything else, so the wait costs you nothing), never pivot to a different benefit and leave speed hanging. Whatever the turn concedes is the gap the rest of the script now owes an answer to -- if the payoff never speaks to it, the script opened something it never closed.");
     L.push("OVERCOME OBJECTIONS INSIDE THE PRODUCT: when a script does defuse an objection, answer it with the product and how it is USED -- something the viewer can do or see for themselves (the model is the filter: same battery doubt, but the fix is a quick thing the viewer does). Answer inside the product, never by pointing at the company behind it.");
@@ -15897,7 +15902,7 @@ function genOneScript(opts){
   // batch is never silently short, and a slot that still cannot be produced is recorded as a drop and named,
   // instead of two scripts quietly coming back with no message (the exact silent failure we keep hitting).
   function validateBatch(ctx, guardOpts, scripts, target, done){
-    var accepted = [], dropped = 0, dropCodes = {}, i = 0;
+    var accepted = [], dropped = 0, dropCodes = {}, drops = [], i = 0;
     // A slot gets MAX_TRIES rewrites before it is finally dropped -- one retry was not enough: a script that
     // invents a figure tends to invent another on the first rewrite, and two of four kept dropping, so the
     // owner only ever saw half a batch. Retrying the SAME slot to its assignment costs one slot at most on a
@@ -15905,7 +15910,10 @@ function genOneScript(opts){
     var MAX_TRIES = 3;
     target = target | 0;
     function problems(s){ return SB.scriptViolations(s, guardOpts).concat(SB.scriptRepeats(s, accepted) ? ["repetition"] : []); }
-    function recordDrop(codes){ dropped++; (codes || []).forEach(function(c){ dropCodes[c] = (dropCodes[c] | 0) + 1; }); }
+    // Record a drop with the SLOT it happened in, so the message can say which script hit which reason
+    // ("Script 2: unverifiable figure; Script 4: copied a teaching example") instead of merging two scripts'
+    // reasons into one anonymous line the owner cannot map back to a script.
+    function recordDrop(idx, codes){ dropped++; drops.push({ idx: idx, codes: (codes || []).slice() }); (codes || []).forEach(function(c){ dropCodes[c] = (dropCodes[c] | 0) + 1; }); }
     function label(codes){ return (codes || []).map(function(c){ return GUARD_LABELS[c] || c; }).join(", "); }
     // Rewrite one slot to its assignment and re-check it. `tries` is how many rewrites this slot has already
     // spent; a rewrite that STILL breaks a rule is retried up to MAX_TRIES before the slot is dropped and
@@ -15917,11 +15925,11 @@ function genOneScript(opts){
         var v2 = s2 ? problems(s2) : (missing ? ["generation-failed"] : viol);
         if (s2 && !v2.length){ accepted.push(finalizeScript(s2, ctx)); i++; next(); return; }
         if (tries < MAX_TRIES){ regen(idx, s2 || prev, v2, tries + 1, missing && !s2); return; }
-        recordDrop(v2); i++; next();
+        recordDrop(idx, v2); i++; next();
       });
     }
     function next(){
-      if (i >= target){ done(accepted, dropped, dropCodes); return; }
+      if (i >= target){ done(accepted, dropped, dropCodes, drops); return; }
       var idx = i, s = scripts[idx];
       if (!s){ regen(idx, { hook: "", body1: "", preclose: "", body2: "", cta: "" }, ["missing from the batch"], 1, true); return; }   // model returned fewer than target -> write the skipped slot
       var viol = problems(s);
@@ -15933,6 +15941,10 @@ function genOneScript(opts){
   // Human labels for the guard codes, used when a drop has to be explained to the owner.
   var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated opening" };
   function fmtDrops(codes){ return Object.keys(codes || {}).map(function(c){ return (GUARD_LABELS[c] || c) + ((codes[c] | 0) > 1 ? " x" + codes[c] : ""); }).join(", "); }
+  // Per-script drop line: "Script 2: unverifiable figure; Script 4: copied a teaching example" -- so two
+  // scripts' reasons never merge into one line the owner cannot attribute. Codes within one script join with
+  // a comma; scripts join with a semicolon, in slot order.
+  function fmtDropsByScript(drops){ return (drops || []).slice().sort(function(a,b){ return a.idx - b.idx; }).map(function(d){ return "Script " + (d.idx + 1) + ": " + (d.codes || []).map(function(c){ return GUARD_LABELS[c] || c; }).join(", "); }).join("; "); }
   // A thrown error anywhere on the Generate path must SURFACE, not stall. The crash that took production down
   // was a ReferenceError before the model call ever fired, so the spinner spun forever and the never-empty
   // net never ran. Every layer below (sync setup, the model-call callback, the validate callback) is wrapped
@@ -15971,12 +15983,12 @@ function genOneScript(opts){
           var out = parseJson(text, "[", "]");
           if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
           genStatus("Checking each script against the hard rules...");
-          validateBatch(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), GEN_COUNT, function(clean, dropped, dropCodes){
+          validateBatch(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), GEN_COUNT, function(clean, dropped, dropCodes, drops){
             try {
               generating = false;
               if (clean.length){
                 generatedScripts = clean; renderGenScripts();
-                genStatus(clean.length + " of " + GEN_COUNT + " script" + (GEN_COUNT === 1 ? "" : "s") + " from your brief" + (dropped ? " (" + dropped + " dropped: " + fmtDrops(dropCodes) + ")" : "") + ". Save the ones you want.", "var(--green)");
+                genStatus(clean.length + " of " + GEN_COUNT + " script" + (GEN_COUNT === 1 ? "" : "s") + " from your brief" + (dropped ? " (" + dropped + " dropped -- " + fmtDropsByScript(drops) + ")" : "") + ". Save the ones you want.", "var(--green)");
               } else {
                 // NEVER an empty screen. If every draft was flagged, show the drafts anyway (dashes stripped,
                 // finalized) with a warning naming the guards -- producing nothing is worse than a flagged script.
@@ -16051,7 +16063,8 @@ function genOneScript(opts){
     // test hooks: the available hook pool for a ctx (independent of which GEN_COUNT the rotation shows), and
     // the chosen architecture, so the field-filling and gating can be asserted without depending on rotation.
     __availableHooks: function(ctx){ return availableHookSources(ctx, SB.causedObjection(ctx.objections)); },
-    __architecture: function(ctx){ return architectureExemplars(ctx); } };
+    __architecture: function(ctx){ return architectureExemplars(ctx); },
+    __derivePrompt: function(chunk){ return derivePrompt(chunk || []); } };
   function safeInit(){ try { init(); } catch(e){ if (window.console) console.error("ProductScreen init failed", e); } }
   if (document.readyState !== "loading") safeInit(); else document.addEventListener("DOMContentLoaded", safeInit);
 })();
