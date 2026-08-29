@@ -951,6 +951,10 @@ body.home-landing #homeLanding { display: block !important; }
         <div class="field-label" style="margin-bottom:7px;">Your credibility on this <span style="font-size:11px;font-weight:400;color:var(--muted);">optional</span></div>
         <div class="field-hints-line" style="margin-bottom:8px;">If you have real authority here, add it. If not, we derive trust from your reviews.</div>
         <textarea id="psAuthority" maxlength="300" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="e.g. I have cooked for my family every night for 20 years."></textarea>
+        <label for="psOwnsProduct" style="display:flex;align-items:center;gap:9px;margin-top:11px;cursor:pointer;font-size:13px;color:var(--white-dim);">
+          <input type="checkbox" id="psOwnsProduct" style="width:16px;height:16px;flex:none;cursor:pointer;">
+          <span>I own or use this product myself <span style="font-size:11px;color:var(--muted);">(a free sample counts) &ndash; lets scripts speak from real experience</span></span>
+        </label>
       </div>
 
       <div id="psSaveStatus" style="font-size:12px;color:var(--muted);margin-top:14px;">Saved automatically as you type.</div>
@@ -13704,7 +13708,11 @@ function genOneScript(opts){
       reviewShots: [],         // screenshot references (kept with the product)
       competitorComments: "",  // pasted competitor / viral-video comments (buyer language + objections)
       winningAngles: [],       // product-level winning angles {url,handle,views,transcript,topic,role,source}
-      authorityRaw: ""         // OPTIONAL creator-supplied credibility; if empty, authority is derived
+      authorityRaw: "",        // OPTIONAL creator-supplied credibility; if empty, authority is derived
+      ownsProduct: false       // the creator owns or USES this product (a free sample counts). When true,
+                               // first-person testimony is allowed in scripts and ownership exemplars load;
+                               // when false the voice stays recommender and first person is blocked. The tool
+                               // has no other way to know, so this is set explicitly by the owner.
     };
   }
 
@@ -13739,6 +13747,7 @@ function genOneScript(opts){
     r.competitorComments = str(x.competitorComments);
     r.winningAngles      = arr(x.winningAngles).map(obj);
     r.authorityRaw       = str(x.authorityRaw);
+    r.ownsProduct        = !!x.ownsProduct;
     return r;
   }
 
@@ -14291,6 +14300,7 @@ function genOneScript(opts){
       winningAngles: arr(raw.winningAngles).map(function(a){ a = obj(a); return { transcript: str(a.transcript), topic: str(a.topic) }; }),
       leadPain: top(pains),               // default focus: lead with this pain
       defuseObjection: top(objections),   // default focus: defuse this objection
+      owns: !!raw.ownsProduct,            // creator owns/uses it -> first-person allowed, owns exemplars load
       reviewCount: b.meta.reviewCount|0,
       commentCount: b.meta.commentCount|0
     };
@@ -14302,6 +14312,7 @@ function genOneScript(opts){
   // opts.priceAllowed = true only when "price"/"cost" is an actual objection in the brief.
   // opts.listingText = the product listing (plus seller-spec features); figures found in it are allowed.
   // opts.nowYear = the real current year; a year at or after it (asserting "now") is blocked, older is allowed.
+  // opts.ownsAllowed = the creator owns/uses the product, so first-person testimony is allowed (not blocked).
   function scriptViolations(script, opts){
     script = obj(script); opts = obj(opts);
     var whole = [str(script.hook), str(script.body1), str(script.preclose), str(script.body2), str(script.cta)].join("\n");
@@ -14317,7 +14328,9 @@ function genOneScript(opts){
     // Company/service as a selling lever -- broadened past a warranty word list to the way it actually shows
     // up ("the maker stood behind it," "they make it right"). Bare "maker" is avoided so "ice maker" is safe.
     if (/(customer service|support team|\bwarranty\b|\bguarantee\b|\brefunds?\b|money back|the seller|\bmanufacturer\b|\bthe company\b|\bthe brand\b|\breturn it\b|\breturns\b|\breplacements?\b|replace it|stands behind|stood behind|backs it up|makes? it right|honou?rs? it|contact (?:them|shark|support|the company|the seller|the maker))/.test(lc)) v.push("company");
-    if (/\bmy\b/.test(body) || /\bi (?:use|used|grab|grabbed|reach|reached|keep|kept|love|loved|own|owned|bought|got|have|had|tried|noticed|realized)\b/.test(body)) v.push("ownership");
+    // Ownership testimony is blocked ONLY when the creator has not said they own/use the product. With
+    // opts.ownsAllowed (the "I own or use this product myself" toggle) first person is legitimate and allowed.
+    if (!opts.ownsAllowed && (/\bmy\b/.test(body) || /\bi (?:use|used|grab|grabbed|reach|reached|keep|kept|love|loved|own|owned|bought|got|have|had|tried|noticed|realized)\b/.test(body))) v.push("ownership");
     // Figures are judged on PROVENANCE, not banned outright. A figure that appears in the product LISTING is
     // a verifiable seller spec ("33 pounds of ice a day," "25 ounces," "26 inches") -- exactly the concrete
     // detail that makes a script good, so it is allowed. A figure that appears only in a review (one buyer
@@ -14546,6 +14559,7 @@ function genOneScript(opts){
     raw.description        = val("productInput");
     raw.competitorComments = val("psCompetitorText");
     raw.authorityRaw       = val("psAuthority");
+    raw.ownsProduct        = !!(el("psOwnsProduct") && el("psOwnsProduct").checked);
     // reviews (raw.reviews), reviewShots and winningAngles are maintained by their own handlers.
   }
 
@@ -14632,6 +14646,7 @@ function genOneScript(opts){
     if (el("productInput"))     el("productInput").value     = raw.description;
     if (el("psCompetitorText")) el("psCompetitorText").value = raw.competitorComments;
     if (el("psAuthority"))      el("psAuthority").value      = raw.authorityRaw;
+    if (el("psOwnsProduct"))    el("psOwnsProduct").checked  = !!raw.ownsProduct;
     ["psAngleLink","psAngleText"].forEach(function(id){ if (el(id)) el(id).value = ""; });
     renderAngles(); renderReviewList(); renderReviewCount(); reviewMsg(""); toggleReviewAdd(false);
     renderBrief();
@@ -15534,15 +15549,31 @@ function genOneScript(opts){
   // (one example per shape is exactly what gets copied verbatim -- "Somehow people keep buying a second one"
   // came back word for word on an ice maker). Every example is also fed to the code guard, which rejects and
   // regenerates any line that copies one -- the same protection reviews already had.
+  // EXEMPLAR hooks: a shape + real anchor lines (no bracket templates -- a template gets completed
+  // mechanically, which is how "waiting for a bag of ice is why your drink gets warm" happened). `needs`
+  // gates a shape out when the material cannot support it: "cause" needs a grounded mechanism, "pain" needs
+  // a grounded pain (fear/visual is fed that concern and may never escalate it into a health claim).
+  // [SHORT NOTE for the owner: cultural, fear-visual and action each have ONE real anchor so far; question
+  // and never-go-back have two; more real anchors welcome.]
   var HOOK_SOURCES = [
-    { key: "reversal", shape: "IT IS NOT YOU, IT IS X. Move the blame the buyer quietly puts on themselves onto the thing that actually failed them. START WITH THE THING -- no \"it is not that you...\" throat-clearing. One concrete idea, no explanation. The X must be the product's real weakness or the OLD way of doing it, NEVER an invented event the viewer may not have had (do not say the viewer's machine broke). Never an abstract state, never a first-person story.",
+    { key: "reversal", needs: "cause", shape: "IT IS NOT YOU, IT IS X. Move the blame the buyer quietly puts on themselves onto the thing that actually failed them. START WITH THE THING -- no \"it is not that you...\" throat-clearing. One concrete idea, no explanation. The X must be the product's real weakness or the OLD way of doing it, NEVER an invented event the viewer may not have had. Never an abstract state, never a first-person story.",
       examples: ["Your fur baby isn't the problem, it's your vacuum."] },
     { key: "flat", shape: "FLAT ABSURDITY. State one specific, concrete absurdity as a plain fact and stop -- let the viewer feel it. Start with the thing, one idea, no explanation.",
       examples: ["It shouldn't take 15 minutes to set up your vacuum.", "You clean the vacuum more than it cleans your floors.", "The timer goes off and the one thing you needed is still not ready.", "You reach for the good pan and it is the one already soaking in the sink.", "The counters are spotless and then you open the cabinet of mismatched lids.", "Your drink is warm by the back nine."] },
-    { key: "objection", shape: "OBJECTION AS CURIOSITY. Open a curiosity GAP: take the biggest objection and redirect it to a SURPRISING real cause the viewer can act on -- do NOT answer or resolve it in the hook, and NEVER end by telling the viewer to skip, avoid, or not buy it (that plants the doubt instead of dissolving it). The cause must be ALL THREE: REAL (in the brief's pains or features, never invented), SURPRISING (not the obvious blame), and FIXABLE by the viewer (like cleaning a filter). Banned: any category shrug (the design, the build, the quality) AND anything outside the viewer's control (the version ordered, customer service, the warranty, the seller). If NO cause in the brief meets all three, reframe the objection as an intended benefit instead of naming a cause.",
+    { key: "objection", needs: "cause", shape: "OBJECTION AS CURIOSITY. Open a curiosity GAP: take the biggest objection and redirect it to a SURPRISING real cause the viewer can act on -- do NOT answer or resolve it in the hook, and NEVER end by telling the viewer to skip, avoid, or not buy it. The cause must be REAL (in the brief, never invented), SURPRISING (not the obvious blame), and FIXABLE by the viewer. Banned: a category shrug (the design, the build, the quality) AND anything outside the viewer's control (the version ordered, customer service, the warranty, the seller).",
       examples: ["Everyone blames the battery. It's the filter.", "It shuts off after sixty seconds. Here's why."] },
-    { key: "curiosity", shape: "CURIOSITY LOOP. Open a loop the viewer must keep watching to close -- an unexpected pattern or reaction, in RECOMMENDER voice: never imply you own it or have used it, never borrow a reviewer's personal history. WITHHOLD the reason: never answer the loop inside the hook (\"a second one for the RV\" answers it and kills the hook).",
-      examples: ["Somehow people keep buying a second one.", "There's a reason this stays by the door."] }
+    { key: "curiosity", shape: "CURIOSITY LOOP. Open a loop the viewer must keep watching to close -- an unexpected pattern or reaction. WITHHOLD the reason: never answer the loop inside the hook (\"a second one for the RV\" answers it and kills the hook).",
+      examples: ["Somehow people keep buying a second one.", "There's a reason this stays by the door."] },
+    { key: "cultural", shape: "CULTURAL MOMENT. Name a ritual or annoyance the whole audience instantly recognises and declare this product ends it -- one line, an opinion stated flat as fact.",
+      examples: ["We're not waiting on the cart girl anymore."] },
+    { key: "question", shape: "QUESTION. Ask the viewer a direct question they answer in their own head -- either picture the exact person this is for, or notice they are ALREADY doing the thing wrong. It must SHOW the situation, never a hollow question.",
+      examples: ["Who do you know that would love this?", "Do you hear that? It's you, sleeping wrong."] },
+    { key: "neverback", shape: "NEVER GO BACK. Promise the viewer will never return to the OLD way once they have this, and name that old way plainly. It is a claim about the old way and their future preference, never a product performance spec and never an invented defect.",
+      examples: ["You're never going back to sweeping by hand after this.", "You'll never mop the old way again."] },
+    { key: "fearvisual", needs: "pain", shape: "FEAR / VISUAL. Point at a concrete, real thing the material actually names and let the stakes land before the fix. Use ONLY the concern you are handed below; NEVER assert a health effect or danger the material does not state, and no moderation words. This shape gets a creator in trouble if it invents a scare, so stay exactly on what the material says.",
+      examples: ["You see these flakes? That's going in your food."] },
+    { key: "action", shape: "ACTION SEQUENCE. Open on a fast string of REAL steps -- the routine in motion -- before naming the product, so ease-of-use lands in the first second.",
+      examples: ["Take it off, ice it, twist, squeeze, done."] }
   ];
   // Build the per-source instruction from shape + examples, framing the examples as shape demonstrations to
   // learn from, never lines to reuse. One flat list of every exemplar feeds the anti-copy guard.
@@ -15550,6 +15581,63 @@ function genOneScript(opts){
     return hs.shape + "\nThese show the SHAPE only -- write your OWN line for THIS product; never reuse an example's words or its topic:\n" + hs.examples.map(function(e){ return "  - \"" + e + "\""; }).join("\n");
   }
   var HOOK_EXEMPLARS = HOOK_SOURCES.reduce(function(acc, hs){ return acc.concat(hs.examples); }, []);
+  // FIELD hooks: built in code from real brief fields (who / a pain / the desire), so the "template" is
+  // filled with EVIDENCE I already have, not something the model invents -- the opposite of a bracket the
+  // model completes. This is also the only place "who this is for" does real work in generation. Bone-to-pick
+  // is a reversal that needs NO product mechanism (blame an unnamed villain, not a component), so it runs on
+  // the pain alone and keeps the reversal family alive on products where the cause gate finds nothing.
+  function fieldHooks(ctx){
+    var out = [], who = String(ctx.who || ""), pain = ctx.leadPain, desire = String(ctx.desire || "");
+    if (who && pain) out.push({ key: "audience", instr: "TO THE AUDIENCE WHO WERE TOLD (validation reversal). Speak straight to the exact people this is for and reject what they were told to just accept, then let the product answer it. Shape: 'To the [audience] who were told [problem] is just how it is. This is for you.' Fill from the brief, do not invent: AUDIENCE = \"" + who + "\"; WHAT THEY WERE TOLD TO ACCEPT = \"" + pain.value + "\"." });
+    if (who && desire) out.push({ key: "group", instr: "ALL THE [GROUP] KEEP SAYING (social proof toward the desire). Shape: 'All the [group] keep saying this is how they finally [desire].' Fill from the brief, do not invent a statistic: GROUP = \"" + who + "\"; DESIRE = \"" + desire + "\"." });
+    if (pain) out.push({ key: "bonepick", instr: "BONE TO PICK (a reversal that needs NO product mechanism). Pick a fight with the unnamed villain who let the viewer's problem exist -- move the blame OFF the viewer and onto whoever is responsible, WITHOUT naming a product part or inventing a cause. Shape: 'I have a bone to pick with whoever decided [problem] was fine.' Use THIS problem from the brief: \"" + pain.value + "\"." });
+    return out;
+  }
+  // The hook sources AVAILABLE for this product: exemplar shapes whose `needs` the material supports, plus the
+  // field hooks whose brief fields exist. Each entry is {key, instr}; the rotation picks GEN_COUNT of them.
+  function availableHookSources(ctx, causeObj){
+    var pain = ctx.leadPain;
+    var ex = HOOK_SOURCES.filter(function(hs){
+      if (hs.needs === "cause") return !!causeObj;
+      if (hs.needs === "pain")  return !!pain;
+      return true;
+    }).map(function(hs){ return { key: hs.key, instr: hookInstr(hs) }; });
+    return ex.concat(fieldHooks(ctx));
+  }
+  // Architecture-scoped body exemplars: pick ONE architecture per product and load only its setup / payoff /
+  // turn / cta examples (setup and payoff had none, which is why the weak scripts were vague). Owns-tagged
+  // lines load only when the creator owns/uses the product. C = problem->transformation (products with real
+  // objections), B = demo->scarcity/upgrade (an upgrade with real scarcity), A = demo->gift/identity (else).
+  var ARCH_EXEMPLARS = {
+    C: { label: "PROBLEM -> TRANSFORMATION",
+      setup:  [ {ex:"You're lying on your side, your shoulder jammed up into your neck, and you shove your arm under the pillow until it goes numb."}, {ex:"You see these little flakes? That is going into your family's food, every meal."} ],
+      payoff: [ {ex:"Now your spine settles into a straight line, the pressure comes off your neck, and your shoulder can finally move."}, {ex:"One pass and it's a clean pile, no jamming, no scraping it out with a knife."} ],
+      turn:   [ {ex:"If it wasn't dishwasher safe I wouldn't own it, and this locks to the counter so it doesn't walk.", owns:true} ],
+      cta:    [ {ex:"If you're ready to wake up without the neck pain, the link's right here."} ] },
+    A: { label: "DEMO -> GIFT / IDENTITY",
+      setup:  [ {ex:"I got these for my dad and now he won't shut up about them.", owns:true}, {ex:"Picture walking into Thanksgiving carrying this."}, {ex:"Every golfer you know is going to want this in their bag."} ],
+      payoff: [ {ex:"It's the thing everyone at the table asks about."}, {ex:"He's out there serving drinks like he owns the course."}, {ex:"Movie night, the game, the kids over, and you're the house that has this."} ],
+      turn:   [],
+      cta:    [ {ex:"If you've got a golfer in your life, they want this. Link's right here."}, {ex:"You already know who this is for. Maybe it's you."}, {ex:"Grab your color before it's gone."} ] },
+    B: { label: "DEMO -> SCARCITY / UPGRADE",
+      setup:  [ {ex:"You're still dragging out a mop, a bucket, and a separate vacuum."}, {ex:"You've been sweeping the porch by hand like it's the only option."}, {ex:"Your microwave makes everything soggy and your air fryer's already full."} ],
+      payoff: [ {ex:"One pass, it vacuums and steam-cleans, and you're done, no bucket, no chemicals."}, {ex:"It starts as a microwave and finishes crisping, so nothing comes out soggy."}, {ex:"One pass down the porch and it's clear, then it pops off into a handheld for the car."} ],
+      turn:   [],
+      cta:    [ {ex:"When these sell out they don't restock. Link's below while it's there."}, {ex:"These sold out fast last year, so grab it before it's gone."}, {ex:"It only just dropped and it's already moving, link's here."} ] }
+  };
+  function pickArchitecture(ctx){
+    if (SB.groundedObjections(ctx.objections).length) return "C";
+    if (String(ctx.scarcity || "")) return "B";
+    return "A";
+  }
+  // The loaded (owns-filtered) body exemplars for this product's architecture; .all also feeds the anti-copy
+  // guard so a copied setup/payoff line is regenerated the same way a copied hook is.
+  function architectureExemplars(ctx){
+    var a = ARCH_EXEMPLARS[pickArchitecture(ctx)] || ARCH_EXEMPLARS.A;
+    function load(slot){ return (a[slot] || []).filter(function(e){ return !e.owns || ctx.owns; }).map(function(e){ return e.ex; }); }
+    var setup = load("setup"), payoff = load("payoff"), turn = load("turn"), cta = load("cta");
+    return { label: a.label, setup: setup, payoff: payoff, turn: turn, cta: cta, all: setup.concat(payoff, turn, cta) };
+  }
   // Pre-close angles rotate too, so one focus per batch never means the same rebuttal four times.
   var PRECLOSE_ANGLES = [
     "Head on: name the assigned objection in the viewer's own words, then defuse it with ONE concrete, specific counter.",
@@ -15568,7 +15656,12 @@ function genOneScript(opts){
   // assignments to the model -- never a single "vary the hook type" instruction, which converges. Rotates over
   // whichever sources are AVAILABLE for this product (the objection-as-curiosity source drops out when the
   // material names no mechanism, so it can never manufacture a cause).
-  function hookPlanFor(n, sources){ sources = (sources && sources.length) ? sources : HOOK_SOURCES; var out = []; for (var i = 0; i < n; i++){ out.push(sources[i % sources.length]); } return out; }
+  // The available pool is now larger than n (9 shapes + up to 3 field hooks), so a plain sources[i%len] would
+  // only ever show the first n. Rotate from an OFFSET that advances each generate call, so consecutive batches
+  // walk the whole pool -- filming-day variety with zero clicks -- while the offset stays FIXED within one
+  // cycle (passed via ctx) so genOnePrompt regenerates against the exact same plan.
+  var hookRotation = 0;
+  function hookPlanFor(n, sources, offset){ sources = (sources && sources.length) ? sources : HOOK_SOURCES; offset = offset | 0; var out = []; for (var i = 0; i < n; i++){ out.push(sources[(offset + i) % sources.length]); } return out; }
   function genStatus(msg, color){ var s = el("genStatus"); if (!s) return; if (msg){ s.style.display = "block"; s.style.color = color || "var(--muted)"; s.textContent = msg; } else { s.style.display = "none"; s.textContent = ""; } }
   function genPrompt(ctx){
     function block(label, val){ return val ? (label + ": " + val + "\n") : ""; }
@@ -15588,7 +15681,10 @@ function genOneScript(opts){
     // trays are why you're waiting for ice"). So both fire ONLY when a grounded cause exists; otherwise they
     // drop from the rotation and a shape that needs no cause (flat absurdity, curiosity loop) takes the slot.
     var causeObj = SB.causedObjection(ctx.objections);
-    var hookSources = HOOK_SOURCES.filter(function(hs){ return (hs.key !== "objection" && hs.key !== "reversal") || causeObj; });
+    // availableHookSources handles all gating (cause-gated reversal/objection, pain-gated fear-visual) AND
+    // adds the field hooks built from who/pain/desire. Bone-to-pick keeps a reversal alive with no cause.
+    var hookSources = availableHookSources(ctx, causeObj);
+    var arch = architectureExemplars(ctx);   // the loaded setup/payoff/turn/cta examples for this product
     // The real current year is passed in so a past-year contrast device can be used correctly; the guard
     // blocks any assertion of the current or a future year (a wrong or stated "now" year dates the video).
     var nowYear = (ctx.nowYear | 0) || (new Date()).getFullYear();
@@ -15600,9 +15696,12 @@ function genOneScript(opts){
     // makes no one want the product has failed. Write to sell; obey the rules while you do.
     L.push("THE JOB (above everything else): make the viewer WANT this product enough to stop scrolling and tap the link to buy. That is the whole point of the script. Everything below is how to do that honestly -- the constraints keep us from lying or getting the video suppressed, they are not the goal. A script that is perfectly safe but makes no one want the product is a failure. Sell.");
     L.push("");
-    // VOICE. Default is RECOMMENDER: you are pointing the viewer at what the product will mean for THEM,
-    // not confessing your own ownership. (The ownership ban is enforced in code, not by piling on rules.)
-    L.push("VOICE -- you are recommending this to the viewer, not confessing your own ownership. Talk TO the viewer about THEIR life in second person (you, your). \"I\" is fine only as a short honest aside the viewer recognizes in themselves.");
+    // VOICE. Two modes, set by the owner's "I own or use this product" toggle. OWNS -> first-person testimony
+    // is honest and allowed (it usually sells harder). Otherwise RECOMMENDER: point the viewer at what the
+    // product will mean for THEM, no first person. The ownership ban is enforced in code, so the prompt only
+    // needs to set the voice, not police it.
+    if (ctx.owns) L.push("VOICE -- you OWN or use this product, so speak from real first-person experience where it helps (\"I've used this...\", \"mine...\"). Still talk mostly TO the viewer about THEIR life; use \"I\" for genuine, specific experience, never as filler.");
+    else L.push("VOICE -- you are recommending this to the viewer, not confessing your own ownership. Talk TO the viewer about THEIR life in second person (you, your). \"I\" is fine only as a short honest aside the viewer recognizes in themselves.");
     L.push("");
     L.push(block("WHO THIS IS FOR", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning));
     if (lead) L.push("LEAD WITH THIS PAIN across the batch (the emotional core of the setups): " + lead.value + (lead.words.length ? "\n  phrasing you may reuse as the VIEWER'S own words: " + lead.words.join(", ") : ""));
@@ -15621,14 +15720,17 @@ function genOneScript(opts){
     // objection turn is MECHANICAL, not the model's judgement: each grounded objection is handed to one
     // script in weight order; once they run out, a script gets NO objection turn and closes another way
     // (gift/identity or scarcity/urgency). A script never manufactures an objection to fill the slot.
-    var plan = hookPlanFor(GEN_COUNT, hookSources);
+    var plan = hookPlanFor(GEN_COUNT, hookSources, ctx.hookOffset | 0);
     L.push("PER-SCRIPT ASSIGNMENTS (each script MUST follow its own hook source; it then EITHER defuses its one assigned objection OR, if it has no objection assigned, closes with its assigned close mode. Never introduce an objection not assigned to that script, and never invent one to fill an empty slot):");
     plan.forEach(function(hs, i){
-      var line = "Script " + (i + 1) + ":\n  HOOK SOURCE: " + hookInstr(hs);
+      var line = "Script " + (i + 1) + ":\n  HOOK SOURCE: " + hs.instr;
       // The two causal-claim hooks only appear when a mechanism is grounded; hand each the EXACT cause from
       // the material so it builds on the real reason and never invents one (the tank-size fabrication).
       if (hs.key === "objection" && causeObj) line += "\n  REFRAME THIS OBJECTION ONTO THIS EXACT CAUSE FROM THE MATERIAL (never invent another): objection \"" + causeObj.value + "\", cause \"" + causeObj.cause + "\".";
       if (hs.key === "reversal" && causeObj) line += "\n  BUILD THE REVERSAL ON THIS REAL CAUSE THE MATERIAL NAMES (never an invented one): \"" + causeObj.cause + "\" is the true reason behind \"" + causeObj.value + "\". The X you move the blame onto is that real cause, not a guess.";
+      // Fear/visual is handed the exact concern the material names and may never escalate it into an
+      // unsupported danger or health claim -- this is the shape that can get a creator in trouble.
+      if (hs.key === "fearvisual" && lead) line += "\n  POINT ONLY AT THIS CONCERN THE MATERIAL NAMES, and NEVER turn it into a health claim or danger the material does not state: \"" + lead.value + "\".";
       if (i < objPool.length){
         var o = objPool[i];
         line += "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
@@ -15639,6 +15741,13 @@ function genOneScript(opts){
       }
       L.push(line);
     });
+    L.push("");
+    // Architecture-scoped body exemplars: only THIS product's architecture is loaded, so setup and payoff
+    // finally have concrete shapes to imitate (they had none, which is what produced the vague scripts).
+    // Shape only, never text to reuse -- and they feed the anti-copy guard the same as the hook examples.
+    var exBlock = function(head, arr2){ return arr2.length ? (head + " -- these show the SHAPE only, write your OWN for THIS product, never reuse the words:\n" + arr2.map(function(e){ return "  - \"" + e + "\""; }).join("\n")) : ""; };
+    L.push("SCRIPT ARCHITECTURE for this product: " + arch.label + ". Build the setup and payoff along this spine.");
+    [["SETUP (body1) examples", arch.setup], ["PAYOFF (body2) examples", arch.payoff], ["OBJECTION-TURN examples", arch.turn], ["CTA examples", arch.cta]].forEach(function(p){ var b = exBlock(p[0], p[1]); if (b) L.push(b); });
     L.push("");
     // Positive directions only. The hard bans (moderation words, price-as-doubt, asserted figures, company
     // service, first-person ownership, verbatim lifts) are enforced by the code validator, which regenerates
@@ -15665,7 +15774,7 @@ function genOneScript(opts){
     return genPrompt(ctx) +
       "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for breaking these hard rules: " + violations.join("; ") + "." +
       " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
-      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, no price raised as a doubt, no company service or warranty or returns, no first-person ownership, no moderation words, never state the current year, and NEVER reuse the words of a teaching example (write your own line for this product)." +
+      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, no price raised as a doubt, no company service or warranty or returns, " + (ctx.owns ? "" : "no first-person ownership, ") + "no moderation words, never state the current year, and NEVER reuse the words of a teaching example (write your own line for this product)." +
       " Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
   }
   // Em dashes are stripped outright (never regenerate for a mechanical fix); the owner wants none, ever.
@@ -15718,12 +15827,15 @@ function genOneScript(opts){
       var listingText = [(ctx.description || "")].concat((ctx.features || []).map(function(f){ return (f.feature || "") + " " + (f.benefit || ""); })).join(" ");
       var nowYear = (new Date()).getFullYear();
       ctx.nowYear = nowYear;   // so genPrompt can offer the past-year contrast device with the real year
+      ctx.hookOffset = hookRotation; hookRotation += GEN_COUNT;   // walk the hook pool across regenerations
       var guardOpts = {
         priceAllowed: ctx.objections.some(function(o){ return /\b(price|cost)\b/i.test(o.value); }),
         reviewsText: reviewsText,
         listingText: listingText,
-        exemplars: HOOK_EXEMPLARS,
-        nowYear: nowYear
+        // hook examples PLUS this architecture's loaded body examples -- a copied setup/payoff is caught too.
+        exemplars: HOOK_EXEMPLARS.concat(architectureExemplars(ctx).all),
+        nowYear: nowYear,
+        ownsAllowed: !!ctx.owns   // first-person testimony allowed only when the creator owns/uses it
       };
       claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
         try {
@@ -15788,6 +15900,7 @@ function genOneScript(opts){
 
   function init(){
     ["newProductNameInput","productInput","psCompetitorText","psAuthority"].forEach(function(id){ var e = el(id); if (e) e.addEventListener("input", scheduleSave); });
+    if (el("psOwnsProduct")) el("psOwnsProduct").addEventListener("change", scheduleSave);
     if (el("psReviewAddBtn"))     el("psReviewAddBtn").addEventListener("click", function(){ toggleReviewAdd(true); });
     if (el("psReviewAddCancel"))  el("psReviewAddCancel").addEventListener("click", function(){ toggleReviewAdd(false); reviewMsg(""); });
     if (el("psReviewAddConfirm")) el("psReviewAddConfirm").addEventListener("click", addReviewsFromBox);
@@ -15806,7 +15919,11 @@ function genOneScript(opts){
     if (el("homePickerSearch")) el("homePickerSearch").addEventListener("input", function(){ renderHomePicker(this.value); });
   }
   // Export FIRST, so a throw inside init() can never leave window.ProductScreen undefined.
-  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome, openPicker: openPicker, generateScripts: generateScripts, rebuildFromScratch: rebuildFromScratch };
+  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome, openPicker: openPicker, generateScripts: generateScripts, rebuildFromScratch: rebuildFromScratch,
+    // test hooks: the available hook pool for a ctx (independent of which GEN_COUNT the rotation shows), and
+    // the chosen architecture, so the field-filling and gating can be asserted without depending on rotation.
+    __availableHooks: function(ctx){ return availableHookSources(ctx, SB.causedObjection(ctx.objections)); },
+    __architecture: function(ctx){ return architectureExemplars(ctx); } };
   function safeInit(){ try { init(); } catch(e){ if (window.console) console.error("ProductScreen init failed", e); } }
   if (document.readyState !== "loading") safeInit(); else document.addEventListener("DOMContentLoaded", safeInit);
 })();

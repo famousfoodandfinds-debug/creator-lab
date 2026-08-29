@@ -69,6 +69,8 @@ ok(typeof PS.generateScripts === 'function', 'generateScripts is exported for te
 let brief = SB.emptyBrief();
 brief.meta.lastDerivedAt = '2026-01-01T00:00:00Z';
 brief.meta.reviewCount = 12;
+brief.lines.who = SB.normalizeBrief({lines:{who:{value:'people who host and always run out of ice'}}}).lines.who;
+brief.lines.desire = SB.normalizeBrief({lines:{desire:{value:'never run dry mid-party'}}}).lines.desire;
 brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out too fast', count:6, classified:true}]}}).lines.pains;
 brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true, cause:'the tank holds less'}]}}).lines.objections;
 brief.features = SB.normalizeBrief({features:[{feature:'makes 33 lbs per 24 hours', benefit:'plenty of ice'}, {feature:'1.8 L tank', benefit:'fewer refills'}]}).features;
@@ -92,6 +94,25 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(capturedPrompt.indexOf('OBJECTION AS CURIOSITY') >= 0, 'objection-as-curiosity hook IS in rotation when the material names a cause');
   ok(capturedPrompt.indexOf('the tank holds less') >= 0, 'the grounded cause is fed to the objection hook (never invented)');
   ok(/current year is 20\d\d/.test(capturedPrompt), 'the real current year is passed into the prompt for the contrast device');
+  // Architecture-scoped body exemplars: this product has objections -> C, so setup/payoff examples load.
+  ok(capturedPrompt.indexOf('PROBLEM -> TRANSFORMATION') >= 0, 'architecture picked (C) and named in the prompt');
+  ok(capturedPrompt.indexOf('SETUP (body1) examples') >= 0 && capturedPrompt.indexOf('PAYOFF (body2) examples') >= 0, 'setup and payoff exemplars are loaded (previously empty)');
+  // Ownership off (default): recommender voice, no first-person invited.
+  ok(capturedPrompt.indexOf('recommending this to the viewer') >= 0, 'ownership off -> recommender voice');
+  // Field-filled hooks: assert availability + real-field injection via the test hook (independent of which
+  // GEN_COUNT the rotation shows in this batch -- the pool is larger than the batch and walks across regens).
+  const ctxT = SB.briefToGenContext(product.brief, product.raw);
+  const hooks = PS.__availableHooks(ctxT);
+  const byKey = {}; hooks.forEach(h => byKey[h.key] = h.instr);
+  ok(byKey['bonepick'], 'bone-to-pick (cause-free reversal) is available on a pain');
+  ok(byKey['audience'] && byKey['audience'].indexOf('people who host and always run out of ice') >= 0, 'audience hook reads "who this is for" straight from the brief');
+  ok(byKey['group'] && byKey['group'].indexOf('never run dry mid-party') >= 0, 'group hook reads the desire line from the brief');
+  ok(byKey['fearvisual'], 'fear-visual is available when the material names a pain');
+  // Architecture selection: objections -> C, else scarcity -> B, else A.
+  ok(PS.__architecture(ctxT).label.indexOf('TRANSFORMATION') >= 0, 'objections present -> architecture C');
+  const bBrief = SB.emptyBrief(); bBrief.lines.scarcity = SB.normalizeBrief({lines:{scarcity:{value:'limited run this month'}}}).lines.scarcity;
+  ok(PS.__architecture(SB.briefToGenContext(bBrief, SB.emptyRaw())).label.indexOf('SCARCITY') >= 0, 'no objections + scarcity -> architecture B');
+  ok(PS.__architecture(SB.briefToGenContext(SB.emptyBrief(), SB.emptyRaw())).label.indexOf('GIFT') >= 0, 'no objections, no scarcity -> architecture A');
 
   const status = (byId['genStatus'] && byId['genStatus'].textContent) || '';
   ok(status.indexOf('hit an error') < 0, 'no error status was surfaced (would fire if any layer threw)');

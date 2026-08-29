@@ -528,6 +528,8 @@ ok(B.scriptViolations({ preclose: "The price is hard to justify at first" }, { p
 ok(B.scriptViolations({ preclose: "It costs less than what you already waste" }, { priceAllowed: true }).indexOf("price") < 0, 'validator: price allowed when price IS an objection');
 ok(B.scriptViolations({ body1: "It shuts off and the plant is dead by morning" }, {}).indexOf("moderation") >= 0, 'validator: catches a moderation word (dead)');
 ok(B.scriptViolations({ body2: "so good I use it every single day now" }, {}).indexOf("ownership") >= 0, 'validator: catches first-person ownership (I use)');
+ok(B.scriptViolations({ body2: "so good I use it every single day now" }, { ownsAllowed: true }).indexOf("ownership") < 0, 'validator: ownership ALLOWED when the creator owns/uses the product');
+ok(B.scriptViolations({ preclose: "my wrist finally stopped aching" }, { ownsAllowed: true }).indexOf("ownership") < 0, 'validator: first-person possessive allowed under ownsAllowed');
 ok(B.scriptViolations({ preclose: "my wrist finally stopped aching" }, {}).indexOf("ownership") >= 0, 'validator: catches ownership possessive (my)');
 ok(B.scriptViolations({ hook: "It shouldn't take 15 minutes — set up your vacuum" }, {}).indexOf("em-dash") >= 0, 'validator: flags an em dash');
 // the hook may confess with "I"; ownership check is body-only
