@@ -11,7 +11,9 @@
 // What is NEVER counted: any call without a `generation_id` or whose `call_name` is not "script_batch" --
 // derivation, classification, review OCR, the Planner, the carousel, description-cleaning and buyer discovery.
 // Research spend does not eat a creator's script allowance.
-const MONTHLY_BATCH_LIMIT = 150;                 // batches per member per UTC calendar month
+// batches per member per UTC calendar month. Env override (MONTHLY_BATCH_LIMIT) exists so the limit can be set
+// LOW on a preview deploy to test the wall without burning 150 batches; production leaves it unset -> 150.
+const MONTHLY_BATCH_LIMIT = Number(process.env.MONTHLY_BATCH_LIMIT) || 150;
 const SCRIPT_CALL_NAMES = new Set(["script_batch"]); // the definition of "a script batch"; add here if the batch gains a new call
 
 const SUPABASE_URL = "https://ysacpditbxcrairmypsp.supabase.co";

@@ -12585,8 +12585,11 @@ function renderDailyMeter() {
 }
 
 function showRateLimitError() {
+  // Legacy Scripts-tab path. The daily cap is gone (generation is now a MONTHLY batch cap enforced on the new
+  // flow), so this only fires on a transient upstream 429 -- keep the copy accurate: no "30 a day / resets at
+  // midnight" claim, no false monthly-cap claim, just a neutral "try again shortly, your work is safe".
   var mc = document.getElementById("mainContent");
-  if (mc) mc.innerHTML = "<div class='state-box'><div class='state-icon'>⏳</div><div class='state-title'>Daily limit reached</div><div class='state-desc'>You have used all 30 of your generations for today. Your limit resets at midnight. Come back tomorrow to keep creating.</div></div>";
+  if (mc) mc.innerHTML = "<div class='state-box'><div class='state-icon'>⏳</div><div class='state-title'>Just a moment</div><div class='state-desc'>The generator is briefly at capacity. Your saved work is safe -- give it a moment and try again.</div></div>";
   var btn = document.getElementById("genBtn");
   if (btn) { btn.disabled = false; btn.innerHTML = "🧠&nbsp; Generate Focus Angles"; }
 }
