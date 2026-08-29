@@ -14355,6 +14355,10 @@ function genOneScript(opts){
       if (!figNums.every(function(n){ return listNums[n]; })) badFigure = true;
     });
     if (badFigure) v.push("asserted-number");
+    // Invented market-trend claim: "nobody wants regular ice cubes anymore", "everyone is switching these
+    // days". A sweeping claim about what people in general want/do that the material never stated. Narrow to
+    // the trend framing (nobody/everyone ... anymore/these days) so an ordinary "everyone needs ice" is safe.
+    if (/\b(nobody|no one|everybody|everyone)\b[^.!?]{0,28}\b(anymore|any more|these days|nowadays|not anymore)\b/.test(lc)) v.push("market-claim");
     // Year: a PAST year is a legitimate contrast device ("this isn't 2010"), but asserting the CURRENT or a
     // future year dates the video the instant it is watched (and the model got the current year wrong). Block
     // any 4-digit year at or after the real current year; allow older ones as contrast.
@@ -15588,7 +15592,7 @@ function genOneScript(opts){
   // the pain alone and keeps the reversal family alive on products where the cause gate finds nothing.
   function fieldHooks(ctx){
     var out = [], who = String(ctx.who || ""), pain = ctx.leadPain, desire = String(ctx.desire || "");
-    if (who && pain) out.push({ key: "audience", instr: "TO THE AUDIENCE WHO WERE TOLD (validation reversal). Speak straight to the exact people this is for and reject what they were told to just accept, then let the product answer it. Shape: 'To the [audience] who were told [problem] is just how it is. This is for you.' Fill from the brief, do not invent: AUDIENCE = \"" + who + "\"; WHAT THEY WERE TOLD TO ACCEPT = \"" + pain.value + "\"." });
+    if (who && pain) out.push({ key: "audience", instr: "TO THE AUDIENCE WHO WERE TOLD (validation reversal). Speak straight to the exact people this is for and reject what they were told to just accept, then let the product answer it. Shape: 'To the [audience] who were told [problem] is just how it is. This is for you.' Fill from the brief, do not invent: AUDIENCE = \"" + who + "\"; WHAT THEY WERE TOLD TO ACCEPT = \"" + pain.value + "\". The \"you\" for the WHOLE script is this audience, never repositioned as a bystander." });
     if (who && desire) out.push({ key: "group", instr: "ALL THE [GROUP] KEEP SAYING (social proof toward the desire). Shape: 'All the [group] keep saying this is how they finally [desire].' Fill from the brief, do not invent a statistic: GROUP = \"" + who + "\"; DESIRE = \"" + desire + "\"." });
     if (pain) out.push({ key: "bonepick", instr: "BONE TO PICK (a reversal that needs NO product mechanism). Pick a fight with the unnamed villain who let the viewer's problem exist -- move the blame OFF the viewer and onto whoever is responsible, WITHOUT naming a product part or inventing a cause. Shape: 'I have a bone to pick with whoever decided [problem] was fine.' Use THIS problem from the brief: \"" + pain.value + "\"." });
     return out;
@@ -15704,7 +15708,7 @@ function genOneScript(opts){
     else L.push("VOICE -- you are recommending this to the viewer, not confessing your own ownership. Talk TO the viewer about THEIR life in second person (you, your). \"I\" is fine only as a short honest aside the viewer recognizes in themselves.");
     L.push("");
     L.push(block("WHO THIS IS FOR", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning));
-    if (lead) L.push("LEAD WITH THIS PAIN across the batch (the emotional core of the setups): " + lead.value + (lead.words.length ? "\n  phrasing you may reuse as the VIEWER'S own words: " + lead.words.join(", ") : ""));
+    if (lead) L.push("LEAD WITH THIS PAIN across the batch, as the VIEWER'S own frustration in their life (never as a description of the product performing badly): " + lead.value + (lead.words.length ? "\n  phrasing you may reuse as the VIEWER'S own words: " + lead.words.join(", ") : "") + "\n  If a pain is really about the product doing something poorly, that is a DOUBT to defuse in the pre-close, NOT a line to open on.");
     if (defuse) L.push("THE BIGGEST OBJECTION (the objection-as-curiosity hook reframes THIS one -- it has the richest detail): " + defuse.value + (defuse.words.length ? "\n  phrasing: " + defuse.words.join(", ") : ""));
     var op = ctx.pains.filter(function(p){ return !lead || p.value !== lead.value; }).map(function(p){ return "- " + p.value; });
     if (op.length) L.push("OTHER PAINS you may touch on:\n" + op.join("\n"));
@@ -15758,10 +15762,11 @@ function genOneScript(opts){
     L.push("YEAR -- the current year is " + nowYear + ". A PAST year is a fine contrast device (\"this isn't 2010\", \"it's not the 1990s\"). But NEVER state what year it is now: no \"in " + nowYear + "\", no \"still doing this in " + nowYear + "\", no asserting the current or a future year -- a stated current year dates the video the moment it is watched.");
     // The three risks below are real and NOT catchable in code, so they stay -- one line each.
     L.push("NO-META -- talk to the viewer about THEIR life, never about your research. The brief is your source and the viewer has never seen it; never name reviews, buyers, ratings, social proof or specs. Put the detail inside the viewer's own moment instead.");
-    L.push("INVENT NOTHING -- every fact, number, cause and outcome comes from the brief or listing. If you cannot point to where a cause is stated, reframe it as a benefit rather than naming it. Do not diagnose the viewer, and make no claim about other products.");
+    L.push("INVENT NOTHING -- every fact, number, cause and outcome comes from the brief or listing. If you cannot point to where a cause is stated, reframe it as a benefit rather than naming it. Do not diagnose the viewer, make no claim about other products, and make NO sweeping claim about what people in general want or do (\"nobody wants regular ice anymore\", \"everyone is switching\") unless the material says it -- that is an invented market trend.");
     L.push("STAY WITH WHAT IT IS -- never escalate a seller claim (if the listing says \"no scratches,\" you may not say \"wrecks your blender\"). Speak to what the product plainly is and what the buyer felt.");
     L.push("LENGTH: aim the WHOLE script -- hook through CTA -- at about 60 to 110 spoken words, a finished video of 25 to 45 seconds. Let the sections balance within that budget and land all four scripts at a similar total length. No hard per-section word count.");
-    L.push("SETUP (body1): one specific moment, jump straight to the feeling. Do not restate the hook, and let the objection turn do DIFFERENT work than the setup.");
+    L.push("ONE VIEWER, START TO FINISH: \"you\" is the SAME person from hook to CTA -- the buyer described in WHO THIS IS FOR. If the buyer is the host, the viewer is always the host, never a guest at someone else's party. Never switch who \"you\" is between the hook, the setup, the payoff and the CTA.");
+    L.push("SETUP (body1) is a SCENE from the viewer's own day, one concrete moment they recognise -- NOT a list of what the product has or does. NO product features, specs, or description in the setup; the product barely appears yet. NEVER open by saying the product does something badly (a pain is the viewer's frustration or a doubt you defuse later, never a product weakness stated as fact -- do not write \"the first batch comes out watery\"). If the hook opened a loop or asked a question, the setup must ANSWER or advance it, never pivot to a spec list. Do not restate the hook.");
     L.push("PRE-CLOSE: only the scripts with an assigned objection write one -- one sentence, a statement not a question, doing DIFFERENT work than the setup, defusing that script's assigned objection and no other. A script with a CLOSE MODE instead leaves preclose empty; its body2 stays the payoff and the close lands in the CTA only, so the script has ONE ending, not two. Never invent an objection just to have a pre-close.");
     L.push("OVERCOME OBJECTIONS INSIDE THE PRODUCT: when a script does defuse an objection, answer it with the product and how it is USED -- something the viewer can do or see for themselves (the model is the filter: same battery doubt, but the fix is a quick thing the viewer does). Answer inside the product, never by pointing at the company behind it.");
     L.push("");
@@ -15774,7 +15779,7 @@ function genOneScript(opts){
     return genPrompt(ctx) +
       "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for breaking these hard rules: " + violations.join("; ") + "." +
       " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
-      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, no price raised as a doubt, no company service or warranty or returns, " + (ctx.owns ? "" : "no first-person ownership, ") + "no moderation words, never state the current year, and NEVER reuse the words of a teaching example (write your own line for this product)." +
+      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, no price raised as a doubt, no company service or warranty or returns, " + (ctx.owns ? "" : "no first-person ownership, ") + "no moderation words, no invented market trend, never state the current year, keep the SAME viewer from hook to CTA, and NEVER reuse the words of a teaching example (write your own line for this product)." +
       " Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
   }
   // Em dashes are stripped outright (never regenerate for a mechanical fix); the owner wants none, ever.
@@ -15803,7 +15808,7 @@ function genOneScript(opts){
     })();
   }
   // Human labels for the guard codes, used when a drop has to be explained to the owner.
-  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", lifted: "lifted review line", "example-lift": "copied a teaching example", repetition: "repeated opening" };
+  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", repetition: "repeated opening" };
   function fmtDrops(codes){ return Object.keys(codes || {}).map(function(c){ return (GUARD_LABELS[c] || c) + ((codes[c] | 0) > 1 ? " x" + codes[c] : ""); }).join(", "); }
   // A thrown error anywhere on the Generate path must SURFACE, not stall. The crash that took production down
   // was a ReferenceError before the model call ever fired, so the spinner spun forever and the never-empty

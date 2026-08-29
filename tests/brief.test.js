@@ -643,6 +643,11 @@ ok(B.scriptViolations({ hook: "You're still making ice by hand in 2026" }, { now
 ok(B.scriptViolations({ hook: "This isn't 2010, your ice should be instant" }, { nowYear: 2026 }).indexOf("current-year") < 0, 'validator: a PAST year as contrast (2010) is allowed');
 ok(B.scriptViolations({ cta: "The future is 2027, get yours" }, { nowYear: 2026 }).indexOf("current-year") >= 0, 'validator: a future year is blocked too');
 ok(B.scriptViolations({ hook: "Still doing this in 2026" }, {}).indexOf("current-year") < 0, 'validator: with no nowYear passed, the year guard does not fire');
+// market-claim: an invented sweeping trend ("nobody wants X anymore") is blocked; ordinary lines are not.
+ok(B.scriptViolations({ hook: "Nobody wants regular ice cubes anymore" }, {}).indexOf("market-claim") >= 0, 'validator: catches an invented market trend (nobody wants ... anymore)');
+ok(B.scriptViolations({ hook: "Everyone is switching these days" }, {}).indexOf("market-claim") >= 0, 'validator: catches "everyone is switching these days"');
+ok(B.scriptViolations({ hook: "Everyone needs cold drinks in summer" }, {}).indexOf("market-claim") < 0, 'validator: an ordinary "everyone needs" line is NOT a market claim');
+ok(B.scriptViolations({ hook: "We're not waiting on the cart girl anymore" }, {}).indexOf("market-claim") < 0, 'validator: a "we" cultural-moment line is allowed (not nobody/everyone)');
 // cause survives normalize + adapter, and consolidation carries it on the representative.
 let bWithCause = B.normalizeBrief({ lines:{ objections:[{ value:'it shuts off', count:4, classified:true, cause:'the filter clogs' }] } });
 ok(bWithCause.lines.objections[0].cause === 'the filter clogs', 'normalizeBrief: preserves objection.cause');
