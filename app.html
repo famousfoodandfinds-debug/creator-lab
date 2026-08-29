@@ -14956,7 +14956,10 @@ function genOneScript(opts){
     ].join("\n");
   }
   function deriveChunk(reviewsChunk, cb){
-    claudeCall({ model: DERIVE_MODEL, max_tokens: 3000, messages: [{ role: "user", content: derivePrompt(reviewsChunk) }] }, function(text, err){
+    // 6000, not 3000: a full brief (11 lines + up to 4 pains + 4 objections, each objection now carrying a
+    // `cause`, + 5 features, each with words/claims/terms) reaches ~3.5k output tokens when the model
+    // pretty-prints, which was silently truncating the JSON and (on a scratch rebuild) clearing the brief.
+    claudeCall({ model: DERIVE_MODEL, max_tokens: 6000, messages: [{ role: "user", content: derivePrompt(reviewsChunk) }] }, function(text, err){
       if (err){ cb(null, err); return; }
       var obj = parseJson(text, "{", "}");
       // A 200 with unparseable text (usually a cut-off JSON) must surface as a real error, not a
@@ -15079,10 +15082,16 @@ function genOneScript(opts){
   // stable). No new reviews means NO model calls at all: just a deterministic recount. Any failed batch
   // aborts without saving; the existing brief and reviews are untouched. Screenshots become text only
   // once OCR succeeds. Counts are always recomputed in code, so they never drift between builds.
-  function deriveBrief(){
+  function deriveBrief(opts){
     if (deriving) return;
     if (!currentProductId){ deriveStatus("Add some material first (it saves as you type), then build the brief.", "var(--red)"); scheduleSave(); return; }
     editingLine = null;   // a rebuild closes any open inline editor
+    // Non-destructive: derive into a LOCAL base and only replace the live brief in commit(), on success. A
+    // "rebuild from scratch" starts that base at an empty brief and treats every review as fresh WITHOUT
+    // touching the live brief or the reviews' derived flags -- so a failed rebuild leaves the old brief intact
+    // (the previous version cleared the brief up front, so a truncated build left the owner with nothing).
+    var scratch = !!(opts && opts.scratch);
+    var baseBrief = scratch ? SB.emptyBrief() : brief;
     deriving = true; renderBrief();
     function fail(where, err){
       deriving = false; renderBrief();
@@ -15152,17 +15161,19 @@ function genOneScript(opts){
     }
     // Extract only the reviews new since the last build; merge them into the stored brief.
     function runNewReviews(){
-      var fresh = SB.newReviews(raw);
-      var alreadyBuilt = !!brief.meta.lastDerivedAt;
+      // Scratch re-reads EVERY review from an empty base; a normal build reads only what is new. Neither
+      // path mutates the live brief or the review flags until commit() succeeds.
+      var fresh = scratch ? raw.reviews.slice() : SB.newReviews(raw);
+      var alreadyBuilt = !scratch && !!baseBrief.meta.lastDerivedAt;
       // Comments are a source of the brief too (a major one for objections when the reviews skew positive),
       // so new comment material must trigger a rebuild the same way a new review does -- not be ignored
       // because the review set did not change. Track a signature of what the brief last read.
-      var commentsChanged = SB.materialSig(raw.competitorComments) !== (brief.meta.commentsHash || "");
+      var commentsChanged = scratch || SB.materialSig(raw.competitorComments) !== (baseBrief.meta.commentsHash || "");
       if (!fresh.length && alreadyBuilt && !commentsChanged){
         // Truly nothing new anywhere: recount the existing brief against current reviews and comments
         // (handles removals too). Free -- no model calls.
-        SB.recountFindings(brief, raw.reviews, SB.splitComments(raw.competitorComments));
-        commit(brief, false);
+        SB.recountFindings(baseBrief, raw.reviews, SB.splitComments(raw.competitorComments));
+        commit(baseBrief, false);
         return;
       }
       var chunks = SB.chunkReviews(fresh, DERIVE_BATCH);
@@ -15173,7 +15184,7 @@ function genOneScript(opts){
       (function next(){
         if (i >= chunks.length){
           var newDerived = SB.mergeChunkDerivations(results, raw.reviews.length);
-          var mergedBrief = SB.mergeIncremental(brief, newDerived, { now: new Date().toISOString(), promptVersion: DERIVE_PROMPT_V });
+          var mergedBrief = SB.mergeIncremental(baseBrief, newDerived, { now: new Date().toISOString(), promptVersion: DERIVE_PROMPT_V });
           consolidateAndCommit(mergedBrief, true);
           return;
         }
@@ -15206,9 +15217,9 @@ function genOneScript(opts){
     if (deriving) return;
     if (!currentProductId){ deriveStatus("Add some material first, then build the brief.", "var(--red)"); scheduleSave(); return; }
     if (!window.confirm("Rebuild the whole brief from scratch?\n\nThis DISCARDS the current brief and any lines you edited by hand, then re-derives everything from your reviews. Your reviews and product setup are kept.")) return;
-    brief = SB.emptyBrief();
-    raw.reviews.forEach(function(r){ r.derived = false; });
-    deriveBrief();
+    // Do NOT clear the live brief here -- deriveBrief({scratch}) builds the new one from an empty base and
+    // only swaps it in on success, so a failed rebuild leaves the current brief exactly as it was.
+    deriveBrief({ scratch: true });
   }
 
   // ---- brief display ---------------------------------------------------------------------------
@@ -15795,7 +15806,7 @@ function genOneScript(opts){
     if (el("homePickerSearch")) el("homePickerSearch").addEventListener("input", function(){ renderHomePicker(this.value); });
   }
   // Export FIRST, so a throw inside init() can never leave window.ProductScreen undefined.
-  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome, openPicker: openPicker, generateScripts: generateScripts };
+  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome, openPicker: openPicker, generateScripts: generateScripts, rebuildFromScratch: rebuildFromScratch };
   function safeInit(){ try { init(); } catch(e){ if (window.console) console.error("ProductScreen init failed", e); } }
   if (document.readyState !== "loading") safeInit(); else document.addEventListener("DOMContentLoaded", safeInit);
 })();
