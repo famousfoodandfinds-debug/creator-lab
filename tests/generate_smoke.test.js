@@ -137,6 +137,14 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(capturedPrompt.indexOf("THE SETUP IS THE VIEWER'S WORLD") >= 0 && /product ARRIVES at the END of it or after it/.test(capturedPrompt), 'the setup rule: viewer\'s world, product arrives at the end not the start');
   ok(/does NOT apply here; the setup carries no specs/.test(capturedPrompt), 'the write-from-specifics doctrine is scoped OUT of the setup (payoff/objection turn only)');
   ok(capturedPrompt.indexOf('dig the iron out of the cupboard') >= 0, 'the sequence-walk exemplar (a lived chain of frictions, product absent) is loaded into the setup examples');
+  // Fix 1: a hook must assert/reveal, not narrate the viewer's own action back at them (works with the rotation).
+  ok(capturedPrompt.indexOf('ASSERT OR REVEAL, NEVER NARRATE') >= 0 && /not a hook, it is a caption/.test(capturedPrompt), 'hooks must assert or reveal, never merely narrate the viewer\'s action');
+  // Fix 2: the setup loophole -- second-person framing on a spec list is still a spec list (about-ness, not person).
+  ok(capturedPrompt.indexOf('A SPEC LIST IN SECOND PERSON IS STILL A SPEC LIST') >= 0 && /what each sentence is ABOUT, not what person/.test(capturedPrompt), 'the setup rule tests what the sentence is ABOUT, not its grammatical person');
+  // Fix 3: show-the-fix must be a plain feature, not a rebuttal in shape (defensive posture plants the doubt).
+  ok(capturedPrompt.indexOf('STATE IT AS A PLAIN GOOD THING, NEVER A REBUTTAL') >= 0 && /the SHAPE of a rebuttal plants the doubt/.test(capturedPrompt), 'the resolving action is stated as a plain feature, never a defensive rebuttal');
+  // Fix 4: no analyst/spec-sheet jargon unless buyers use the phrase in the material.
+  ok(capturedPrompt.indexOf('NO ANALYST OR SPEC-SHEET JARGON') >= 0 && /Only words a buyer actually used in the material/.test(capturedPrompt), 'analyst/spec-sheet jargon is banned unless it is the buyer\'s own vocabulary');
   // The system prompt itself now scopes the doctrine and keeps the setup product-free (raw-file assertion).
   ok(/Those specifics belong where you SHOW what the product does -- the payoff and the objection turn/.test(html), 'the system prompt scopes the specifics doctrine to the payoff and objection turn');
   ok(html.indexOf('The SETUP is the viewer\'s world BEFORE the product arrives, so it carries no specs') >= 0, 'the system prompt keeps the setup product-free');
