@@ -91,6 +91,10 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   // reach the model call. With the bug, generateScripts fails before fetch and fetchCalls stays 0.
   ok(fetchCalls >= 1, 'the Generate path reaches the model call (sync setup did not crash) -- catches `str is not defined`');
   ok(capturedPrompt.indexOf('THE JOB') >= 0 && capturedPrompt.toLowerCase().indexOf('tap the link to buy') >= 0, 'the prompt leads with the selling directive above the rules');
+  // The product name reaches the model AND it is told to say it once, early -- so scripts are not all "this one"/"it".
+  ok(capturedPrompt.indexOf('PRODUCT NAME: Ice maker') >= 0, 'the product name is threaded into the batch prompt');
+  ok(capturedPrompt.indexOf('SAY THE PRODUCT NAME, ONCE, EARLY') >= 0 && /Once is the FLOOR, not a quota/.test(capturedPrompt), 'the name instruction is present, and once is the floor not a quota (no ad-read repetition)');
+  ok(/Do NOT force it into the hook/.test(capturedPrompt), 'the name instruction defers to the hook rules (never forced into a clunky hook)');
   ok(capturedPrompt.indexOf('OBJECTION AS CURIOSITY') >= 0, 'objection-as-curiosity hook IS in rotation when the material names a cause');
   ok(capturedPrompt.indexOf('the tank holds less') >= 0, 'the grounded cause is fed to the objection hook (never invented)');
   ok(/current year is 20\d\d/.test(capturedPrompt), 'the real current year is passed into the prompt for the contrast device');

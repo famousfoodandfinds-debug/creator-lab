@@ -14298,7 +14298,7 @@ function genOneScript(opts){
   // say), `claims` are buyer performance CLAIMS (never asserted). The default focus is the top-count pain
   // to lead with and the top-count objection to defuse -- so generation works with zero picking (the
   // picker UI comes later). Pure and DOM-free, so it can be unit-tested against a stored brief.
-  function briefToGenContext(brief, raw){
+  function briefToGenContext(brief, raw, name){
     var b = normalizeBrief(brief); raw = normalizeRaw(raw);
     function v(k){ return str(b.lines[k] && b.lines[k].value); }
     function w(k){ return arr(b.lines[k] && b.lines[k].words).map(str); }
@@ -14329,7 +14329,8 @@ function genOneScript(opts){
       defuseObjection: top(objections),   // default focus: defuse this objection
       owns: !!raw.ownsProduct,            // creator owns/uses it -> first-person allowed, owns exemplars load
       reviewCount: b.meta.reviewCount|0,
-      commentCount: b.meta.commentCount|0
+      commentCount: b.meta.commentCount|0,
+      name: str(name)                     // the saved product name -- so a script can actually say what it is
     };
   }
   // Deterministic post-generation GUARD. Prompt rules were not enforcing the hard bans (price invented as a
@@ -15882,6 +15883,10 @@ function genOneScript(opts){
     if (safe.length) L.push("LANGUAGE you may reuse verbatim as the VIEWER'S own words (never attributed to buyers or reviews): " + safe.slice(0, 20).join(" | "));
     if (claimed.length) L.push("DO NOT USE THESE in any script -- not as fact, not as \"people say\" (they are performance claims): " + claimed.slice(0, 12).join(" | "));
     if (ctx.description) L.push("PRODUCT LISTING (ingredient list only -- ignore any marketing or claim language in it): " + ctx.description);
+    if (ctx.name) {
+      L.push("PRODUCT NAME: " + ctx.name);
+      L.push("SAY THE PRODUCT NAME, ONCE, EARLY: name the product -- " + ctx.name + " -- out loud at least once, early enough that a viewer knows what they are watching (by the end of the setup at the latest), so the whole script is never just \"this one\" and \"it\". Once is the FLOOR, not a quota: saying it a single time is enough, and repeating the name line after line reads like an ad -- after it has been said once, \"it\" or \"this\" is the natural way to refer to it. Let the name land where it sounds natural, usually as the product ARRIVES in the setup or the payoff. Do NOT force it into the hook: the hook rules win, so put the name in the hook ONLY if it fits cleanly there, never if it makes the hook clunky. If the saved name is a long listing title, use the short way a real person would say it (\"the WANDVAC\", \"the Shark\"), not the full string.");
+    }
     L.push("");
     // Per-script assignment: rotate the HOOK SOURCE deterministically so the batch never converges. The
     // objection turn is MECHANICAL, not the model's judgement: each grounded objection is handed to one
@@ -16057,7 +16062,7 @@ function genOneScript(opts){
     if (!brief.meta.lastDerivedAt){ genStatus("Build the brief first, then generate.", "var(--red)"); return; }
     generating = true; renderGenScripts();
     try {
-      var ctx = SB.briefToGenContext(brief, raw);
+      var ctx = SB.briefToGenContext(brief, raw, currentProductName);
       var reviewsText = (raw.reviews || []).map(function(r){ return String(r.full || r.quote || ""); }).join(" ");
       // The listing is the product's verifiable spec sheet: the raw description plus the brief's features (which
       // are seller specs lifted from the listing). Figures found here are allowed in a script; everything else

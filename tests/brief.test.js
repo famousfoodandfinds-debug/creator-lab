@@ -732,6 +732,9 @@ let bNeed = B.normalizeBrief({ lines:{ desire:{ value:'everyone asks', need:'est
 ok(bNeed.lines.pains[0].need === 'safety' && bNeed.lines.desire.need === 'esteem', 'normalizeBrief: preserves pain.need and desire.need');
 let ctxN = B.briefToGenContext(bNeed, B.emptyRaw());
 ok(ctxN.pains[0].need === 'safety' && ctxN.desireNeed === 'esteem', 'briefToGenContext: exposes pain.need and desireNeed');
+// product name is threaded into the context so a script can actually say what the product is (not just "it")
+ok(B.briefToGenContext(B.emptyBrief(), B.emptyRaw(), 'Shark WANDVAC').name === 'Shark WANDVAC', 'briefToGenContext: threads the product name into ctx.name');
+ok(B.briefToGenContext(B.emptyBrief(), B.emptyRaw()).name === '', 'briefToGenContext: name defaults to empty when none is passed (old 2-arg callers unaffected)');
 let clN = B.applyClusters([{ value:'sharp ice', count:2, need:'safety' }, { value:'kids around', count:3, need:'' }], { groups:[{ value:'sharp ice near kids', members:[0,1] }] }, 10);
 ok(clN[0].need === 'safety', 'applyClusters: representative carries the first need through consolidation');
 // Cap at 5 so a giant brief never floods the batch.
