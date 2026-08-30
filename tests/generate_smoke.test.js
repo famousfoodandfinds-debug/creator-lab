@@ -97,6 +97,13 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(/say it by the END OF THE SETUP \(body1\) -- BEFORE the objection turn/.test(capturedPrompt), 'the name must land by end of setup, before the objection turn (not in the payoff when there is a turn)');
   ok(/Do NOT force it into the hook/.test(capturedPrompt), 'the name instruction defers to the hook rules (never forced into a clunky hook)');
   ok(capturedPrompt.indexOf('SAY WHAT IT DOES, SPECIFICALLY, OR CUT THE LINE') >= 0 && /read like the writer never looked at the product/.test(capturedPrompt), 'the anti-filler rule: a works-claim must be specific from the material, or the line is cut');
+  // The "ingredient list only" doctrine is reworded (write FROM the description's specifics) in both sites, and
+  // the stale "buyer cards" / "buyer insight fields" data model is replaced by the derived brief. Assert on the
+  // raw file: the genPrompt label only renders when a listing exists (this fixture has none).
+  ok(html.indexOf('ingredient list') < 0, 'the "ingredient list only" doctrine is gone from both the system prompt and the genPrompt label');
+  ok(html.indexOf('buyer cards are your script') < 0 && html.indexOf('buyer insight and creator fields are your primary brief') < 0, 'the stale buyer-cards / buyer-insight-fields data model is gone from the system prompt');
+  ok(html.indexOf('write from the specific factual details in it, in the buyer') >= 0, 'the genPrompt PRODUCT LISTING label now tells the model to write from the specific details, keeping the no-claims rule');
+  ok(/write the script FROM the specific, factual details in the product description/.test(html) && html.indexOf('derived brief') >= 0, 'the system prompt writes from the description specifics and names the derived brief as the buyer source');
   ok(capturedPrompt.indexOf('OBJECTION AS CURIOSITY') >= 0, 'objection-as-curiosity hook IS in rotation when the material names a cause');
   ok(capturedPrompt.indexOf('the tank holds less') >= 0, 'the grounded cause is fed to the objection hook (never invented)');
   ok(/current year is 20\d\d/.test(capturedPrompt), 'the real current year is passed into the prompt for the contrast device');
