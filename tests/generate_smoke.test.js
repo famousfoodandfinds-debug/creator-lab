@@ -151,6 +151,9 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(capturedPrompt.indexOf('STATE IT AS A PLAIN GOOD THING, NEVER A REBUTTAL') >= 0 && /the SHAPE of a rebuttal plants the doubt/.test(capturedPrompt), 'the resolving action is stated as a plain feature, never a defensive rebuttal');
   // Fix 4: no analyst/spec-sheet jargon unless buyers use the phrase in the material.
   ok(capturedPrompt.indexOf('NO ANALYST OR SPEC-SHEET JARGON') >= 0 && /Only words a buyer actually used in the material/.test(capturedPrompt), 'analyst/spec-sheet jargon is banned unless it is the buyer\'s own vocabulary');
+  // Manufacturer/material spec language (borosilicate, thermal shock resistant...) must be translated to a
+  // buyer's plain benefit, never dropped in raw -- same principle as the analyst-jargon rule, different source.
+  ok(capturedPrompt.indexOf('TRANSLATE MANUFACTURER SPEC LANGUAGE, NEVER DROP IT IN RAW') >= 0 && /No viewer knows what borosilicate is/.test(capturedPrompt) && /NEVER list specs in a row/.test(capturedPrompt), 'manufacturer spec language must be translated to a buyer\'s plain benefit, and never listed in a row');
   // Fix: the model may speak to a worry buyers expressed but must never manufacture the health/safety/contamination claim.
   ok(capturedPrompt.indexOf('NEVER MANUFACTURE A HEALTH, SAFETY, OR CONTAMINATION CLAIM') >= 0 && /asserting it and ASKING whether it is true are BOTH the claim/i.test(capturedPrompt), 'a health/safety/contamination claim is banned in any form (assertion or question); only a documented worry may be voiced');
   // Fix: a problem hook must be anchored to the category, not float without a subject.
