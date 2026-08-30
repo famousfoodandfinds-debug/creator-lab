@@ -14,8 +14,11 @@ global.setTimeout = function(fn){ try { fn(); } catch(e){} };
 // A CLEAN script and a script that trips the asserted-number guard (a percent is always blocked as a figure).
 const HOOKS = { a:"Cold drinks should not be this hard", c:"Your freezer bags take up every inch", recovered:"Nobody warned you about the endless store runs" };
 const CTAS = { a:"Grab yours before they sell out", c:"Order one for your kitchen today", recovered:"Tap the link and try it" };
-function clean(tag){ return { hook:HOOKS[tag]||("Fresh ice on demand "+tag), body1:"You keep waiting around "+tag, preclose:"", body2:"You pour without a thought "+tag, cta:CTAS[tag]||("See it on shop "+tag) }; }
-const BAD = { hook:"This cuts your ice waiting by 50 percent", body1:"You keep waiting on the tray", preclose:"", body2:"You pour without a thought", cta:"See it on the shop page" };
+// Distinct SETUP openings per script -- the repetition guard now also covers body1, and this test is about figure
+// recovery, not setup variation, so the openings must not collide.
+const BODIES = { a:"Mornings you scramble for cubes", c:"Your freezer has no room left", recovered:"The store runs never end" };
+function clean(tag){ return { hook:HOOKS[tag]||("Fresh ice on demand "+tag), body1:BODIES[tag]||("A quiet scene "+tag), preclose:"", body2:"You pour without a thought "+tag, cta:CTAS[tag]||("See it on shop "+tag) }; }
+const BAD = { hook:"This cuts your ice waiting by 50 percent", body1:"Every tray drips before it freezes", preclose:"", body2:"You pour without a thought", cta:"See it on the shop page" };
 // Batch: slots 1 and 3 clean; slot 2 (index 1) trips the guard; slot 4 (index 3) trips the guard.
 const BATCH = [ clean("a"), BAD, clean("c"), BAD ];
 // Per-script rewrite behaviour, keyed by the "REGENERATE ONLY SCRIPT N" number in the prompt:

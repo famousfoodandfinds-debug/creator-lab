@@ -71,8 +71,11 @@ brief.meta.lastDerivedAt = '2026-01-01T00:00:00Z';
 brief.meta.reviewCount = 12;
 brief.lines.who = SB.normalizeBrief({lines:{who:{value:'people who host and always run out of ice'}}}).lines.who;
 brief.lines.desire = SB.normalizeBrief({lines:{desire:{value:'never run dry mid-party'}}}).lines.desire;
-brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out too fast', count:6, classified:true, about:'alternative', need:'convenience'}, {value:'the last cooler let it melt on a hot day', count:5, classified:true, about:'alternative', need:'safety'}, {value:'the first batch is watery', count:3, classified:true, about:'product'}]}}).lines.pains;
-brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true, cause:'the tank holds less', resolve:'you top it off once and it keeps going'}]}}).lines.objections;
+brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out too fast', count:6, classified:true, about:'alternative', need:'convenience'}, {value:'the last cooler let it melt on a hot day', count:5, classified:true, about:'alternative', need:'safety'}, {value:'the first batch is watery', count:3, classified:true, about:'product', words:['cooler','melts']}]}}).lines.pains;
+// words are added so the objections THREAD-FIT the scenarios (assignment is now by fit, not position):
+// "too small" carries ice/runs to fit the "ice runs out" scenario; the watery flaw carries cooler/melts to fit
+// the "cooler ... melt" scenario. Without a shared word an objection would (correctly) go unassigned.
+brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true, cause:'the tank holds less', resolve:'you top it off once and it keeps going', words:['ice','runs out']}]}}).lines.objections;
 brief.features = SB.normalizeBrief({features:[{feature:'makes 33 lbs per 24 hours', benefit:'plenty of ice'}, {feature:'1.8 L tank', benefit:'fewer refills'}]}).features;
 let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'the nugget ice is so good' }];
 const product = { id:'p1', name:'Ice maker', updated_at:'2026-01-01T00:00:00Z', brief:brief, raw:raw };
@@ -137,6 +140,9 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(capturedPrompt.indexOf("THE SETUP IS THE VIEWER'S WORLD") >= 0 && /product ARRIVES at the END of it or after it/.test(capturedPrompt), 'the setup rule: viewer\'s world, product arrives at the end not the start');
   ok(/does NOT apply here; the setup carries no specs/.test(capturedPrompt), 'the write-from-specifics doctrine is scoped OUT of the setup (payoff/objection turn only)');
   ok(capturedPrompt.indexOf('dig the iron out of the cupboard') >= 0, 'the sequence-walk exemplar (a lived chain of frictions, product absent) is loaded into the setup examples');
+  // Setup openings must vary and need not use "you" -- second person is not what makes a setup a scene.
+  ok(capturedPrompt.indexOf('VARY HOW THE SETUP OPENS, AND DO NOT DEFAULT TO "YOU"') >= 0 && /a setup does NOT need to start with "you" at all/.test(capturedPrompt), 'the setup rule: vary the openings and do not default to second person');
+  ok(capturedPrompt.indexOf("the onions are half-chopped") >= 0, 'a no-second-person setup exemplar is loaded (a scene without "you")');
   // Fix 1: a hook must assert/reveal, not narrate the viewer's own action back at them (works with the rotation).
   ok(capturedPrompt.indexOf('ASSERT OR REVEAL, NEVER NARRATE') >= 0 && /not a hook, it is a caption/.test(capturedPrompt), 'hooks must assert or reveal, never merely narrate the viewer\'s action');
   // Fix 2: the setup loophole -- second-person framing on a spec list is still a spec list (about-ness, not person).

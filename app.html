@@ -14525,24 +14525,66 @@ function genOneScript(opts){
   function causedObjection(objections){
     return groundedObjections(objections).filter(function(o){ return str(obj(o).cause); })[0] || null;
   }
+  // The defuse pool for the pre-close, with a threshold that DEPENDS on whether the objection has a fix.
+  // A RESOLVABLE objection (o.resolve present) still needs real weight -- 2 reviews or 2 comments -- because a
+  // show-the-fix turn ASSERTS a fix, and a thin one invites invention (the ice-maker fabrication). A DEFUSE-ONLY
+  // objection (empty resolve) is handled by the REFRAME path, which fabricates NOTHING -- it only scopes the
+  // product to a job it does well -- so a SINGLE mention is enough; the two-mention gate that existed to stop
+  // invented objections does not apply to a path that cannot invent. Sorted by weight; capped generous so
+  // thread-matching has candidates to choose from (only up to GEN_COUNT are actually used).
+  function defusePool(objections, productPains){
+    return arr(objections).concat(arr(productPains)).map(obj).filter(function(o){
+      var minHits = str(o.resolve).trim() ? 2 : 1;
+      return (o.count | 0) >= minHits || (o.ccount | 0) >= minHits || !!o.added;
+    }).slice().sort(function(a, b){ return ((b.count | 0) - (a.count | 0)) || ((b.ccount | 0) - (a.ccount | 0)); }).slice(0, 12);
+  }
+  // Assign objections to scripts by THREAD FIT, not by position. A script's thread is the subject its hook,
+  // setup and payoff run on (its scenario words); an objection belongs on the script it shares words with, so a
+  // turn never arrives from an unrelated angle (the unboxing turn on a sliding-board script). Greedy: the
+  // strongest (script, objection) word-overlap is taken first, no objection used twice; a script with NO
+  // positive overlap gets null -> a close mode, never a forced-in objection. Pure + testable. `threads` is an
+  // array of token arrays (one per script), built with fitTokens so the tokenization matches on both sides.
+  var FIT_STOP = { the:1,a:1,an:1,and:1,or:1,but:1,of:1,to:1,in:1,on:1,for:1,with:1,at:1,by:1,it:1,its:1,you:1,your:1,is:1,are:1,be:1,that:1,this:1,they:1,them:1,i:1,we:1,my:1,me:1,so:1,if:1,as:1,not:1,no:1,up:1,out:1,off:1,one:1,get:1,got:1,keep:1,thing:1,when:1,then:1,just:1,all:1,any:1,every:1,about:1,from:1,into:1,over:1,still:1,even:1 };
+  // Light stem so morphological variants of the same word match: slides/sliding->"slid"-ish, oiling/oiled->"oil",
+  // board/boards->"board". Strip -ing/-ed/-s. Crude, but it turns lexical overlap into topical overlap well
+  // enough for thread-fit; a miss just means a close mode, which is the safe direction.
+  function fitStem(t){
+    if (t.length > 5 && /ing$/.test(t)) return t.slice(0, -3);
+    if (t.length > 4 && /ed$/.test(t)) return t.slice(0, -2);
+    if (t.length > 3 && /s$/.test(t)) return t.slice(0, -1);
+    return t;
+  }
+  function fitTokens(s){ return String(s == null ? "" : s).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).filter(function(t){ return t.length > 2 && !FIT_STOP[t]; }).map(fitStem).filter(function(t){ return t.length > 2; }); }
+  function matchObjectionsToThreads(threads, objections){
+    var objs = arr(objections).map(function(o, idx){ return { o: obj(o), idx: idx, toks: fitTokens([str(obj(o).value)].concat(arr(obj(o).words).map(str)).join(" ")) }; });
+    var assigned = arr(threads).map(function(){ return null; }), usedObj = {}, pairs = [];
+    arr(threads).forEach(function(tt, ti){
+      var tset = {}; arr(tt).forEach(function(t){ tset[t] = 1; });
+      objs.forEach(function(oj){ var s = 0; oj.toks.forEach(function(t){ if (tset[t]) s++; }); if (s > 0) pairs.push({ ti: ti, oi: oj.idx, o: oj.o, s: s }); });
+    });
+    pairs.sort(function(a, b){ return b.s - a.s; });
+    pairs.forEach(function(p){ if (assigned[p.ti] || usedObj[p.oi]) return; assigned[p.ti] = p.o; usedObj[p.oi] = 1; });
+    return assigned;
+  }
   // Batch-level repetition: two scripts must not open their objection turn with the same construction, and
   // CTAs must not be near-identical. Compares one script against those already accepted.
   function firstWords(t, n){ return str(t).toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean).slice(0, n).join(" "); }
   function scriptRepeats(script, accepted){
-    var pc = firstWords(script.preclose, 3), ct = firstWords(script.cta, 4);
-    return arr(accepted).some(function(a){ return (pc && firstWords(a.preclose, 3) === pc) || (ct && firstWords(a.cta, 4) === ct); });
+    var pc = firstWords(script.preclose, 3), ct = firstWords(script.cta, 4), b1 = firstWords(script.body1, 3);
+    return arr(accepted).some(function(a){ return (pc && firstWords(a.preclose, 3) === pc) || (ct && firstWords(a.cta, 4) === ct) || (b1 && firstWords(a.body1, 3) === b1); });
   }
   // Which slot collided and what openings the accepted scripts already used -- so a retry can name the real
   // slot (pre-close or CTA, never "opening") and show the model the exact first-words to avoid, instead of
   // handing it a vague label and letting it rewrite the hook while the colliding CTA stays put.
   function repeatDetail(script, accepted){
     var acc = arr(accepted), hits = [];
-    var pc = firstWords(script.preclose, 3), ct = firstWords(script.cta, 4);
+    var pc = firstWords(script.preclose, 3), ct = firstWords(script.cta, 4), b1 = firstWords(script.body1, 3);
     function usedFor(get, n){
       var seen = {}, out = [];
       acc.forEach(function(a){ var w = firstWords(get(a), n); if (w && !seen[w]) { seen[w] = 1; out.push(w); } });
       return out;
     }
+    if (b1 && acc.some(function(a){ return firstWords(a.body1, 3) === b1; }))     hits.push({ slot: "setup opening", prefix: b1, used: usedFor(function(a){ return a.body1; }, 3) });
     if (pc && acc.some(function(a){ return firstWords(a.preclose, 3) === pc; })) hits.push({ slot: "pre-close", prefix: pc, used: usedFor(function(a){ return a.preclose; }, 3) });
     if (ct && acc.some(function(a){ return firstWords(a.cta, 4) === ct; }))      hits.push({ slot: "CTA",       prefix: ct, used: usedFor(function(a){ return a.cta; }, 4) });
     return hits;
@@ -14608,6 +14650,9 @@ function genOneScript(opts){
     exemplarLift: exemplarLift,
     groundedFindings: groundedFindings,
     groundedObjections: groundedObjections,
+    defusePool: defusePool,
+    matchObjectionsToThreads: matchObjectionsToThreads,
+    fitTokens: fitTokens,
     causedObjection: causedObjection
   };
 })();
@@ -15756,7 +15801,8 @@ function genOneScript(opts){
     // A SEQUENCE-WALK: a lived chain of small frictions in the order they actually happen, the old tool a hassle
     // at every step, the product ABSENT the whole time, ending in giving up. This is the shape that makes a
     // setup the viewer's world instead of a product description -- the strongest setup shape, so it leads.
-    {ex:"You spot the wrinkles in your shirt, dig the iron out of the cupboard, stand there while it heats, notice the board is still folded behind the door, and decide the jacket will cover it."}, // laundry
+    {ex:"You spot the wrinkles in your shirt, dig the iron out of the cupboard, stand there while it heats, notice the board is still folded behind the door, and decide the jacket will cover it."}, // laundry -- sequence-walk
+    {ex:"The good knife's already out, the onions are half-chopped, and there's nowhere clean to set them down."},       // kitchen prep -- a scene with NO second person, still the viewer's world
     {ex:"You're lying on your side, your shoulder jammed into your neck, and your arm's gone numb under the pillow."},   // bedding
     {ex:"You see these little flakes? That is going into your family's food, every meal."},                              // kitchen
     {ex:"You pop the trunk and it's that same knot of tangled straps again."},                                          // tools/auto
@@ -15860,7 +15906,7 @@ function genOneScript(opts){
     // The claim BAN list still draws from every pain and objection -- these are never assertable anywhere.
     ctx.pains.concat(ctx.objections).forEach(function(f){ f.claims.forEach(function(x){ if (x && claimed.indexOf(x) < 0) claimed.push(x); }); });
     // Defuse pool = grounded objections PLUS grounded product-pains (both are doubts to answer in the pre-close).
-    var objPool = SB.groundedObjections(ctx.objections.concat(productPainList));
+    var objPool = SB.defusePool(ctx.objections, productPainList);
     var defuse = objPool[0] || null;
     // Two hook shapes make a CAUSAL claim -- objection-as-curiosity ("it's the filter") and reversal
     // ("it's not you, it's X"). Both only work when the MATERIAL supports a real cause a person would
@@ -15917,16 +15963,26 @@ function genOneScript(opts){
     // script in weight order; once they run out, a script gets NO objection turn and closes another way
     // (gift/identity or scarcity/urgency). A script never manufactures an objection to fill the slot.
     var plan = hookPlanFor(GEN_COUNT, hookSources, ctx.hookOffset | 0);
-    L.push("PER-SCRIPT ASSIGNMENTS (each script MUST follow its own hook source; it then EITHER defuses its one assigned objection OR, if it has no objection assigned, closes with its assigned close mode. Never introduce an objection not assigned to that script, and never invent one to fill an empty slot):");
-    plan.forEach(function(hs, i){
+    // First pass: fix each script's hook source, Maslow need and SCENARIO (the subject its hook/setup/payoff
+    // run on). Each script serves a DIFFERENT need, rotated, with a matching situation -- four different videos,
+    // not four rewordings, and safety (a mother relieved her kid can't choke) finally gets its own script.
+    var slots = plan.map(function(hs, i){
       var off = (ctx.hookOffset | 0) + i;
-      // Each script serves a DIFFERENT Maslow need (safety, belonging, esteem, convenience), rotated, and gets
-      // a situation that matches it -- so the batch gives four genuinely different videos, not four party
-      // rewordings, and safety (a mother relieved her kid can't choke) finally gets its own script.
       var need = needsPresent.length ? needsPresent[off % needsPresent.length] : "";
       var needScen = need ? altPainList.filter(function(p){ return needOf(p) === need; }) : [];
       var scen = needScen.length ? needScen[off % needScen.length]
                : (scenarioPool.length ? scenarioPool[off % scenarioPool.length] : null);
+      return { hs: hs, i: i, off: off, need: need, scen: scen };
+    });
+    // Assign objections by THREAD FIT, not by position: an objection goes to the script whose SCENARIO it shares
+    // words with, so a turn never arrives from an unrelated angle (the unboxing turn on a sliding-board script).
+    // A script with no fitting objection gets a close mode -- never a forced-in objection.
+    var threadToks = slots.map(function(sl){ return sl.scen ? SB.fitTokens(sl.scen.value + " " + sl.scen.words.join(" ")) : []; });
+    var objAssign = SB.matchObjectionsToThreads(threadToks, objPool);
+    var closeIdx = 0;
+    L.push("PER-SCRIPT ASSIGNMENTS (each script MUST follow its own hook source; it then EITHER defuses its one assigned objection OR, if it has no objection assigned, closes with its assigned close mode. Never introduce an objection not assigned to that script, and never invent one to fill an empty slot):");
+    slots.forEach(function(sl){
+      var hs = sl.hs, i = sl.i, need = sl.need, scen = sl.scen;
       var line = "Script " + (i + 1) + ":\n  HOOK SOURCE: " + hs.instr;
       if (need) line += "\n  NEED (the drive this script serves -- frame the WHOLE script at this level, it is the emotional core): " + need.toUpperCase() + " -- " + NEED_GLOSS[need] + (needOf({ need: ctx.desireNeed }) === need && ctx.desire ? " The payoff at this level is the desire: \"" + ctx.desire + "\"." : "");
       if (scen) line += "\n  SCENARIO (open the setup on THIS situation, a different one from the other scripts): " + scen.value + (scen.words.length ? " (viewer's words: " + scen.words.join(", ") + ")" : "");
@@ -15937,8 +15993,8 @@ function genOneScript(opts){
       // Fear/visual is handed the exact concern (this script's scenario) and may never escalate it into an
       // unsupported danger or health claim -- this is the shape that can get a creator in trouble.
       if (hs.key === "fearvisual" && scen) line += "\n  POINT ONLY AT THIS CONCERN THE MATERIAL NAMES (an old-way problem, never a flaw of this product), and NEVER turn it into a health claim or danger the material does not state: \"" + scen.value + "\".";
-      if (i < objPool.length){
-        var o = objPool[i];
+      var o = objAssign[i];
+      if (o){
         // Split by whether the material gives a RESOLVING ACTION. With one (o.resolve), the doubt has a fix and
         // the script shows it. Without one, it is a real LIMITATION with no fix -- trying to "resolve" it is
         // what made the model invent a denial or name a reviewed complaint and argue it away. A limitation is
@@ -15955,8 +16011,9 @@ function genOneScript(opts){
           line += "\n  REFRAME THIS LIMITATION AS THE BOUNDARY OF A JOB IT DOES WELL. This is a REAL limitation of the product with no resolving action (for your understanding only, NEVER a line to speak): " + o.value + (o.words.length ? " (the worry, do not voice it: " + o.words.join(", ") + ")" : "") + ". Do NOT name this limitation, do NOT deny it, do NOT argue against it. Instead name the job the product is genuinely FOR and scope it there, so the limitation is felt as the deliberate boundary of that job, not a shortfall. You MAY contrast the job it IS for against the bigger job it is NOT for -- a short battery becomes \"for quick grab-and-go messes, not cleaning the whole house\"; a small capacity becomes \"for one or two, not a crowd\" -- that scope IS the reframe. What you must NEVER do is state the limitation itself as a flaw (never \"the battery is short\", \"the tank is small\", \"the reach is limited\") or take it back after raising it. Move the frame onto the JOB, never onto the flaw.";
         }
       } else {
-        line += "\n  NO OBJECTION TO DEFUSE (the brief has no grounded objection left for this script): do NOT write a pre-close objection turn, leave preclose empty (\"\"). body2 stays the payoff. The close mode lands in the CTA ONLY -- one ending, never a close in body2 and again in the cta.";
-        line += "\n  CLOSE MODE (goes in the CTA): " + CLOSE_MODES[(i - objPool.length) % CLOSE_MODES.length];
+        line += "\n  NO OBJECTION TO DEFUSE (no grounded objection FITS this script's thread): do NOT write a pre-close objection turn, leave preclose empty (\"\"). body2 stays the payoff. The close mode lands in the CTA ONLY -- one ending, never a close in body2 and again in the cta.";
+        line += "\n  CLOSE MODE (goes in the CTA): " + CLOSE_MODES[closeIdx % CLOSE_MODES.length];
+        closeIdx++;
       }
       L.push(line);
     });
@@ -16005,6 +16062,7 @@ function genOneScript(opts){
     L.push("SETUP (body1) names the FEELING, not just the situation. \"You got suckered\", \"you hated people digging around in your ice with their hands\", \"that's sharp\" are FEELINGS; \"a hot day, people over\" is only a situation. A situation beats a spec list, but a feeling beats a situation -- lead with what it FELT like, in the viewer's own words. Still a SCENE from the viewer's day, NEVER a list of what the product has or does, no features or specs; and NEVER a complaint about this product (that is a doubt to defuse later, never \"the first batch comes out watery\"). If the hook opened a loop or a question, the setup ANSWERS or advances it, never pivots to a spec list.");
     L.push("THE SETUP IS THE VIEWER'S WORLD, and the product ARRIVES at the END of it or after it -- never at the start, never in the middle. The strongest setup walks a lived SEQUENCE of small frictions in the order they actually happen: you notice the mess, you drag the old tool out, you wait for it to be ready, you hit one more snag, and you talk yourself into leaving it. The product is ABSENT for all of that -- it only appears once the friction has landed. Copy the SHAPE of the SEQUENCE-WALK example in the SETUP examples above (a chain of felt moments, no product in it), never its topic. The 'write from the specific details of the product' instruction is for the payoff and the objection turn, where you SHOW what it does -- it does NOT apply here; the setup carries no specs. If a felt detail from the material does belong in the setup, it lands as something the buyer FELT in their own words, never as an attribute of the product.");
     L.push("A SPEC LIST IN SECOND PERSON IS STILL A SPEC LIST: the test is what each sentence is ABOUT, not what person it is written in. \"You're holding a lightweight handheld that lives on the counter, always charged\" is four product attributes with \"you're holding\" pasted on the front -- still a spec dump, still banned in the setup. Check every setup sentence: is it ABOUT a moment in the viewer's life, or is it ABOUT the product (what it is, what it has, what it does)? If it is about the product, it does not belong in the setup no matter how it is phrased -- \"you're\", \"you've got\", \"you grab\" do not turn an attribute into a scene.");
+    L.push("VARY HOW THE SETUP OPENS, AND DO NOT DEFAULT TO \"YOU\": the four setups must not open the same way -- \"you reach for it\", \"you reach for the board\", \"you pull out a cutting board\" is the same opening written three times. And a setup does NOT need to start with \"you\" at all: a scene can open with NO second person and still be the viewer's world (\"the good knife's already out, the onions half-chopped, and nowhere clean to set them down\") -- what makes it a scene is what it is ABOUT, not the pronoun. \"You\" is one way in, not THE way in; the model learned it from one example, it is not the rule. Open each setup a different way, and let at least one drop \"you\" entirely.");
     L.push("STACK THE IRRITATIONS: when the SITUATIONS list holds several distinct annoyances, name TWO OR THREE of them in the setup -- each a different feeling, none of them a feature, and every one drawn ONLY from the SITUATIONS list (the old way / the problem this product solves), NEVER a product flaw -- and let them all land before the product appears. Lead with this script's assigned scenario, then add one or two more from that list. (Real example of the shape, all about the WRONG earlier product, not the one being sold: the ice doesn't stay frozen, then people digging around in your ice with their hands, then the sharp cubes -- three separate feelings, THEN the product arrives.)");
     L.push("PRE-CLOSE: only the scripts with an assigned objection write one -- one sentence, a statement not a question, doing DIFFERENT work than the setup, defusing that script's assigned objection and no other. A script with a CLOSE MODE instead leaves preclose empty; its body2 stays the payoff and the close lands in the CTA only, so the script has ONE ending, not two. Never invent an objection just to have a pre-close.");
     L.push("THE OBJECTION TURN BELONGS TO THIS SCRIPT'S THREAD: the pre-close must continue the SAME story the hook, setup and payoff are running -- the same subject, carried forward -- never arrive from an unrelated angle. If the script's thread is what the product is MADE OF, the turn resolves its doubt in those terms; it does not switch to how the product sits on the counter. Connect the assigned objection INTO the thread already running -- a turn that reads like it belongs to a different script has failed, even when it is correct on its own. And refer to the product the way the rest of the script does (by name if the name has not been said yet), never open the turn with a bare \"This\".");
@@ -16089,7 +16147,7 @@ function genOneScript(opts){
     next();
   }
   // Human labels for the guard codes, used when a drop has to be explained to the owner.
-  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated pre-close or CTA opening", "names-doubt": "named the doubt instead of showing the fix", "viewer-owns": "assumes the viewer already owns it", "moved-on": "assumes the viewer already moved on from the old thing", "health-claim": "manufactured health or contamination claim" };
+  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated setup, pre-close, or CTA opening", "names-doubt": "named the doubt instead of showing the fix", "viewer-owns": "assumes the viewer already owns it", "moved-on": "assumes the viewer already moved on from the old thing", "health-claim": "manufactured health or contamination claim" };
   function fmtDrops(codes){ return Object.keys(codes || {}).map(function(c){ return (GUARD_LABELS[c] || c) + ((codes[c] | 0) > 1 ? " x" + codes[c] : ""); }).join(", "); }
   // Per-script drop line: "Script 2: unverifiable figure; Script 4: copied a teaching example" -- so two
   // scripts' reasons never merge into one line the owner cannot attribute. Codes within one script join with

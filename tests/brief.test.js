@@ -616,6 +616,33 @@ let detCta = B.repeatDetail({ preclose: "Charge it by the door instead", cta: "G
 ok(detCta.length === 1 && detCta[0].slot === "CTA", 'repeatDetail: reports the CTA as the colliding slot');
 ok(detCta[0].used.indexOf("grab yours from the") >= 0, 'repeatDetail: hands back the normalized 4-word CTA prefix already used');
 ok(B.repeatDetail({ preclose: "Charge it by the door instead", cta: "Add it to your cart now" }, acc).length === 0, 'repeatDetail: a genuinely different turn and CTA reports no collision');
+// the repetition guard now also covers the SETUP opening (body1) -- the near-identical-openings issue in the setup slot
+let accB1 = [{ body1: "You reach for the board and it slides", preclose: "x", cta: "y" }];
+ok(B.scriptRepeats({ body1: "You reach for the good knife" }, accB1) === true, 'repeats: same first words of the SETUP opening ("you reach for") is a repeat');
+ok(B.scriptRepeats({ body1: "The onions are half chopped already" }, accB1) === false, 'repeats: a genuinely different setup opening passes');
+let detB1 = B.repeatDetail({ body1: "You reach for the good knife" }, accB1);
+ok(detB1.length === 1 && detB1[0].slot === "setup opening" && detB1[0].used.indexOf("you reach for") >= 0, 'repeatDetail: reports the setup opening as the colliding slot with its prefix');
+
+// defusePool: threshold DEPENDS on resolve -- resolvable needs 2 mentions, defuse-only (empty resolve) needs 1
+let dpObjs = B.normalizeBrief({lines:{objections:[
+  { value:'worried it warps in the dishwasher', count:1, resolve:'you hand wash it and it stays flat' }, // resolvable, only 1 mention -> excluded
+  { value:'the board slides on the counter', count:1 },                                                  // defuse-only, 1 mention -> KEPT
+  { value:'needs oiling now and then', count:2, resolve:'you rub oil in once a month' }                  // resolvable, 2 mentions -> kept
+]}}).lines.objections;
+let pool = B.defusePool(dpObjs, []);
+ok(pool.some(function(o){ return o.value === 'the board slides on the counter'; }), 'defusePool: a single-mention DEFUSE-ONLY objection (empty resolve) is grounded');
+ok(!pool.some(function(o){ return o.value === 'worried it warps in the dishwasher'; }), 'defusePool: a single-mention RESOLVABLE objection (has resolve) is still excluded (needs 2)');
+ok(pool.some(function(o){ return o.value === 'needs oiling now and then'; }), 'defusePool: a two-mention resolvable objection is kept');
+
+// matchObjectionsToThreads: an objection goes to the script whose SCENARIO shares words with it, not by position
+let mObjs = [{ value:'the board slides around on the counter', words:['slides','sliding'] }, { value:'it arrives already oiled and ready', words:['oiled','ready'] }];
+let threadA = B.fitTokens('the cutting board slides while you chop');   // shares "slides"/"board"
+let threadB = B.fitTokens('you have to keep re-oiling the wood');       // shares "oil"
+let mAssign = B.matchObjectionsToThreads([threadA, threadB], mObjs);
+ok(mAssign[0] && mAssign[0].value.indexOf('slides') >= 0, 'match: the sliding objection goes to the sliding-thread script');
+ok(mAssign[1] && mAssign[1].value.indexOf('oiled') >= 0, 'match: the oiling objection goes to the oiling-thread script (not by position)');
+let noFit = B.matchObjectionsToThreads([B.fitTokens('the sauce wipes right off the glass')], [{ value:'it arrives in the original packaging', words:['packaging','unboxing'] }]);
+ok(noFit[0] === null, 'match: an objection that shares no words with the thread is NOT forced in (null -> close mode)');
 
 // 20. asserted-number quarantine: ANY specific figure in the SCRIPT is caught, whether it came from the
 // seller, a buyer, or was invented -- the creator measured none of them. This is the fix for figures that
