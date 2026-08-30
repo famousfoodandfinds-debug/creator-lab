@@ -143,6 +143,10 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   // Setup openings must vary and need not use "you" -- second person is not what makes a setup a scene.
   ok(capturedPrompt.indexOf('VARY HOW THE SETUP OPENS, AND DO NOT DEFAULT TO "YOU"') >= 0 && /a setup does NOT need to start with "you" at all/.test(capturedPrompt), 'the setup rule: vary the openings and do not default to second person');
   ok(capturedPrompt.indexOf("the onions are half-chopped") >= 0, 'a no-second-person setup exemplar is loaded (a scene without "you")');
+  // The setup is the viewer's world BEFORE they know the product exists -- no shopper reasoning, and the
+  // objection stays in the pre-close (the setup is the pre-product scene).
+  ok(capturedPrompt.indexOf('THE VIEWER DOES NOT KNOW THIS PRODUCT EXISTS YET') >= 0 && /can NEVER reason about buying it/.test(capturedPrompt), 'the setup cannot price, weigh buying, or assume ownership -- no shopper reasoning');
+  ok(capturedPrompt.indexOf('THE OBJECTION LIVES ONLY IN THE PRE-CLOSE, NEVER IN THE SETUP') >= 0, 'the objection is decoupled from the setup so it does not shape the pre-product scene');
   // Fix 1: a hook must assert/reveal, not narrate the viewer's own action back at them (works with the rotation).
   ok(capturedPrompt.indexOf('ASSERT OR REVEAL, NEVER NARRATE') >= 0 && /not a hook, it is a caption/.test(capturedPrompt), 'hooks must assert or reveal, never merely narrate the viewer\'s action');
   // Fix 2: the setup loophole -- second-person framing on a spec list is still a spec list (about-ness, not person).
