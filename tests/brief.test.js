@@ -573,6 +573,12 @@ ok(B.scriptViolations({ body1: "it tucks into a small corner of the kitchen" }, 
 ok(B.scriptViolations({ hook: "there's a reason people end up with one in two different rooms" }, {}).indexOf("viewer-owns") >= 0, 'validator: catches a hook that assumes the viewer already owns it ("two different rooms")');
 ok(B.scriptViolations({ body1: "first one stays on the counter, then you grab one for the patio" }, {}).indexOf("viewer-owns") >= 0, 'validator: catches a setup that assumes ownership ("one for the patio")');
 ok(B.scriptViolations({ hook: "your ice runs out before the guests even arrive", body1: "you keep refilling the same tray" }, {}).indexOf("viewer-owns") < 0, 'validator: a normal problem-first hook/setup is not flagged as ownership');
+// moved-on: the ownership assumption pointed the other way -- a hook/setup must not presuppose the viewer has
+// already replaced or stopped using the thing the script is about ("your old X", "you used to", "back when you").
+ok(B.scriptViolations({ hook: "your old air fryer left that plastic taste in everything" }, {}).indexOf("moved-on") >= 0, 'validator: catches "your old X" (writes off anyone still using it)');
+ok(B.scriptViolations({ hook: "you used to dread scrubbing the burnt-on bits" }, {}).indexOf("moved-on") >= 0, 'validator: catches "you used to" (past tense assumes they stopped)');
+ok(B.scriptViolations({ body1: "back when you fought with a warping pan every night" }, {}).indexOf("moved-on") >= 0, 'validator: catches "back when you" in the setup');
+ok(B.scriptViolations({ hook: "the burnt-on bits never scrub off your baking dish", body1: "you scrape at the same corner every night" }, {}).indexOf("moved-on") < 0, 'validator: a present-tense problem hook/setup is not flagged as moved-on');
 ok(B.scriptViolations({ body1: "It shuts off and the plant is dead by morning" }, {}).indexOf("moderation") >= 0, 'validator: catches a moderation word (dead)');
 ok(B.scriptViolations({ body2: "so good I use it every single day now" }, {}).indexOf("ownership") >= 0, 'validator: catches first-person ownership (I use)');
 ok(B.scriptViolations({ body2: "so good I use it every single day now" }, { ownsAllowed: true }).indexOf("ownership") < 0, 'validator: ownership ALLOWED when the creator owns/uses the product');

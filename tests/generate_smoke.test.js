@@ -151,6 +151,14 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(capturedPrompt.indexOf('ANCHOR THE HOOK TO WHAT THE PROBLEM IS WITH') >= 0 && /naming the CATEGORY of thing is enough/.test(capturedPrompt), 'a problem hook must name the category so it does not float without a subject');
   // Fix: the objection turn must connect to the script's own thread, not arrive from a different angle.
   ok(capturedPrompt.indexOf("THE OBJECTION TURN BELONGS TO THIS SCRIPT'S THREAD") >= 0 && /a turn that reads like it belongs to a different script has failed/.test(capturedPrompt), 'the objection turn must continue this script\'s thread and name the product, not switch angle or open with a bare "This"');
+  // Fix: a hook must not presuppose the viewer already moved on from the old thing.
+  ok(capturedPrompt.indexOf('NEVER ASSUME THE VIEWER HAS MOVED ON') >= 0 && capturedPrompt.indexOf('your old X') >= 0, 'the hook must not assume the viewer already replaced the old thing');
+  // Fix: ask, don't assert, the viewer's experience (safe form for a documented worry).
+  ok(capturedPrompt.indexOf("ASK, DON'T ASSERT, THE VIEWER'S EXPERIENCE") >= 0, 'the hook asks the viewer\'s experience rather than asserting it');
+  // Fix: the strongest hook makes the viewer supply the answer (names nothing, stays inside the claim rules).
+  ok(capturedPrompt.indexOf('THE STRONGEST HOOK MAKES THE VIEWER SUPPLY THE ANSWER') >= 0 && /imply it, make them supply it, name nothing/.test(capturedPrompt), 'the strongest hook implies the subject and makes the viewer supply it');
+  // Fix: the health-claim rule holds in every slot, not just the hook.
+  ok(/This holds in EVERY slot -- hook, setup, pre-close, payoff AND cta/.test(capturedPrompt), 'the health/safety/contamination ban is script-wide, not a hook-only rule');
   // The system prompt itself now scopes the doctrine and keeps the setup product-free (raw-file assertion).
   ok(/Those specifics belong where you SHOW what the product does -- the payoff and the objection turn/.test(html), 'the system prompt scopes the specifics doctrine to the payoff and objection turn');
   ok(html.indexOf('The SETUP is the viewer\'s world BEFORE the product arrives, so it carries no specs') >= 0, 'the system prompt keeps the setup product-free');
