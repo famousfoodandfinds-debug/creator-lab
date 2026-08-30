@@ -14515,6 +14515,21 @@ function genOneScript(opts){
     var pc = firstWords(script.preclose, 3), ct = firstWords(script.cta, 4);
     return arr(accepted).some(function(a){ return (pc && firstWords(a.preclose, 3) === pc) || (ct && firstWords(a.cta, 4) === ct); });
   }
+  // Which slot collided and what openings the accepted scripts already used -- so a retry can name the real
+  // slot (pre-close or CTA, never "opening") and show the model the exact first-words to avoid, instead of
+  // handing it a vague label and letting it rewrite the hook while the colliding CTA stays put.
+  function repeatDetail(script, accepted){
+    var acc = arr(accepted), hits = [];
+    var pc = firstWords(script.preclose, 3), ct = firstWords(script.cta, 4);
+    function usedFor(get, n){
+      var seen = {}, out = [];
+      acc.forEach(function(a){ var w = firstWords(get(a), n); if (w && !seen[w]) { seen[w] = 1; out.push(w); } });
+      return out;
+    }
+    if (pc && acc.some(function(a){ return firstWords(a.preclose, 3) === pc; })) hits.push({ slot: "pre-close", prefix: pc, used: usedFor(function(a){ return a.preclose; }, 3) });
+    if (ct && acc.some(function(a){ return firstWords(a.cta, 4) === ct; }))      hits.push({ slot: "CTA",       prefix: ct, used: usedFor(function(a){ return a.cta; }, 4) });
+    return hits;
+  }
 
   window.SaxeBrief = {
     VERSION: BRIEF_V,
@@ -14570,6 +14585,7 @@ function genOneScript(opts){
     briefToGenContext: briefToGenContext,
     scriptViolations: scriptViolations,
     scriptRepeats: scriptRepeats,
+    repeatDetail: repeatDetail,
     numberUnits: numberUnits,
     numbersIn: numbersIn,
     exemplarLift: exemplarLift,
@@ -15946,16 +15962,28 @@ function genOneScript(opts){
     L.push("ANSWER ONLY A DOUBT SOMEONE ACTUALLY HAS: reassure ONLY about the objection assigned to this script (it came from the brief, so a real buyer raised it). NEVER volunteer reassurance about a concern nobody brought up -- \"it runs quietly\" when nothing raised noise, \"it won't tip over\" when no one worried about tipping. Inventing a worry so you can soothe it PLANTS it exactly like naming one does, and wastes a line the viewer did not need. A script with no assigned objection makes NO reassurances at all. Show the action that dissolves the REAL worry; never state the worry, and never answer one nobody had.");
     L.push("OVERCOME OBJECTIONS INSIDE THE PRODUCT: when a script does defuse an objection, answer it with the product and how it is USED -- something the viewer can do or see for themselves (the model is the filter: same battery doubt, but the fix is a quick thing the viewer does). Answer inside the product, never by pointing at the company behind it.");
     L.push("CREDIBILITY BEAT (only when the material supports it): if the brief shows the product was IMPROVED in response to buyers -- a second generation, a fixed complaint, a change the makers made -- you may sell that improvement through credibility rather than a spec (\"they listened and moved the tank to the front\"). It lands harder than a feature. Use it ONLY when the material actually names the improvement; never invent a previous version or a change that is not there.");
+    L.push("VARY THE CTA across the batch, the same way the hook openings and objection turns vary -- the FIRST FEW WORDS of each script's call to action must differ, not just the tail. Do NOT open every CTA with the same stock phrase: if one ends on \"tap the link below\", the others must NOT reach for \"tap the link\", \"grab yours before\", \"get one before they\", \"check it out\" -- four CTAs that start the same way read as one CTA written four times. Come at the shopping button from a different angle each time (echo THIS script's own hook, name the moment it unlocks, address the exact viewer it is for), so no two CTAs begin with the same words.");
     L.push("");
     L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the tight setup; preclose = the assigned objection turn, or "" when the script has a CLOSE MODE instead of an objection; body2 = the payoff, which must CLOSE THE EXACT GAP THE HOOK OPENED (the same subject, now resolved -- not a different benefit) at the NEED level assigned to this script (describe the moment using only a setting the material supports; do not invent a place or context the material never mentions, like an office or a cabin; do not say "you become the person who"); it is never a gift or scarcity close; cta = the shopping-button call to action -- for an objection script it echoes the hook, for a close-mode script it IS the gift/identity or scarcity close. Keep every script tight and speakable. No em dashes.');
     return L.join("\n");
   }
   // Ask for ONE script rewritten -- reuses the full batch prompt (all context + this script's assignment +
   // every rule) and just changes the output instruction, so nothing diverges from the batch rules.
-  function genOnePrompt(ctx, i, prev, violations){
+  function genOnePrompt(ctx, i, prev, violations, accepted){
     var reasons = (violations || []).map(function(c){ return GUARD_LABELS[c] || c; }).join("; ");
+    // When the reject was a repetition, the bare label ("repeated ... opening") points the model at the hook,
+    // so it rewrites the wrong slot and collides again. Name the ACTUAL slot (pre-close or CTA) and hand over
+    // the exact first-words the accepted scripts already used, so the model has something concrete to avoid.
+    var repeatMsg = "";
+    if ((violations || []).indexOf("repetition") >= 0) {
+      var hits = (typeof SB !== "undefined" && SB.repeatDetail) ? SB.repeatDetail(prev, accepted || []) : [];
+      repeatMsg = hits.map(function(h){
+        var avoid = h.used.map(function(w){ return "\"" + w + "...\""; }).join(", ");
+        return " Your " + h.slot + " began with the same words as another script already in this batch. Give this script a " + h.slot + " that OPENS with different first words entirely -- it must NOT begin with any of these already used in this batch: " + avoid + ". Change the opening words, not just the rest of the line.";
+      }).join("");
+    }
     return genPrompt(ctx) +
-      "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for: " + reasons + "." +
+      "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for: " + reasons + "." + repeatMsg +
       " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
       " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, NO money in any slot (no price, cost, cheapness, or value in money terms -- not 'without spending a fortune', 'worth every penny', 'a steal'), no company service or warranty or returns, " + (ctx.owns ? "" : "no first-person ownership, ") + "never assume the VIEWER already owns it, no moderation words, no invented market trend, never state the current year, keep the SAME viewer from hook to CTA, and NEVER reuse the words of a teaching example (write your own line for this product)." +
       " Above all, use NO number or figure that is not in the PRODUCT LISTING above -- no invented count, weight, size, time, percentage or price; if you are unsure a figure is in the listing, drop it and describe the outcome in words instead." +
@@ -15990,7 +16018,7 @@ function genOneScript(opts){
     // named. `missing` marks a slot the model never returned (recorded as generation-failed if it never comes).
     function regen(idx, prev, viol, tries, missing){
       genStatus((missing ? "Writing script " : "Fixing script ") + (idx + 1) + (missing ? " (the model skipped it)" : " (" + label(viol) + ")") + (tries > 1 ? ", attempt " + tries : "") + "...");
-      claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: guardOpts.generationId, messages: [{ role: "user", content: genOnePrompt(ctx, idx, prev, viol) }] }, function(t, e){
+      claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: guardOpts.generationId, messages: [{ role: "user", content: genOnePrompt(ctx, idx, prev, viol, accepted) }] }, function(t, e){
         var s2 = null; if (!e){ var o = parseJson(t, "{", "}"); if (o) s2 = cleanScript(o); }
         var v2 = s2 ? problems(s2) : (missing ? ["generation-failed"] : viol);
         if (s2 && !v2.length){ accepted.push(finalizeScript(s2, ctx)); i++; next(); return; }
@@ -16009,7 +16037,7 @@ function genOneScript(opts){
     next();
   }
   // Human labels for the guard codes, used when a drop has to be explained to the owner.
-  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated opening", "names-doubt": "named the doubt instead of showing the fix", "viewer-owns": "assumes the viewer already owns it" };
+  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated pre-close or CTA opening", "names-doubt": "named the doubt instead of showing the fix", "viewer-owns": "assumes the viewer already owns it" };
   function fmtDrops(codes){ return Object.keys(codes || {}).map(function(c){ return (GUARD_LABELS[c] || c) + ((codes[c] | 0) > 1 ? " x" + codes[c] : ""); }).join(", "); }
   // Per-script drop line: "Script 2: unverifiable figure; Script 4: copied a teaching example" -- so two
   // scripts' reasons never merge into one line the owner cannot attribute. Codes within one script join with

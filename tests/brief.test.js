@@ -594,6 +594,14 @@ let acc = [{ preclose: "Pull the filter and tap it out", cta: "Grab yours from t
 ok(B.scriptRepeats({ preclose: "Pull the filter, then wipe the housing", cta: "Get one before they sell out" }, acc) === true, 'repeats: same first words of the objection turn is a repeat');
 ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Grab yours from the orange cart today" }, acc) === true, 'repeats: near-identical CTA opening is a repeat');
 ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Add it to your cart now" }, acc) === false, 'repeats: a genuinely different turn and CTA passes');
+// repeatDetail: names the colliding slot and hands back the exact prefixes already used, so the retry can steer
+let detPc = B.repeatDetail({ preclose: "Pull the filter, then wipe the housing", cta: "Get one before they sell out" }, acc);
+ok(detPc.length === 1 && detPc[0].slot === "pre-close", 'repeatDetail: reports the pre-close as the colliding slot');
+ok(detPc[0].prefix === "pull the filter" && detPc[0].used.indexOf("pull the filter") >= 0, 'repeatDetail: hands back the normalized 3-word pre-close prefix already used');
+let detCta = B.repeatDetail({ preclose: "Charge it by the door instead", cta: "Grab yours from the orange cart today" }, acc);
+ok(detCta.length === 1 && detCta[0].slot === "CTA", 'repeatDetail: reports the CTA as the colliding slot');
+ok(detCta[0].used.indexOf("grab yours from the") >= 0, 'repeatDetail: hands back the normalized 4-word CTA prefix already used');
+ok(B.repeatDetail({ preclose: "Charge it by the door instead", cta: "Add it to your cart now" }, acc).length === 0, 'repeatDetail: a genuinely different turn and CTA reports no collision');
 
 // 20. asserted-number quarantine: ANY specific figure in the SCRIPT is caught, whether it came from the
 // seller, a buyer, or was invented -- the creator measured none of them. This is the fix for figures that
