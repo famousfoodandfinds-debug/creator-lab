@@ -147,6 +147,18 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   // carry a resolving ACTION derivation worked out, handed to the script to put on screen.
   ok(capturedPrompt.indexOf('THE BRIEF IS INTELLIGENCE, NOT COPY') >= 0, 'the intelligence-not-copy principle is in the prompt');
   ok(capturedPrompt.indexOf('SHOW THIS ACTION as the answer') >= 0 && capturedPrompt.indexOf('you top it off once and it keeps going') >= 0, 'the resolving action is handed to the script to show');
+  // DEFUSE-ONLY branch: an objection with NO resolving action ("the first batch is watery", a product flaw with
+  // empty resolve) is routed to the dedicated REFRAME treatment, not the resolve/show-the-fix framing.
+  ok(capturedPrompt.indexOf('REFRAME THIS LIMITATION AS THE BOUNDARY OF A JOB IT DOES WELL') >= 0, 'a defuse-only objection (empty resolve) gets the reframe-the-boundary instruction');
+  ok(/Do NOT name this limitation, do NOT deny it, do NOT argue against it/.test(capturedPrompt), 'the reframe instruction forbids naming, denying, or arguing the limitation');
+  ok(capturedPrompt.indexOf('PRE-CLOSE STYLE: REFRAME THE BOUNDARY') >= 0, 'the reframe is a dedicated pre-close treatment, not a rotated PRECLOSE angle');
+  // The reframe attaches to the flaw with no resolve ("watery"), and the resolvable doubt is NOT reframed.
+  const rfIdx = capturedPrompt.indexOf('REFRAME THIS LIMITATION AS THE BOUNDARY');
+  const rfWin = capturedPrompt.slice(rfIdx, rfIdx + 500);
+  ok(rfWin.indexOf('the first batch is watery') >= 0, 'the reframe is applied to the resolve-less product flaw');
+  ok(rfWin.indexOf('you top it off once and it keeps going') < 0, 'the resolvable objection is not swept into the reframe branch (its resolve action is not in the reframe block)');
+  // The old rotated "reframe it as the point" angle is gone -- the reframe is now the dedicated defuse-only path.
+  ok(html.indexOf('Reframe it as the point') < 0, 'the reframe was removed from the rotated PRECLOSE_ANGLES list');
   const dp2 = PS.__derivePrompt([{ full: 'worried about mold' }]);
   ok(/resolve \(objections only\)/.test(dp2) && /resolving action/.test(dp2), 'derivation is told to capture each objection\'s resolving action');
   // Money is banned in any slot; a hook/setup may never assume the viewer owns it; reassure only a real doubt.

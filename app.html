@@ -15789,11 +15789,15 @@ function genOneScript(opts){
     return { label: a.label, setup: setup, payoff: payoff, turn: turn, cta: cta, all: setup.concat(payoff, turn, cta) };
   }
   // Pre-close angles rotate too, so one focus per batch never means the same rebuttal four times.
+  // Angles for a RESOLVABLE objection -- one whose material names a fixing action (o.resolve). Each shows that
+  // fix without naming the doubt. A DEFUSE-ONLY objection (a real limitation with no fix) does NOT use these;
+  // it gets the dedicated REFRAME-THE-BOUNDARY treatment in the per-script assignment instead. The old
+  // "reframe it as the point" angle was moved there so the reframe is the sole treatment for a limitation,
+  // never one option in a rotation that also offers show-the-fix angles a limitation cannot honour.
   var PRECLOSE_ANGLES = [
     "Show the fix: state the thing that RESOLVES the doubt as a plain fact of using the product, WITHOUT ever naming the doubt -- the viewer who worried hears it answered, the viewer who did not hears nothing new.",
     "Worse-alternative contrast: make the OLD way feel worse by comparison, so the resolution lands, without stating the doubt about this product or a price the list does not raise.",
-    "Quiet confidence: drop the reassuring fact in passing as if it were never in question, so the doubt dissolves without ever being spoken.",
-    "Reframe it as the point: show the very thing they might question is the intended design and exactly right for this viewer (e.g. a short battery IS the design of a grab-and-go tool) -- framed as the upside, never as a stated doubt."
+    "Quiet confidence: drop the reassuring fact in passing as if it were never in question, so the doubt dissolves without ever being spoken."
   ];
   // Close modes for a script that has NO grounded objection to defuse. It does not write an objection turn at
   // all; it closes another way. These are the two closes real high-performing scripts use when there is no
@@ -15915,9 +15919,20 @@ function genOneScript(opts){
       if (hs.key === "fearvisual" && scen) line += "\n  POINT ONLY AT THIS CONCERN THE MATERIAL NAMES (an old-way problem, never a flaw of this product), and NEVER turn it into a health claim or danger the material does not state: \"" + scen.value + "\".";
       if (i < objPool.length){
         var o = objPool[i];
-        line += "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
-        line += "\n  RESOLVE THIS DOUBT WITHOUT EVER NAMING IT (this tells you what to answer; it is NOT a line to speak -- show the fact that makes it a non-issue, never state the doubt): " + o.value + (o.words.length ? " (the worry, for your understanding only, do not voice it: " + o.words.join(", ") + ")" : "");
-        if (o.resolve) line += "\n  SHOW THIS ACTION as the answer (the resolving action already worked out for you -- put THIS on screen and let it stand as the reassurance; do not name the doubt it answers): " + o.resolve;
+        // Split by whether the material gives a RESOLVING ACTION. With one (o.resolve), the doubt has a fix and
+        // the script shows it. Without one, it is a real LIMITATION with no fix -- trying to "resolve" it is
+        // what made the model invent a denial or name a reviewed complaint and argue it away. A limitation is
+        // reframed, never resolved: scope the product to a job it does well so the limitation is that job's
+        // deliberate boundary. (plain JS here -- SaxeBrief's str/arr are not in this scope.)
+        var hasResolve = !!(o.resolve && String(o.resolve).trim());
+        if (hasResolve){
+          line += "\n  PRE-CLOSE STYLE: " + PRECLOSE_ANGLES[i % PRECLOSE_ANGLES.length];
+          line += "\n  RESOLVE THIS DOUBT WITHOUT EVER NAMING IT (this tells you what to answer; it is NOT a line to speak -- show the fact that makes it a non-issue, never state the doubt): " + o.value + (o.words.length ? " (the worry, for your understanding only, do not voice it: " + o.words.join(", ") + ")" : "");
+          line += "\n  SHOW THIS ACTION as the answer (the resolving action already worked out for you -- put THIS on screen and let it stand as the reassurance; do not name the doubt it answers): " + o.resolve;
+        } else {
+          line += "\n  PRE-CLOSE STYLE: REFRAME THE BOUNDARY -- this is the dedicated treatment for a real limitation with no fix. Do NOT use a show-the-fix angle here; there is no fix to show.";
+          line += "\n  REFRAME THIS LIMITATION AS THE BOUNDARY OF A JOB IT DOES WELL. This is a REAL limitation of the product with no resolving action (for your understanding only, NEVER a line to speak): " + o.value + (o.words.length ? " (the worry, do not voice it: " + o.words.join(", ") + ")" : "") + ". Do NOT name this limitation, do NOT deny it, do NOT argue against it. Instead name the job the product is genuinely FOR and scope it there, so the limitation is felt as the deliberate boundary of that job, not a shortfall. You MAY contrast the job it IS for against the bigger job it is NOT for -- a short battery becomes \"for quick grab-and-go messes, not cleaning the whole house\"; a small capacity becomes \"for one or two, not a crowd\" -- that scope IS the reframe. What you must NEVER do is state the limitation itself as a flaw (never \"the battery is short\", \"the tank is small\", \"the reach is limited\") or take it back after raising it. Move the frame onto the JOB, never onto the flaw.";
+        }
       } else {
         line += "\n  NO OBJECTION TO DEFUSE (the brief has no grounded objection left for this script): do NOT write a pre-close objection turn, leave preclose empty (\"\"). body2 stays the payoff. The close mode lands in the CTA ONLY -- one ending, never a close in body2 and again in the cta.";
         line += "\n  CLOSE MODE (goes in the CTA): " + CLOSE_MODES[(i - objPool.length) % CLOSE_MODES.length];
