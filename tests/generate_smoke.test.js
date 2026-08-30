@@ -132,6 +132,14 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(capturedPrompt.indexOf('SAFETY') >= 0, 'the safety drive gets a script (it converts hardest and kept being skipped)');
   ok(capturedPrompt.indexOf('THE ARC') >= 0 && capturedPrompt.indexOf('CLOSE THE EXACT GAP THE HOOK OPENED') >= 0, 'the arc is in the prompt: hook opens a gap, payoff closes that gap');
   ok(capturedPrompt.indexOf('names the FEELING') >= 0, 'the setup rule leads with the feeling, not just the situation');
+  // The setup is the viewer's world: the product arrives at the END, the "write from specifics" doctrine is
+  // scoped to the payoff/turn, and a sequence-walk exemplar gives the setup a positive shape to imitate.
+  ok(capturedPrompt.indexOf("THE SETUP IS THE VIEWER'S WORLD") >= 0 && /product ARRIVES at the END of it or after it/.test(capturedPrompt), 'the setup rule: viewer\'s world, product arrives at the end not the start');
+  ok(/does NOT apply here; the setup carries no specs/.test(capturedPrompt), 'the write-from-specifics doctrine is scoped OUT of the setup (payoff/objection turn only)');
+  ok(capturedPrompt.indexOf('dig the iron out of the cupboard') >= 0, 'the sequence-walk exemplar (a lived chain of frictions, product absent) is loaded into the setup examples');
+  // The system prompt itself now scopes the doctrine and keeps the setup product-free (raw-file assertion).
+  ok(/Those specifics belong where you SHOW what the product does -- the payoff and the objection turn/.test(html), 'the system prompt scopes the specifics doctrine to the payoff and objection turn');
+  ok(html.indexOf('The SETUP is the viewer\'s world BEFORE the product arrives, so it carries no specs') >= 0, 'the system prompt keeps the setup product-free');
   // The comprehension test: a hook that drops a middle step (step 1 + step 3, listener assembles the rest)
   // sounds fine aloud but fails on sense; the prompt must demand the WHOLE thought, every link of a chain.
   ok(capturedPrompt.indexOf('COMPLETE (comprehension)') >= 0, 'the hook comprehension test is in the prompt');
