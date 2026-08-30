@@ -14415,6 +14415,18 @@ function genOneScript(opts){
     // days". A sweeping claim about what people in general want/do that the material never stated. Narrow to
     // the trend framing (nobody/everyone ... anymore/these days) so an ordinary "everyone needs ice" is safe.
     if (/\b(nobody|no one|everybody|everyone)\b[^.!?]{0,28}\b(anymore|any more|these days|nowadays|not anymore)\b/.test(lc)) v.push("market-claim");
+    // (health-claim) The model MANUFACTURING its own contamination / leaching claim out of buyer complaint
+    // language -- a liability the listing-claim suppression never covered (that only stops REPEATING the
+    // seller's claims). Fires on the contamination/leaching band in ANY slot, but NOT when the SENTENCE frames
+    // it as a worry someone has: "chemicals leaching into your food" is banned (assertion), "is your pan leaving
+    // metal flakes in your food" is banned (a question is the same claim), "are you worried about your pan
+    // flaking into your food" is allowed (a worry, claims nothing). Sentence-scoped, so a worry frame rescues
+    // only its own sentence. NOT fully general -- harm language is open-ended; the prompt rule covers the tail.
+    // This band is the highest-liability slice and stops it reaching the screen. Applies to product, competitor,
+    // and "the old way" alike (the guard does not care which -- it is the contamination assertion itself).
+    var HARM = /\bleach(?:es|ed|ing)?\b|\boff[-\s]?gas(?:es|sed|sing)?\b|\bbpa\b|\bpfoa\b|\bpfas\b|\bforever chemicals?\b|\bcarcinogen(?:ic|s)?\b|\btoxins?\b|\bmetal (?:flakes?|shavings?|flecks?|bits?)\b|\b(?:chemicals?|flak(?:e|es|ing)|flecks?|shavings?|particles?|plastic|residue)\b[^.!?]{0,25}\b(?:into|in)\s+(?:your|the|our|their|a|his|her)?\s*(?:food|meal|meals|drink|drinks|water|coffee|tea|body|bloodstream|system)\b/;
+    var WORRY = /\bworri(?:ed|es)\b|\bworry\b|\bwonder(?:ed|ing|s)?\b|\bafraid\b|\bscared\b|\bnervous\b|\banxious\b|\bconcern(?:ed|s)?\b|\bif you'?ve ever\b/;
+    if (whole.split(/[.!?\n]+/).some(function(sen){ var s = sen.toLowerCase(); return HARM.test(s) && !WORRY.test(s); })) v.push("health-claim");
     // Year: a PAST year is a legitimate contrast device ("this isn't 2010"), but asserting the CURRENT or a
     // future year dates the video the instant it is watched (and the model got the current year wrong). Block
     // any 4-digit year at or after the real current year; allow older ones as contrast.
@@ -16025,7 +16037,7 @@ function genOneScript(opts){
     return genPrompt(ctx) +
       "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for: " + reasons + "." + repeatMsg +
       " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
-      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, NO money in any slot (no price, cost, cheapness, or value in money terms -- not 'without spending a fortune', 'worth every penny', 'a steal'), no company service or warranty or returns, " + (ctx.owns ? "" : "no first-person ownership, ") + "never assume the VIEWER already owns it, never assume they have already moved on from the old thing (no 'your old X', no 'you used to'), no moderation words, no invented market trend, never state the current year, keep the SAME viewer from hook to CTA, and NEVER reuse the words of a teaching example (write your own line for this product)." +
+      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, NO money in any slot (no price, cost, cheapness, or value in money terms -- not 'without spending a fortune', 'worth every penny', 'a steal'), no company service or warranty or returns, " + (ctx.owns ? "" : "no first-person ownership, ") + "never assume the VIEWER already owns it, never assume they have already moved on from the old thing (no 'your old X', no 'you used to'), no manufactured health, safety, or contamination claim (no leaching, chemicals, or flakes 'into your food' -- speak to a worry someone raised, never assert it), no moderation words, no invented market trend, never state the current year, keep the SAME viewer from hook to CTA, and NEVER reuse the words of a teaching example (write your own line for this product)." +
       " Above all, use NO number or figure that is not in the PRODUCT LISTING above -- no invented count, weight, size, time, percentage or price; if you are unsure a figure is in the listing, drop it and describe the outcome in words instead." +
       " Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
   }
@@ -16077,7 +16089,7 @@ function genOneScript(opts){
     next();
   }
   // Human labels for the guard codes, used when a drop has to be explained to the owner.
-  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated pre-close or CTA opening", "names-doubt": "named the doubt instead of showing the fix", "viewer-owns": "assumes the viewer already owns it", "moved-on": "assumes the viewer already moved on from the old thing" };
+  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated pre-close or CTA opening", "names-doubt": "named the doubt instead of showing the fix", "viewer-owns": "assumes the viewer already owns it", "moved-on": "assumes the viewer already moved on from the old thing", "health-claim": "manufactured health or contamination claim" };
   function fmtDrops(codes){ return Object.keys(codes || {}).map(function(c){ return (GUARD_LABELS[c] || c) + ((codes[c] | 0) > 1 ? " x" + codes[c] : ""); }).join(", "); }
   // Per-script drop line: "Script 2: unverifiable figure; Script 4: copied a teaching example" -- so two
   // scripts' reasons never merge into one line the owner cannot attribute. Codes within one script join with

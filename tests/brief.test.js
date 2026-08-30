@@ -579,6 +579,14 @@ ok(B.scriptViolations({ hook: "your old air fryer left that plastic taste in eve
 ok(B.scriptViolations({ hook: "you used to dread scrubbing the burnt-on bits" }, {}).indexOf("moved-on") >= 0, 'validator: catches "you used to" (past tense assumes they stopped)');
 ok(B.scriptViolations({ body1: "back when you fought with a warping pan every night" }, {}).indexOf("moved-on") >= 0, 'validator: catches "back when you" in the setup');
 ok(B.scriptViolations({ hook: "the burnt-on bits never scrub off your baking dish", body1: "you scrape at the same corner every night" }, {}).indexOf("moved-on") < 0, 'validator: a present-tense problem hook/setup is not flagged as moved-on');
+// health-claim: the model manufacturing its own contamination/leaching claim. Assertions and questions are both
+// the claim; the worry-framed form is the carve-out (speaks to a worry, asserts nothing).
+ok(B.scriptViolations({ body1: "metal flakes are going into your family's food every meal" }, {}).indexOf("health-claim") >= 0, 'validator: catches a contamination assertion ("metal flakes ... into your food")');
+ok(B.scriptViolations({ hook: "is your pan leaving metal flakes in your food" }, {}).indexOf("health-claim") >= 0, 'validator: catches the QUESTION form of the same claim');
+ok(B.scriptViolations({ body2: "no chemicals leaching into your family's food" }, {}).indexOf("health-claim") >= 0, 'validator: catches a leaching assertion in the payoff (script-wide, not hook-only)');
+ok(B.scriptViolations({ hook: "are you worried about your pan flaking into your food" }, {}).indexOf("health-claim") < 0, 'validator: the worry-framed version is allowed (speaks to a worry, claims nothing)');
+ok(B.scriptViolations({ hook: "have you ever wondered what your nonstick is leaching into your dinner" }, {}).indexOf("health-claim") < 0, 'validator: a "have you wondered" worry frame is allowed even with leaching');
+ok(B.scriptViolations({ hook: "the sauce slides right off the glass", body1: "you serve straight from the dish to the table" }, {}).indexOf("health-claim") < 0, 'validator: an ordinary food line with no contamination band is not flagged');
 ok(B.scriptViolations({ body1: "It shuts off and the plant is dead by morning" }, {}).indexOf("moderation") >= 0, 'validator: catches a moderation word (dead)');
 ok(B.scriptViolations({ body2: "so good I use it every single day now" }, {}).indexOf("ownership") >= 0, 'validator: catches first-person ownership (I use)');
 ok(B.scriptViolations({ body2: "so good I use it every single day now" }, { ownsAllowed: true }).indexOf("ownership") < 0, 'validator: ownership ALLOWED when the creator owns/uses the product');
