@@ -41,11 +41,21 @@ function harness(engine){
   const win = {}; new Function('window', blocks.find(b => b.includes('window.SaxeBrief =')))(win); const SB = win.SaxeBrief;
   const byId = {};
   const document = { readyState:'complete', getElementById(id){ if(!byId[id]) byId[id]=mkEl(id); return byId[id]; }, createElement(t){ return mkEl('<'+t+'>'); }, createDocumentFragment(){ return mkEl('#frag'); }, querySelector(s){ if(!byId[s]) byId[s]=mkEl(s); return byId[s]; }, addEventListener(){}, body:{classList:{add(){},remove(){}}} };
-  const state = { captured:'', batchModel:'', batchSystem:'__unset__', mode:'flag', buyerChecks:0, hookReads:0, regen:{} };
+  const state = { captured:'', batchModel:'', batchSystem:'__unset__', batchUrl:'', mode:'flag', buyerChecks:0, hookReads:0, regen:{} };
   function reply(obj){ return { status:200, text(){ return Promise.resolve(JSON.stringify({ content:[{ type:'text', text:(typeof obj==='string'?obj:JSON.stringify(obj)) }] })); } }; }
+  // Streaming reply: the SSE Anthropic sends, chunked in two content_block_delta events so the client's reassembly
+  // (accumulate text across deltas) is exercised, then message_stop.
+  function streamReply(fullText){
+    const enc = new TextEncoder(); const mid = Math.floor(fullText.length / 2);
+    const lines = [fullText.slice(0, mid), fullText.slice(mid)].map(function(c){ return 'data: ' + JSON.stringify({ type:'content_block_delta', delta:{ type:'text_delta', text:c } }) + '\n'; });
+    lines.push('data: ' + JSON.stringify({ type:'message_stop' }) + '\n');
+    const stream = new ReadableStream({ start(controller){ lines.forEach(function(l){ controller.enqueue(enc.encode(l)); }); controller.close(); } });
+    return { status:200, body: stream, text(){ return Promise.resolve(''); } };
+  }
   const fetchStub = function(u, o){
     const body = JSON.parse(o.body); const content = body.messages[0].content;
-    if (!state.captured){ state.captured = content; state.batchModel = body.model; state.batchSystem = body.system; }  // the batch prompt is the first call
+    if (!state.captured){ state.captured = content; state.batchModel = body.model; state.batchSystem = body.system; state.batchUrl = u; }  // the batch prompt is the first call
+    if (u && u.indexOf('/api/claude-stream') >= 0) return Promise.resolve(streamReply(JSON.stringify(MIN_OBJECT ? MINOBJ : BATCH)));   // the streaming endpoint (Minimal-on-Sonnet)
     if (FAIL_NEXT && content.indexOf('REGENERATE ONLY SCRIPT') < 0 && content.indexOf('HOOK READ-BACK') < 0 && content.indexOf('BUYER + GROUNDING CHECK') < 0){
       return Promise.resolve({ status:504, text(){ return Promise.resolve('inactivity timeout'); } });   // the batch times out
     }
@@ -163,6 +173,9 @@ async function run(h, mode){
   const S = harness('minimal');
   const rs = await run(S, 'flag');
   ok(S.state.batchModel === SONNET, 'minimal flipped to Sonnet -> the minimal batch runs on Sonnet');
+  ok(S.state.batchUrl === '/api/claude-stream', 'Minimal-on-Sonnet routes to the STREAMING endpoint');
+  ok(M.state.batchUrl === '/api/claude' && C.state.batchUrl === '/api/claude' && P.state.batchUrl === '/api/claude', 'minimal-on-Haiku, Current and Lean all use the buffered /api/claude (never the stream)');
+  ok(rs.text.indexOf('Cold drinks should not be this hard') >= 0, 'the streamed SSE is reassembled into the batch and rendered (client streaming branch works)');
   ok(/minimal engine, Sonnet/.test(rs.status), 'the status names the Sonnet run so batches are distinguishable');
   MIN_SONNET = false;
   const S2 = harness('minimal');

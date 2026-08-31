@@ -15126,7 +15126,46 @@ function genOneScript(opts){
   // Surfaces the REAL failure: the HTTP status AND the response body from /api/claude, so a missing
   // key (proxy returns 500 {"error":"API key not configured"}), a 429 cap, or an auth 401 are visible
   // instead of a generic "could not build". cb(null, {status, message}) on any non-2xx or error body.
-  function claudeCall(body, cb){
+  function claudeCall(body, cb, opts){
+    opts = opts || {};
+    // OPT-IN streaming branch (only Minimal-on-Sonnet passes opts.stream). Hits the streaming endpoint so bytes
+    // flow and the request survives past the synchronous timeout, then reassembles the SSE into the SAME text the
+    // buffered path hands back -- so callers see no difference. Every existing caller passes no opts and falls
+    // straight through to the unchanged path below.
+    if (opts.stream) {
+      fetch("/api/claude-stream", { method: "POST", headers: claudeHeaders(), body: JSON.stringify(body) })
+        .then(function(r){
+          var sst = r.status;
+          if (sst < 200 || sst >= 300 || !r.body){
+            return r.text().then(function(t){ var d = null; try { d = JSON.parse(t); } catch(e){} var m = (d && d.error && (d.error.message || d.error)) || (t ? String(t).slice(0, 300) : "stream error"); cb(null, { status: sst, message: String(m) }); });
+          }
+          var reader = r.body.getReader(), dec = new TextDecoder(), sbuf = "", text = "", errMsg = null;
+          function pump(){
+            return reader.read().then(function(res){
+              if (res.value){
+                sbuf += dec.decode(res.value, { stream: true });
+                var nl;
+                while ((nl = sbuf.indexOf("\n")) >= 0){
+                  var line = sbuf.slice(0, nl); sbuf = sbuf.slice(nl + 1);
+                  if (line.indexOf("data:") !== 0) continue;
+                  var payload = line.slice(5).trim();
+                  if (!payload || payload === "[DONE]") continue;
+                  try {
+                    var ev = JSON.parse(payload);
+                    if (ev.type === "content_block_delta" && ev.delta && typeof ev.delta.text === "string") text += ev.delta.text;
+                    else if (ev.type === "error") errMsg = (ev.error && (ev.error.message || ev.error)) || "stream error";
+                  } catch (e) {}
+                }
+              }
+              if (res.done){ if (errMsg) cb(null, { status: 200, message: String(errMsg) }); else cb(text, null); return; }
+              return pump();
+            });
+          }
+          return pump();
+        })
+        .catch(function(err){ cb(null, { status: 0, message: (err && err.message) ? err.message : "network error" }); });
+      return;
+    }
     var st = 0;
     fetch("/api/claude", { method: "POST", headers: claudeHeaders(), body: JSON.stringify(body) })
       .then(function(r){ st = r.status; return r.text(); })
@@ -16809,7 +16848,7 @@ function genOneScript(opts){
           if (usingLean) leanReview(ctx, guardOpts, drafts0, afterReview);
           else afterReview(drafts0);
         } catch (e1){ genFail(e1); }
-      });
+      }, { stream: usingMinimal && onSonnet });   // only Minimal-on-Sonnet streams; everything else takes the buffered path
     } catch (e0){ genFail(e0); }
   }
   function lead0(ctx){ return ctx.leadPain ? ctx.leadPain.value : ""; }
