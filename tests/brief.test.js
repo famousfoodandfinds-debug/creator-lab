@@ -743,6 +743,22 @@ ok(B.numbersIn("33 lbs per 24 hours")["33"] && B.numbersIn("33 lbs per 24 hours"
 ok(B.numbersIn("16.33 x 6.7 x 13.58")["16.33"] && B.numbersIn("16.33 x 6.7 x 13.58")["6.7"] && B.numbersIn("16.33 x 6.7 x 13.58")["13.58"], 'numbersIn: pulls all three dimension numbers');
 ok(B.numbersIn("six or seven minutes")["6"] && B.numbersIn("six or seven minutes")["7"], 'numbersIn: converts word numbers to digits');
 ok(!B.numbersIn("1.8 L tank")["1"], 'numbersIn: "1.8" is one number, not also "1"');
+// Compound word numbers: a tens word beside a units word composes to one value (was split into 20 and 4).
+ok(B.numbersIn("twenty-four hour timer")["24"], 'numbersIn: "twenty-four" composes to 24');
+ok(B.numbersIn("holds twenty-five ounces")["25"], 'numbersIn: "twenty-five" composes to 25');
+ok(B.numbersIn("two hundred watt motor")["200"], 'numbersIn: "two hundred" composes to 200');
+ok(B.numbersIn("twenty-four hour timer")["20"] && B.numbersIn("twenty-four hour timer")["4"], 'numbersIn: the individual words are still recorded (nothing that matched before stops)');
+// The provenance false-block this fixes: the listing states the figure as a WORD, the script writes the DIGIT.
+let wordListing = "Twenty-four hour programmable timer. Basket holds twenty-five ounces.";
+ok(B.scriptViolations({ body1: "runs on a 24 hour timer" }, { listingText: wordListing }).indexOf("asserted-number") < 0, 'provenance: script "24 hours" clears against listing "twenty-four hour" (was wrongly blocked)');
+ok(B.scriptViolations({ body2: "the basket holds 25 ounces" }, { listingText: wordListing }).indexOf("asserted-number") < 0, 'provenance: script "25 ounces" clears against listing "twenty-five ounces"');
+ok(B.scriptViolations({ body1: "it has a 26 hour timer" }, { listingText: wordListing }).indexOf("asserted-number") >= 0, 'provenance: a figure NOT in the listing (26) is still blocked');
+// stripLeadingHook: the minimal engine's hook is sometimes echoed as the setup's first sentence -- peel that one repeat.
+ok(B.stripLeadingHook("FINALLY a board that lasts.", "FINALLY a board that lasts. I went through three cheap ones this year.") === "I went through three cheap ones this year.", 'stripLeadingHook: removes the echoed hook sentence from the setup');
+ok(B.stripLeadingHook("WOW this is massive", "WOW, this is massive! The box barely fit on my counter.") === "The box barely fit on my counter.", 'stripLeadingHook: matches normalized (case + punctuation) and strips');
+ok(B.stripLeadingHook("A clean hook", "A totally different setup that shares a word.") === "A totally different setup that shares a word.", 'stripLeadingHook: leaves a setup that does not open with the hook untouched');
+ok(B.stripLeadingHook("Only the hook", "Only the hook.") === "Only the hook.", 'stripLeadingHook: never blanks the field (nothing left -> unchanged)');
+ok(B.stripLeadingHook("Some hook", "") === "", 'stripLeadingHook: empty body is safe');
 ok(B.scriptViolations({ cta: "Grab it for just $40 today" }, {}).indexOf("price") >= 0, 'validator: a currency figure ($40) is blocked as price');
 ok(B.scriptViolations({ cta: "Only 40 bucks right now" }, {}).indexOf("price") >= 0, 'validator: "40 bucks" is blocked as price');
 ok(B.scriptViolations({ body2: "The ice is ready before you know it" }, { listingText: listing }).indexOf("asserted-number") < 0, 'validator: a figure-free script with a listing still passes');

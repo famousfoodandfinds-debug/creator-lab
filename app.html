@@ -14604,8 +14604,36 @@ function genOneScript(opts){
   function numbersIn(text){
     var out = {}, t = str(text).toLowerCase();
     (t.match(/\d[\d.,]*/g) || []).forEach(function(n){ n = n.replace(/,/g, "").replace(/\.+$/, ""); if (n) out[n] = true; });
-    t.replace(/[^a-z ]/g, " ").split(/\s+/).forEach(function(w){ if (WORD_NUM[w]) out[WORD_NUM[w]] = true; });
+    // Word numbers, and COMPOUNDS. A tens word beside a units word is ONE value ("twenty-four" = 24, not 20 and
+    // 4), and "<units> hundred" is units*100. Without composing, a legit listing spec ("twenty-four hour timer",
+    // "twenty-five ounces") never matched the script's digit form ("24 hours", "25 ounces") and got blocked as
+    // unverifiable. The individual words are still recorded too, so nothing that matched before stops matching.
+    var toks = t.replace(/[^a-z ]/g, " ").split(/\s+/);
+    for (var i = 0; i < toks.length; i++){
+      var w = toks[i]; if (!WORD_NUM[w]) continue;
+      out[WORD_NUM[w]] = true;
+      var val = parseInt(WORD_NUM[w], 10), nxt = toks[i + 1], nval = (nxt && WORD_NUM[nxt]) ? parseInt(WORD_NUM[nxt], 10) : null;
+      if (val >= 20 && val <= 90 && val % 10 === 0 && nval != null && nval >= 1 && nval <= 9) out[String(val + nval)] = true;   // twenty-four -> 24
+      if (val >= 1 && val <= 9 && nxt === "hundred") out[String(val * 100)] = true;                                            // two hundred -> 200
+    }
     return out;
+  }
+  // The minimal engine writes all four HOOKS first, then the scripts, and the model sometimes restates the hook
+  // verbatim as the FIRST sentence of the setup (a known failure of hooks-first shapes) -- so the hook lands in
+  // both the hook field and body1. This peels a leading sentence off the setup when it is the same sentence as
+  // the hook (compared normalized: case, whitespace, and punctuation ignored). Conservative: it only removes a
+  // WHOLE leading sentence that equals the hook, and never blanks the field -- if nothing is left, the body is
+  // returned unchanged. Not a rewrite (minimal does no rewriting); a deterministic de-duplication of one echo.
+  function stripLeadingHook(hook, body){
+    hook = str(hook); body = str(body);
+    if (!hook.trim() || !body.trim()) return body;
+    function norm(s){ return String(s).toLowerCase().replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim(); }
+    var nh = norm(hook); if (!nh) return body;
+    var m = body.match(/^\s*[^.!?\n]*[.!?]?/);   // the first sentence of the setup, with its terminal mark
+    if (!m || !m[0]) return body;
+    if (norm(m[0]) !== nh) return body;          // setup does not open with the hook -- leave it alone
+    var rest = body.slice(m[0].length).replace(/^[\s"'“”‘’.,;:-]+/, "");
+    return rest ? rest : body;                   // never leave the setup empty
   }
   // DIAGNOSTIC: the EXACT text that trips the figure and price guards, so a drop message can name what to fix
   // ("Script 3: unverifiable figure -- 'twenty minutes'") instead of just the reason. Mirrors the guard logic in
@@ -14781,6 +14809,7 @@ function genOneScript(opts){
     repeatDetail: repeatDetail,
     numberUnits: numberUnits,
     numbersIn: numbersIn,
+    stripLeadingHook: stripLeadingHook,
     exemplarLift: exemplarLift,
     groundedFindings: groundedFindings,
     groundedObjections: groundedObjections,
@@ -16851,7 +16880,13 @@ function genOneScript(opts){
             var mo = parseJson(text, "{", "}");
             if (mo && (Array.isArray(mo.hooks) || Array.isArray(mo.scripts))){
               var mh = Array.isArray(mo.hooks) ? mo.hooks : [], mss = Array.isArray(mo.scripts) ? mo.scripts : [];
-              out = mss.map(function(s, i){ s = s || {}; return { hook: (mh[i] != null ? mh[i] : s.hook), body1: s.body1, preclose: "", body2: s.body2, cta: s.cta }; });
+              out = mss.map(function(s, i){
+                s = s || {};
+                var hook = (mh[i] != null ? mh[i] : s.hook);
+                // The model sometimes echoes the hook as the first sentence of the setup; strip that one repeat.
+                var body1 = (SB.stripLeadingHook ? SB.stripLeadingHook(hook, s.body1) : s.body1);
+                return { hook: hook, body1: body1, preclose: "", body2: s.body2, cta: s.cta };
+              });
             } else { out = parseJson(text, "[", "]"); }
           } else { out = parseJson(text, "[", "]"); }
           if (!Array.isArray(out) || !out.length){ generating = false; generatedScripts = []; renderGenScripts(); genStatus("The model did not return usable scripts -- no new scripts were produced. Press Generate to try again.", "var(--red)"); return; }

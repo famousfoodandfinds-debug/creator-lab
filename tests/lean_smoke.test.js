@@ -29,7 +29,7 @@ let MIN_SONNET = false;
 let MIN_UNSET = false;   // when true, the minimal-model config is unset -> exercises the DEFAULT (now Sonnet)
 const HAIKU = 'claude-haiku-4-5-20251001', SONNET = 'claude-sonnet-4-6';
 const MINOBJ = { hooks:["HOOKONE lands massive","HOOKTWO finally sharp","HOOKTHREE oil slick by 3","HOOKFOUR bread aisle"], scripts:[
-  { buyer:"b1", angle:"STRIPPEDSTRAT1", coreDesire:"d", featureProof:"f", doNotDiscuss:"STRIPPEDSTRAT1b", body1:"You reach for it early", body2:"It just works", cta:"Grab it now" },
+  { buyer:"b1", angle:"STRIPPEDSTRAT1", coreDesire:"d", featureProof:"f", doNotDiscuss:"STRIPPEDSTRAT1b", body1:"HOOKONE lands massive. You reach for it early", body2:"It just works", cta:"Grab it now" },
   { buyer:"b2", angle:"STRIPPEDSTRAT2", coreDesire:"d", featureProof:"f", doNotDiscuss:"STRIPPEDSTRAT2b", body1:"The counter is a mess", body2:"Now it is clear", cta:"See it here" },
   { buyer:"b3", angle:"STRIPPEDSTRAT3", coreDesire:"d", featureProof:"f", doNotDiscuss:"STRIPPEDSTRAT3b", body1:"Guests keep noticing", body2:"You feel proud", cta:"Check this out" },
   { buyer:"b4", angle:"STRIPPEDSTRAT4", coreDesire:"d", featureProof:"f", doNotDiscuss:"STRIPPEDSTRAT4b", body1:"You almost skipped it", body2:"So glad you did not", cta:"Tap to try it" }
@@ -164,6 +164,10 @@ async function run(h, mode){
   ok(rmo.text.indexOf('HOOKONE lands massive') >= 0 && rmo.text.indexOf('You reach for it early') >= 0, 'minimal pairs the first HOOK onto the first script and renders both');
   ok(rmo.text.indexOf('HOOKFOUR bread aisle') >= 0 && rmo.text.indexOf('You almost skipped it') >= 0, 'the fourth hook is paired onto the fourth script (order preserved)');
   ok(rmo.text.indexOf('STRIPPEDSTRAT') < 0, 'the per-script strategy fields (angle/doNotDiscuss) are stripped, never rendered');
+  // The model echoed the hook as the first sentence of script 1's setup; the merge peels that one repeat so the
+  // hook shows once (in the hook field), not twice (hook field + start of setup).
+  ok((rmo.text.match(/HOOKONE lands massive/g) || []).length === 1, 'an echoed hook is de-duplicated: it appears once, not repeated at the top of the setup');
+  ok(rmo.text.indexOf('You reach for it early') >= 0, 'the rest of the setup survives the de-duplication');
   MIN_OBJECT = false;
 
   // MODEL config: minimal defaults to Haiku; flipped to Sonnet it runs the minimal batch on Sonnet; Current and
