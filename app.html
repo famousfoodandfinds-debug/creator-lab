@@ -16337,7 +16337,19 @@ function genOneScript(opts){
     var altPains = (ctx.pains || []).filter(function(p){ return String(p.about || "") === "alternative"; });
     L.push("First, name " + GEN_COUNT + " DIFFERENT buyers for this product from the brief -- different people with different reasons to want it, not " + GEN_COUNT + " angles on one person. Then write ONE script to each buyer, as if you are talking to that specific person.");
     L.push("Write each as a TikTok Shop script that sounds like a person telling a friend about something they love, not an ad. Structure each as hook, setup, payoff, call to action.");
-    L.push("A hook is something a PERSON SAYS OUT LOUD about something they just experienced -- relief, surprise, frustration, recognition -- not a description of the product. It can be very short. It must be understood instantly, with no parsing.");
+    L.push("Here are hooks that have actually worked. Do NOT copy them, and do NOT copy their subjects. Write something in this RANGE for your buyer:");
+    L.push([
+      '"WOW, this is massive."',
+      '"FINALLY a cutting board that doesn\'t ruin my knives."',
+      '"If your face looks like an oil slick by 3:00 pm"',
+      '"Bread makers are for people who are busy or lazy."',
+      '"If doing dishes is your favorite part of cooking, this isn\'t for you."',
+      '"He\'s gonna serve up drinks like a pro."',
+      '"I was nervous to get this because I wasn\'t sure if they were going to be quality."',
+      '"Why is it normalized to drink P? Plastics, Pharmaceutical, PFAS."',
+      '"There\'s no way I was risking these selling out."'
+    ].join("\n"));
+    L.push("Notice how UNRELATED they are -- a reaction, a relief, an unflattering picture, an opinion, an exclusion, a claim about someone else, an admitted doubt, a challenged assumption, personal urgency. That is the point: the range is wide. Do not settle into one shape.");
     L.push("The brief below is research, written in research language. Never repeat its phrasing. Say what it MEANS the way you would say it out loud to a friend.");
     L.push("");
     if (voiceNote) L.push(voiceNote.trim());
