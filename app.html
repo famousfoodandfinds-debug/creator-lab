@@ -15767,6 +15767,12 @@ function genOneScript(opts){
   var leanEngine = false;
   try { leanEngine = (typeof localStorage !== "undefined" && localStorage.getItem("saxe_engine") === "lean"); } catch (e) {}
   function setEngine(lean){ leanEngine = !!lean; try { if (typeof localStorage !== "undefined") localStorage.setItem("saxe_engine", leanEngine ? "lean" : "current"); } catch (e) {} renderGenScripts(); }
+  // GUARD mode: "full" (every guard can drop a script) or "liability" (only health-claim, moderation, price -- and
+  // the technical no-content case -- can drop; every other guard becomes a NOTE on the rendered script instead).
+  // Same reversible, localStorage-backed pattern as the engine toggle. Default full. Nothing is deleted.
+  var guardLiabilityOnly = false;
+  try { guardLiabilityOnly = (typeof localStorage !== "undefined" && localStorage.getItem("saxe_guards") === "liability"); } catch (e) {}
+  function setGuardMode(liability){ guardLiabilityOnly = !!liability; try { if (typeof localStorage !== "undefined") localStorage.setItem("saxe_guards", guardLiabilityOnly ? "liability" : "full"); } catch (e) {} renderGenScripts(); }
   // Monthly GENERATION cap (billing). A "generation" is one batch (one press of Generate = four scripts). The
   // count lives server-side; the client shows what remains so nobody is surprised at the wall. `genCount` is
   // { used, limit, remaining } once fetched, else null (fetch failed / not yet loaded -> show nothing, never
@@ -16424,6 +16430,23 @@ function genOneScript(opts){
     var MAX_TRIES = 3;
     target = target | 0;
     function problems(s){ return SB.scriptViolations(s, guardOpts).concat(SB.scriptRepeats(s, accepted) ? ["repetition"] : []); }
+    // GUARD MODE. In FULL mode every violation blocks (regenerate, then drop). In LIABILITY-ONLY mode only these
+    // block; every other violation is kept as a NOTE on the rendered script instead of dropping it. generation-
+    // failed always blocks (a slot with no content cannot render, note or not). Nothing is deleted -- the guards
+    // still run and still report; liability-only just changes whether a given code stops a script from rendering.
+    var LIABILITY_BLOCK = { "health-claim":1, moderation:1, price:1, "generation-failed":1 };
+    function blockingOf(codes){ return guardOpts.liabilityOnly ? (codes || []).filter(function(c){ return LIABILITY_BLOCK[c]; }) : (codes || []).slice(); }
+    function noteOf(codes){ return guardOpts.liabilityOnly ? (codes || []).filter(function(c){ return !LIABILITY_BLOCK[c]; }) : []; }
+    // Attach the non-blocking violations to the finalized script as rendered notes, naming the offending figure
+    // where there is one ("unverifiable figure ('twenty minutes')"), so the owner sees on the card what a guard
+    // WOULD have dropped in full mode.
+    function withNotes(fin, noteCodes, script){
+      if (noteCodes && noteCodes.length){
+        var figs = (SB.blockedFigures ? SB.blockedFigures(script || {}, guardOpts) : {});
+        fin.notes = noteCodes.map(function(c){ return labelWithFig(c, figs); });
+      }
+      return fin;
+    }
     // Record a drop with the SLOT it happened in, so the message can say which script hit which reason
     // ("Script 2: unverifiable figure; Script 4: copied a teaching example") instead of merging two scripts'
     // reasons into one anonymous line the owner cannot map back to a script.
@@ -16444,10 +16467,11 @@ function genOneScript(opts){
       claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: guardOpts.generationId, messages: [{ role: "user", content: onePrompt(ctx, idx, prev, viol, accepted) }] }, function(t, e){
         var s2 = null; if (!e){ var o = parseJson(t, "{", "}"); if (o) s2 = cleanScript(o); }
         var v2 = s2 ? problems(s2) : (missing ? ["generation-failed"] : viol);
+        var block2 = blockingOf(v2);
         if (s2) consider(idx, finalizeScript(s2, ctx), v2);   // remember the best terminal-free rewrite for the fallback
-        if (s2 && !v2.length){ accepted.push(finalizeScript(s2, ctx)); i++; next(); return; }
-        if (tries < MAX_TRIES){ regen(idx, s2 || prev, v2, tries + 1, missing && !s2); return; }
-        recordDrop(idx, v2, s2 || prev); i++; next();
+        if (s2 && !block2.length){ accepted.push(withNotes(finalizeScript(s2, ctx), noteOf(v2), s2)); i++; next(); return; }
+        if (tries < MAX_TRIES){ regen(idx, s2 || prev, block2, tries + 1, missing && !s2); return; }
+        recordDrop(idx, block2, s2 || prev); i++; next();
       });
     }
     function next(){
@@ -16455,9 +16479,10 @@ function genOneScript(opts){
       var idx = i, s = scripts[idx];
       if (!s){ regen(idx, { hook: "", body1: "", preclose: "", body2: "", cta: "" }, ["missing from the batch"], 1, true); return; }   // model returned fewer than target -> write the skipped slot
       var viol = problems(s);
+      var block = blockingOf(viol);
       consider(idx, finalizeScript(s, ctx), viol);   // the first-pass draft is a fallback candidate too (if terminal-free)
-      if (!viol.length){ accepted.push(finalizeScript(s, ctx)); i++; next(); return; }
-      regen(idx, s, viol, 1, false);
+      if (!block.length){ accepted.push(withNotes(finalizeScript(s, ctx), noteOf(viol), s)); i++; next(); return; }
+      regen(idx, s, block, 1, false);
     }
     next();
   }
@@ -16556,6 +16581,7 @@ function genOneScript(opts){
       var genBatchId = newBatchId();
       guardOpts.generationId = genBatchId;   // carried into the regen calls so they ride free on this batch's id
       var usingLean = leanEngine;   // captured for THIS press, so a mid-flight toggle never splits a batch
+      guardOpts.liabilityOnly = guardLiabilityOnly;   // liability-only: only health/moderation/price drop; the rest are notes
       claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: genBatchId, messages: [{ role: "user", content: usingLean ? genLeanPrompt(ctx) : genPrompt(ctx) }] }, function(text, err){
         try {
           if (err){
@@ -16593,7 +16619,7 @@ function genOneScript(opts){
               generating = false;
               if (clean.length){
                 generatedScripts = clean; renderGenScripts();
-                genStatus(clean.length + " of " + GEN_COUNT + " script" + (GEN_COUNT === 1 ? "" : "s") + " from your brief" + (usingLean ? " (lean engine)" : "") + (dropped ? " (" + dropped + " dropped -- " + fmtDropsByScript(drops) + ")" : "") + ". Save the ones you want.", "var(--green)");
+                genStatus(clean.length + " of " + GEN_COUNT + " script" + (GEN_COUNT === 1 ? "" : "s") + " from your brief" + (usingLean ? " (lean engine)" : "") + (guardOpts.liabilityOnly ? " (liability-only guards)" : "") + (dropped ? " (" + dropped + " dropped -- " + fmtDropsByScript(drops) + ")" : "") + ". Save the ones you want.", "var(--green)");
               } else {
                 // NEVER an empty screen -- but NEVER a raw first-pass draft or a terminal-tier line either. Show the
                 // best TERMINAL-FREE attempt per slot (the rewrites we already paid for, dashes stripped, finalized),
@@ -16631,6 +16657,14 @@ function genOneScript(opts){
     opts = opts || {};
     var saved = opts.mode === "saved";
     var card = document.createElement("div"); card.style.cssText = "background:var(--panel,var(--surface));border:1px solid var(--border-md);border-radius:14px;padding:16px 18px;margin-bottom:12px;";
+    // Guard NOTES (liability-only mode): what a guard WOULD have dropped in full mode, shown as an amber banner
+    // on the rendered script instead of removing it. Display only; not stored when the script is saved.
+    if (s.notes && s.notes.length){
+      var note = document.createElement("div");
+      note.style.cssText = "background:rgba(206,154,128,0.12);border:1px solid rgba(206,154,128,0.4);border-radius:8px;padding:8px 11px;margin-bottom:12px;font-size:11px;line-height:1.5;color:var(--gold,#CE9A80);";
+      note.textContent = "Guard notes (liability-only): " + s.notes.join("; ");
+      card.appendChild(note);
+    }
     var FIELDS = [["Hook","hook"],["Setup","body1"],["Objection turn","preclose"],["Payoff","body2"],["CTA","cta"]];
     var inputs = {};
     FIELDS.forEach(function(p){
@@ -16712,17 +16746,22 @@ function genOneScript(opts){
     head.appendChild(btn);
     // Persistent counter beside the button, in batches ("generations"), never scripts.
     if (genCount){ var cnt = document.createElement("div"); cnt.style.cssText = "font-size:12px;font-weight:600;color:var(--" + genCountTone() + ");"; cnt.textContent = genCountLabel(); head.appendChild(cnt); }
-    // ENGINE toggle -- a small segmented Current/Lean control, pushed to the right of the row. Flipping it only
-    // changes which engine the NEXT press uses; both run on the same brief so the two can be read side by side.
-    var seg = document.createElement("div"); seg.style.cssText = "margin-left:auto;display:inline-flex;border:1px solid var(--border-md);border-radius:8px;overflow:hidden;";
-    [["current", "Current"], ["lean", "Lean"]].forEach(function(pair){
-      var on = (pair[0] === "lean") === leanEngine;
-      var b = document.createElement("button"); b.type = "button"; b.textContent = pair[1];
-      b.style.cssText = "background:" + (on ? "var(--gold)" : "transparent") + ";color:" + (on ? "#080808" : "var(--muted)") + ";border:none;font-family:'Instrument Sans',sans-serif;font-size:11px;font-weight:700;padding:6px 11px;cursor:pointer;";
-      b.addEventListener("click", function(){ setEngine(pair[0] === "lean"); });
-      seg.appendChild(b);
-    });
-    head.appendChild(seg);
+    // Two small segmented toggles, pushed to the right: ENGINE (Current/Lean) and GUARDS (Full/Liability-only).
+    // Each only changes what the NEXT press does, so both can be read side by side on the same brief.
+    function segControl(pairs, activeVal, onPick, leftGap){
+      var seg = document.createElement("div"); seg.style.cssText = (leftGap ? "margin-left:" + leftGap + ";" : "") + "display:inline-flex;border:1px solid var(--border-md);border-radius:8px;overflow:hidden;";
+      pairs.forEach(function(pair){
+        var on = pair[0] === activeVal;
+        var b = document.createElement("button"); b.type = "button"; b.textContent = pair[1];
+        b.style.cssText = "background:" + (on ? "var(--gold)" : "transparent") + ";color:" + (on ? "#080808" : "var(--muted)") + ";border:none;font-family:'Instrument Sans',sans-serif;font-size:11px;font-weight:700;padding:6px 11px;cursor:pointer;white-space:nowrap;";
+        b.addEventListener("click", function(){ onPick(pair[0]); });
+        seg.appendChild(b);
+      });
+      return seg;
+    }
+    head.style.flexWrap = "wrap";
+    head.appendChild(segControl([["current","Current"],["lean","Lean"]], leanEngine ? "lean" : "current", function(v){ setEngine(v === "lean"); }, "auto"));
+    head.appendChild(segControl([["full","Guards: Full"],["liability","Liability-only"]], guardLiabilityOnly ? "liability" : "full", function(v){ setGuardMode(v === "liability"); }, "8px"));
     host.appendChild(head);
     // Threshold warnings as the wall approaches: 80% used, then 5 left. Numbers come from the server's EFFECTIVE
     // limit (genCount.limit), never a hardcoded constant. The AT-limit (r<=0) case is deliberately NOT rendered
