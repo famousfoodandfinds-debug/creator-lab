@@ -28,7 +28,7 @@ function harness(engine){
   const win = {}; new Function('window', blocks.find(b => b.includes('window.SaxeBrief =')))(win); const SB = win.SaxeBrief;
   const byId = {};
   const document = { readyState:'complete', getElementById(id){ if(!byId[id]) byId[id]=mkEl(id); return byId[id]; }, createElement(t){ return mkEl('<'+t+'>'); }, createDocumentFragment(){ return mkEl('#frag'); }, querySelector(s){ if(!byId[s]) byId[s]=mkEl(s); return byId[s]; }, addEventListener(){}, body:{classList:{add(){},remove(){}}} };
-  const state = { captured:'', mode:'flag', buyerChecks:0, regen:{} };
+  const state = { captured:'', mode:'flag', buyerChecks:0, hookReads:0, regen:{} };
   function reply(obj){ return { status:200, text(){ return Promise.resolve(JSON.stringify({ content:[{ type:'text', text:(typeof obj==='string'?obj:JSON.stringify(obj)) }] })); } }; }
   const fetchStub = function(u, o){
     const content = JSON.parse(o.body).messages[0].content;
@@ -38,7 +38,7 @@ function harness(engine){
       if (state.mode === 'junk') return Promise.resolve(reply("the check could not answer"));   // fail-open
       return Promise.resolve(reply([{i:1,keep:true},{i:2,keep:false,fix:"same buyer as script 1, make it different"},{i:3,keep:false,fix:"the empty-nester reason is not in the brief"},{i:4,keep:true}]));
     }
-    if (content.indexOf('HOOK READ-BACK') >= 0) return Promise.resolve(reply([{i:1,pass:true},{i:2,pass:true},{i:3,pass:true},{i:4,pass:true}]));
+    if (content.indexOf('HOOK READ-BACK') >= 0){ state.hookReads++; return Promise.resolve(reply([{i:1,pass:true},{i:2,pass:true},{i:3,pass:true},{i:4,pass:true}])); }
     const rw = content.match(/REGENERATE ONLY SCRIPT (\d+)/);
     if (rw){ const n = rw[1]|0; state.regen[n] = (state.regen[n]|0)+1; return Promise.resolve(reply(n===2?REWORK2:(n===3?REWORK3:BATCH[n-1]))); }
     return Promise.resolve(reply(BATCH));
@@ -107,6 +107,17 @@ async function run(h, mode){
   await run(P, 'flag');
   ok(P.state.captured.indexOf('CREATOR VOICE PROFILE') >= 0, 'the creator voice profile reaches the lean prompt when present');
   ok(P.state.captured.indexOf('WHO ACTUALLY BUYS THIS') >= 0 && /NEVER name the age, gender, or life stage/.test(P.state.captured), 'the buyer demographic reaches the lean prompt, carrying its never-name rule');
+
+  // 7. MINIMAL engine: the one-sentence prompt (brief + profile + liability floor, nothing else), and NO
+  //    post-generation rewriting -- no hook read-back, no buyer/grounding check. The profile still wires in.
+  const M = harness('minimal');
+  const rm = await run(M, 'flag');
+  ok(/Structure each as hook, setup, payoff, call to action/.test(M.state.captured), 'minimal -> the one-sentence minimal prompt');
+  ok(M.state.captured.indexOf('THE WRITING FRAMEWORK') < 0 && M.state.captured.indexOf('TWIST THE KNIFE') < 0 && M.state.captured.indexOf('SELLS ON -- PAIN or DESIRE') < 0 && M.state.captured.indexOf('HOOK -- it must pass ALL') < 0, 'minimal carries no checklist, no pain-vs-desire, and no current rule pile');
+  ok(M.state.captured.indexOf('CREATOR VOICE PROFILE') >= 0 && M.state.captured.indexOf('WHO ACTUALLY BUYS THIS') >= 0, 'the voice + audience profile still reach the minimal prompt');
+  ok(rm.state.buyerChecks === 0, 'minimal runs NO buyer/grounding check');
+  ok(rm.state.hookReads === 0, 'minimal runs NO hook read-back (zero post-generation rewriting)');
+  ok(rm.text.indexOf('Cold drinks should not be this hard') >= 0, 'minimal output still passes through the guards and renders');
   delete global.getVoiceProfileNote; delete global.audienceTargetingNote;
 
   console.log(`\n${pass} passed, ${fail} failed`);

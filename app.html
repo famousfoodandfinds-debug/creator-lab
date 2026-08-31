@@ -15790,9 +15790,12 @@ function genOneScript(opts){
   // chooses the buyers and what to leave out, then the same guards + checks run). Remembered per browser so the
   // owner can flip between them and read the two side by side on one brief. localStorage is guarded so the test
   // harness (no localStorage) and a privacy-locked browser both fall back to "current" without throwing.
-  var leanEngine = false;
-  try { leanEngine = (typeof localStorage !== "undefined" && localStorage.getItem("saxe_engine") === "lean"); } catch (e) {}
-  function setEngine(lean){ leanEngine = !!lean; try { if (typeof localStorage !== "undefined") localStorage.setItem("saxe_engine", leanEngine ? "lean" : "current"); } catch (e) {} renderGenScripts(); }
+  // Three engines: "current" (the full assignment+rules pipeline), "lean" (the checklist-as-framework prompt with
+  // the buyer/grounding check + hook read-back), and "minimal" (one sentence + the brief + profile + the liability
+  // floor and nothing else -- no checklist, no post-gen rewriting -- to test whether the instructions help at all).
+  var engine = "current";
+  try { if (typeof localStorage !== "undefined"){ var e = localStorage.getItem("saxe_engine"); if (["current","lean","minimal"].indexOf(e) >= 0) engine = e; } } catch (e) {}
+  function setEngine(name){ if (["current","lean","minimal"].indexOf(name) < 0) name = "current"; engine = name; try { if (typeof localStorage !== "undefined") localStorage.setItem("saxe_engine", engine); } catch (e) {} renderGenScripts(); }
   // GUARD mode: "full" (every guard can drop a script) or "liability" (only health-claim, moderation, price -- and
   // the technical no-content case -- can drop; every other guard becomes a NOTE on the rendered script instead).
   // Same reversible, localStorage-backed pattern as the engine toggle. Default full. Nothing is deleted.
@@ -16297,6 +16300,42 @@ function genOneScript(opts){
       " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
       " Rewrite ONLY that one script, fixing exactly what is named above and keeping every HARD RULE (invent nothing, no price or money, no company guarantee or returns, no invented social proof, no health claim, first person only if the creator owns it, no em dash). If the reason says to change the BUYER, write to a genuinely different buyer and reason, still grounded in the brief. Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
   }
+  // ---- MINIMAL ENGINE ---------------------------------------------------------------------------------------
+  // The opposite experiment: give the model the brief, the creator's voice + audience, and the liability floor --
+  // and NOTHING else. No checklist, no pain-vs-desire framing, no hook/setup/payoff/objection rules, no post-gen
+  // rewriting (the hook read-back and buyer/grounding check are both skipped for this engine). The point is to
+  // find out whether the instructions help at all, by reading raw output against the two instructed engines.
+  function genMinimalPrompt(ctx){
+    var L = [];
+    function block(label, val){ return val ? (label + ": " + val + "\n") : ""; }
+    var voiceNote = (typeof getVoiceProfileNote === "function") ? getVoiceProfileNote() : "";
+    var audienceNote = (typeof audienceTargetingNote === "function") ? audienceTargetingNote() : "";
+    var altPains = (ctx.pains || []).filter(function(p){ return String(p.about || "") === "alternative"; });
+    L.push("Write " + GEN_COUNT + " TikTok Shop scripts for this product. Each should be a DIFFERENT reason someone would want it, not " + GEN_COUNT + " versions of the same angle. Sound like a person telling a friend about something they love, not an ad. Structure each as hook, setup, payoff, call to action.");
+    L.push("");
+    if (voiceNote) L.push(voiceNote.trim());
+    if (audienceNote) L.push(audienceNote.trim());
+    if (voiceNote || audienceNote) L.push("");
+    L.push("Hard limits: invent nothing that is not in the brief or listing below (no made-up number, figure, or feature); no health, safety, or contamination claim; no price or money; " + (ctx.owns ? "you own this product, so first person from real experience is fine." : "do NOT claim to own or use it (the creator does not) -- speak to the viewer.") + " No em dashes.");
+    L.push("");
+    L.push("THE BRIEF:");
+    L.push(block("PRODUCT", ctx.name) + block("WHO BUYS IT", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning) + block("WHAT OTHERS SAY", ctx.socialProof) + block("THE CREATOR'S STANDING", ctx.owns ? ctx.authority : ""));
+    if (altPains.length) L.push("Frustrations buyers mention: " + altPains.map(function(p){ return p.value; }).join("; ") + ".");
+    if ((ctx.features || []).length) L.push("Features: " + ctx.features.map(function(f){ return f.feature + (f.benefit ? " (" + f.benefit + ")" : ""); }).join("; ") + ".");
+    if (ctx.description) L.push("Listing (the only source for any number): " + ctx.description);
+    if (ctx.mustInclude){ L.push(""); L.push("Include this in each script, in your own words: \"" + ctx.mustInclude + "\"."); }
+    L.push("");
+    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. body1 = setup, body2 = payoff, preclose = "" (leave it empty). No em dashes.');
+    return L.join("\n");
+  }
+  function genMinimalOnePrompt(ctx, i, prev, violations, accepted, extraReason){
+    var reasons = (violations || []).map(function(c){ return GUARD_LABELS[c] || c; }).concat(extraReason ? [String(extraReason)] : []).join("; ") || "it broke a hard limit";
+    return genMinimalPrompt(ctx) +
+      "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + " of the " + GEN_COUNT + ". The previous version was rejected for: " + reasons + ". Rewrite ONLY that one script, fixing that and keeping the hard limits (invent nothing, no number not in the listing, no health or price claim, first person only if you own it, no em dash). Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
+  }
+  // The single-script rewrite prompt for a given engine, so a guard retry (and, where they run, the hook read-back
+  // and buyer/grounding fixes) rewrite in the SAME voice the batch was written in.
+  function onePromptFor(engineMode){ return engineMode === "lean" ? genLeanOnePrompt : engineMode === "minimal" ? genMinimalOnePrompt : genOnePrompt; }
   // Ask for ONE script rewritten -- reuses the full batch prompt (all context + this script's assignment +
   // every rule) and just changes the output instruction, so nothing diverges from the batch rules.
   // extraReason (optional): a free-text reason from the hook read-back editor, not a guard code. It rides the same
@@ -16358,8 +16397,8 @@ function genOneScript(opts){
   }
   // Read the hooks, rewrite the flagged ones, verify, and hand the (possibly-improved) drafts to `done`. Any
   // failure at any step falls through to the original drafts, so this can only help, never block or corrupt.
-  function hookReadback(ctx, guardOpts, drafts, usingLean, done){
-    var onePrompt = usingLean ? genLeanOnePrompt : genOnePrompt;   // rewrite in the engine's own voice
+  function hookReadback(ctx, guardOpts, drafts, engineMode, done){
+    var onePrompt = onePromptFor(engineMode);   // rewrite in the engine's own voice
     if (!READBACK_ENABLED || !drafts || !drafts.length){ done(drafts); return; }
     var orig = drafts.slice();   // keep originals so a rewrite that does not verify can be reverted
     function readCall(hooks, cb){
@@ -16451,8 +16490,8 @@ function genOneScript(opts){
   // GEN_COUNT objects (it sometimes does), the skipped slots are GENERATED fresh to their assignment -- so the
   // batch is never silently short, and a slot that still cannot be produced is recorded as a drop and named,
   // instead of two scripts quietly coming back with no message (the exact silent failure we keep hitting).
-  function validateBatch(ctx, guardOpts, scripts, target, usingLean, done){
-    var onePrompt = usingLean ? genLeanOnePrompt : genOnePrompt;   // a guard retry rewrites in the engine's own voice
+  function validateBatch(ctx, guardOpts, scripts, target, engineMode, done){
+    var onePrompt = onePromptFor(engineMode);   // a guard retry rewrites in the engine's own voice
     var accepted = [], dropped = 0, dropCodes = {}, drops = [], i = 0;
     // Best RENDERABLE attempt per slot, for the all-flagged fallback. An attempt is renderable only when it
     // carries NO terminal code; among renderable attempts the one with the fewest taste flags wins. A slot that
@@ -16623,9 +16662,11 @@ function genOneScript(opts){
       // monthly cap counts this as ONE generation and the retries ride free.
       var genBatchId = newBatchId();
       guardOpts.generationId = genBatchId;   // carried into the regen calls so they ride free on this batch's id
-      var usingLean = leanEngine;   // captured for THIS press, so a mid-flight toggle never splits a batch
+      var engineMode = engine;   // captured for THIS press, so a mid-flight toggle never splits a batch
+      var usingLean = engineMode === "lean", usingMinimal = engineMode === "minimal";
       guardOpts.liabilityOnly = guardLiabilityOnly;   // liability-only: only health/moderation/price drop; the rest are notes
-      claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: genBatchId, messages: [{ role: "user", content: usingLean ? genLeanPrompt(ctx) : genPrompt(ctx) }] }, function(text, err){
+      var batchContent = usingLean ? genLeanPrompt(ctx) : usingMinimal ? genMinimalPrompt(ctx) : genPrompt(ctx);
+      claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: genBatchId, messages: [{ role: "user", content: batchContent }] }, function(text, err){
         try {
           if (err){
             generating = false; renderGenScripts();
@@ -16653,16 +16694,16 @@ function genOneScript(opts){
           // read-back, then the guards. Each stage is fail-open; the current path skips leanReview entirely.
           var drafts0 = out.slice(0, GEN_COUNT).map(cleanScript);
           function afterReview(draftsR){
-          // Read the hooks back and sharpen the weak ones BEFORE the guards run. Fail-open: on any error or with
-          // the flag off, drafts1 is the untouched batch and the rest of the path is exactly as before.
-          hookReadback(ctx, guardOpts, draftsR, usingLean, function(drafts1){
+          // Read the hooks back and sharpen the weak ones BEFORE the guards run -- but NOT in minimal mode, which
+          // runs zero post-generation rewriting so its raw output can be read honestly. Fail-open otherwise.
+          function afterHooks(drafts1){
           genStatus("Checking each script against the hard rules...");
-          validateBatch(ctx, guardOpts, drafts1, GEN_COUNT, usingLean, function(clean, dropped, dropCodes, drops, bestBySlot){
+          validateBatch(ctx, guardOpts, drafts1, GEN_COUNT, engineMode, function(clean, dropped, dropCodes, drops, bestBySlot){
             try {
               generating = false;
               if (clean.length){
                 generatedScripts = clean; renderGenScripts();
-                genStatus(clean.length + " of " + GEN_COUNT + " script" + (GEN_COUNT === 1 ? "" : "s") + " from your brief" + (usingLean ? " (lean engine)" : "") + (guardOpts.liabilityOnly ? " (liability-only guards)" : "") + (dropped ? " (" + dropped + " dropped -- " + fmtDropsByScript(drops) + ")" : "") + ". Save the ones you want.", "var(--green)");
+                genStatus(clean.length + " of " + GEN_COUNT + " script" + (GEN_COUNT === 1 ? "" : "s") + " from your brief" + (usingLean ? " (lean engine)" : usingMinimal ? " (minimal engine)" : "") + (guardOpts.liabilityOnly ? " (liability-only guards)" : "") + (dropped ? " (" + dropped + " dropped -- " + fmtDropsByScript(drops) + ")" : "") + ". Save the ones you want.", "var(--green)");
               } else {
                 // NEVER an empty screen -- but NEVER a raw first-pass draft or a terminal-tier line either. Show the
                 // best TERMINAL-FREE attempt per slot (the rewrites we already paid for, dashes stripped, finalized),
@@ -16683,7 +16724,11 @@ function genOneScript(opts){
               }
             } catch (e2){ genFail(e2); }
           });
-          });
+          }   // end afterHooks
+          // Minimal runs NO post-generation rewriting -- straight to the guards. The other engines read the hooks
+          // back first (fail-open). The lean buyer/grounding check ran before this, only for lean.
+          if (usingMinimal) afterHooks(draftsR);
+          else hookReadback(ctx, guardOpts, draftsR, engineMode, afterHooks);
           }   // end afterReview
           if (usingLean) leanReview(ctx, guardOpts, drafts0, afterReview);
           else afterReview(drafts0);
@@ -16803,7 +16848,7 @@ function genOneScript(opts){
       return seg;
     }
     head.style.flexWrap = "wrap";
-    head.appendChild(segControl([["current","Current"],["lean","Lean"]], leanEngine ? "lean" : "current", function(v){ setEngine(v === "lean"); }, "auto"));
+    head.appendChild(segControl([["current","Current"],["lean","Lean"],["minimal","Minimal"]], engine, setEngine, "auto"));
     head.appendChild(segControl([["full","Guards: Full"],["liability","Liability-only"]], guardLiabilityOnly ? "liability" : "full", function(v){ setGuardMode(v === "liability"); }, "8px"));
     host.appendChild(head);
     // Threshold warnings as the wall approaches: 80% used, then 5 left. Numbers come from the server's EFFECTIVE
