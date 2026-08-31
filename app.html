@@ -14588,7 +14588,15 @@ function genOneScript(opts){
   // range ("six or seven minutes," "ten to twelve hours"). Used to catch a specific figure asserted as
   // fact in a script. Vague quantifiers (a few, a couple) are deliberately excluded -- they are not figures.
   function numberUnits(text){
-    var NW = "(?:\\d[\\d.,]*|once|twice|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred)";
+    // A single number token: a digit run, OR a COMPOUND word number (tens beside a units word --
+    // "twenty-four", "twenty four"; a units word before "hundred" -- "two hundred"), OR one plain word number.
+    // The compound forms come FIRST so "twenty-four hours" is read as 24, not as "four hours" (the reverse of the
+    // numbersIn compound fix: a listing digit must match a script's word compound too). numbersIn then composes
+    // the captured phrase back to 24 for the provenance comparison.
+    var TENS = "twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety";
+    var ONES = "one|two|three|four|five|six|seven|eight|nine";
+    var WORD = "once|twice|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred";
+    var NW = "(?:\\d[\\d.,]*|(?:" + TENS + ")[\\s-](?:" + ONES + ")|(?:" + ONES + ")\\s+hundred|" + WORD + ")";
     var U = "(?:pounds?|lbs?|inches?|feet|foot|ft|cm|mm|ounces?|oz|grams?|kg|watts?|w|decibels?|db|hours?|hrs?|minutes?|mins?|seconds?|secs?|liters?|litres?|ml|gallons?|gal|degrees?|percent|%|days?|weeks?|months?|years?|times)";
     // number (optional range) then an optional "a"/"per" and a space OR hyphen before the unit, so
     // "six or seven minutes", "90-degree heat", "once a month" and "five times a day" all match.
@@ -14604,17 +14612,19 @@ function genOneScript(opts){
   function numbersIn(text){
     var out = {}, t = str(text).toLowerCase();
     (t.match(/\d[\d.,]*/g) || []).forEach(function(n){ n = n.replace(/,/g, "").replace(/\.+$/, ""); if (n) out[n] = true; });
-    // Word numbers, and COMPOUNDS. A tens word beside a units word is ONE value ("twenty-four" = 24, not 20 and
-    // 4), and "<units> hundred" is units*100. Without composing, a legit listing spec ("twenty-four hour timer",
-    // "twenty-five ounces") never matched the script's digit form ("24 hours", "25 ounces") and got blocked as
-    // unverifiable. The individual words are still recorded too, so nothing that matched before stops matching.
+    // Word numbers, and COMPOUNDS. A tens word beside a units word is ONE value ("twenty-four" = 24), and
+    // "<units> hundred" is units*100 ("two hundred" = 200). A compound canonicalizes to its COMPOSITE value
+    // ONLY -- the parts are consumed, not recorded -- because a figure means the composite a person says (24),
+    // never 24 AND 20 AND 4. Recording the parts breaks the provenance check both ways: on the script side the
+    // every()-in-listing test would over-require the parts (a legit "twenty-four hours" wrongly blocked), and
+    // on the listing side a stray "20 minutes" would wrongly clear against a listing that only said 24.
     var toks = t.replace(/[^a-z ]/g, " ").split(/\s+/);
     for (var i = 0; i < toks.length; i++){
       var w = toks[i]; if (!WORD_NUM[w]) continue;
-      out[WORD_NUM[w]] = true;
       var val = parseInt(WORD_NUM[w], 10), nxt = toks[i + 1], nval = (nxt && WORD_NUM[nxt]) ? parseInt(WORD_NUM[nxt], 10) : null;
-      if (val >= 20 && val <= 90 && val % 10 === 0 && nval != null && nval >= 1 && nval <= 9) out[String(val + nval)] = true;   // twenty-four -> 24
-      if (val >= 1 && val <= 9 && nxt === "hundred") out[String(val * 100)] = true;                                            // two hundred -> 200
+      if (val >= 20 && val <= 90 && val % 10 === 0 && nval != null && nval >= 1 && nval <= 9){ out[String(val + nval)] = true; i++; continue; }   // twenty-four -> 24
+      if (val >= 1 && val <= 9 && nxt === "hundred"){ out[String(val * 100)] = true; i++; continue; }                                            // two hundred -> 200
+      out[WORD_NUM[w]] = true;                                                                                                                    // plain word number
     }
     return out;
   }

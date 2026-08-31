@@ -747,12 +747,23 @@ ok(!B.numbersIn("1.8 L tank")["1"], 'numbersIn: "1.8" is one number, not also "1
 ok(B.numbersIn("twenty-four hour timer")["24"], 'numbersIn: "twenty-four" composes to 24');
 ok(B.numbersIn("holds twenty-five ounces")["25"], 'numbersIn: "twenty-five" composes to 25');
 ok(B.numbersIn("two hundred watt motor")["200"], 'numbersIn: "two hundred" composes to 200');
-ok(B.numbersIn("twenty-four hour timer")["20"] && B.numbersIn("twenty-four hour timer")["4"], 'numbersIn: the individual words are still recorded (nothing that matched before stops)');
-// The provenance false-block this fixes: the listing states the figure as a WORD, the script writes the DIGIT.
-let wordListing = "Twenty-four hour programmable timer. Basket holds twenty-five ounces.";
-ok(B.scriptViolations({ body1: "runs on a 24 hour timer" }, { listingText: wordListing }).indexOf("asserted-number") < 0, 'provenance: script "24 hours" clears against listing "twenty-four hour" (was wrongly blocked)');
-ok(B.scriptViolations({ body2: "the basket holds 25 ounces" }, { listingText: wordListing }).indexOf("asserted-number") < 0, 'provenance: script "25 ounces" clears against listing "twenty-five ounces"');
+ok(B.numbersIn("twenty-four hour timer")["24"] && !B.numbersIn("twenty-four hour timer")["20"] && !B.numbersIn("twenty-four hour timer")["4"], 'numbersIn: a compound is the COMPOSITE value only (24), not its parts (20, 4)');
+ok(B.numbersIn("two hundred watts")["200"] && !B.numbersIn("two hundred watts")["2"] && !B.numbersIn("two hundred watts")["100"], 'numbersIn: "two hundred" is 200 only, not 2 and 100');
+// Provenance, FORWARD: the listing states the figure as a WORD, the script writes the DIGIT.
+let wordListing = "Twenty-four hour programmable timer. Basket holds twenty-five ounces. Two hundred watt motor.";
+ok(B.scriptViolations({ body1: "runs on a 24 hour timer" }, { listingText: wordListing }).indexOf("asserted-number") < 0, 'provenance forward: script "24 hours" clears against listing "twenty-four hour"');
+ok(B.scriptViolations({ body2: "the basket holds 25 ounces" }, { listingText: wordListing }).indexOf("asserted-number") < 0, 'provenance forward: script "25 ounces" clears against listing "twenty-five ounces"');
+ok(B.scriptViolations({ body1: "a 200 watt motor" }, { listingText: wordListing }).indexOf("asserted-number") < 0, 'provenance forward: script "200 watts" clears against listing "two hundred watt"');
 ok(B.scriptViolations({ body1: "it has a 26 hour timer" }, { listingText: wordListing }).indexOf("asserted-number") >= 0, 'provenance: a figure NOT in the listing (26) is still blocked');
+// Provenance, REVERSE: the listing states the DIGIT, the script writes the WORD compound. numberUnits must read
+// "twenty-four hours" as one figure (24), not as "four hours".
+let digitListing = "24 hour timer. Holds 25 ounces. 200 watt motor.";
+ok(B.numberUnits("a twenty-four hour timer")[0] === "twenty-four hour", 'numberUnits: reads "twenty-four hour" as one compound figure (not "four hour")');
+ok(B.numberUnits("two hundred watt")[0] === "two hundred watt", 'numberUnits: reads "two hundred watt" as one compound figure');
+ok(B.scriptViolations({ body1: "runs a twenty-four hour timer" }, { listingText: digitListing }).indexOf("asserted-number") < 0, 'provenance reverse: script "twenty-four hour" clears against listing "24 hour"');
+ok(B.scriptViolations({ body2: "holds twenty-five ounces" }, { listingText: digitListing }).indexOf("asserted-number") < 0, 'provenance reverse: script "twenty-five ounces" clears against listing "25 ounces"');
+ok(B.scriptViolations({ body1: "a two hundred watt motor" }, { listingText: digitListing }).indexOf("asserted-number") < 0, 'provenance reverse: script "two hundred watt" clears against listing "200 watt"');
+ok(B.scriptViolations({ body1: "a thirty-one ounce basket" }, { listingText: digitListing }).indexOf("asserted-number") >= 0, 'provenance reverse: a word compound NOT in the listing (thirty-one) is still blocked');
 // stripLeadingHook: the minimal engine's hook is sometimes echoed as the setup's first sentence -- peel that one repeat.
 ok(B.stripLeadingHook("FINALLY a board that lasts.", "FINALLY a board that lasts. I went through three cheap ones this year.") === "I went through three cheap ones this year.", 'stripLeadingHook: removes the echoed hook sentence from the setup');
 ok(B.stripLeadingHook("WOW this is massive", "WOW, this is massive! The box barely fit on my counter.") === "The box barely fit on my counter.", 'stripLeadingHook: matches normalized (case + punctuation) and strips');
