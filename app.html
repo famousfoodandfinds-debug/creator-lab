@@ -16195,6 +16195,18 @@ function genOneScript(opts){
   // instead of two scripts quietly coming back with no message (the exact silent failure we keep hitting).
   function validateBatch(ctx, guardOpts, scripts, target, done){
     var accepted = [], dropped = 0, dropCodes = {}, drops = [], i = 0;
+    // Best RENDERABLE attempt per slot, for the all-flagged fallback. An attempt is renderable only when it
+    // carries NO terminal code; among renderable attempts the one with the fewest taste flags wins. A slot that
+    // never produced a terminal-free attempt has no entry here and is dropped, never shown. This keeps the
+    // rewrites we paid for (instead of discarding them and rendering the raw first-pass draft) while guaranteeing
+    // a liability line can never reach the screen through the fallback.
+    var bestBySlot = {};
+    function consider(idx, finalized, codes){
+      var t = splitTiers(codes);
+      if (t.term.length) return;                       // a terminal code -> never a renderable candidate
+      var cur = bestBySlot[idx];
+      if (!cur || t.taste.length < cur.taste) bestBySlot[idx] = { script: finalized, taste: t.taste.length };
+    }
     // A slot gets MAX_TRIES rewrites before it is finally dropped -- one retry was not enough: a script that
     // invents a figure tends to invent another on the first rewrite, and two of four kept dropping, so the
     // owner only ever saw half a batch. Retrying the SAME slot to its assignment costs one slot at most on a
@@ -16215,16 +16227,18 @@ function genOneScript(opts){
       claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: guardOpts.generationId, messages: [{ role: "user", content: genOnePrompt(ctx, idx, prev, viol, accepted) }] }, function(t, e){
         var s2 = null; if (!e){ var o = parseJson(t, "{", "}"); if (o) s2 = cleanScript(o); }
         var v2 = s2 ? problems(s2) : (missing ? ["generation-failed"] : viol);
+        if (s2) consider(idx, finalizeScript(s2, ctx), v2);   // remember the best terminal-free rewrite for the fallback
         if (s2 && !v2.length){ accepted.push(finalizeScript(s2, ctx)); i++; next(); return; }
         if (tries < MAX_TRIES){ regen(idx, s2 || prev, v2, tries + 1, missing && !s2); return; }
         recordDrop(idx, v2); i++; next();
       });
     }
     function next(){
-      if (i >= target){ done(accepted, dropped, dropCodes, drops); return; }
+      if (i >= target){ done(accepted, dropped, dropCodes, drops, bestBySlot); return; }
       var idx = i, s = scripts[idx];
       if (!s){ regen(idx, { hook: "", body1: "", preclose: "", body2: "", cta: "" }, ["missing from the batch"], 1, true); return; }   // model returned fewer than target -> write the skipped slot
       var viol = problems(s);
+      consider(idx, finalizeScript(s, ctx), viol);   // the first-pass draft is a fallback candidate too (if terminal-free)
       if (!viol.length){ accepted.push(finalizeScript(s, ctx)); i++; next(); return; }
       regen(idx, s, viol, 1, false);
     }
@@ -16232,6 +16246,20 @@ function genOneScript(opts){
   }
   // Human labels for the guard codes, used when a drop has to be explained to the owner.
   var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated setup, pre-close, or CTA opening", "names-doubt": "named the doubt instead of showing the fix", "viewer-owns": "assumes the viewer already owns it", "moved-on": "assumes the viewer already moved on from the old thing", "health-claim": "manufactured health or contamination claim", "social-proof": "invented social proof (what other buyers do)", "cites-source": "referenced the reviews or brief as a source" };
+  // Guard TIERS decide what may reach the screen when a slot cannot come clean.
+  //  TERMINAL -- must NEVER render, even as a rough draft: liability/compliance (health, moderation, price,
+  //    unverifiable figure, company service), plagiarism (a lifted review line or a copied teaching example),
+  //    a factually wrong framing (assumes the viewer owns it / has moved on / first-person when the creator
+  //    does not own it), and the technical non-result (the model returned nothing). A slot whose only survivors
+  //    carry a terminal code is DROPPED, never shown.
+  //  TASTE -- everything else (repetition, named doubt, invented social proof, cited source, invented market
+  //    trend, stated current year). A rough draft the owner reads before posting; showing it beats a blank.
+  // Any code NOT listed here is treated as TERMINAL (fail safe: an unknown guard never renders by default).
+  var TERMINAL_CODES = { "em-dash":1, moderation:1, price:1, company:1, ownership:1, "asserted-number":1, lifted:1, "example-lift":1, "generation-failed":1, "viewer-owns":1, "moved-on":1, "health-claim":1 };
+  var TASTE_CODES    = { "current-year":1, "market-claim":1, repetition:1, "names-doubt":1, "social-proof":1, "cites-source":1 };
+  // Split a code list into the two tiers. An unrecognised code counts as terminal so a new guard can never
+  // silently start rendering banned content until it is deliberately classified as taste.
+  function splitTiers(codes){ var term = [], taste = []; (codes || []).forEach(function(c){ if (TASTE_CODES[c] && !TERMINAL_CODES[c]) taste.push(c); else term.push(c); }); return { term: term, taste: taste }; }
   function fmtDrops(codes){ return Object.keys(codes || {}).map(function(c){ return (GUARD_LABELS[c] || c) + ((codes[c] | 0) > 1 ? " x" + codes[c] : ""); }).join(", "); }
   // Per-script drop line: "Script 2: unverifiable figure; Script 4: copied a teaching example" -- so two
   // scripts' reasons never merge into one line the owner cannot attribute. Codes within one script join with
@@ -16328,19 +16356,29 @@ function genOneScript(opts){
           var out = parseJson(text, "[", "]");
           if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
           genStatus("Checking each script against the hard rules...");
-          validateBatch(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), GEN_COUNT, function(clean, dropped, dropCodes, drops){
+          validateBatch(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), GEN_COUNT, function(clean, dropped, dropCodes, drops, bestBySlot){
             try {
               generating = false;
               if (clean.length){
                 generatedScripts = clean; renderGenScripts();
                 genStatus(clean.length + " of " + GEN_COUNT + " script" + (GEN_COUNT === 1 ? "" : "s") + " from your brief" + (dropped ? " (" + dropped + " dropped -- " + fmtDropsByScript(drops) + ")" : "") + ". Save the ones you want.", "var(--green)");
               } else {
-                // NEVER an empty screen. If every draft was flagged, show the drafts anyway (dashes stripped,
-                // finalized) with a warning naming the guards -- producing nothing is worse than a flagged script.
-                // A whole batch flagged almost always means a rule is too strict, not that the brief is wrong.
-                var drafts = out.slice(0, GEN_COUNT).map(function(o){ return finalizeScript(cleanScript(o), ctx); });
-                generatedScripts = drafts; renderGenScripts();
-                genStatus("Showing " + drafts.length + " unverified draft" + (drafts.length === 1 ? "" : "s") + " -- the guards flagged " + fmtDrops(dropCodes) + ", so read them before posting. A whole batch flagged usually means a rule is too strict, not your brief.", "var(--red)");
+                // NEVER an empty screen -- but NEVER a raw first-pass draft or a terminal-tier line either. Show the
+                // best TERMINAL-FREE attempt per slot (the rewrites we already paid for, dashes stripped, finalized),
+                // and hold back any slot whose only survivors hit a hard rule (health, price, figure, company,
+                // lifted/copied, or a wrong-ownership framing). If every slot is terminal, show nothing rather than a
+                // banned line. A whole batch flagged usually means a taste rule is too strict, not that the brief is wrong.
+                var best = bestBySlot || {};
+                var bestDrafts = [], termDrops = [];
+                for (var bi = 0; bi < GEN_COUNT; bi++){ if (best[bi]) bestDrafts.push(best[bi].script); else termDrops.push(bi); }
+                var heldReason = fmtDropsByScript((drops || []).filter(function(d){ return termDrops.indexOf(d.idx) >= 0; }));
+                if (bestDrafts.length){
+                  generatedScripts = bestDrafts; renderGenScripts();
+                  genStatus("Showing " + bestDrafts.length + " rough draft" + (bestDrafts.length === 1 ? "" : "s") + " -- the guards flagged " + fmtDrops(dropCodes) + ", so read them before posting." + (termDrops.length ? " " + termDrops.length + " held back for a hard rule (" + heldReason + ")." : "") + " A whole batch flagged usually means a rule is too strict, not your brief.", "var(--red)");
+                } else {
+                  generatedScripts = []; renderGenScripts();
+                  genStatus("Every script hit a hard rule (" + fmtDrops(dropCodes) + ") and none can be shown safely. Nothing was saved -- press Generate again, or adjust the brief.", "var(--red)");
+                }
               }
             } catch (e2){ genFail(e2); }
           });
