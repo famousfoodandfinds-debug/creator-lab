@@ -16162,8 +16162,11 @@ function genOneScript(opts){
   }
   // Ask for ONE script rewritten -- reuses the full batch prompt (all context + this script's assignment +
   // every rule) and just changes the output instruction, so nothing diverges from the batch rules.
-  function genOnePrompt(ctx, i, prev, violations, accepted){
-    var reasons = (violations || []).map(function(c){ return GUARD_LABELS[c] || c; }).join("; ");
+  // extraReason (optional): a free-text reason from the hook read-back editor, not a guard code. It rides the same
+  // rewrite path as a guard violation, so a hook the editor flagged is regenerated to its assignment with the
+  // editor's specific fix in hand -- reusing every rule the batch prompt already carries.
+  function genOnePrompt(ctx, i, prev, violations, accepted, extraReason){
+    var reasons = (violations || []).map(function(c){ return GUARD_LABELS[c] || c; }).concat(extraReason ? [String(extraReason)] : []).join("; ") || "a weak hook that did not survive a read";
     // When the reject was a repetition, the bare label ("repeated ... opening") points the model at the hook,
     // so it rewrites the wrong slot and collides again. Name the ACTUAL slot (pre-close or CTA) and hand over
     // the exact first-words the accepted scripts already used, so the model has something concrete to avoid.
@@ -16187,6 +16190,74 @@ function genOneScript(opts){
   function stripDashes(t){ return String(t == null ? "" : t).replace(/\s*[—–]\s*/g, ", ").replace(/,\s*,/g, ",").replace(/\s+,/g, ",").replace(/\s{2,}/g, " ").trim(); }
   function cleanScript(o){ o = o || {}; return { hook: stripDashes(o.hook), body1: stripDashes(o.body1), preclose: stripDashes(o.preclose), body2: stripDashes(o.body2), cta: stripDashes(o.cta) }; }
   function finalizeScript(s, ctx){ return { hook: s.hook, body1: s.body1, preclose: s.preclose, body2: s.body2, cta: s.cta, angle: lead0(ctx), desire: ctx.desire }; }
+  // ---- HOOK READ-BACK ---------------------------------------------------------------------------------------
+  // The tool writes four scripts in one pass and never reads its own work. A person writes a hook, reads it back,
+  // and asks: would a viewer say "that's me" in one second, is it one clear thought, is it clear what it's about,
+  // would anyone say it out loud. This is that second read, on the highest-leverage line only. After the batch,
+  // one model call reads the four hooks against those four questions; a flagged hook is rewritten to its
+  // assignment (reusing genOnePrompt, so every rule still holds); a second read keeps the rewrite only if it now
+  // passes, else reverts to the original. It NEVER touches the guards -- it can only improve a hook, never render
+  // a banned one, and Phase 1 still governs what may reach the screen.
+  // FAIL-OPEN and OFF-SWITCHABLE: with the flag off, or on any call error or unparseable reply, the drafts pass
+  // through untouched and generation behaves exactly as before. Flip READBACK_ENABLED to false to disable wholly.
+  var READBACK_ENABLED = true;
+  function hookReadbackPrompt(ctx, hooks){
+    var lines = [];
+    lines.push("You are a sharp video editor reading the FIRST LINE (the hook) of " + hooks.length + " short-form video scripts for this product, before anyone films them. A viewer decides in ONE second whether the video is about them; a weak hook means nothing after it gets watched.");
+    if (ctx.name) lines.push("PRODUCT: " + ctx.name + ".");
+    if (ctx.who) lines.push("WHO THE VIEWER IS: " + ctx.who + ".");
+    lines.push("Judge each hook ALONE, cold, the way a stranger scrolling would hear it. A hook PASSES only if the answer to ALL FOUR is yes:");
+    lines.push("1. Would THIS viewer think \"that's me\" within one second?");
+    lines.push("2. Is it ONE clear thought, not fragments stitched together?");
+    lines.push("3. Is it clear what it is about on its own, with nothing after it?");
+    lines.push("4. Would a real person SAY it out loud to a friend -- not a written, composed, or ad-sounding line?");
+    lines.push("Be honest and strict, but do not fail a hook that is genuinely good. If a hook fails, give a SHORT, concrete instruction for how to fix it (what to change), not a rewrite.");
+    lines.push("");
+    lines.push("HOOK READ-BACK -- the hooks, in order:");
+    hooks.forEach(function(h, k){ lines.push((k + 1) + ". " + String(h || "")); });
+    lines.push("");
+    lines.push("Return ONLY a JSON array, one object per hook IN ORDER, nothing else: {\"i\":1,\"pass\":true} for a hook that passes, or {\"i\":2,\"pass\":false,\"fix\":\"one concrete instruction\"} for one that fails.");
+    return lines.join("\n");
+  }
+  // Read the hooks, rewrite the flagged ones, verify, and hand the (possibly-improved) drafts to `done`. Any
+  // failure at any step falls through to the original drafts, so this can only help, never block or corrupt.
+  function hookReadback(ctx, guardOpts, drafts, done){
+    if (!READBACK_ENABLED || !drafts || !drafts.length){ done(drafts); return; }
+    var orig = drafts.slice();   // keep originals so a rewrite that does not verify can be reverted
+    function readCall(hooks, cb){
+      claudeCall({ model: GEN_MODEL, max_tokens: 700, call_name: "hook_readback", generation_id: guardOpts.generationId, messages: [{ role: "user", content: hookReadbackPrompt(ctx, hooks) }] }, function(t, e){
+        var arr = e ? null : parseJson(t, "[", "]");
+        cb(Array.isArray(arr) ? arr : null);
+      });
+    }
+    genStatus("Reading the hooks back...");
+    readCall(drafts.map(function(d){ return d.hook; }), function(verdicts){
+      if (!verdicts){ done(drafts); return; }   // fail-open: unparseable read -> untouched
+      var flagged = [];
+      verdicts.forEach(function(v){ if (!v || v.pass !== false) return; var i = (v.i | 0) - 1; if (i >= 0 && i < drafts.length) flagged.push({ i: i, fix: String(v.fix || "") }); });
+      if (!flagged.length){ done(drafts); return; }
+      (function rewriteNext(k){
+        if (k >= flagged.length){ verify(); return; }
+        var f = flagged[k];
+        genStatus("Sharpening the hook on script " + (f.i + 1) + "...");
+        claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "hook_readback", generation_id: guardOpts.generationId, messages: [{ role: "user", content: genOnePrompt(ctx, f.i, drafts[f.i], [], [], f.fix || "the hook did not survive a read: rewrite it as one clear thought a real person would say, and make the setup follow it") }] }, function(t2, e2){
+          if (!e2){ var o = parseJson(t2, "{", "}"); if (o) drafts[f.i] = cleanScript(o); }
+          rewriteNext(k + 1);
+        });
+      })(0);
+      // Second read over the whole set: keep a rewrite only if its hook now passes; otherwise revert to the
+      // original. This is the "keep the better of the two" guard -- a rewrite can never ship a worse hook.
+      function verify(){
+        readCall(drafts.map(function(d){ return d.hook; }), function(v2){
+          if (v2){
+            var passSet = {}; v2.forEach(function(v){ if (v && v.pass === true){ passSet[(v.i | 0) - 1] = 1; } });
+            flagged.forEach(function(f){ if (!passSet[f.i]) drafts[f.i] = orig[f.i]; });   // rewrite did not verify -> revert
+          }
+          done(drafts);
+        });
+      }
+    });
+  }
   // The GUARD: check each script; a violation regenerates it once; a second failure DROPS it. A banned
   // move never reaches the screen. Sequential so `scriptRepeats` can compare against already-accepted ones.
   // Validate to a TARGET count, never just to whatever the model returned. If the model gives back fewer than
@@ -16355,8 +16426,11 @@ function genOneScript(opts){
           if (genCount && typeof genCount.remaining === "number"){ genCount.used = (genCount.used | 0) + 1; genCount.remaining = Math.max(0, (genCount.remaining | 0) - 1); }
           var out = parseJson(text, "[", "]");
           if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
+          // Read the hooks back and sharpen the weak ones BEFORE the guards run. Fail-open: on any error or with
+          // the flag off, drafts1 is the untouched batch and the rest of the path is exactly as before.
+          hookReadback(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), function(drafts1){
           genStatus("Checking each script against the hard rules...");
-          validateBatch(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), GEN_COUNT, function(clean, dropped, dropCodes, drops, bestBySlot){
+          validateBatch(ctx, guardOpts, drafts1, GEN_COUNT, function(clean, dropped, dropCodes, drops, bestBySlot){
             try {
               generating = false;
               if (clean.length){
@@ -16381,6 +16455,7 @@ function genOneScript(opts){
                 }
               }
             } catch (e2){ genFail(e2); }
+          });
           });
         } catch (e1){ genFail(e1); }
       });
