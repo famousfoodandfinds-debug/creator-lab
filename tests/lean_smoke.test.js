@@ -118,6 +118,7 @@ async function run(h, mode){
   ok(/Here is a copywriting framework\. Use whichever of these moves fit the buyer/.test(M.state.captured) && /Not all of them belong in every script/.test(M.state.captured), 'the checklist is included as REFERENCE (use whichever fit, not all belong), not as a specification');
   ok(M.state.captured.indexOf('WORSE ALTERNATIVES') >= 0 && M.state.captured.indexOf('TWISTING THE KNIFE') >= 0, 'the checklist moves are present as reference material, in the owner\'s own wording');
   ok(/The brief below is research, written in research language\. Never repeat its phrasing/.test(M.state.captured), 'minimal tells the model to translate the brief, never repeat its research phrasing');
+  ok(/A hook is something a PERSON SAYS OUT LOUD about something they just experienced/.test(M.state.captured) && /not a description of the product/.test(M.state.captured), 'minimal defines the hook as a person speaking about an experience, not a product description');
   ok(M.state.captured.indexOf('CREATOR VOICE PROFILE') >= 0 && M.state.captured.indexOf('WHO ACTUALLY BUYS THIS') >= 0, 'the voice + audience profile still reach the minimal prompt');
   ok(rm.state.buyerChecks === 0, 'minimal runs NO buyer/grounding check');
   ok(rm.state.hookReads === 0, 'minimal runs NO hook read-back (zero post-generation rewriting)');
