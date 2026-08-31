@@ -16,6 +16,15 @@
 const MONTHLY_BATCH_LIMIT = Number(process.env.MONTHLY_BATCH_LIMIT) || 150;
 const SCRIPT_CALL_NAMES = new Set(["script_batch"]); // the definition of "a script batch"; add here if the batch gains a new call
 
+// RUNAWAY-COST BACKSTOP. A per-user DAILY ceiling on model calls across EVERY surface (generation, derivation,
+// OCR, Planner, carousel, and anything added later). It is NOT a product limit -- it sits far above the hardest
+// real day of work; its only job is to bound a stuck client or a scripted loop so one member can't spend without
+// limit. Env-overridable so it can be tuned without a deploy. See fetchTodayCallCount for how it is measured.
+const DAILY_CALL_LIMIT = Number(process.env.DAILY_CALL_LIMIT) || 1500;
+const DAILY_LIMIT_MESSAGE =
+  "You've reached today's usage limit for your account. Everything you've already made is saved. " +
+  "This limit resets tomorrow. If you think you're seeing this by mistake, email hello@saxe.app.";
+
 const SUPABASE_URL = "https://ysacpditbxcrairmypsp.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYWNwZGl0YnhjcmFpcm15cHNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjU4MjYsImV4cCI6MjA4OTM0MTgyNn0.U8W_KpDkYCT-jVBbXneAP1q_W9ChfhTi69DD0SS6G3o";
 // Service-role key (already present in the Netlify env; used by the other webhook functions). Used here to
@@ -51,6 +60,27 @@ async function fetchMonthBatchIds(userId, month) {
   }
   const rows = await res.json();
   return Array.isArray(rows) ? rows.map((r) => r.generation_id) : [];
+}
+// Count every model call this member has made since UTC midnight -- one model_usage row is written per forwarded
+// call, so a COUNT of today's rows is the day's call total. Uses a HEAD-style count (Range 0-0 + count=exact) so
+// it returns just the number, never thousands of rows. Throws on a read failure so the caller can FAIL OPEN.
+// NOTE: relies on model_usage.created_at (Supabase default now()); if that column is absent this throws and the
+// ceiling simply fails open (never blocks) until it exists -- verify it is present for the backstop to engage.
+async function fetchTodayCallCount(userId) {
+  if (!SUPABASE_SERVICE_KEY) throw new Error("SUPABASE_SERVICE_KEY is not set for this function/deploy context");
+  const dayStart = new Date().toISOString().slice(0, 10) + "T00:00:00Z"; // UTC midnight today
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/model_usage?select=user_id&user_id=eq.${userId}&created_at=gte.${encodeURIComponent(dayStart)}`,
+    { headers: Object.assign(svcHeaders(), { "Prefer": "count=exact", "Range": "0-0" }) }
+  );
+  if (!res.ok) {
+    let detail = ""; try { detail = String(await res.text() || "").replace(/\s+/g, " ").slice(0, 300); } catch (e) {}
+    throw new Error("model_usage count failed: " + res.status + (detail ? " " + detail : ""));
+  }
+  const cr = res.headers.get("content-range") || "";       // e.g. "0-0/532" or "*/0"
+  const total = parseInt(cr.slice(cr.indexOf("/") + 1), 10);
+  if (!isFinite(total)) throw new Error("no count in content-range: '" + cr + "'");
+  return total;
 }
 // Record a new batch. PK (user_id, generation_id) makes a repeat insert of the same batch a no-op, so a retry
 // that raced the first insert can never double-count.
@@ -146,6 +176,20 @@ exports.handler = async function(event) {
       console.error("count_only failed (cap will fail OPEN):", err && err.message);
       return json(200, { ok: false, limit: MONTHLY_BATCH_LIMIT, reason: String((err && err.message) || "unknown").slice(0, 300) });
     }
+  }
+
+  // ---- RUNAWAY-COST BACKSTOP: the per-user DAILY ceiling, applied to EVERY forwarded call (not just script
+  // batches). It sits far above any real day of work, so a normal heavy member never sees it; it exists only to
+  // bound a stuck client or a scripted loop. FAILS OPEN: a DB blip never wrongly blocks a paying member.
+  try {
+    const usedToday = await fetchTodayCallCount(userId);
+    if (usedToday >= DAILY_CALL_LIMIT) {
+      // error-as-OBJECT (type + message) so every client surface renders error.message as a soft, friendly line
+      // (carousel, OCR, derivation, planner) and the generate path can branch on error.type. Not a crash.
+      return json(429, { error: { type: "daily_limit_reached", message: DAILY_LIMIT_MESSAGE }, daily_limit: DAILY_CALL_LIMIT });
+    }
+  } catch (err) {
+    console.error("Daily ceiling check failed (failing open):", err && err.message);
   }
 
   // ---- the monthly BATCH cap. Only a real script batch (has a generation_id AND call_name "script_batch") is

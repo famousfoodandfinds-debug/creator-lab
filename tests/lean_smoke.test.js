@@ -10,6 +10,7 @@ function mkEl(id){ return { id:id||'', style:{cssText:'',display:'',color:''}, v
 global.setTimeout = function(fn){ try { fn(); } catch(e){} };
 global.system = 'SYSTEMPROMPTMARKER';   // stand-in for the ~16.6k-token system prompt current/lean send and minimal must not
 let FAIL_NEXT = false;                   // when true, the next batch call returns a technical failure (timeout)
+let DAILY_NEXT = false;                   // when true, the next batch call returns the runaway-cost DAILY-ceiling 429
 
 const psCode = blocks.find(b => b.includes('window.ProductScreen ='));
 const params = ['window','document','currentUser','sb','currentProductId','currentProductName','currentProduct','loadProductById','buildSelect','transcribeTikTokLink','claudeHeaders','showToast','fetch','console'];
@@ -59,6 +60,10 @@ function harness(engine, userId){
     if (u && u.indexOf('/api/claude-stream') >= 0) return Promise.resolve(streamReply(JSON.stringify(MIN_OBJECT ? MINOBJ : BATCH)));   // the streaming endpoint (Minimal-on-Sonnet)
     if (FAIL_NEXT && content.indexOf('REGENERATE ONLY SCRIPT') < 0 && content.indexOf('HOOK READ-BACK') < 0 && content.indexOf('BUYER + GROUNDING CHECK') < 0){
       return Promise.resolve({ status:504, text(){ return Promise.resolve('inactivity timeout'); } });   // the batch times out
+    }
+    if (DAILY_NEXT && content.indexOf('REGENERATE ONLY SCRIPT') < 0 && content.indexOf('HOOK READ-BACK') < 0 && content.indexOf('BUYER + GROUNDING CHECK') < 0){
+      // the daily-ceiling block: 429 with error-as-object {type, message}, exactly as claude.js returns it
+      return Promise.resolve({ status:429, text(){ return Promise.resolve(JSON.stringify({ error:{ type:'daily_limit_reached', message:'You\'ve reached today\'s usage limit. It resets tomorrow.' } })); } });
     }
     if (content.indexOf('BUYER + GROUNDING CHECK') >= 0){
       state.buyerChecks++;
@@ -235,6 +240,15 @@ async function run(h, mode){
   FAIL_NEXT = false;
   ok(f2.text.indexOf('Cold drinks should not be this hard') < 0, 'a failed generation CLEARS the previous batch -- no stale scripts left on screen');
   ok(/Generation failed/.test(f2.status) && /no new scripts were produced/.test(f2.status), 'the failure line says no new scripts were produced, not "nothing was lost"');
+
+  // DAILY CEILING: the runaway-cost backstop surfaces as a 429 with type "daily_limit_reached". The generate path
+  // must show ITS message, never the monthly "150 this month" copy, and must not look like a crash.
+  DAILY_NEXT = true;
+  const dc = await run(harness('current'), 'flag');
+  DAILY_NEXT = false;
+  ok(/resets tomorrow/.test(dc.status), 'daily ceiling: the friendly daily message is shown to the member');
+  ok(!/150/.test(dc.status) && !/this month/.test(dc.status), 'daily ceiling: NOT the monthly-cap copy (different limit, different message)');
+  ok(!/Generation failed|error|broke/i.test(dc.status), 'daily ceiling: reads as a limit, not a broken app');
   delete global.getVoiceProfileNote; delete global.audienceTargetingNote;
 
   console.log(`\n${pass} passed, ${fail} failed`);

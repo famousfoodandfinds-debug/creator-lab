@@ -15242,7 +15242,7 @@ function genOneScript(opts){
         .then(function(r){
           var sst = r.status;
           if (sst < 200 || sst >= 300 || !r.body){
-            return r.text().then(function(t){ var d = null; try { d = JSON.parse(t); } catch(e){} var m = (d && d.error && (d.error.message || d.error)) || (t ? String(t).slice(0, 300) : "stream error"); cb(null, { status: sst, message: String(m) }); });
+            return r.text().then(function(t){ var d = null; try { d = JSON.parse(t); } catch(e){} var m = (d && d.error && (d.error.message || d.error)) || (t ? String(t).slice(0, 300) : "stream error"); var ty = (d && d.error && d.error.type) || null; cb(null, { status: sst, message: String(m), type: ty }); });
           }
           var reader = r.body.getReader(), dec = new TextDecoder(), sbuf = "", text = "", errMsg = null;
           function pump(){
@@ -15278,7 +15278,8 @@ function genOneScript(opts){
         var d = null; try { d = JSON.parse(rawText); } catch(e){}
         if (st < 200 || st >= 300 || (d && d.error)){
           var m = (d && d.error && (d.error.message || d.error)) || (rawText ? String(rawText).slice(0, 300) : "empty response body");
-          cb(null, { status: st, message: String(m) }); return;
+          var ty = (d && d.error && d.error.type) || null;   // e.g. "daily_limit_reached" -> callers can branch on it
+          cb(null, { status: st, message: String(m), type: ty }); return;
         }
         var text = ""; ((d && d.content) || []).forEach(function(b){ if (b.type === "text") text += b.text; });
         cb(text, null);
@@ -16902,6 +16903,14 @@ function genOneScript(opts){
             // the EFFECTIVE limit (genCount.limit from count_only), never a hardcoded number. If the real limit is
             // unknown (count_only failed), omit the number. Library/Planner stay open; resets on the 1st.
             if (err.status === 429){
+              // The runaway-cost DAILY ceiling (a different limit from the monthly cap) surfaces as a 429 too, so
+              // tell them apart by err.type and show its own message -- never the monthly "150" copy, which would
+              // be wrong and confusing. Clear the previous batch so nothing stale sits under it.
+              if (err.type === "daily_limit_reached"){
+                generatedScripts = []; renderGenScripts();
+                genStatus((err.message || "You've reached today's usage limit for your account. It resets tomorrow."), "var(--red)");
+                return;
+              }
               var capLim = (genCount && genCount.limit) || 0;
               if (capLim) genCount = { used: capLim, limit: capLim, remaining: 0 };
               renderGenScripts();

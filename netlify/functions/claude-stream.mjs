@@ -10,6 +10,12 @@
 
 const MONTHLY_BATCH_LIMIT = Number(process.env.MONTHLY_BATCH_LIMIT) || 150;
 const SCRIPT_CALL_NAMES = new Set(["script_batch"]);
+// Runaway-cost backstop, mirrored from claude.js so the streaming path (minimal-on-Sonnet, the default member
+// generation) is covered too. Per-user daily ceiling across every call; far above real use; env-overridable.
+const DAILY_CALL_LIMIT = Number(process.env.DAILY_CALL_LIMIT) || 1500;
+const DAILY_LIMIT_MESSAGE =
+  "You've reached today's usage limit for your account. Everything you've already made is saved. " +
+  "This limit resets tomorrow. If you think you're seeing this by mistake, email hello@saxe.app.";
 
 const SUPABASE_URL = "https://ysacpditbxcrairmypsp.supabase.co";
 const SUPABASE_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYWNwZGl0YnhjcmFpcm15cHNwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM3NjU4MjYsImV4cCI6MjA4OTM0MTgyNn0.U8W_KpDkYCT-jVBbXneAP1q_W9ChfhTi69DD0SS6G3o";
@@ -43,6 +49,23 @@ async function recordBatch(userId, generationId, month) {
     headers: Object.assign(svcHeaders(), { "Prefer": "return=minimal,resolution=ignore-duplicates" }),
     body: JSON.stringify({ user_id: userId, generation_id: generationId, month })
   });
+}
+// Daily call count since UTC midnight, verbatim shape from claude.js. Throws on read failure -> caller FAILS OPEN.
+async function fetchTodayCallCount(userId) {
+  if (!SUPABASE_SERVICE_KEY) throw new Error("SUPABASE_SERVICE_KEY is not set for this function/deploy context");
+  const dayStart = new Date().toISOString().slice(0, 10) + "T00:00:00Z";
+  const res = await fetch(
+    `${SUPABASE_URL}/rest/v1/model_usage?select=user_id&user_id=eq.${userId}&created_at=gte.${encodeURIComponent(dayStart)}`,
+    { headers: Object.assign(svcHeaders(), { "Prefer": "count=exact", "Range": "0-0" }) }
+  );
+  if (!res.ok) {
+    let detail = ""; try { detail = String(await res.text() || "").replace(/\s+/g, " ").slice(0, 300); } catch (e) {}
+    throw new Error("model_usage count failed: " + res.status + (detail ? " " + detail : ""));
+  }
+  const cr = res.headers.get("content-range") || "";
+  const total = parseInt(cr.slice(cr.indexOf("/") + 1), 10);
+  if (!isFinite(total)) throw new Error("no count in content-range: '" + cr + "'");
+  return total;
 }
 // ---- usage logging, verbatim from claude.js (never allowed to fail a member's script) -----------------------
 async function logModelUsage(row) {
@@ -88,6 +111,16 @@ export default async (req) => {
   const callName = (typeof body.call_name === "string" && body.call_name) ? body.call_name : "other";
   const generationId = (typeof body.generation_id === "string" && body.generation_id) ? body.generation_id : null;
   const month = monthKey();
+
+  // ---- RUNAWAY-COST BACKSTOP: the per-user daily ceiling, applied to every streamed call. Fails open on error.
+  try {
+    const usedToday = await fetchTodayCallCount(userId);
+    if (usedToday >= DAILY_CALL_LIMIT) {
+      return jsonResponse(429, { error: { type: "daily_limit_reached", message: DAILY_LIMIT_MESSAGE }, daily_limit: DAILY_CALL_LIMIT });
+    }
+  } catch (err) {
+    console.error("Daily ceiling check failed (failing open):", err && err.message);
+  }
 
   // ---- the monthly BATCH cap, verbatim from claude.js. A streamed batch counts once (a retry rides free).
   const isScriptBatch = generationId && SCRIPT_CALL_NAMES.has(callName);
