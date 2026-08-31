@@ -15783,6 +15783,13 @@ function genOneScript(opts){
   // brief is the source, and generation is the primary action, so it is never blocked by an untidy brief
   // or a missing price. One model call returns a small batch of complete, editable scripts.
   var GEN_MODEL = "claude-haiku-4-5-20251001";
+  // Everything generates on Haiku. The MINIMAL engine (only) can be flipped to Sonnet from the UI, to test
+  // whether the ceiling is the model rather than the prompt -- a config the owner toggles, not a permanent
+  // switch, and it never touches Current or Lean (they stay on GEN_MODEL). localStorage-backed, default Haiku.
+  var GEN_MODEL_SONNET = "claude-sonnet-4-6";
+  var minimalModel = "haiku";
+  try { if (typeof localStorage !== "undefined" && localStorage.getItem("saxe_minimal_model") === "sonnet") minimalModel = "sonnet"; } catch (e) {}
+  function setMinimalModel(name){ minimalModel = (name === "sonnet") ? "sonnet" : "haiku"; try { if (typeof localStorage !== "undefined") localStorage.setItem("saxe_minimal_model", minimalModel); } catch (e) {} renderGenScripts(); }
   var GEN_COUNT = 4;   // one script per hook source, so all four shapes fire every batch (matches filming 3-4/day)
   var generatedScripts = [];
   var generating = false;
@@ -16590,7 +16597,7 @@ function genOneScript(opts){
     // named. `missing` marks a slot the model never returned (recorded as generation-failed if it never comes).
     function regen(idx, prev, viol, tries, missing){
       genStatus((missing ? "Writing script " : "Fixing script ") + (idx + 1) + (missing ? " (the model skipped it)" : " (" + label(viol) + ")") + (tries > 1 ? ", attempt " + tries : "") + "...");
-      claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: guardOpts.generationId, messages: [{ role: "user", content: onePrompt(ctx, idx, prev, viol, accepted) }] }, function(t, e){
+      claudeCall({ model: (guardOpts.model || GEN_MODEL), max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: guardOpts.generationId, messages: [{ role: "user", content: onePrompt(ctx, idx, prev, viol, accepted) }] }, function(t, e){
         var s2 = null; if (!e){ var o = parseJson(t, "{", "}"); if (o) s2 = cleanScript(o); }
         var v2 = s2 ? problems(s2) : (missing ? ["generation-failed"] : viol);
         var block2 = blockingOf(v2);
@@ -16709,8 +16716,13 @@ function genOneScript(opts){
       var engineMode = engine;   // captured for THIS press, so a mid-flight toggle never splits a batch
       var usingLean = engineMode === "lean", usingMinimal = engineMode === "minimal";
       guardOpts.liabilityOnly = guardLiabilityOnly;   // liability-only: only health/moderation/price drop; the rest are notes
+      // Model: Haiku for everything, EXCEPT the minimal engine when the owner has flipped it to Sonnet. Carried on
+      // guardOpts so the minimal guard-retries use the same model as its batch. Current and Lean stay on GEN_MODEL.
+      var pressModel = (usingMinimal && minimalModel === "sonnet") ? GEN_MODEL_SONNET : GEN_MODEL;
+      guardOpts.model = pressModel;
+      var onSonnet = pressModel === GEN_MODEL_SONNET;
       var batchContent = usingLean ? genLeanPrompt(ctx) : usingMinimal ? genMinimalPrompt(ctx) : genPrompt(ctx);
-      claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: genBatchId, messages: [{ role: "user", content: batchContent }] }, function(text, err){
+      claudeCall({ model: pressModel, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: genBatchId, messages: [{ role: "user", content: batchContent }] }, function(text, err){
         try {
           if (err){
             generating = false; renderGenScripts();
@@ -16757,7 +16769,7 @@ function genOneScript(opts){
               generating = false;
               if (clean.length){
                 generatedScripts = clean; renderGenScripts();
-                genStatus(clean.length + " of " + GEN_COUNT + " script" + (GEN_COUNT === 1 ? "" : "s") + " from your brief" + (usingLean ? " (lean engine)" : usingMinimal ? " (minimal engine)" : "") + (guardOpts.liabilityOnly ? " (liability-only guards)" : "") + (dropped ? " (" + dropped + " dropped -- " + fmtDropsByScript(drops) + ")" : "") + ". Save the ones you want.", "var(--green)");
+                genStatus(clean.length + " of " + GEN_COUNT + " script" + (GEN_COUNT === 1 ? "" : "s") + " from your brief" + (usingLean ? " (lean engine)" : usingMinimal ? (onSonnet ? " (minimal engine, Sonnet)" : " (minimal engine)") : "") + (guardOpts.liabilityOnly ? " (liability-only guards)" : "") + (dropped ? " (" + dropped + " dropped -- " + fmtDropsByScript(drops) + ")" : "") + ". Save the ones you want.", "var(--green)");
               } else {
                 // NEVER an empty screen -- but NEVER a raw first-pass draft or a terminal-tier line either. Show the
                 // best TERMINAL-FREE attempt per slot (the rewrites we already paid for, dashes stripped, finalized),
@@ -16904,6 +16916,9 @@ function genOneScript(opts){
     head.style.flexWrap = "wrap";
     head.appendChild(segControl([["current","Current"],["lean","Lean"],["minimal","Minimal"]], engine, setEngine, "auto"));
     head.appendChild(segControl([["full","Guards: Full"],["liability","Liability-only"]], guardLiabilityOnly ? "liability" : "full", function(v){ setGuardMode(v === "liability"); }, "8px"));
+    // Model toggle -- ONLY shown in Minimal, so Current/Lean are visibly Haiku-only. Flips the minimal batch to
+    // Sonnet for a direct comparison (is the ceiling the model, not the prompt).
+    if (engine === "minimal") head.appendChild(segControl([["haiku","Haiku"],["sonnet","Sonnet"]], minimalModel, setMinimalModel, "8px"));
     host.appendChild(head);
     // Threshold warnings as the wall approaches: 80% used, then 5 left. Numbers come from the server's EFFECTIVE
     // limit (genCount.limit), never a hardcoded constant. The AT-limit (r<=0) case is deliberately NOT rendered

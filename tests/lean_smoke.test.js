@@ -23,6 +23,8 @@ const BATCH = [
 // Minimal's two-step output: { hooks:[...], scripts:[...] }, returned only when MIN_OBJECT is on. Strategy fields
 // (angle/doNotDiscuss) carry a STRIPPEDSTRAT marker that must not survive into the rendered card.
 let MIN_OBJECT = false;
+let MIN_SONNET = false;
+const HAIKU = 'claude-haiku-4-5-20251001', SONNET = 'claude-sonnet-4-6';
 const MINOBJ = { hooks:["HOOKONE lands massive","HOOKTWO finally sharp","HOOKTHREE oil slick by 3","HOOKFOUR bread aisle"], scripts:[
   { buyer:"b1", angle:"STRIPPEDSTRAT1", coreDesire:"d", featureProof:"f", doNotDiscuss:"STRIPPEDSTRAT1b", body1:"You reach for it early", body2:"It just works", cta:"Grab it now" },
   { buyer:"b2", angle:"STRIPPEDSTRAT2", coreDesire:"d", featureProof:"f", doNotDiscuss:"STRIPPEDSTRAT2b", body1:"The counter is a mess", body2:"Now it is clear", cta:"See it here" },
@@ -37,11 +39,11 @@ function harness(engine){
   const win = {}; new Function('window', blocks.find(b => b.includes('window.SaxeBrief =')))(win); const SB = win.SaxeBrief;
   const byId = {};
   const document = { readyState:'complete', getElementById(id){ if(!byId[id]) byId[id]=mkEl(id); return byId[id]; }, createElement(t){ return mkEl('<'+t+'>'); }, createDocumentFragment(){ return mkEl('#frag'); }, querySelector(s){ if(!byId[s]) byId[s]=mkEl(s); return byId[s]; }, addEventListener(){}, body:{classList:{add(){},remove(){}}} };
-  const state = { captured:'', mode:'flag', buyerChecks:0, hookReads:0, regen:{} };
+  const state = { captured:'', batchModel:'', mode:'flag', buyerChecks:0, hookReads:0, regen:{} };
   function reply(obj){ return { status:200, text(){ return Promise.resolve(JSON.stringify({ content:[{ type:'text', text:(typeof obj==='string'?obj:JSON.stringify(obj)) }] })); } }; }
   const fetchStub = function(u, o){
-    const content = JSON.parse(o.body).messages[0].content;
-    if (!state.captured) state.captured = content;                                 // the batch prompt is the first call
+    const body = JSON.parse(o.body); const content = body.messages[0].content;
+    if (!state.captured){ state.captured = content; state.batchModel = body.model; }  // the batch prompt is the first call
     if (content.indexOf('BUYER + GROUNDING CHECK') >= 0){
       state.buyerChecks++;
       if (state.mode === 'junk') return Promise.resolve(reply("the check could not answer"));   // fail-open
@@ -53,7 +55,7 @@ function harness(engine){
     if (MIN_OBJECT && content.indexOf('write 4 HOOKS') >= 0) return Promise.resolve(reply(MINOBJ));   // minimal two-step batch
     return Promise.resolve(reply(BATCH));
   };
-  global.localStorage = { getItem(){ return engine; }, setItem(){} };
+  global.localStorage = { getItem(k){ if (k === 'saxe_minimal_model') return MIN_SONNET ? 'sonnet' : 'haiku'; return engine; }, setItem(){} };
   new Function(...params, psCode)(win, document, {id:'u1'}, { from(){ return chain; } }, 'p1', 'Ninja Crispi Pro', {}, function(){}, function(){}, function(){ return Promise.resolve({}); }, function(){ return {}; }, function(){}, fetchStub, console);
   function freshBrief(){ let b = SB.emptyBrief(); b.meta.lastDerivedAt='2026-01-01'; b.meta.reviewCount=20; b.meta.classified=true;
     b.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'pulling the basket out to check', count:6, classified:true, about:'alternative'},{value:'heating a whole oven for a small meal', count:4, classified:true, about:'alternative'}]}}).lines.pains; return b; }
@@ -147,6 +149,20 @@ async function run(h, mode){
   ok(rmo.text.indexOf('HOOKFOUR bread aisle') >= 0 && rmo.text.indexOf('You almost skipped it') >= 0, 'the fourth hook is paired onto the fourth script (order preserved)');
   ok(rmo.text.indexOf('STRIPPEDSTRAT') < 0, 'the per-script strategy fields (angle/doNotDiscuss) are stripped, never rendered');
   MIN_OBJECT = false;
+
+  // MODEL config: minimal defaults to Haiku; flipped to Sonnet it runs the minimal batch on Sonnet; Current and
+  // Lean are never affected (always Haiku).
+  ok(M.state.batchModel === HAIKU, 'minimal defaults to Haiku');
+  ok(C.state.batchModel === HAIKU && P.state.batchModel === HAIKU, 'Current and Lean always run on Haiku');
+  MIN_SONNET = true;
+  const S = harness('minimal');
+  const rs = await run(S, 'flag');
+  ok(S.state.batchModel === SONNET, 'minimal flipped to Sonnet -> the minimal batch runs on Sonnet');
+  ok(/minimal engine, Sonnet/.test(rs.status), 'the status names the Sonnet run so batches are distinguishable');
+  MIN_SONNET = false;
+  const S2 = harness('minimal');
+  await run(S2, 'flag');
+  ok(S2.state.batchModel === HAIKU, 'flipping the config back returns minimal to Haiku (not a permanent switch)');
   delete global.getVoiceProfileNote; delete global.audienceTargetingNote;
 
   console.log(`\n${pass} passed, ${fail} failed`);
