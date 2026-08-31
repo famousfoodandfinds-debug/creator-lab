@@ -45,7 +45,7 @@ try { PS.fill(product); } catch(e){ ok(false, 'fill threw: ' + e.message); }
   ok(capturedPrompt.indexOf("If it wasn't dishwasher safe I wouldn't own it") >= 0, 'the owns-tagged turn exemplar loads only when owns');
   // First-person scripts are NOT dropped when owns is on.
   ok(status.indexOf('4 script') >= 0 && status.indexOf('dropped') < 0, 'first-person scripts pass the guard when the creator owns the product');
-  function walk(el,a,d){ if(!el||d>12) return; (el._children||[]).forEach(function(c){ if(c.textContent) a.push(c.textContent); walk(c,a,d+1); }); }
+  function walk(el,a,d){ if(!el||d>12) return; (el._children||[]).forEach(function(c){ if(c.textContent||c.value) a.push(c.textContent||c.value); walk(c,a,d+1); }); }
   let t=[]; walk(byId['genScripts'], t, 0);
   ok(t.join(' | ').indexOf('I keep this on my counter for a reason') >= 0, 'the first-person script rendered');
   console.log(`\n${pass} passed, ${fail} failed`);

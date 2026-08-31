@@ -49,7 +49,7 @@ PS.fill({id:'p1', name:'Ice maker', updated_at:'2026-01-01', brief, raw});
   for (let k=0;k<120;k++) await Promise.resolve();
   const status = (byId['genStatus'] && byId['genStatus'].textContent) || '';
   ok(calls >= 3, 'the two skipped slots each triggered a top-up model call (batch returned only 2)');
-  function walk(el,a,d){ if(!el||d>12) return; (el._children||[]).forEach(function(c){ if(c.textContent) a.push(c.textContent); walk(c,a,d+1); }); }
+  function walk(el,a,d){ if(!el||d>12) return; (el._children||[]).forEach(function(c){ if(c.textContent||c.value) a.push(c.textContent||c.value); walk(c,a,d+1); }); }
   let t=[]; walk(byId['genScripts'], t, 0); const joined = t.join(' | ');
   ok(joined.indexOf('Cold drinks should not be this hard') >= 0 && joined.indexOf('You keep running out at the worst time') >= 0, 'the two skipped scripts were generated and rendered');
   ok(/4 of 4|4 script/.test(status), 'the batch reached the target (never a silent short batch): "' + status.slice(0,70) + '"');

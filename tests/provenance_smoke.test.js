@@ -57,7 +57,7 @@ PS.fill({id:'p1', name:'Ice maker', updated_at:'2026-01-01', brief, raw});
   PS.generateScripts();
   for (let k=0;k<200;k++) await Promise.resolve();
   const status = (byId['genStatus'] && byId['genStatus'].textContent) || '';
-  function walk(el,a,d){ if(!el||d>12) return; (el._children||[]).forEach(function(c){ if(c.textContent) a.push(c.textContent); walk(c,a,d+1); }); }
+  function walk(el,a,d){ if(!el||d>12) return; (el._children||[]).forEach(function(c){ if(c.textContent||c.value) a.push(c.textContent||c.value); walk(c,a,d+1); }); }
   let t=[]; walk(byId['genScripts'], t, 0); const joined = t.join(' | ');
   ok(joined.indexOf('It makes 33 pounds of ice a day') >= 0, 'the LISTING figure (in raw.description) survived');
   ok(joined.indexOf('six to seven minutes') < 0, 'the REVIEW figure laundered into features never reached the screen');

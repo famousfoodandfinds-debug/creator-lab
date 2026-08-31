@@ -870,6 +870,9 @@ body.home-landing #homeLanding { display: block !important; }
     <!-- Generated scripts render ABOVE the brief (the brief is the source; scripts are the product). -->
     <div id="genScripts" style="margin-top:16px;max-width:760px;margin-left:auto;margin-right:auto;"></div>
 
+    <!-- Saved scripts for this product -- a living library: open and edit any time, save what you wrote. -->
+    <div id="savedScripts" style="margin-top:8px;max-width:760px;margin-left:auto;margin-right:auto;"></div>
+
     <!-- The brief LEADS (the daily artifact). Scripts above are generated from it. -->
     <div id="briefBelow" style="margin-top:16px;max-width:760px;margin-left:auto;margin-right:auto;"></div>
 
@@ -14844,6 +14847,7 @@ function genOneScript(opts){
     currentProductName = product.name || "";
     lastSavedAt = product.updated_at ? new Date(product.updated_at) : null;
     showForm(true); renderInputs(); setSetupOpen(!brief.meta.lastDerivedAt); setSaved("saved");
+    renderSavedScripts();   // the product's saved-script library -- editable, re-savable, no-op in the test harness
   }
   // Sign-in ALWAYS lands on the quiet page (New product / My products / Planner / Carousels), whether or
   // not the library has products. New product is how you reach the blank setup form -- never sign-in.
@@ -16317,22 +16321,73 @@ function genOneScript(opts){
     } catch (e0){ genFail(e0); }
   }
   function lead0(ctx){ return ctx.leadPain ? ctx.leadPain.value : ""; }
-  function scriptCard(s){
+  // One editable script card, two modes. mode "new" (a freshly generated script) INSERTS on save; mode "saved"
+  // (a script from the library) UPDATES the row on save, so a saved script is a living document you can re-edit
+  // any time and save again. Every field is a textarea -- edit in place, and the EDITED text is what is stored.
+  // Display + storage only: no versioning, no generation. (A future version snapshot can hook the same save.)
+  function scriptCard(s, opts){
+    opts = opts || {};
+    var saved = opts.mode === "saved";
     var card = document.createElement("div"); card.style.cssText = "background:var(--panel,var(--surface));border:1px solid var(--border-md);border-radius:14px;padding:16px 18px;margin-bottom:12px;";
-    [["Hook","hook"],["Setup","body1"],["Objection turn","preclose"],["Payoff","body2"],["CTA","cta"]].forEach(function(p){
-      if (!s[p[1]]) return;
+    var FIELDS = [["Hook","hook"],["Setup","body1"],["Objection turn","preclose"],["Payoff","body2"],["CTA","cta"]];
+    var inputs = {};
+    FIELDS.forEach(function(p){
+      var val = s[p[1]] || s[p[1] === "preclose" ? "preClose" : p[1]] || "";
+      if (!val) return;   // only show fields the script actually has
       var lbl = document.createElement("div"); lbl.style.cssText = "font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:8px 0 2px;"; lbl.textContent = p[0]; card.appendChild(lbl);
-      var v = document.createElement("div"); v.style.cssText = "font-size:14px;line-height:1.55;color:var(--white);white-space:pre-wrap;"; v.textContent = s[p[1]]; card.appendChild(v);
+      var ta = document.createElement("textarea");
+      ta.style.cssText = "width:100%;background:transparent;border:none;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;line-height:1.55;resize:none;outline:none;padding:0;box-sizing:border-box;white-space:pre-wrap;-webkit-user-select:text;user-select:text;";
+      ta.value = val; ta.rows = Math.ceil(val.length / 60) + 1;
+      ta.addEventListener("input", function(){ this.rows = Math.ceil(this.value.length / 60) + 1; });
+      inputs[p[1]] = ta; card.appendChild(ta);
     });
+    function collect(){ var o = {}; FIELDS.forEach(function(p){ if (inputs[p[1]]) o[p[1]] = inputs[p[1]].value.trim(); }); return o; }
     var row = document.createElement("div"); row.style.cssText = "display:flex;gap:8px;margin-top:12px;";
-    var save = document.createElement("button"); save.type = "button"; save.textContent = "Save to scripts";
+    var save = document.createElement("button"); save.type = "button";
     save.style.cssText = "background:var(--purple);border:none;border-radius:8px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:700;padding:8px 14px;cursor:pointer;";
-    save.addEventListener("click", function(){
-      if (typeof saveScriptToCloud !== "function"){ return; }
-      saveScriptToCloud({ hook: s.hook, body1: s.body1, body2: s.body2, cta: s.cta, preclose: s.preclose, angle: s.angle, desire: s.desire }, function(){ save.textContent = "Saved ✓"; save.disabled = true; save.style.opacity = ".6"; save.style.cursor = "default"; });
-    });
-    row.appendChild(save); card.appendChild(row);
+    if (saved){
+      save.textContent = "Save edits";
+      save.addEventListener("click", function(){
+        if (!s.id) { if (typeof showToast === "function") showToast("Cannot save -- no script id"); return; }
+        var upd = collect();
+        sb.from("scripts").update(upd).eq("id", s.id).then(function(r){
+          if (r && r.error){ if (typeof showToast === "function") showToast("Save failed"); return; }
+          FIELDS.forEach(function(p){ if (p[1] in upd) s[p[1]] = upd[p[1]]; });
+          if (typeof showToast === "function") showToast("Edits saved");
+          save.textContent = "Saved ✓"; setTimeout(function(){ save.textContent = "Save edits"; }, 1400);
+        }, function(){ if (typeof showToast === "function") showToast("Save failed"); });
+      });
+      row.appendChild(save);
+      var del = document.createElement("button"); del.type = "button"; del.textContent = "Delete";
+      del.style.cssText = "background:transparent;border:1px solid rgba(232,40,78,0.4);border-radius:8px;color:var(--red);font-family:'Instrument Sans',sans-serif;font-size:12px;font-weight:600;padding:8px 14px;cursor:pointer;";
+      del.addEventListener("click", function(){
+        if (typeof deleteScriptFromCloud !== "function" || !s.id){ return; }
+        deleteScriptFromCloud(s.id, function(){ renderSavedScripts(); });
+      });
+      row.appendChild(del);
+    } else {
+      save.textContent = "Save to scripts";
+      save.addEventListener("click", function(){
+        if (typeof saveScriptToCloud !== "function"){ return; }
+        var o = collect(); o.angle = s.angle; o.desire = s.desire;
+        saveScriptToCloud(o, function(){ save.textContent = "Saved ✓"; save.disabled = true; save.style.opacity = ".6"; save.style.cursor = "default"; renderSavedScripts(); });
+      });
+      row.appendChild(save);
+    }
+    card.appendChild(row);
     return card;
+  }
+  // The saved-scripts library for this product. Reachable in the live flow (the legacy hub's saved view is dead
+  // code). Guarded on the global loader so the test harnesses, which do not stub it, are a no-op here.
+  function renderSavedScripts(){
+    var host = el("savedScripts"); if (!host) return;
+    if (typeof loadScriptsForProduct !== "function" || !currentProductId){ host.innerHTML = ""; return; }
+    loadScriptsForProduct(currentProductId, function(scripts){
+      host.innerHTML = "";
+      if (!scripts || !scripts.length) return;
+      var h = document.createElement("div"); h.style.cssText = "font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-weight:700;margin:20px 0 8px;"; h.textContent = "Saved scripts (" + scripts.length + ")"; host.appendChild(h);
+      scripts.forEach(function(sc){ host.appendChild(scriptCard(sc, { mode: "saved" })); });
+    });
   }
   function renderGenScripts(){
     var host = el("genScripts"); if (!host) return;

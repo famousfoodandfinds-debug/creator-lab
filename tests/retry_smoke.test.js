@@ -56,7 +56,7 @@ PS.fill({id:'p1', name:'Ice maker', updated_at:'2026-01-01', brief, raw});
   const status = (byId['genStatus'] && byId['genStatus'].textContent) || '';
   ok(seen[2] >= 2, 'the violating slot 2 was retried more than once (not dropped after a single miss): tries=' + seen[2]);
   ok(seen[4] >= 3, 'the never-clean slot 4 exhausted its retry budget before dropping: tries=' + seen[4]);
-  function walk(el,a,d){ if(!el||d>12) return; (el._children||[]).forEach(function(c){ if(c.textContent) a.push(c.textContent); walk(c,a,d+1); }); }
+  function walk(el,a,d){ if(!el||d>12) return; (el._children||[]).forEach(function(c){ if(c.textContent||c.value) a.push(c.textContent||c.value); walk(c,a,d+1); }); }
   let t=[]; walk(byId['genScripts'], t, 0); const joined = t.join(' | ');
   ok(joined.indexOf('recovered') >= 0, 'the recoverable slot was regenerated clean and rendered (not lost)');
   ok(joined.indexOf('50 percent') < 0, 'no figure-inventing script reached the screen');

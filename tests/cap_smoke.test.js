@@ -42,7 +42,7 @@ brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out too fa
 let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'great ice' }];
 PS.fill({ id:'p1', name:'Ice maker', updated_at:'2026-01-01', brief, raw });
 
-function walk(el, a, d){ if(!el||d>12) return; (el._children||[]).forEach(function(c){ if(c.textContent) a.push(c.textContent); walk(c, a, d+1); }); }
+function walk(el, a, d){ if(!el||d>12) return; (el._children||[]).forEach(function(c){ if(c.textContent||c.value) a.push(c.textContent||c.value); walk(c, a, d+1); }); }
 (async () => {
   // Let the initial count fetch (remaining 1) resolve and render, so the SINGULAR warning is checked.
   for (let k=0;k<60;k++) await Promise.resolve();

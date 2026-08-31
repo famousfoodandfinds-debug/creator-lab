@@ -64,7 +64,7 @@ brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'the battery drains 
 let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'the battery drains fast' }, { id:'r2', full:'love the nugget ice' }];
 const product = { id:'p1', name:'Ice maker', updated_at:'2026-01-01T00:00:00Z', brief:brief, raw:raw };
 
-function briefText(){ function walk(el, acc, d){ if(!el||d>12) return; (el._children||[]).forEach(function(c){ if(c.textContent) acc.push(c.textContent); walk(c, acc, d+1); }); } var t=[]; walk(byId['briefBelow'], t, 0); return t.join(' | '); }
+function briefText(){ function walk(el, acc, d){ if(!el||d>12) return; (el._children||[]).forEach(function(c){ if(c.textContent||c.value) acc.push(c.textContent||c.value); walk(c, acc, d+1); }); } var t=[]; walk(byId['briefBelow'], t, 0); return t.join(' | '); }
 
 let fillErr = null; try { PS.fill(product); } catch(e){ fillErr = e; }
 ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message + ')' : ''));

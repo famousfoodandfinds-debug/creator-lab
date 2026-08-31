@@ -259,7 +259,7 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(status.indexOf('4 script') >= 0 && status.indexOf('dropped') < 0, 'all four accepted, none dropped -- the listing figure ("33 pounds a day") was NOT falsely flagged');
 
   // Scripts actually rendered into the host.
-  function walkText(el, acc, depth){ if(!el||depth>12) return; (el._children||[]).forEach(function(c){ if(c.textContent) acc.push(c.textContent); walkText(c, acc, depth+1); }); }
+  function walkText(el, acc, depth){ if(!el||depth>12) return; (el._children||[]).forEach(function(c){ if(c.textContent||c.value) acc.push(c.textContent||c.value); walkText(c, acc, depth+1); }); }
   let texts = []; walkText(byId['genScripts'], texts, 0);
   const joined = texts.join(' | ');
   ok(joined.indexOf('Your drink deserves better than this') >= 0, 'the first script rendered into #genScripts');
