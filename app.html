@@ -15925,14 +15925,18 @@ function genOneScript(opts){
   // Three engines: "current" (the full assignment+rules pipeline), "lean" (the checklist-as-framework prompt with
   // the buyer/grounding check + hook read-back), and "minimal" (one sentence + the brief + profile + the liability
   // floor and nothing else -- no checklist, no post-gen rewriting -- to test whether the instructions help at all).
-  var engine = "current";
+  // Default engine for a new member (no stored choice) is MINIMAL. A stored valid choice still wins, so the
+  // toggle keeps working -- the default just decides where someone lands before they ever touch it.
+  var engine = "minimal";
   try { if (typeof localStorage !== "undefined"){ var e = localStorage.getItem("saxe_engine"); if (["current","lean","minimal"].indexOf(e) >= 0) engine = e; } } catch (e) {}
   function setEngine(name){ if (["current","lean","minimal"].indexOf(name) < 0) name = "current"; engine = name; try { if (typeof localStorage !== "undefined") localStorage.setItem("saxe_engine", engine); } catch (e) {} renderGenScripts(); }
   // GUARD mode: "full" (every guard can drop a script) or "liability" (only health-claim, moderation, price -- and
   // the technical no-content case -- can drop; every other guard becomes a NOTE on the rendered script instead).
   // Same reversible, localStorage-backed pattern as the engine toggle. Default full. Nothing is deleted.
-  var guardLiabilityOnly = false;
-  try { guardLiabilityOnly = (typeof localStorage !== "undefined" && localStorage.getItem("saxe_guards") === "liability"); } catch (e) {}
+  // Default for a new member (no stored choice) is LIABILITY-ONLY guards. Only a stored "full" flips it off, so
+  // an explicit choice either way still wins and the toggle keeps working; unset lands on liability-only.
+  var guardLiabilityOnly = true;
+  try { if (typeof localStorage !== "undefined" && localStorage.getItem("saxe_guards") === "full") guardLiabilityOnly = false; } catch (e) {}
   function setGuardMode(liability){ guardLiabilityOnly = !!liability; try { if (typeof localStorage !== "undefined") localStorage.setItem("saxe_guards", guardLiabilityOnly ? "liability" : "full"); } catch (e) {} renderGenScripts(); }
   // Monthly GENERATION cap (billing). A "generation" is one batch (one press of Generate = four scripts). The
   // count lives server-side; the client shows what remains so nobody is surprised at the wall. `genCount` is

@@ -54,6 +54,8 @@ const chain = { select(){ return chain; }, eq(){ return chain; }, update(){ retu
   single(){ return { then(res){ res({ data: { id:'p1' }, error:null }); } }; },
   then(res){ res({ data:{ id:'p1' }, error:null }); } };
 const sbMock = { from(){ return chain; } };
+// This suite exercises the CURRENT engine with FULL guards -- pin them (the app default is now minimal/liability).
+global.localStorage = { getItem(k){ return k === 'saxe_engine' ? 'current' : k === 'saxe_guards' ? 'full' : k === 'saxe_minimal_model' ? 'haiku' : null; }, setItem(){} };
 new Function(...params, psCode)(
   win, document, {id:'u1'}, sbMock,
   null, '', '', function(){}, function(){}, function(){ return Promise.resolve({}); }, function(){ return {}; }, function(){},

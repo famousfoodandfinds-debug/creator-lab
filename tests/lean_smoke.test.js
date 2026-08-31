@@ -195,6 +195,18 @@ async function run(h, mode){
   MIN_UNSET = false;
   ok(/NEVER cite or quote the reviews, and never attribute anything to an outside party/.test(M.state.captured), 'minimal floor bans citing reviews and attributing to an outside party ("one person said")');
 
+  // NEW-MEMBER DEFAULTS: with NOTHING stored (engine, guards, and model keys all unset), a member lands on
+  // Minimal + Sonnet (streaming) + liability-only guards -- the toggles still exist, they just are not the
+  // thing a newcomer has to find. harness(null) returns null for every localStorage key, so the code defaults win.
+  MIN_UNSET = true;
+  const N = harness(null);
+  const rn = await run(N, 'flag');
+  MIN_UNSET = false;
+  ok(/Work in TWO steps/.test(N.state.captured), 'default ENGINE is Minimal (the two-step minimal prompt is what gets sent)');
+  ok(N.state.batchSystem === undefined, 'default engine is minimal -> no system prompt sent (the minimal tell)');
+  ok(N.state.batchModel === SONNET && N.state.batchUrl === '/api/claude-stream', 'default MODEL is Sonnet, via the streaming endpoint');
+  ok(/liability-only guards/.test(rn.status), 'default GUARDS are liability-only (the status names the mode)');
+
   // SYSTEM PROMPT: minimal sends none (cuts the ~16.6k-token prefill that times Sonnet out); current & lean send it.
   ok(M.state.batchSystem === undefined, 'minimal sends NO system prompt (truly minimal; the prefill that blows the timeout is gone)');
   ok(C.state.batchSystem === 'SYSTEMPROMPTMARKER' && P.state.batchSystem === 'SYSTEMPROMPTMARKER', 'Current and Lean still send the system prompt (unchanged)');
