@@ -16311,7 +16311,8 @@ function genOneScript(opts){
     var voiceNote = (typeof getVoiceProfileNote === "function") ? getVoiceProfileNote() : "";
     var audienceNote = (typeof audienceTargetingNote === "function") ? audienceTargetingNote() : "";
     var altPains = (ctx.pains || []).filter(function(p){ return String(p.about || "") === "alternative"; });
-    L.push("Write " + GEN_COUNT + " TikTok Shop scripts for this product. Each should be a DIFFERENT reason someone would want it, not " + GEN_COUNT + " versions of the same angle. Sound like a person telling a friend about something they love, not an ad. Structure each as hook, setup, payoff, call to action.");
+    L.push("First, name " + GEN_COUNT + " DIFFERENT buyers for this product from the brief -- different people with different reasons to want it, not " + GEN_COUNT + " angles on one person. Then write ONE script to each buyer, as if you are talking to that specific person.");
+    L.push("Write each as a TikTok Shop script that sounds like a person telling a friend about something they love, not an ad. Structure each as hook, setup, payoff, call to action.");
     L.push("");
     if (voiceNote) L.push(voiceNote.trim());
     if (audienceNote) L.push(audienceNote.trim());

@@ -113,6 +113,7 @@ async function run(h, mode){
   const M = harness('minimal');
   const rm = await run(M, 'flag');
   ok(/Structure each as hook, setup, payoff, call to action/.test(M.state.captured), 'minimal -> the one-sentence minimal prompt');
+  ok(/First, name \d+ DIFFERENT buyers for this product from the brief/.test(M.state.captured) && /write ONE script to each buyer/.test(M.state.captured), 'minimal names the buyers FIRST, then writes one script to each (the only added instruction)');
   ok(M.state.captured.indexOf('THE WRITING FRAMEWORK') < 0 && M.state.captured.indexOf('TWIST THE KNIFE') < 0 && M.state.captured.indexOf('SELLS ON -- PAIN or DESIRE') < 0 && M.state.captured.indexOf('HOOK -- it must pass ALL') < 0, 'minimal carries no checklist, no pain-vs-desire, and no current rule pile');
   ok(M.state.captured.indexOf('CREATOR VOICE PROFILE') >= 0 && M.state.captured.indexOf('WHO ACTUALLY BUYS THIS') >= 0, 'the voice + audience profile still reach the minimal prompt');
   ok(rm.state.buyerChecks === 0, 'minimal runs NO buyer/grounding check');
