@@ -31,7 +31,7 @@ let pass=0, fail=0; function ok(c,m){ if(c) pass++; else { fail++; console.log('
 let brief = SB.emptyBrief();
 brief.meta.lastDerivedAt = '2026-01-01T00:00:00Z'; brief.meta.reviewCount = 12; brief.meta.classified = true;
 brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true, cause:'the tank holds less'}]}}).lines.objections;
-let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'love it' }]; raw.ownsProduct = true;   // <-- ownership ON
+let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'love it' }]; raw.ownership = "used";   // <-- USED OVER TIME (full first person)
 const product = { id:'p1', name:'Ice maker', updated_at:'2026-01-01T00:00:00Z', brief:brief, raw:raw };
 try { PS.fill(product); } catch(e){ ok(false, 'fill threw: ' + e.message); }
 
@@ -41,7 +41,7 @@ try { PS.fill(product); } catch(e){ ok(false, 'fill threw: ' + e.message); }
   const status = (byId['genStatus'] && byId['genStatus'].textContent) || '';
   ok(fetchCalls >= 1, 'reached the model call');
   ok(status.indexOf('hit an error') < 0, 'no error surfaced');
-  ok(capturedPrompt.indexOf('you OWN or use this product') >= 0, 'ownership ON -> first-person VOICE');
+  ok(capturedPrompt.indexOf('you have USED this product over time') >= 0, 'ownership USED -> first-person VOICE');
   ok(capturedPrompt.indexOf("If it wasn't dishwasher safe I wouldn't own it") >= 0, 'the owns-tagged turn exemplar loads only when owns');
   // First-person scripts are NOT dropped when owns is on.
   ok(status.indexOf('4 script') >= 0 && status.indexOf('dropped') < 0, 'first-person scripts pass the guard when the creator owns the product');

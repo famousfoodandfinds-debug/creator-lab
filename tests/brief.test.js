@@ -601,6 +601,23 @@ ok(B.scriptViolations({ preclose: "I've been running mine for months and haven't
 ok(B.scriptViolations({ preclose: "I've been running mine for months and haven't seen any mold yet" }, { ownsAllowed: true }).indexOf("ownership") < 0, 'validator: that same line is allowed when the creator owns the product');
 ok(B.scriptViolations({ body2: "mine sits on the counter and never clogs" }, {}).indexOf("ownership") >= 0, 'validator: catches the possessive "mine" (not just "my")');
 ok(B.scriptViolations({ body2: "I'm never going back to bagged ice" }, {}).indexOf("ownership") >= 0, 'validator: catches the contraction "I\'m"');
+// THREE-STATE ownership. ownsAllowed is true for hand AND used (first person on the table); ownershipState "hand"
+// additionally blocks a claim of use OVER TIME, while "used" allows it.
+// "hand": present-tense first person is fine; a duration/history claim is blocked as ownership-time.
+ok(B.scriptViolations({ body2: "I'm holding it right now and it feels heavy" }, { ownsAllowed:true, ownershipState:"hand" }).indexOf("ownership-time") < 0, 'hand: present-tense first person ("I\'m holding it") is allowed');
+ok(B.scriptViolations({ body2: "honestly I use it every morning" }, { ownsAllowed:true, ownershipState:"hand" }).indexOf("ownership-time") < 0, 'hand: habitual present ("I use it every morning") is let through -- errs toward present tense');
+ok(B.scriptViolations({ preclose: "I've had this for months and it still looks new" }, { ownsAllowed:true, ownershipState:"hand" }).indexOf("ownership-time") >= 0, 'hand: a duration claim ("I\'ve had this for months") is blocked as ownership-time');
+ok(B.scriptViolations({ body2: "over the past year it has not let me down" }, { ownsAllowed:true, ownershipState:"hand" }).indexOf("ownership-time") >= 0, 'hand: "over the past year" is blocked as ownership-time');
+ok(B.scriptViolations({ body2: "ever since I got it my mornings changed" }, { ownsAllowed:true, ownershipState:"hand" }).indexOf("ownership-time") >= 0, 'hand: "ever since I got it" is blocked as ownership-time');
+// "used": the same duration claim is allowed (that is the whole point of the state).
+ok(B.scriptViolations({ preclose: "I've had this for months and it still looks new" }, { ownsAllowed:true, ownershipState:"used" }).indexOf("ownership-time") < 0, 'used: a duration claim is allowed');
+// Migration: the old bool maps true -> "used", false -> "none"; a brand-new raw defaults to "hand".
+ok(B.normalizeRaw({ ownsProduct: true }).ownership === "used", 'normalizeRaw: legacy ownsProduct true -> "used"');
+ok(B.normalizeRaw({ ownsProduct: false }).ownership === "none", 'normalizeRaw: legacy ownsProduct false -> "none"');
+ok(B.emptyRaw().ownership === "hand", 'emptyRaw: a new product defaults to "hand"');
+ok(B.normalizeRaw({ ownership: "used" }).ownership === "used", 'normalizeRaw: an explicit ownership state is kept');
+ok(B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ ownership:"hand" })).owns === true && B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ ownership:"hand" })).usedOverTime === false, 'briefToGenContext: hand -> owns true, usedOverTime false');
+ok(B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ ownership:"none" })).owns === false, 'briefToGenContext: none -> owns false');
 // generic second-person copy with no first person is still clean (no over-block of "you"/"your")
 ok(B.scriptViolations({ body1: "You pour a glass without a second thought", body2: "Your counter stays clear", cta: "Grab one today" }, {}).indexOf("ownership") < 0, 'validator: pure second-person recommender copy is not flagged');
 // batch repetition: same objection-turn opening or near-identical CTA

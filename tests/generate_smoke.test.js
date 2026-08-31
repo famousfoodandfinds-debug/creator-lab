@@ -80,7 +80,7 @@ brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out too fa
 // and are excluded from the pool entirely -- only real buyer objections curate the pre-close.
 brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true, cause:'the tank holds less', resolve:'you top it off once and it keeps going', words:['ice','runs out']}, {value:'it only makes a small batch before a refill', count:3, classified:true, words:['ice','batch']}]}}).lines.objections;
 brief.features = SB.normalizeBrief({features:[{feature:'makes 33 lbs per 24 hours', benefit:'plenty of ice'}, {feature:'1.8 L tank', benefit:'fewer refills'}]}).features;
-let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'the nugget ice is so good' }];
+let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'the nugget ice is so good' }]; raw.ownership = "none";   // not received -> recommender voice (the default is now "hand")
 const product = { id:'p1', name:'Ice maker', updated_at:'2026-01-01T00:00:00Z', brief:brief, raw:raw };
 
 let fillErr = null;

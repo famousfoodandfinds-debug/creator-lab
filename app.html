@@ -963,10 +963,24 @@ body.home-landing #homeLanding { display: block !important; }
         <div class="field-label" style="margin-bottom:7px;">Your credibility on this <span style="font-size:11px;font-weight:400;color:var(--muted);">optional</span></div>
         <div class="field-hints-line" style="margin-bottom:8px;">If you have real authority here, add it. If not, we derive trust from your reviews.</div>
         <textarea id="psAuthority" maxlength="300" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="e.g. I have cooked for my family every night for 20 years."></textarea>
-        <label for="psOwnsProduct" style="display:flex;align-items:center;gap:9px;margin-top:11px;cursor:pointer;font-size:13px;color:var(--white-dim);">
-          <input type="checkbox" id="psOwnsProduct" style="width:16px;height:16px;flex:none;cursor:pointer;">
-          <span>I own or use this product myself <span style="font-size:11px;color:var(--muted);">(a free sample counts) &ndash; lets scripts speak from real experience</span></span>
-        </label>
+        <div style="margin-top:14px;">
+          <div class="field-label" style="margin-bottom:7px;">How much have you used it?</div>
+          <div class="field-hints-line" style="margin-bottom:8px;">This sets how far scripts can speak in the first person. Most creators filming a sample are in the middle.</div>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+            <label for="psOwnershipNone" style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-size:13px;color:var(--white-dim);">
+              <input type="radio" name="psOwnership" id="psOwnershipNone" value="none" style="width:16px;height:16px;flex:none;margin-top:1px;cursor:pointer;">
+              <span>I haven't received it yet <span style="font-size:11px;color:var(--muted);">&ndash; scripts recommend it to the viewer, no first person</span></span>
+            </label>
+            <label for="psOwnershipHand" style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-size:13px;color:var(--white-dim);">
+              <input type="radio" name="psOwnership" id="psOwnershipHand" value="hand" checked style="width:16px;height:16px;flex:none;margin-top:1px;cursor:pointer;">
+              <span>I have it in hand <span style="font-size:11px;color:var(--muted);">&ndash; scripts can show it, feel it, react to it (not claim months of use)</span></span>
+            </label>
+            <label for="psOwnershipUsed" style="display:flex;align-items:flex-start;gap:9px;cursor:pointer;font-size:13px;color:var(--white-dim);">
+              <input type="radio" name="psOwnership" id="psOwnershipUsed" value="used" style="width:16px;height:16px;flex:none;margin-top:1px;cursor:pointer;">
+              <span>I've been using it <span style="font-size:11px;color:var(--muted);">&ndash; scripts can speak from real experience over time</span></span>
+            </label>
+          </div>
+        </div>
       </div>
 
       <div id="psSaveStatus" style="font-size:12px;color:var(--muted);margin-top:14px;">Saved automatically as you type.</div>
@@ -13767,10 +13781,11 @@ function genOneScript(opts){
                                // ANY script (creator knowledge the reviews cannot contain). When present it is
                                // passed into generation and every script must work it in; when empty, generation
                                // is byte-identical to today. Never gates generation.
-      ownsProduct: false       // the creator owns or USES this product (a free sample counts). When true,
-                               // first-person testimony is allowed in scripts and ownership exemplars load;
-                               // when false the voice stays recommender and first person is blocked. The tool
-                               // has no other way to know, so this is set explicitly by the owner.
+      ownership: "hand"        // how much the creator can honestly say: "none" (not received -> recommender, no
+                               // first person), "hand" (has the sample -> present-tense first person: show, feel,
+                               // demonstrate, react, but NO claim of use over time), "used" (used it over time ->
+                               // full first person including duration). Defaults to "hand" -- the state most
+                               // creators filming a sample are in. Migrated from the old ownsProduct bool.
     };
   }
 
@@ -13806,7 +13821,10 @@ function genOneScript(opts){
     r.winningAngles      = arr(x.winningAngles).map(obj);
     r.authorityRaw       = str(x.authorityRaw);
     r.mustInclude        = str(x.mustInclude);
-    r.ownsProduct        = !!x.ownsProduct;
+    // Ownership is a three-state string now. Migrate the old bool: true -> "used" (keeps existing output), an
+    // explicit false -> "none" (kept recommender). A brand-new raw with neither field defaults to "hand".
+    r.ownership = (["none","hand","used"].indexOf(x.ownership) >= 0) ? x.ownership
+                : (x.ownsProduct === true ? "used" : (x.ownsProduct === false ? "none" : "hand"));
     return r;
   }
 
@@ -14380,7 +14398,9 @@ function genOneScript(opts){
       winningAngles: arr(raw.winningAngles).map(function(a){ a = obj(a); return { transcript: str(a.transcript), topic: str(a.topic) }; }),
       leadPain: top(pains.filter(function(p){ return String(p.about || "") === "alternative"; })),   // lead with an ALTERNATIVE pain only -- a product flaw must never be the lead/angle
       defuseObjection: top(objections),   // default focus: defuse this objection
-      owns: !!raw.ownsProduct,            // creator owns/uses it -> first-person allowed, owns exemplars load
+      ownership: raw.ownership,           // "none" | "hand" | "used" -- the three-state ownership signal
+      owns: raw.ownership !== "none",     // first person is on the table at all (hand OR used); exemplars/authority
+      usedOverTime: raw.ownership === "used",  // may claim USE OVER TIME (duration); "hand" may not
       mustInclude: str(raw.mustInclude),  // creator non-negotiable: when set, every script must work it in
       reviewCount: b.meta.reviewCount|0,
       commentCount: b.meta.commentCount|0,
@@ -14425,6 +14445,20 @@ function genOneScript(opts){
       || /\bi(?:['’]|\s)(?:ve|d|m|ll|have|had|am)\b/.test(body)
       || /\bi (?:use|used|using|run|ran|running|keep|kept|own|owned|bought|buy|buying|got|get|tried|trying|notice|noticed|realize|realized|reach|reached|grab|grabbed|love|loved|see|seen|saw|found|been)\b/.test(body);
     if (!opts.ownsAllowed && firstPerson) v.push("ownership");
+    // TIME-OF-USE claim, blocked ONLY in the "hand" state (has the sample but has not used it over time). Present
+    // tense is fine ("I'm holding it", "look how it feels", even "I use it every morning"); a DURATION/HISTORY
+    // claim is not ("I've had this for months", "over the past year", "ever since I got it"). Deliberately
+    // conservative -- it fires only on explicit duration markers, erring toward letting present tense through, so
+    // a creator holding a fresh sample loses no honest demonstration line. In "used" state these are all allowed.
+    if (opts.ownershipState === "hand") {
+      var timeClaim =
+           /\bi(?:['’]ve| have| had)\s+(?:had|owned|used|been\s+(?:using|running|wearing))\b[^.!?]{0,45}\b(?:for|since|months?|years?|weeks?|days?|a while|ages|now)\b/.test(body)
+        || /\b(?:had|used|owned|been using)\s+(?:mine|this|it|these|them)\s+(?:for|since)\b/.test(body)
+        || /\bover\s+the\s+(?:past|last)\s+(?:few\s+|couple\s+of\s+|several\s+|\d+\s+)?(?:days?|weeks?|months?|years?)\b/.test(body)
+        || /\bever\s+since\s+i\s+(?:got|bought|ordered|received|picked)\b/.test(body)
+        || /\bfor\s+(?:the\s+)?(?:past\s+|last\s+)?(?:a\s+)?(?:few\s+|couple\s+of\s+|several\s+|\d+\s+)?(?:days?|weeks?|months?|years?)\s+now\b/.test(body);
+      if (timeClaim) v.push("ownership-time");
+    }
     // ---- objection-turn + viewer-ownership guards (moved from prompt to CODE) ----------------------
     // Two faults that kept slipping past the PROMPT are enforced here, where the bans hold.
     // (1) NAMING A DOUBT: the objection turn must SHOW the fix, never say the worry. opts.doubtVocab is every
@@ -14801,7 +14835,7 @@ function genOneScript(opts){
     raw.competitorComments = val("psCompetitorText");
     raw.authorityRaw       = val("psAuthority");
     raw.mustInclude        = val("psMustInclude");
-    raw.ownsProduct        = !!(el("psOwnsProduct") && el("psOwnsProduct").checked);
+    raw.ownership          = (["none","hand","used"].filter(function(s){ var e = el("psOwnership" + s.charAt(0).toUpperCase() + s.slice(1)); return e && e.checked; })[0]) || raw.ownership || "hand";
     // reviews (raw.reviews), reviewShots and winningAngles are maintained by their own handlers.
   }
 
@@ -14889,7 +14923,7 @@ function genOneScript(opts){
     if (el("psCompetitorText")) el("psCompetitorText").value = raw.competitorComments;
     if (el("psAuthority"))      el("psAuthority").value      = raw.authorityRaw;
     if (el("psMustInclude"))    el("psMustInclude").value    = raw.mustInclude || "";
-    if (el("psOwnsProduct"))    el("psOwnsProduct").checked  = !!raw.ownsProduct;
+    ["none","hand","used"].forEach(function(s){ var e = el("psOwnership" + s.charAt(0).toUpperCase() + s.slice(1)); if (e) e.checked = (raw.ownership === s); });
     ["psAngleLink","psAngleText"].forEach(function(id){ if (el(id)) el(id).value = ""; });
     renderAngles(); renderReviewList(); renderReviewCount(); reviewMsg(""); toggleReviewAdd(false);
     renderBrief();
@@ -16132,7 +16166,8 @@ function genOneScript(opts){
     // is honest and allowed (it usually sells harder). Otherwise RECOMMENDER: point the viewer at what the
     // product will mean for THEM, no first person. The ownership ban is enforced in code, so the prompt only
     // needs to set the voice, not police it.
-    if (ctx.owns) L.push("VOICE -- you OWN or use this product, so speak from real first-person experience where it helps (\"I've used this...\", \"mine...\"). Still talk mostly TO the viewer about THEIR life; use \"I\" for genuine, specific experience, never as filler.");
+    if (ctx.ownership === "used") L.push("VOICE -- you have USED this product over time, so speak from real first-person experience where it helps (\"I've had mine for months...\", \"mine...\"). Still talk mostly TO the viewer about THEIR life; use \"I\" for genuine, specific experience, never as filler.");
+    else if (ctx.ownership === "hand") L.push("VOICE -- you have this product IN HAND (a sample to film), so first person is fine for what you can SEE, FEEL, and DO right now: hold it, show it, react to it (\"look how heavy this is\", \"I'm holding it\"). But you have NOT used it over time -- never claim history (no \"I've had this for months\", no \"over the past year\"). Talk mostly TO the viewer about THEIR life.");
     else L.push("VOICE -- you are recommending this to the viewer, not confessing your own ownership. Talk TO the viewer about THEIR life in second person (you, your). \"I\" is fine only as a short honest aside the viewer recognizes in themselves.");
     L.push("");
     L.push(block("WHO THIS IS FOR", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning));
@@ -16320,9 +16355,9 @@ function genOneScript(opts){
     L.push("IF PAIN-LED -- PAIN BEFORE PRODUCT: open INSIDE the frustration, never by liking the product; the viewer feels the old way first and the product ARRIVES as the answer. TWIST THE KNIFE: do not name the pain once and move on, STACK it -- several short lines of the same annoying loop, in the order it really happens, until it is a little uncomfortable, THEN the product lands. (Pull the basket out. Not crispy. Push it back. Two minutes later, pull it out again. Still not there.) A pain named once is a caption; a pain stacked is a hook.");
     L.push("IF DESIRE-LED -- DESIRE BEFORE JUSTIFICATION: open on the WANTING, not a problem -- the beautiful thing on the counter, the identity of owning it, the feeling it gives. The sequence is different from pain: DESIRE first (she already wants it), then JUSTIFICATION (permission to buy -- it is also genuinely useful), then QUALITY (why THIS one earns its place), then the USE CASE (where it lives in her life). She is not searching for a solution; she saw something she wants, and the script gives her permission to have it because it is also functional. Lean on the desire tools -- before/after transformation, identity, social proof -- and never on a manufactured pain.");
     L.push("NAME THE FEELING, NEVER THE CATEGORY. Never label the audience -- no \"perfect for empty nesters\", no \"if you're a busy mom\". The instant you name the group, the people in it stop seeing themselves and start seeing a pitch. Put the viewer in the specific MOMENT and let them recognize themselves before you would ever name them.");
-    L.push("OTHER MOVES, when one genuinely fits a buyer (never all in one script): the before-and-after transformation; relatability (talk like them, share the struggle); the customer journey (saw it everywhere, was skeptical, tried it, converted); a light education beat if the how actually helps the sell. " + (ctx.owns ? "Personal testimonial is available and strong -- the creator really uses this, so first-person experience is honest and sells hard. " : "Personal testimonial is NOT available -- the creator does not own this, so never claim first-person use. ") + "An objection only if one truly fits this buyer, handled by acknowledging where they are and answering it, NEVER by naming a doubt nobody raised.");
+    L.push("OTHER MOVES, when one genuinely fits a buyer (never all in one script): the before-and-after transformation; relatability (talk like them, share the struggle); the customer journey (saw it everywhere, was skeptical, tried it, converted); a light education beat if the how actually helps the sell. " + (ctx.usedOverTime ? "Personal testimonial is available and strong -- the creator has used this over time, so first-person experience (including how it held up) is honest and sells hard. " : (ctx.ownership === "hand" ? "The creator has it IN HAND -- first-person reaction to what they can see and do NOW is honest, but a testimonial about long-term use is NOT available (never claim history). " : "Personal testimonial is NOT available -- the creator does not have this, so never claim first-person use. ")) + "An objection only if one truly fits this buyer, handled by acknowledging where they are and answering it, NEVER by naming a doubt nobody raised.");
     L.push("");
-    L.push("VOICE: " + (ctx.owns ? "vary it across the four -- some first person from real experience (\"mine's lived on my counter for months\"), some second person to the viewer. Never all four the same." : "vary it across the four, but the creator does NOT own this, so never first-person ownership. Talk to the VIEWER about THEIR life; \"I\" only as a brief honest aside, never a claim to own it."));
+    L.push("VOICE: " + (ctx.usedOverTime ? "vary it across the four -- some first person from real experience over time (\"mine's lived on my counter for months\"), some second person to the viewer. Never all four the same." : (ctx.ownership === "hand" ? "vary it across the four. You have it in hand, so first person about what you SEE and DO now is fine (\"look how it folds\"), but never claim long-term use (no \"I've had this for months\"). Mix in second person to the viewer; never all four the same." : "vary it across the four, but the creator does NOT have this, so never first-person ownership. Talk to the VIEWER about THEIR life; \"I\" only as a brief honest aside, never a claim to own it.")));
     if (voiceNote) L.push(voiceNote.trim());   // the creator's nine-dimension voice profile, applied to every line
     L.push("");
     L.push("THE ONLY HARD RULES (everything else is your judgment as a writer):");
@@ -16415,7 +16450,7 @@ function genOneScript(opts){
     if (voiceNote) L.push(voiceNote.trim());
     if (audienceNote) L.push(audienceNote.trim());
     if (voiceNote || audienceNote) L.push("");
-    L.push("Hard limits: invent nothing that is not in the brief or listing below (no made-up number, figure, or feature); no health, safety, or contamination claim; no price or money; " + (ctx.owns ? "you own this product, so first person from real experience is fine." : "do NOT claim to own or use it (the creator does not) -- speak to the viewer.") + " No em dashes.");
+    L.push("Hard limits: invent nothing that is not in the brief or listing below (no made-up number, figure, or feature); no health, safety, or contamination claim; no price or money; " + (ctx.usedOverTime ? "you have used this over time, so first person is fine, including how it held up." : (ctx.ownership === "hand" ? "you have it in hand (a sample): first person about what you can see and do NOW is fine, but never claim you have used it over time (no \"I've had this for months\")." : "do NOT claim to own or use it (the creator does not) -- speak to the viewer.")) + " No em dashes.");
     L.push("NEVER cite or quote the reviews, and never attribute anything to an outside party -- no \"reviewers say\", no \"one person said\", no \"a buyer wrote\", no \"someone commented\". You speak from YOUR OWN experience and observation; social proof is fine only as something you noticed yourself (\"my friends keep asking about it\"), never as what a reviewer wrote.");
     L.push("");
     L.push("THE BRIEF:");
@@ -16462,7 +16497,7 @@ function genOneScript(opts){
     return genPrompt(ctx) +
       "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for: " + reasons + "." + repeatMsg +
       " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
-      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, NO money in any slot (no price, cost, cheapness, or value in money terms -- not 'without spending a fortune', 'worth every penny', 'a steal'), no company service or warranty or returns, " + (ctx.owns ? "" : "no first-person ownership, ") + "never assume the VIEWER already owns it, never assume they have already moved on from the old thing (no 'your old X', no 'you used to'), no manufactured health, safety, or contamination claim (no leaching, chemicals, or flakes 'into your food' -- speak to a worry someone raised, never assert it), no invented social proof (no 'people end up buying a second one' or any claim about what other buyers do/own unless the material states it), never cite the reviews or the brief as a source (no 'the reviews say', no 'reviewers'), no moderation words, no invented market trend, never state the current year, keep the SAME viewer from hook to CTA, and NEVER reuse the words of a teaching example (write your own line for this product)." +
+      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, NO money in any slot (no price, cost, cheapness, or value in money terms -- not 'without spending a fortune', 'worth every penny', 'a steal'), no company service or warranty or returns, " + (ctx.owns ? (ctx.usedOverTime ? "" : "no claim of using it over time (you only have it in hand), ") : "no first-person ownership, ") + "never assume the VIEWER already owns it, never assume they have already moved on from the old thing (no 'your old X', no 'you used to'), no manufactured health, safety, or contamination claim (no leaching, chemicals, or flakes 'into your food' -- speak to a worry someone raised, never assert it), no invented social proof (no 'people end up buying a second one' or any claim about what other buyers do/own unless the material states it), never cite the reviews or the brief as a source (no 'the reviews say', no 'reviewers'), no moderation words, no invented market trend, never state the current year, keep the SAME viewer from hook to CTA, and NEVER reuse the words of a teaching example (write your own line for this product)." +
       (ctx.mustInclude ? " And STILL make the creator's non-negotiable point (\"" + ctx.mustInclude + "\") somewhere in this script, in this script's OWN words -- convey the point, never paste the sentence." : "") +
       " Above all, use NO number or figure that is not in the PRODUCT LISTING above -- no invented count, weight, size, time, percentage or price; if you are unsure a figure is in the listing, drop it and describe the outcome in words instead." +
       " Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
@@ -16674,7 +16709,7 @@ function genOneScript(opts){
     next();
   }
   // Human labels for the guard codes, used when a drop has to be explained to the owner.
-  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated setup, pre-close, or CTA opening", "names-doubt": "named the doubt instead of showing the fix", "viewer-owns": "assumes the viewer already owns it", "moved-on": "assumes the viewer already moved on from the old thing", "health-claim": "manufactured health or contamination claim", "social-proof": "invented social proof (what other buyers do)", "cites-source": "referenced the reviews or brief as a source" };
+  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated setup, pre-close, or CTA opening", "names-doubt": "named the doubt instead of showing the fix", "viewer-owns": "assumes the viewer already owns it", "moved-on": "assumes the viewer already moved on from the old thing", "health-claim": "manufactured health or contamination claim", "social-proof": "invented social proof (what other buyers do)", "cites-source": "referenced the reviews or brief as a source", "ownership-time": "claims using it over time (you only have it in hand)" };
   // Guard TIERS decide what may reach the screen when a slot cannot come clean.
   //  TERMINAL -- must NEVER render, even as a rough draft: liability/compliance (health, moderation, price,
   //    unverifiable figure, company service), plagiarism (a lifted review line or a copied teaching example),
@@ -16684,7 +16719,7 @@ function genOneScript(opts){
   //  TASTE -- everything else (repetition, named doubt, invented social proof, cited source, invented market
   //    trend, stated current year). A rough draft the owner reads before posting; showing it beats a blank.
   // Any code NOT listed here is treated as TERMINAL (fail safe: an unknown guard never renders by default).
-  var TERMINAL_CODES = { "em-dash":1, moderation:1, price:1, company:1, ownership:1, "asserted-number":1, lifted:1, "example-lift":1, "generation-failed":1, "viewer-owns":1, "moved-on":1, "health-claim":1 };
+  var TERMINAL_CODES = { "em-dash":1, moderation:1, price:1, company:1, ownership:1, "ownership-time":1, "asserted-number":1, lifted:1, "example-lift":1, "generation-failed":1, "viewer-owns":1, "moved-on":1, "health-claim":1 };
   var TASTE_CODES    = { "current-year":1, "market-claim":1, repetition:1, "names-doubt":1, "social-proof":1, "cites-source":1 };
   // Split a code list into the two tiers. An unrecognised code counts as terminal so a new guard can never
   // silently start rendering banned content until it is deliberately classified as taste.
@@ -16737,7 +16772,8 @@ function genOneScript(opts){
         // hook examples PLUS this architecture's loaded body examples -- a copied setup/payoff is caught too.
         exemplars: HOOK_EXEMPLARS.concat(architectureExemplars(ctx).all),
         nowYear: nowYear,
-        ownsAllowed: !!ctx.owns   // first-person testimony allowed only when the creator owns/uses it
+        ownsAllowed: !!ctx.owns,       // first person allowed at all (hand OR used); blocked for "none"
+        ownershipState: ctx.ownership  // "hand" also blocks a claim of use OVER TIME; "used" allows it
       };
       // The names-doubt guard needs doubt VOCABULARY (built in code, not trusted to the model). doubtVocab is
       // the distinctive PHRASES buyers use for a DOUBT (objections + product-pains), MINUS the sanctioned ANSWER
@@ -17006,7 +17042,7 @@ function genOneScript(opts){
 
   function init(){
     ["newProductNameInput","productInput","psCompetitorText","psAuthority","psMustInclude"].forEach(function(id){ var e = el(id); if (e) e.addEventListener("input", scheduleSave); });
-    if (el("psOwnsProduct")) el("psOwnsProduct").addEventListener("change", scheduleSave);
+    ["none","hand","used"].forEach(function(s){ var e = el("psOwnership" + s.charAt(0).toUpperCase() + s.slice(1)); if (e) e.addEventListener("change", scheduleSave); });
     if (el("psReviewAddBtn"))     el("psReviewAddBtn").addEventListener("click", function(){ toggleReviewAdd(true); });
     if (el("psReviewAddCancel"))  el("psReviewAddCancel").addEventListener("click", function(){ toggleReviewAdd(false); reviewMsg(""); });
     if (el("psReviewAddConfirm")) el("psReviewAddConfirm").addEventListener("click", addReviewsFromBox);
