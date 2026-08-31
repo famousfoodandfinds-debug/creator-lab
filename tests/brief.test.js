@@ -808,6 +808,17 @@ ok(B.normalizeRaw({ mustInclude: 'folds flat to two inches' }).mustInclude === '
 ok(B.normalizeRaw({ mustInclude: 99 }).mustInclude === '99', 'normalizeRaw: coerces mustInclude to a string');
 ok(B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ mustInclude: 'say it folds flat' })).mustInclude === 'say it folds flat', 'briefToGenContext: threads the creator non-negotiable into ctx.mustInclude');
 ok(B.briefToGenContext(B.emptyBrief(), B.emptyRaw()).mustInclude === '', 'briefToGenContext: mustInclude is empty when the field is blank (generation unchanged)');
+// blockedFigures: names the EXACT text the figure/price guards trip on, mirroring scriptViolations, for the drop diagnostic.
+let bfListing = 'Ninja Crispi Pro. 4 quart and 6 quart glass bowls.';
+let bf1 = B.blockedFigures({ hook:'it saves you twenty minutes', body2:'crispy in 8 minutes' }, { listingText: bfListing });
+ok(bf1['asserted-number'].indexOf('twenty minutes') >= 0 && bf1['asserted-number'].indexOf('8 minutes') >= 0, 'blockedFigures: names time figures not in the listing');
+let bf2 = B.blockedFigures({ hook:'you dirty three pans', body2:'six different things at once' }, { listingText: bfListing });
+ok(bf2['asserted-number'].length === 0, 'blockedFigures: unit-less counts of objects are not figures (three pans, six things pass)');
+let bf3 = B.blockedFigures({ body2:'a 6 quart bowl' }, { listingText: bfListing });
+ok(bf3['asserted-number'].length === 0, 'blockedFigures: a figure whose number IS in the listing is not blocked');
+let bf4 = B.blockedFigures({ hook:'cuts cook time by 30 percent', body2:'only 40 dollars' }, { listingText: bfListing });
+ok(bf4['asserted-number'].indexOf('30 percent') >= 0, 'blockedFigures: percent is always named');
+ok(bf4.price.indexOf('40 dollars') >= 0, 'blockedFigures: a currency figure is named under price');
 let clN = B.applyClusters([{ value:'sharp ice', count:2, need:'safety' }, { value:'kids around', count:3, need:'' }], { groups:[{ value:'sharp ice near kids', members:[0,1] }] }, 10);
 ok(clN[0].need === 'safety', 'applyClusters: representative carries the first need through consolidation');
 // Cap at 5 so a giant brief never floods the batch.

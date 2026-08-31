@@ -14537,6 +14537,30 @@ function genOneScript(opts){
     t.replace(/[^a-z ]/g, " ").split(/\s+/).forEach(function(w){ if (WORD_NUM[w]) out[WORD_NUM[w]] = true; });
     return out;
   }
+  // DIAGNOSTIC: the EXACT text that trips the figure and price guards, so a drop message can name what to fix
+  // ("Script 3: unverifiable figure -- 'twenty minutes'") instead of just the reason. Mirrors the guard logic in
+  // scriptViolations exactly, so what it names is precisely what was blocked. Returns { "asserted-number":[...],
+  // price:[...] } -- the offending phrases, deduped, keyed by the guard code they trip.
+  function blockedFigures(script, opts){
+    script = obj(script); opts = obj(opts);
+    var whole = [str(script.hook), str(script.body1), str(script.preclose), str(script.body2), str(script.cta)].join("\n");
+    var lc = whole.toLowerCase();
+    var out = { "asserted-number": [], price: [] };
+    var listingText = str(opts.listingText).trim();
+    var listNums = listingText ? numbersIn(listingText) : null;
+    numberUnits(whole).forEach(function(fig){
+      if (/percent|%/.test(fig)) { out["asserted-number"].push(fig); return; }   // percent: always blocked
+      if (!listNums) return;                                                      // no listing: figures allowed
+      var figNums = Object.keys(numbersIn(fig));
+      if (!figNums.every(function(n){ return listNums[n]; })) out["asserted-number"].push(fig);
+    });
+    (lc.match(/\$\s?\d[\d.,]*|\b\d[\d.,]*\s*(?:dollars?|bucks?|cents?)\b/g) || []).forEach(function(x){ out.price.push(x.trim()); });
+    (lc.match(/\b(?:price|prices|priced|pricing|pricey|cost|costs|costly|expensive|inexpensive|cheap|cheaper|cheapest|overpriced|afford|affordable|unaffordable|fortune|splurge|priceless|budget|money|cash|penny|pennies|dime|dimes)\b/g) || []).forEach(function(x){ out.price.push(x); });
+    (lc.match(/break the bank|bang for|worth every|worth it|a steal|for the money|value for|spend(?:ing|s)? a fortune/g) || []).forEach(function(x){ out.price.push(x); });
+    function uniq(a){ return a.filter(function(x, i){ return a.indexOf(x) === i; }); }
+    out["asserted-number"] = uniq(out["asserted-number"]); out.price = uniq(out.price);
+    return out;
+  }
   // Grounding, enforced in code (a prompt rule alone let invented objections through): once the brief is
   // classified, a DERIVED pain/objection with zero review hits AND zero comment hits is grounded in
   // nothing -- it was invented -- so it is dropped. Hand-edited and added lines are always kept (they are
@@ -14681,6 +14705,7 @@ function genOneScript(opts){
     isThin: isThin,
     briefToGenContext: briefToGenContext,
     scriptViolations: scriptViolations,
+    blockedFigures: blockedFigures,
     scriptRepeats: scriptRepeats,
     repeatDetail: repeatDetail,
     numberUnits: numberUnits,
@@ -16402,7 +16427,14 @@ function genOneScript(opts){
     // Record a drop with the SLOT it happened in, so the message can say which script hit which reason
     // ("Script 2: unverifiable figure; Script 4: copied a teaching example") instead of merging two scripts'
     // reasons into one anonymous line the owner cannot map back to a script.
-    function recordDrop(idx, codes){ dropped++; drops.push({ idx: idx, codes: (codes || []).slice() }); (codes || []).forEach(function(c){ dropCodes[c] = (dropCodes[c] | 0) + 1; }); }
+    // `script` is the final failing attempt; blockedFigures names the exact figure/price text so the drop line
+    // can show what to fix ("Script 3: unverifiable figure -- 'twenty minutes'"), not just the reason.
+    function recordDrop(idx, codes, script){
+      dropped++;
+      var figs = (SB.blockedFigures ? SB.blockedFigures(script || {}, guardOpts) : {});
+      drops.push({ idx: idx, codes: (codes || []).slice(), figs: figs });
+      (codes || []).forEach(function(c){ dropCodes[c] = (dropCodes[c] | 0) + 1; });
+    }
     function label(codes){ return (codes || []).map(function(c){ return GUARD_LABELS[c] || c; }).join(", "); }
     // Rewrite one slot to its assignment and re-check it. `tries` is how many rewrites this slot has already
     // spent; a rewrite that STILL breaks a rule is retried up to MAX_TRIES before the slot is dropped and
@@ -16415,7 +16447,7 @@ function genOneScript(opts){
         if (s2) consider(idx, finalizeScript(s2, ctx), v2);   // remember the best terminal-free rewrite for the fallback
         if (s2 && !v2.length){ accepted.push(finalizeScript(s2, ctx)); i++; next(); return; }
         if (tries < MAX_TRIES){ regen(idx, s2 || prev, v2, tries + 1, missing && !s2); return; }
-        recordDrop(idx, v2); i++; next();
+        recordDrop(idx, v2, s2 || prev); i++; next();
       });
     }
     function next(){
@@ -16449,7 +16481,14 @@ function genOneScript(opts){
   // Per-script drop line: "Script 2: unverifiable figure; Script 4: copied a teaching example" -- so two
   // scripts' reasons never merge into one line the owner cannot attribute. Codes within one script join with
   // a comma; scripts join with a semicolon, in slot order.
-  function fmtDropsByScript(drops){ return (drops || []).slice().sort(function(a,b){ return a.idx - b.idx; }).map(function(d){ return "Script " + (d.idx + 1) + ": " + (d.codes || []).map(function(c){ return GUARD_LABELS[c] || c; }).join(", "); }).join("; "); }
+  // Per-code label, with the offending figure/price text named when the drop carries it: "unverifiable figure
+  // ('twenty minutes')" instead of a bare reason, so the owner sees exactly which number to change.
+  function labelWithFig(code, figs){
+    var base = GUARD_LABELS[code] || code;
+    var hits = (figs && figs[code]) || [];
+    return hits.length ? base + " (" + hits.map(function(x){ return "'" + x + "'"; }).join(", ") + ")" : base;
+  }
+  function fmtDropsByScript(drops){ return (drops || []).slice().sort(function(a,b){ return a.idx - b.idx; }).map(function(d){ return "Script " + (d.idx + 1) + ": " + (d.codes || []).map(function(c){ return labelWithFig(c, d.figs); }).join(", "); }).join("; "); }
   // A thrown error anywhere on the Generate path must SURFACE, not stall. The crash that took production down
   // was a ReferenceError before the model call ever fired, so the spinner spun forever and the never-empty
   // net never ran. Every layer below (sync setup, the model-call callback, the validate callback) is wrapped
