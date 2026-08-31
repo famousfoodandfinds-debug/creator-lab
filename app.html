@@ -16173,9 +16173,45 @@ function genOneScript(opts){
   // invented figures, no health/price claims, no citing reviews, first person only if the creator owns it) and
   // drops the taste-rule pile and the assignment machinery. Same five-field JSON out, so every downstream stage
   // (guards, hook read-back, render, edit, save, cap) is shared with the current path.
-  // STEP 1: a stub that returns the CURRENT prompt, so the toggle is provably inert until step 2 fills this in.
   function genLeanPrompt(ctx){
-    return genPrompt(ctx);
+    var L = [];
+    function block(label, val){ return val ? (label + ": " + val + "\n") : ""; }
+    // Only ALTERNATIVE pains (the old way / life without this) are sellable material. A PRODUCT-flaw pain is a
+    // doubt, never a reason to buy, so it is left off the menu entirely -- the assembly used to guarantee "no
+    // flaw as subject" by filtering; lean keeps that one guarantee by simply not handing the flaw over.
+    var altPains = (ctx.pains || []).filter(function(p){ return String(p.about || "") === "alternative"; });
+    L.push("Write " + GEN_COUNT + " short-form video scripts for this product. Each is a complete, ready-to-film script a creator reads out loud.");
+    L.push("");
+    L.push("THE JOB: make a viewer WANT this product enough to stop scrolling and tap the link to buy. Sound like a real person telling a friend about something they genuinely like -- never an ad, never a brand voice.");
+    L.push("");
+    L.push("CHOOSE, THEN WRITE:");
+    L.push("- Pick " + GEN_COUNT + " DIFFERENT buyers -- " + GEN_COUNT + " different reasons a real person wants this, a different person each time, never one script reworded four ways. The strongest buyers are often NOT spelled out in the brief; if the material supports a buyer we did not name (a small household, a gift-giver, a particular habit or dislike), write to them. Decide who each script is FOR before the first word.");
+    L.push("- For each script pick the ONE reason that buyer buys and build the whole thing around it. Decide what to LEAVE OUT and cut it -- every other feature, size, and function you happen to know. A script that says everything says nothing.");
+    L.push("");
+    L.push("THE WRITING FRAMEWORK -- a toolkit of MOVES, not a checklist to complete. For each buyer draw the FEW that fit and leave the rest:");
+    L.push("CLIMB PAST THE FEATURE. A FEATURE is what it is; a BENEFIT is what that does for them; a USE CASE is the exact moment they are in when it matters; the PAIN is what they feel in that moment; the WORSE ALTERNATIVE is what they put up with now; the TRANSFORMATION is who they are once it is solved. Write from the use case, the pain, and the transformation -- NEVER sell a raw feature. (Feature: it is glass. Benefit: you can see the food. Use case: you are not pulling the basket out five times to check. Pain: you are tired of guessing whether dinner is done. Worse alternative: a closed metal basket you cannot see into. Transformation: you glance over and just know.)");
+    L.push("PAIN BEFORE PRODUCT. Open INSIDE the frustration, never by liking the product. The viewer feels the old way first; the product ARRIVES as the answer, it is never the opening line.");
+    L.push("TWIST THE KNIFE. Do not name a pain once and move on -- STACK it. Several short lines of the same annoying loop, in the order it really happens, until it is a little uncomfortable, and THEN the product lands. (Pull the basket out. Not crispy. Push it back. Two minutes later, pull it out again. Still not there.) A pain named once is a caption; a pain stacked is a hook.");
+    L.push("NAME THE FEELING, NEVER THE CATEGORY. Never label the audience -- no \"perfect for empty nesters\", no \"if you're a busy mom\". The instant you name the group, the people in it stop seeing themselves and start seeing a pitch. Put the viewer in the specific MOMENT and let them recognize themselves before you would ever name them.");
+    L.push("OTHER MOVES, when one genuinely fits a buyer (never all in one script): the before-and-after transformation; relatability (talk like them, share the struggle); the customer journey (saw it everywhere, was skeptical, tried it, converted); a light education beat if the how actually helps the sell. " + (ctx.owns ? "Personal testimonial is available and strong -- the creator really uses this, so first-person experience is honest and sells hard. " : "Personal testimonial is NOT available -- the creator does not own this, so never claim first-person use. ") + "An objection only if one truly fits this buyer, handled by acknowledging where they are and answering it, NEVER by naming a doubt nobody raised.");
+    L.push("");
+    L.push("VOICE: " + (ctx.owns ? "vary it across the four -- some first person from real experience (\"mine's lived on my counter for months\"), some second person to the viewer. Never all four the same." : "vary it across the four, but the creator does NOT own this, so never first-person ownership. Talk to the VIEWER about THEIR life; \"I\" only as a brief honest aside, never a claim to own it."));
+    L.push("");
+    L.push("THE ONLY HARD RULES (everything else is your judgment as a writer):");
+    L.push("- INVENT NOTHING. Every buyer, reason, and fact traces to the brief or listing below. No invented feature, no number that is not in the listing (no made-up count, weight, size, time, or percentage), no buyer the material cannot support.");
+    L.push("- NO price, money, discount, or price comparison. NO money-back guarantee, warranty, returns, or anything the company does (you cannot verify it). NO invented social proof (no \"50,000 sold\", no \"thousands of 5-star reviews\") -- use social proof ONLY if the material states it, and never cite the reviews (\"reviewers say\", \"people in the reviews\") -- you simply know it.");
+    L.push("- NO health, safety, or contamination claim (nothing leaching, no chemicals or flakes \"into your food\"); you may speak to a worry a buyer raised, never assert it, and never as a question. No em dashes anywhere.");
+    L.push("- Scarcity only if it is genuinely real and in the material, framed as honest uncertainty (\"I don't know how long this stays up\") -- never an invented countdown, stock count, or deadline.");
+    L.push("");
+    L.push("THE BRIEF -- your intelligence about the buyer. Every line tells you what to SHOW, never a phrase to paste back:");
+    L.push(block("PRODUCT", ctx.name) + block("WHO BUYS IT", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning) + block("WHAT OTHERS SAY (draw on it, never cite it)", ctx.socialProof) + block("THE CREATOR'S REAL STANDING", ctx.owns ? ctx.authority : ""));
+    if (altPains.length){ L.push("FRUSTRATIONS WITH THE OLD WAY (raw material for PAIN, TWIST-THE-KNIFE, and WORSE ALTERNATIVE -- each can seed a different buyer):"); altPains.forEach(function(p){ L.push("  - " + p.value); }); }
+    if ((ctx.features || []).length){ L.push("FEATURES AND BENEFITS (climb PAST these to the use case, pain, and transformation; say any spec in plain buyer words, never list specs in a row):"); ctx.features.forEach(function(f){ L.push("  - " + f.feature + (f.benefit ? " -> " + f.benefit : "")); }); }
+    if (ctx.description){ L.push("THE LISTING (the ONLY source for any number or spec you use): " + ctx.description); }
+    L.push("");
+    if (ctx.mustInclude){ L.push("ONE POINT MUST BE MADE IN EVERY SCRIPT, in that script's own words (convey the point, never paste the sentence; a typo in it does not matter): \"" + ctx.mustInclude + "\"."); L.push(""); }
+    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the opening that puts THIS buyer in the moment and makes them feel seen in one second (a frustration, not liking the product); body1 = the setup where you TWIST THE KNIFE (stack the old way before the product appears); body2 = the payoff, the product arriving as the answer and the transformation it brings; preclose = "" unless one objection truly fits, then ONE sentence that answers it without naming the doubt; cta = point them to the link in this script\'s own voice. About 60 to 110 spoken words each. No em dashes.');
+    return L.join("\n");
   }
   // Ask for ONE script rewritten -- reuses the full batch prompt (all context + this script's assignment +
   // every rule) and just changes the output instruction, so nothing diverges from the batch rules.
