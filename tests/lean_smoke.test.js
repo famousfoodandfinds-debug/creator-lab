@@ -20,6 +20,15 @@ const BATCH = [
   { hook:"It is just the both of you most nights now",  body1:"You heat a whole oven for barely anything", preclose:"", body2:"You cook only what you need",     cta:"See it on the shop page" },
   { hook:"Cooking is fine, the dishes are the problem", body1:"Pan, then a plate, then a container",       preclose:"", body2:"You cook, serve, and store in one",cta:"Tap to try it" }
 ];
+// Minimal's two-step output: { hooks:[...], scripts:[...] }, returned only when MIN_OBJECT is on. Strategy fields
+// (angle/doNotDiscuss) carry a STRIPPEDSTRAT marker that must not survive into the rendered card.
+let MIN_OBJECT = false;
+const MINOBJ = { hooks:["HOOKONE lands massive","HOOKTWO finally sharp","HOOKTHREE oil slick by 3","HOOKFOUR bread aisle"], scripts:[
+  { buyer:"b1", angle:"STRIPPEDSTRAT1", coreDesire:"d", featureProof:"f", doNotDiscuss:"STRIPPEDSTRAT1b", body1:"You reach for it early", body2:"It just works", cta:"Grab it now" },
+  { buyer:"b2", angle:"STRIPPEDSTRAT2", coreDesire:"d", featureProof:"f", doNotDiscuss:"STRIPPEDSTRAT2b", body1:"The counter is a mess", body2:"Now it is clear", cta:"See it here" },
+  { buyer:"b3", angle:"STRIPPEDSTRAT3", coreDesire:"d", featureProof:"f", doNotDiscuss:"STRIPPEDSTRAT3b", body1:"Guests keep noticing", body2:"You feel proud", cta:"Check this out" },
+  { buyer:"b4", angle:"STRIPPEDSTRAT4", coreDesire:"d", featureProof:"f", doNotDiscuss:"STRIPPEDSTRAT4b", body1:"You almost skipped it", body2:"So glad you did not", cta:"Tap to try it" }
+]};
 const REWORK2 = { hook:"A DIFFERENTBUYER angle for the second script", body1:"One fresh setup here", preclose:"", body2:"One fresh payoff line", cta:"Grab it now" };
 const REWORK3 = { hook:"A GROUNDEDREASON angle for the third script",  body1:"Another separate setup", preclose:"", body2:"Another separate payoff", cta:"See it here" };
 
@@ -41,6 +50,7 @@ function harness(engine){
     if (content.indexOf('HOOK READ-BACK') >= 0){ state.hookReads++; return Promise.resolve(reply([{i:1,pass:true},{i:2,pass:true},{i:3,pass:true},{i:4,pass:true}])); }
     const rw = content.match(/REGENERATE ONLY SCRIPT (\d+)/);
     if (rw){ const n = rw[1]|0; state.regen[n] = (state.regen[n]|0)+1; return Promise.resolve(reply(n===2?REWORK2:(n===3?REWORK3:BATCH[n-1]))); }
+    if (MIN_OBJECT && content.indexOf('write 4 HOOKS') >= 0) return Promise.resolve(reply(MINOBJ));   // minimal two-step batch
     return Promise.resolve(reply(BATCH));
   };
   global.localStorage = { getItem(){ return engine; }, setItem(){} };
@@ -124,9 +134,19 @@ async function run(h, mode){
   ok(rm.state.buyerChecks === 0, 'minimal runs NO buyer/grounding check');
   ok(rm.state.hookReads === 0, 'minimal runs NO hook read-back (zero post-generation rewriting)');
   ok(rm.text.indexOf('Cold drinks should not be this hard') >= 0, 'minimal output still passes through the guards and renders');
-  ok(/each with these fields IN THIS ORDER/.test(M.state.captured) && /"doNotDiscuss":/.test(M.state.captured) && /"angle":/.test(M.state.captured), 'minimal writes a strategy header (angle/buyer/coreDesire/featureProof/doNotDiscuss) before each script');
+  ok(/Work in TWO steps/.test(M.state.captured) && /write 4 HOOKS/.test(M.state.captured) && /"hooks":\[/.test(M.state.captured) && /"scripts":\[/.test(M.state.captured), 'minimal writes ALL FOUR hooks FIRST, then the scripts (two-step {hooks, scripts} output)');
+  ok(/never derive a hook from a script you have not written yet/.test(M.state.captured), 'the hook is written before the script, so it cannot become a summary of it');
   ok(/doNotDiscuss MUST be DIFFERENT from the others/.test(M.state.captured), "each script's DO NOT DISCUSS must differ, forcing a distinct leave-out choice");
   ok(rm.text.indexOf('STRIPPEDHEADER') < 0, 'the strategy header is a thinking step -- stripped by cleanScript, never rendered on the card');
+
+  // Minimal's { hooks:[...], scripts:[...] } output: hook[i] is paired onto script[i], strategy fields stripped.
+  MIN_OBJECT = true;
+  const MO = harness('minimal');
+  const rmo = await run(MO, 'flag');
+  ok(rmo.text.indexOf('HOOKONE lands massive') >= 0 && rmo.text.indexOf('You reach for it early') >= 0, 'minimal pairs the first HOOK onto the first script and renders both');
+  ok(rmo.text.indexOf('HOOKFOUR bread aisle') >= 0 && rmo.text.indexOf('You almost skipped it') >= 0, 'the fourth hook is paired onto the fourth script (order preserved)');
+  ok(rmo.text.indexOf('STRIPPEDSTRAT') < 0, 'the per-script strategy fields (angle/doNotDiscuss) are stripped, never rendered');
+  MIN_OBJECT = false;
   delete global.getVoiceProfileNote; delete global.audienceTargetingNote;
 
   console.log(`\n${pass} passed, ${fail} failed`);

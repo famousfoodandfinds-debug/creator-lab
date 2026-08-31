@@ -16367,8 +16367,9 @@ function genOneScript(opts){
     L.push("Here is a copywriting framework. Use whichever of these moves fit the buyer you are writing to. Not all of them belong in every script.");
     L.push(COPY_CHECKLIST);
     L.push("");
-    L.push("For EACH script, FIRST write a short strategy header, THEN write the script to that header. The header comes first on purpose -- decide the strategy, and above all what to LEAVE OUT, before you write a word.");
-    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, each with these fields IN THIS ORDER: {"angle":"the reason to buy this script is built on","buyer":"who specifically this is written to","coreDesire":"what that person wants","featureProof":"the one feature that proves it","doNotDiscuss":"what this script deliberately leaves out","hook":"","body1":"","preclose":"","body2":"","cta":""}. Fill angle, buyer, coreDesire, featureProof, and doNotDiscuss FIRST; then write hook, body1 (the setup), body2 (the payoff), and cta to that strategy; leave preclose empty. Each script\'s doNotDiscuss MUST be DIFFERENT from the others -- different scripts leave out different things, and what one script leaves out is often what another is built on. Then honor it: do NOT mention anything in that script\'s own doNotDiscuss. No em dashes.');
+    L.push("Work in TWO steps, in this ORDER. STEP 1: from your " + GEN_COUNT + " buyers, write " + GEN_COUNT + " HOOKS -- one per buyer -- BEFORE you write anything else. Write them in the RANGE shown above. The hook comes FIRST and the script will chase it; never derive a hook from a script you have not written yet, or it turns into a one-line summary of the script.");
+    L.push("STEP 2: write each script to EARN its hook. For each, first decide the strategy -- the angle, what that buyer wants, the one feature that proves it, and above all what to LEAVE OUT -- then write the setup, payoff, and CTA that pay the hook off. Each script's doNotDiscuss MUST be DIFFERENT from the others (what one script leaves out is often what another is built on), and each script must honor its own: do NOT mention anything in its doNotDiscuss.");
+    L.push('Return ONLY a JSON object with two keys IN THIS ORDER: {"hooks":[' + Array.apply(null, {length: GEN_COUNT}).map(function(_, i){ return '"hook for buyer ' + (i + 1) + '"'; }).join(",") + '],"scripts":[{"buyer":"who this is for","angle":"the reason to buy is built on","coreDesire":"what that person wants","featureProof":"the one feature that proves it","doNotDiscuss":"what this script leaves out","body1":"the setup","body2":"the payoff","cta":"the call to action"}, ... one per buyer, in the SAME order as the hooks]}. Write ALL ' + GEN_COUNT + ' hooks first, then the scripts. There is no pre-close. No em dashes.');
     return L.join("\n");
   }
   function genMinimalOnePrompt(ctx, i, prev, violations, accepted, extraReason){
@@ -16731,7 +16732,17 @@ function genOneScript(opts){
           // The batch was accepted by the cap (a 429 would have returned above), so a slot was spent. Decrement
           // the visible counter locally; the server stays the source of truth on the next screen.
           if (genCount && typeof genCount.remaining === "number"){ genCount.used = (genCount.used | 0) + 1; genCount.remaining = Math.max(0, (genCount.remaining | 0) - 1); }
-          var out = parseJson(text, "[", "]");
+          // Minimal writes all four HOOKS first, then the scripts, so it returns { hooks:[...], scripts:[...] }
+          // instead of a plain array -- pair hook[i] onto script[i] into the normal 5-field shape. Falls back to
+          // the array parse if the model ignored the two-step shape, so a stray array still renders.
+          var out;
+          if (usingMinimal){
+            var mo = parseJson(text, "{", "}");
+            if (mo && (Array.isArray(mo.hooks) || Array.isArray(mo.scripts))){
+              var mh = Array.isArray(mo.hooks) ? mo.hooks : [], mss = Array.isArray(mo.scripts) ? mo.scripts : [];
+              out = mss.map(function(s, i){ s = s || {}; return { hook: (mh[i] != null ? mh[i] : s.hook), body1: s.body1, preclose: "", body2: s.body2, cta: s.cta }; });
+            } else { out = parseJson(text, "[", "]"); }
+          } else { out = parseJson(text, "[", "]"); }
           if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
           // Lean-only buyer/grounding check FIRST (four different buyers, every reason grounded), then the hook
           // read-back, then the guards. Each stage is fail-open; the current path skips leanReview entirely.
