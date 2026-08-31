@@ -16354,7 +16354,8 @@ function genOneScript(opts){
     L.push("Here is a copywriting framework. Use whichever of these moves fit the buyer you are writing to. Not all of them belong in every script.");
     L.push(COPY_CHECKLIST);
     L.push("");
-    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. body1 = setup, body2 = payoff, preclose = "" (leave it empty). No em dashes.');
+    L.push("For EACH script, FIRST write a short strategy header, THEN write the script to that header. The header comes first on purpose -- decide the strategy, and above all what to LEAVE OUT, before you write a word.");
+    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, each with these fields IN THIS ORDER: {"angle":"the reason to buy this script is built on","buyer":"who specifically this is written to","coreDesire":"what that person wants","featureProof":"the one feature that proves it","doNotDiscuss":"what this script deliberately leaves out","hook":"","body1":"","preclose":"","body2":"","cta":""}. Fill angle, buyer, coreDesire, featureProof, and doNotDiscuss FIRST; then write hook, body1 (the setup), body2 (the payoff), and cta to that strategy; leave preclose empty. Each script\'s doNotDiscuss MUST be DIFFERENT from the others -- different scripts leave out different things, and what one script leaves out is often what another is built on. Then honor it: do NOT mention anything in that script\'s own doNotDiscuss. No em dashes.');
     return L.join("\n");
   }
   function genMinimalOnePrompt(ctx, i, prev, violations, accepted, extraReason){

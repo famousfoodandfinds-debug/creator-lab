@@ -15,7 +15,7 @@ const chain = { select(){ return chain; }, eq(){ return chain; }, update(){ retu
 
 // Four clean, guard-passing scripts (distinct hooks/body1/cta so the repetition guard never fires).
 const BATCH = [
-  { hook:"Cold drinks should not be this hard",         body1:"Mornings you scramble for something cold", preclose:"", body2:"You pour a glass and move on",   cta:"Grab yours today" },
+  { angle:"STRIPPEDHEADER", buyer:"x", coreDesire:"y", featureProof:"z", doNotDiscuss:"w", hook:"Cold drinks should not be this hard",         body1:"Mornings you scramble for something cold", preclose:"", body2:"You pour a glass and move on",   cta:"Grab yours today" },
   { hook:"You keep pulling the basket out to check",    body1:"Check it. Nope. Push it back in.",         preclose:"", body2:"Now you just glance and know",    cta:"Check it out on shop" },
   { hook:"It is just the both of you most nights now",  body1:"You heat a whole oven for barely anything", preclose:"", body2:"You cook only what you need",     cta:"See it on the shop page" },
   { hook:"Cooking is fine, the dishes are the problem", body1:"Pan, then a plate, then a container",       preclose:"", body2:"You cook, serve, and store in one",cta:"Tap to try it" }
@@ -122,6 +122,9 @@ async function run(h, mode){
   ok(rm.state.buyerChecks === 0, 'minimal runs NO buyer/grounding check');
   ok(rm.state.hookReads === 0, 'minimal runs NO hook read-back (zero post-generation rewriting)');
   ok(rm.text.indexOf('Cold drinks should not be this hard') >= 0, 'minimal output still passes through the guards and renders');
+  ok(/each with these fields IN THIS ORDER/.test(M.state.captured) && /"doNotDiscuss":/.test(M.state.captured) && /"angle":/.test(M.state.captured), 'minimal writes a strategy header (angle/buyer/coreDesire/featureProof/doNotDiscuss) before each script');
+  ok(/doNotDiscuss MUST be DIFFERENT from the others/.test(M.state.captured), "each script's DO NOT DISCUSS must differ, forcing a distinct leave-out choice");
+  ok(rm.text.indexOf('STRIPPEDHEADER') < 0, 'the strategy header is a thinking step -- stripped by cleanScript, never rendered on the card');
   delete global.getVoiceProfileNote; delete global.audienceTargetingNote;
 
   console.log(`\n${pass} passed, ${fail} failed`);
