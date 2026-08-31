@@ -1791,6 +1791,32 @@ function getAudienceNote() {
   return out;
 }
 
+// Script-framed version of the audience profile, for the LEAN generation prompt. getAudienceNote() is worded for
+// the buyer-card generator ("Generate buyer types..."); this reuses the SAME stored profile data (audienceProfile
+// + audiencePct + AUDIENCE_AGE_BANDS) but frames it as targeting intelligence for a script, and hard-codes the
+// never-name rule: the demographic must change what a script is ABOUT, and must NEVER appear in it. Returns ""
+// when the profile is blank, so it is a guaranteed no-op for creators who left it empty.
+function audienceTargetingNote() {
+  var a = audienceProfile || {};
+  var parts = [];
+  var gf = audiencePct(a.genderFemale), gm = audiencePct(a.genderMale);
+  var g = []; if (gf !== null) g.push(gf + "% female"); if (gm !== null) g.push(gm + "% male");
+  if (g.length) parts.push(g.join(", "));
+  var ag = []; AUDIENCE_AGE_BANDS.forEach(function(b){ var v = a.age ? audiencePct(a.age[b]) : null; if (v !== null) ag.push(v + "% " + b); });
+  if (ag.length) parts.push("age " + ag.join(", "));
+  if (a.lifeStage && a.lifeStage.length) parts.push("life stage " + a.lifeStage.join(", "));
+  var wt = a.writeTo;
+  if (!parts.length && !wt) return "";
+  var s = "";
+  if (parts.length) {
+    s += "WHO ACTUALLY BUYS THIS (real purchasers, not followers): " + parts.join("; ") + ". Let this shape WHO each script is for and the WORLD it is set in -- the moment, the references, the life it assumes -- so it lands with this person. But it is TARGETING INTELLIGENCE ONLY: NEVER name the age, gender, or life stage in a script. No 'as a Gen X woman', no 'perfect for empty nesters', no naming the group at all. The instant you label the audience, the people in it stop seeing themselves and start seeing a pitch (this is NAME THE FEELING, NEVER THE CATEGORY applied to the demographic). Put them in the moment and let them recognize themselves.";
+  }
+  if (wt === "women") s += " The creator WRITES TO women (who she addresses -- which may differ from who buys, since men often buy as gifts); write every line to a woman.";
+  else if (wt === "men") s += " The creator WRITES TO men (who he addresses, which may differ from who buys); write every line to a man.";
+  else if (wt === "both") s += " The creator writes to women or men depending on the product; for THIS product pick the single most likely buyer from the percentages above and write every line to that one person.";
+  return s;
+}
+
 function showProfile() {
   var existing = document.getElementById("profileModal");
   if(existing) { existing.remove(); return; }
@@ -16211,6 +16237,12 @@ function genOneScript(opts){
     // doubt, never a reason to buy, so it is left off the menu entirely -- the assembly used to guarantee "no
     // flaw as subject" by filtering; lean keeps that one guarantee by simply not handing the flaw over.
     var altPains = (ctx.pains || []).filter(function(p){ return String(p.about || "") === "alternative"; });
+    // The creator's own profile, finally wired into generation: the nine voice dimensions and the buyer
+    // demographic. Both are guarded (globals; absent in the test harness) and both no-op when the creator left
+    // the profile blank. The demographic note carries its own never-name rule (shape what a script is ABOUT,
+    // never appear in it) so wiring it in cannot undo NAME THE FEELING, NEVER THE CATEGORY.
+    var voiceNote = (typeof getVoiceProfileNote === "function") ? getVoiceProfileNote() : "";
+    var audienceNote = (typeof audienceTargetingNote === "function") ? audienceTargetingNote() : "";
     L.push("Write " + GEN_COUNT + " short-form video scripts for this product. Each is a complete, ready-to-film script a creator reads out loud.");
     L.push("");
     L.push("THE JOB: make a viewer WANT this product enough to stop scrolling and tap the link to buy. Sound like a real person telling a friend about something they genuinely like -- never an ad, never a brand voice.");
@@ -16221,12 +16253,14 @@ function genOneScript(opts){
     L.push("");
     L.push("THE WRITING FRAMEWORK -- a toolkit of MOVES, not a checklist to complete. For each buyer draw the FEW that fit and leave the rest:");
     L.push("CLIMB PAST THE FEATURE. A FEATURE is what it is; a BENEFIT is what that does for them; a USE CASE is the exact moment they are in when it matters; the PAIN is what they feel in that moment; the WORSE ALTERNATIVE is what they put up with now; the TRANSFORMATION is who they are once it is solved. Write from the use case, the pain, and the transformation -- NEVER sell a raw feature. (Feature: it is glass. Benefit: you can see the food. Use case: you are not pulling the basket out five times to check. Pain: you are tired of guessing whether dinner is done. Worse alternative: a closed metal basket you cannot see into. Transformation: you glance over and just know.)");
-    L.push("PAIN BEFORE PRODUCT. Open INSIDE the frustration, never by liking the product. The viewer feels the old way first; the product ARRIVES as the answer, it is never the opening line.");
-    L.push("TWIST THE KNIFE. Do not name a pain once and move on -- STACK it. Several short lines of the same annoying loop, in the order it really happens, until it is a little uncomfortable, and THEN the product lands. (Pull the basket out. Not crispy. Push it back. Two minutes later, pull it out again. Still not there.) A pain named once is a caption; a pain stacked is a hook.");
+    L.push("FIRST DECIDE WHAT THIS PRODUCT SELLS ON -- PAIN or DESIRE -- from the brief, not a template. NOT every product sells on a problem. Read the weighting below: if buyers mostly name a real FRUSTRATION (the old way, the hassle), it is PAIN-LED. If they mostly express WANTING it -- how it looks, who it makes them, the pride, the feeling -- with little or no friction, it is DESIRE-LED. Do NOT manufacture a problem a desire-driven product does not have: hunting for one small friction and building everything on it is the wrong shape and reads as false. Judge honestly; different scripts in the batch may lean different ways if the brief supports it.");
+    L.push("IF PAIN-LED -- PAIN BEFORE PRODUCT: open INSIDE the frustration, never by liking the product; the viewer feels the old way first and the product ARRIVES as the answer. TWIST THE KNIFE: do not name the pain once and move on, STACK it -- several short lines of the same annoying loop, in the order it really happens, until it is a little uncomfortable, THEN the product lands. (Pull the basket out. Not crispy. Push it back. Two minutes later, pull it out again. Still not there.) A pain named once is a caption; a pain stacked is a hook.");
+    L.push("IF DESIRE-LED -- DESIRE BEFORE JUSTIFICATION: open on the WANTING, not a problem -- the beautiful thing on the counter, the identity of owning it, the feeling it gives. The sequence is different from pain: DESIRE first (she already wants it), then JUSTIFICATION (permission to buy -- it is also genuinely useful), then QUALITY (why THIS one earns its place), then the USE CASE (where it lives in her life). She is not searching for a solution; she saw something she wants, and the script gives her permission to have it because it is also functional. Lean on the desire tools -- before/after transformation, identity, social proof -- and never on a manufactured pain.");
     L.push("NAME THE FEELING, NEVER THE CATEGORY. Never label the audience -- no \"perfect for empty nesters\", no \"if you're a busy mom\". The instant you name the group, the people in it stop seeing themselves and start seeing a pitch. Put the viewer in the specific MOMENT and let them recognize themselves before you would ever name them.");
     L.push("OTHER MOVES, when one genuinely fits a buyer (never all in one script): the before-and-after transformation; relatability (talk like them, share the struggle); the customer journey (saw it everywhere, was skeptical, tried it, converted); a light education beat if the how actually helps the sell. " + (ctx.owns ? "Personal testimonial is available and strong -- the creator really uses this, so first-person experience is honest and sells hard. " : "Personal testimonial is NOT available -- the creator does not own this, so never claim first-person use. ") + "An objection only if one truly fits this buyer, handled by acknowledging where they are and answering it, NEVER by naming a doubt nobody raised.");
     L.push("");
     L.push("VOICE: " + (ctx.owns ? "vary it across the four -- some first person from real experience (\"mine's lived on my counter for months\"), some second person to the viewer. Never all four the same." : "vary it across the four, but the creator does NOT own this, so never first-person ownership. Talk to the VIEWER about THEIR life; \"I\" only as a brief honest aside, never a claim to own it."));
+    if (voiceNote) L.push(voiceNote.trim());   // the creator's nine-dimension voice profile, applied to every line
     L.push("");
     L.push("THE ONLY HARD RULES (everything else is your judgment as a writer):");
     L.push("- INVENT NOTHING. Every buyer, reason, and fact traces to the brief or listing below. No invented feature, no number that is not in the listing (no made-up count, weight, size, time, or percentage), no buyer the material cannot support.");
@@ -16236,12 +16270,21 @@ function genOneScript(opts){
     L.push("");
     L.push("THE BRIEF -- your intelligence about the buyer. Every line tells you what to SHOW, never a phrase to paste back:");
     L.push(block("PRODUCT", ctx.name) + block("WHO BUYS IT", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning) + block("WHAT OTHERS SAY (draw on it, never cite it)", ctx.socialProof) + block("THE CREATOR'S REAL STANDING", ctx.owns ? ctx.authority : ""));
-    if (altPains.length){ L.push("FRUSTRATIONS WITH THE OLD WAY (raw material for PAIN, TWIST-THE-KNIFE, and WORSE ALTERNATIVE -- each can seed a different buyer):"); altPains.forEach(function(p){ L.push("  - " + p.value); }); }
+    if (audienceNote) L.push(audienceNote.trim());   // who actually buys -> shapes WHO and the WORLD, never named in a script
+    if (altPains.length){
+      // Counts are the PAIN-vs-DESIRE signal: a couple of frustrations against a large review base means the
+      // product is desire-led, and the model should not build on the thin friction.
+      L.push("FRUSTRATIONS WITH THE OLD WAY (raw material for a PAIN-LED script; each can seed a buyer). The count is how many reviews raised it -- WEIGH it: thin counts against a large review base mean this product is likely DESIRE-LED, not pain-led:");
+      altPains.forEach(function(p){ L.push("  - " + p.value + ((p.count | 0) ? " (raised by " + (p.count | 0) + " review" + ((p.count | 0) === 1 ? "" : "s") + ")" : "")); });
+      if (ctx.reviewCount) L.push("  (out of " + ctx.reviewCount + " reviews in total.)");
+    } else {
+      L.push("NO REAL FRUSTRATION was derived from the reviews -- a strong signal this product is DESIRE-LED. Do not invent a problem; sell the wanting.");
+    }
     if ((ctx.features || []).length){ L.push("FEATURES AND BENEFITS (climb PAST these to the use case, pain, and transformation; say any spec in plain buyer words, never list specs in a row):"); ctx.features.forEach(function(f){ L.push("  - " + f.feature + (f.benefit ? " -> " + f.benefit : "")); }); }
     if (ctx.description){ L.push("THE LISTING (the ONLY source for any number or spec you use): " + ctx.description); }
     L.push("");
     if (ctx.mustInclude){ L.push("ONE POINT MUST BE MADE IN EVERY SCRIPT, in that script's own words (convey the point, never paste the sentence; a typo in it does not matter): \"" + ctx.mustInclude + "\"."); L.push(""); }
-    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the opening that puts THIS buyer in the moment and makes them feel seen in one second (a frustration, not liking the product); body1 = the setup where you TWIST THE KNIFE (stack the old way before the product appears); body2 = the payoff, the product arriving as the answer and the transformation it brings; preclose = "" unless one objection truly fits, then ONE sentence that answers it without naming the doubt; cta = point them to the link in this script\'s own voice. About 60 to 110 spoken words each. No em dashes.');
+    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the opening that puts THIS buyer in the moment and makes them feel seen in one second (a frustration for a PAIN-LED script, or the wanting / the object / the identity for a DESIRE-LED one -- never a flat "liking the product"); body1 = the setup: for pain-led, TWIST THE KNIFE (stack the old way before the product); for desire-led, deepen the wanting and the justification; body2 = the payoff -- the product as the answer (pain-led) or the thing she now gets to have and where it lives in her life (desire-led), with the transformation it brings; preclose = "" unless one objection truly fits, then ONE sentence that answers it without naming the doubt; cta = point them to the link in this script\'s own voice. About 60 to 110 spoken words each. No em dashes.');
     return L.join("\n");
   }
   // Lean single-script rewrite -- reuses the lean batch prompt (framework + floor + brief) and asks for ONE script

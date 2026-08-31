@@ -94,6 +94,21 @@ async function run(h, mode){
   ok(C.state.captured.indexOf('THE WRITING FRAMEWORK') < 0 && (C.state.captured.indexOf('HOOK -- it must pass ALL') >= 0 || C.state.captured.indexOf('FOUR DIFFERENT REASONS TO WATCH') >= 0), 'Current toggle -> the batch uses the current prompt, not the lean one');
   ok(r3.state.buyerChecks === 0, 'the lean buyer/grounding check never runs on the current path');
 
+  // 5. PAIN vs DESIRE: the lean prompt lets the model decide the shape from the brief, and does not force pain.
+  ok(/SELLS ON -- PAIN or DESIRE/.test(L.state.captured) && /IF DESIRE-LED/.test(L.state.captured) && /IF PAIN-LED/.test(L.state.captured), 'the lean prompt presents both pain-led and desire-led shapes and asks the model to decide');
+  ok(/NAME THE FEELING, NEVER THE CATEGORY/.test(L.state.captured), 'the never-name-the-audience rule survives');
+
+  // 6. PROFILE WIRING: with the voice + audience profile functions present, their output is injected into the lean
+  //    prompt; with them absent (as in the routing runs above) nothing is injected -- a guaranteed no-op.
+  ok(L.state.captured.indexOf('CREATOR VOICE PROFILE') < 0 && L.state.captured.indexOf('WHO ACTUALLY BUYS THIS') < 0, 'no profile wired -> no profile text in the prompt (fail-safe no-op)');
+  global.getVoiceProfileNote = function(){ return ' CREATOR VOICE PROFILE -- calm and understated | short clipped fragments.'; };
+  global.audienceTargetingNote = function(){ return 'WHO ACTUALLY BUYS THIS: 68% female; age 53% 45-54. NEVER name the age, gender, or life stage in a script.'; };
+  const P = harness('lean');
+  await run(P, 'flag');
+  ok(P.state.captured.indexOf('CREATOR VOICE PROFILE') >= 0, 'the creator voice profile reaches the lean prompt when present');
+  ok(P.state.captured.indexOf('WHO ACTUALLY BUYS THIS') >= 0 && /NEVER name the age, gender, or life stage/.test(P.state.captured), 'the buyer demographic reaches the lean prompt, carrying its never-name rule');
+  delete global.getVoiceProfileNote; delete global.audienceTargetingNote;
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();
