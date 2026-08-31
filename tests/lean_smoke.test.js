@@ -114,7 +114,10 @@ async function run(h, mode){
   const rm = await run(M, 'flag');
   ok(/Structure each as hook, setup, payoff, call to action/.test(M.state.captured), 'minimal -> the one-sentence minimal prompt');
   ok(/First, name \d+ DIFFERENT buyers for this product from the brief/.test(M.state.captured) && /write ONE script to each buyer/.test(M.state.captured), 'minimal names the buyers FIRST, then writes one script to each (the only added instruction)');
-  ok(M.state.captured.indexOf('THE WRITING FRAMEWORK') < 0 && M.state.captured.indexOf('TWIST THE KNIFE') < 0 && M.state.captured.indexOf('SELLS ON -- PAIN or DESIRE') < 0 && M.state.captured.indexOf('HOOK -- it must pass ALL') < 0, 'minimal carries no checklist, no pain-vs-desire, and no current rule pile');
+  ok(M.state.captured.indexOf('THE WRITING FRAMEWORK') < 0 && M.state.captured.indexOf('SELLS ON -- PAIN or DESIRE') < 0 && M.state.captured.indexOf('HOOK -- it must pass ALL') < 0, 'minimal is not lean or current: none of their spec headers are present');
+  ok(/Here is a copywriting framework\. Use whichever of these moves fit the buyer/.test(M.state.captured) && /Not all of them belong in every script/.test(M.state.captured), 'the checklist is included as REFERENCE (use whichever fit, not all belong), not as a specification');
+  ok(M.state.captured.indexOf('WORSE ALTERNATIVES') >= 0 && M.state.captured.indexOf('TWISTING THE KNIFE') >= 0, 'the checklist moves are present as reference material, in the owner\'s own wording');
+  ok(/The brief below is research, written in research language\. Never repeat its phrasing/.test(M.state.captured), 'minimal tells the model to translate the brief, never repeat its research phrasing');
   ok(M.state.captured.indexOf('CREATOR VOICE PROFILE') >= 0 && M.state.captured.indexOf('WHO ACTUALLY BUYS THIS') >= 0, 'the voice + audience profile still reach the minimal prompt');
   ok(rm.state.buyerChecks === 0, 'minimal runs NO buyer/grounding check');
   ok(rm.state.hookReads === 0, 'minimal runs NO hook read-back (zero post-generation rewriting)');

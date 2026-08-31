@@ -16305,6 +16305,30 @@ function genOneScript(opts){
   // and NOTHING else. No checklist, no pain-vs-desire framing, no hook/setup/payoff/objection rules, no post-gen
   // rewriting (the hook read-back and buyer/grounding check are both skipped for this engine). The point is to
   // find out whether the instructions help at all, by reading raw output against the two instructed engines.
+  // The owner's copywriting checklist, included in the minimal prompt as REFERENCE material -- moves to draw from,
+  // never a specification. Reproduced as the owner wrote it (descriptions + examples), NOT translated into rules.
+  // The hard limits above it (no price/money, no invented figures, no company guarantee, first person only if
+  // owned) and the guards still govern; a move that would break them simply is not available for this product.
+  var COPY_CHECKLIST = [
+    "FEATURES -- what the product is, what it has. (\"the airpods play music at 80db through nanoscopic speakers\")",
+    "BENEFITS -- what is in it for the customer, why it matters to them. (\"they sound like a full boombox in your ear, better than any headphone you've tried\")",
+    "USE CASES -- specific scenarios where they will actually use it, so they see themselves using it. (\"at the gym, on a walk, while studying, while watching youtube\")",
+    "PAIN POINTS -- the exact problems the customer faces and wants solved; make them feel heard and understood. (\"my earbuds are uncomfortable, they always fall out, and the sound quality sucks\")",
+    "TWISTING THE KNIFE -- reinforce the pain, make it more real, make it hurt. (\"every time i work out i have to shove the plastic so deep in my ear it feels like they'll bleed, just so it won't miss a beat drop\")",
+    "OBJECTIONS -- the things that stop people buying (does it work, is it worth it, is it really for me); handle by acknowledging where they are and showing the objection is not true. (\"i know they don't look comfortable, but i wore them for 3 hours and didn't even realize they were in\")",
+    "WORSE ALTERNATIVES -- contrast with inferior options so this looks like the only viable one. (\"sure you can try the others, but they won't stay in your ear, can't connect to your phone, and cost more\")",
+    "PERSONAL TESTIMONIAL -- your own experience, which makes the claims stronger. (\"i've used these for a year and i've literally never had better headphones\")",
+    "SOCIAL PROOF -- people look to the herd when they are uncertain and follow suit. (\"you don't have to take my word for it\" / \"over 50,000 bought these last month, 2,000 five-star reviews\")",
+    "AUTHORITY -- people believe it more from someone seen as an expert in the field. (Beats sold so well because it came from an authority in music)",
+    "RELATABILITY / LIKING -- people buy from people they like; share their language and their struggles. (\"my friends would always roast me for my wired earbuds\")",
+    "CUSTOMER JOURNEY -- the predictable arc: they have a problem, look for a solution, are skeptical, try it, love it. (\"i've been seeing these all over tiktok but i didn't think it was gonna work\")",
+    "EDUCATION / EXPLANATION -- what the product actually does; teach it, don't be boring. (\"these are titanium and fit snug around your ears, so it basically sounds like a concert in your ears\")",
+    "PRODUCT INTRODUCTION -- the point where the product is actually named; it varies a lot, so mimic proven scripts.",
+    "BEFORE & AFTER / DESIRED TRANSFORMATION -- contrast life before and life after; show the desired state and how the product gets them there.",
+    "SCARCITY + URGENCY -- limited supply or limited time; people move faster when they might miss out. (\"there's a flash sale but i don't know how long it lasts, so grab yours sooner\")",
+    "PRICE ANCHOR -- set a high reference point so the real price feels lower. (\"why get beats for $500 when you can get this for $80\")",
+    "RISK REVERSAL -- make the purchase feel safe. (\"it comes with a 30 day money back guarantee\")"
+  ].join("\n");
   function genMinimalPrompt(ctx){
     var L = [];
     function block(label, val){ return val ? (label + ": " + val + "\n") : ""; }
@@ -16313,6 +16337,7 @@ function genOneScript(opts){
     var altPains = (ctx.pains || []).filter(function(p){ return String(p.about || "") === "alternative"; });
     L.push("First, name " + GEN_COUNT + " DIFFERENT buyers for this product from the brief -- different people with different reasons to want it, not " + GEN_COUNT + " angles on one person. Then write ONE script to each buyer, as if you are talking to that specific person.");
     L.push("Write each as a TikTok Shop script that sounds like a person telling a friend about something they love, not an ad. Structure each as hook, setup, payoff, call to action.");
+    L.push("The brief below is research, written in research language. Never repeat its phrasing. Say what it MEANS the way you would say it out loud to a friend.");
     L.push("");
     if (voiceNote) L.push(voiceNote.trim());
     if (audienceNote) L.push(audienceNote.trim());
@@ -16325,6 +16350,9 @@ function genOneScript(opts){
     if ((ctx.features || []).length) L.push("Features: " + ctx.features.map(function(f){ return f.feature + (f.benefit ? " (" + f.benefit + ")" : ""); }).join("; ") + ".");
     if (ctx.description) L.push("Listing (the only source for any number): " + ctx.description);
     if (ctx.mustInclude){ L.push(""); L.push("Include this in each script, in your own words: \"" + ctx.mustInclude + "\"."); }
+    L.push("");
+    L.push("Here is a copywriting framework. Use whichever of these moves fit the buyer you are writing to. Not all of them belong in every script.");
+    L.push(COPY_CHECKLIST);
     L.push("");
     L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. body1 = setup, body2 = payoff, preclose = "" (leave it empty). No em dashes.');
     return L.join("\n");
