@@ -80,7 +80,7 @@ brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out too fa
 // and are excluded from the pool entirely -- only real buyer objections curate the pre-close.
 brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true, cause:'the tank holds less', resolve:'you top it off once and it keeps going', words:['ice','runs out']}, {value:'it only makes a small batch before a refill', count:3, classified:true, words:['ice','batch']}]}}).lines.objections;
 brief.features = SB.normalizeBrief({features:[{feature:'makes 33 lbs per 24 hours', benefit:'plenty of ice'}, {feature:'1.8 L tank', benefit:'fewer refills'}]}).features;
-let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'the nugget ice is so good' }]; raw.ownership = "none";   // not received -> recommender voice (the default is now "hand")
+let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'the nugget ice is so good' }]; raw.ownership = "hand";   // the default state: has the sample in hand -> present-tense first person
 const product = { id:'p1', name:'Ice maker', updated_at:'2026-01-01T00:00:00Z', brief:brief, raw:raw };
 
 let fillErr = null;
@@ -118,8 +118,8 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   // Architecture-scoped body exemplars: this product has objections -> C, so setup/payoff examples load.
   ok(capturedPrompt.indexOf('PROBLEM -> TRANSFORMATION') >= 0, 'architecture picked (C) and named in the prompt');
   ok(capturedPrompt.indexOf('SETUP (body1) examples') >= 0 && capturedPrompt.indexOf('PAYOFF (body2) examples') >= 0, 'setup and payoff exemplars are loaded (previously empty)');
-  // Ownership off (default): recommender voice, no first-person invited.
-  ok(capturedPrompt.indexOf('recommending this to the viewer') >= 0, 'ownership off -> recommender voice');
+  // Default state ("hand"): in-hand VOICE -- present-tense first person, no claim of use over time.
+  ok(capturedPrompt.indexOf('you have this product IN HAND') >= 0, 'hand state -> in-hand first-person VOICE');
   // Field-filled hooks: assert availability + real-field injection via the test hook (independent of which
   // GEN_COUNT the rotation shows in this batch -- the pool is larger than the batch and walks across regens).
   const ctxT = SB.briefToGenContext(product.brief, product.raw);

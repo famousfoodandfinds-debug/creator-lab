@@ -588,36 +588,30 @@ ok(B.scriptViolations({ hook: "are you worried about your pan flaking into your 
 ok(B.scriptViolations({ hook: "have you ever wondered what your nonstick is leaching into your dinner" }, {}).indexOf("health-claim") < 0, 'validator: a "have you wondered" worry frame is allowed even with leaching');
 ok(B.scriptViolations({ hook: "the sauce slides right off the glass", body1: "you serve straight from the dish to the table" }, {}).indexOf("health-claim") < 0, 'validator: an ordinary food line with no contamination band is not flagged');
 ok(B.scriptViolations({ body1: "It shuts off and the plant is dead by morning" }, {}).indexOf("moderation") >= 0, 'validator: catches a moderation word (dead)');
-ok(B.scriptViolations({ body2: "so good I use it every single day now" }, {}).indexOf("ownership") >= 0, 'validator: catches first-person ownership (I use)');
-ok(B.scriptViolations({ body2: "so good I use it every single day now" }, { ownsAllowed: true }).indexOf("ownership") < 0, 'validator: ownership ALLOWED when the creator owns/uses the product');
-ok(B.scriptViolations({ preclose: "my wrist finally stopped aching" }, { ownsAllowed: true }).indexOf("ownership") < 0, 'validator: first-person possessive allowed under ownsAllowed');
-ok(B.scriptViolations({ preclose: "my wrist finally stopped aching" }, {}).indexOf("ownership") >= 0, 'validator: catches ownership possessive (my)');
+// TWO-STATE ownership: both "hand" and "used" are first-person states (a TikTok Shop creator must have the
+// product to film), so first person is ALWAYS allowed -- there is no "ownership" (first-person block) code anymore.
+ok(B.scriptViolations({ body2: "so good I use it every single day now" }, { ownershipState:"hand" }).indexOf("ownership") < 0, 'validator: first-person ("I use") is allowed in the hand state');
+ok(B.scriptViolations({ preclose: "my wrist finally stopped aching" }, { ownershipState:"hand" }).indexOf("ownership") < 0, 'validator: first-person possessive ("my") is allowed in the hand state');
+ok(B.scriptViolations({ body2: "mine sits on the counter and never clogs" }, { ownershipState:"hand" }).indexOf("ownership") < 0, 'validator: the possessive "mine" is allowed in the hand state');
+ok(B.scriptViolations({ body2: "I'm never going back to bagged ice" }, { ownershipState:"hand" }).indexOf("ownership") < 0, 'validator: the contraction "I\'m" is allowed in the hand state');
 ok(B.scriptViolations({ hook: "It shouldn't take 15 minutes — set up your vacuum" }, {}).indexOf("em-dash") >= 0, 'validator: flags an em dash');
-// the hook may confess with "I"; ownership check is body-only
-ok(B.scriptViolations({ hook: "I almost talked myself out of this", body1: "You clean the corner over and over", preclose: "Tap the filter out and it breathes again", body2: "The floor stays clear", cta: "Grab one today" }, {}).indexOf("ownership") < 0, 'validator: a confession hook with "I" is allowed (ownership is body-only)');
-// the exact leaked line: a CONTRACTED first person ("I've") plus the possessive "mine" -- the old whitelist
-// (\bmy\b OR "i <space> <verb>") caught none of it and let invented ownership through with the toggle off.
-ok(B.scriptViolations({ preclose: "I've been running mine for months and haven't seen any mold yet" }, {}).indexOf("ownership") >= 0, 'validator: catches contracted first-person ownership ("I\'ve ... mine")');
-ok(B.scriptViolations({ preclose: "I've been running mine for months and haven't seen any mold yet" }, { ownsAllowed: true }).indexOf("ownership") < 0, 'validator: that same line is allowed when the creator owns the product');
-ok(B.scriptViolations({ body2: "mine sits on the counter and never clogs" }, {}).indexOf("ownership") >= 0, 'validator: catches the possessive "mine" (not just "my")');
-ok(B.scriptViolations({ body2: "I'm never going back to bagged ice" }, {}).indexOf("ownership") >= 0, 'validator: catches the contraction "I\'m"');
-// THREE-STATE ownership. ownsAllowed is true for hand AND used (first person on the table); ownershipState "hand"
-// additionally blocks a claim of use OVER TIME, while "used" allows it.
+// TIME-OF-USE. ownershipState "hand" blocks a claim of use OVER TIME (has the sample, not the history); "used" allows it.
 // "hand": present-tense first person is fine; a duration/history claim is blocked as ownership-time.
-ok(B.scriptViolations({ body2: "I'm holding it right now and it feels heavy" }, { ownsAllowed:true, ownershipState:"hand" }).indexOf("ownership-time") < 0, 'hand: present-tense first person ("I\'m holding it") is allowed');
-ok(B.scriptViolations({ body2: "honestly I use it every morning" }, { ownsAllowed:true, ownershipState:"hand" }).indexOf("ownership-time") < 0, 'hand: habitual present ("I use it every morning") is let through -- errs toward present tense');
-ok(B.scriptViolations({ preclose: "I've had this for months and it still looks new" }, { ownsAllowed:true, ownershipState:"hand" }).indexOf("ownership-time") >= 0, 'hand: a duration claim ("I\'ve had this for months") is blocked as ownership-time');
-ok(B.scriptViolations({ body2: "over the past year it has not let me down" }, { ownsAllowed:true, ownershipState:"hand" }).indexOf("ownership-time") >= 0, 'hand: "over the past year" is blocked as ownership-time');
-ok(B.scriptViolations({ body2: "ever since I got it my mornings changed" }, { ownsAllowed:true, ownershipState:"hand" }).indexOf("ownership-time") >= 0, 'hand: "ever since I got it" is blocked as ownership-time');
+ok(B.scriptViolations({ body2: "I'm holding it right now and it feels heavy" }, { ownershipState:"hand" }).indexOf("ownership-time") < 0, 'hand: present-tense first person ("I\'m holding it") is allowed');
+ok(B.scriptViolations({ body2: "honestly I use it every morning" }, { ownershipState:"hand" }).indexOf("ownership-time") < 0, 'hand: habitual present ("I use it every morning") is let through -- errs toward present tense');
+ok(B.scriptViolations({ preclose: "I've had this for months and it still looks new" }, { ownershipState:"hand" }).indexOf("ownership-time") >= 0, 'hand: a duration claim ("I\'ve had this for months") is blocked as ownership-time');
+ok(B.scriptViolations({ body2: "over the past year it has not let me down" }, { ownershipState:"hand" }).indexOf("ownership-time") >= 0, 'hand: "over the past year" is blocked as ownership-time');
+ok(B.scriptViolations({ body2: "ever since I got it my mornings changed" }, { ownershipState:"hand" }).indexOf("ownership-time") >= 0, 'hand: "ever since I got it" is blocked as ownership-time');
 // "used": the same duration claim is allowed (that is the whole point of the state).
-ok(B.scriptViolations({ preclose: "I've had this for months and it still looks new" }, { ownsAllowed:true, ownershipState:"used" }).indexOf("ownership-time") < 0, 'used: a duration claim is allowed');
-// Migration: the old bool maps true -> "used", false -> "none"; a brand-new raw defaults to "hand".
+ok(B.scriptViolations({ preclose: "I've had this for months and it still looks new" }, { ownershipState:"used" }).indexOf("ownership-time") < 0, 'used: a duration claim is allowed');
+// Migration to two states: old bool true -> "used", false -> "hand"; old "none" -> "hand"; new raw defaults to "hand".
 ok(B.normalizeRaw({ ownsProduct: true }).ownership === "used", 'normalizeRaw: legacy ownsProduct true -> "used"');
-ok(B.normalizeRaw({ ownsProduct: false }).ownership === "none", 'normalizeRaw: legacy ownsProduct false -> "none"');
+ok(B.normalizeRaw({ ownsProduct: false }).ownership === "hand", 'normalizeRaw: legacy ownsProduct false -> "hand"');
+ok(B.normalizeRaw({ ownership: "none" }).ownership === "hand", 'normalizeRaw: legacy "none" state -> "hand"');
 ok(B.emptyRaw().ownership === "hand", 'emptyRaw: a new product defaults to "hand"');
 ok(B.normalizeRaw({ ownership: "used" }).ownership === "used", 'normalizeRaw: an explicit ownership state is kept');
 ok(B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ ownership:"hand" })).owns === true && B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ ownership:"hand" })).usedOverTime === false, 'briefToGenContext: hand -> owns true, usedOverTime false');
-ok(B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ ownership:"none" })).owns === false, 'briefToGenContext: none -> owns false');
+ok(B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ ownership:"used" })).owns === true && B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ ownership:"used" })).usedOverTime === true, 'briefToGenContext: used -> owns true, usedOverTime true');
 // generic second-person copy with no first person is still clean (no over-block of "you"/"your")
 ok(B.scriptViolations({ body1: "You pour a glass without a second thought", body2: "Your counter stays clear", cta: "Grab one today" }, {}).indexOf("ownership") < 0, 'validator: pure second-person recommender copy is not flagged');
 // batch repetition: same objection-turn opening or near-identical CTA
