@@ -587,6 +587,30 @@ ok(B.scriptViolations({ body2: "no chemicals leaching into your family's food" }
 ok(B.scriptViolations({ hook: "are you worried about your pan flaking into your food" }, {}).indexOf("health-claim") < 0, 'validator: the worry-framed version is allowed (speaks to a worry, claims nothing)');
 ok(B.scriptViolations({ hook: "have you ever wondered what your nonstick is leaching into your dinner" }, {}).indexOf("health-claim") < 0, 'validator: a "have you wondered" worry frame is allowed even with leaching');
 ok(B.scriptViolations({ hook: "the sauce slides right off the glass", body1: "you serve straight from the dish to the table" }, {}).indexOf("health-claim") < 0, 'validator: an ordinary food line with no contamination band is not flagged');
+// durability-overclaim: an ABSOLUTE promise of permanence/durability the material cannot support. The three real
+// failures, permanence superlatives -- all drop. Normal enthusiasm and the conditional maintenance answer pass.
+function durFires(o){ return B.scriptViolations(o, {}).indexOf("durability-overclaim") >= 0; }
+ok(durFires({ body2: "nothing dulls out over time" }), 'durability: "nothing dulls out over time" (the real failure) is caught');
+ok(durFires({ body2: "built to last through years of real use without showing wear" }), 'durability: "built to last through years ... without showing wear" is caught');
+ok(durFires({ body2: "it handles full meal prep without warping" }), 'durability: "without warping" is caught');
+ok(durFires({ body1: "it will never warp, never crack" }), 'durability: "never warp, never crack" is caught');
+ok(durFires({ hook: "this board is basically indestructible" }), 'durability: the permanence superlative "indestructible" is caught');
+ok(durFires({ body2: "it lasts a lifetime" }), 'durability: "lasts a lifetime" is caught');
+ok(durFires({ body2: "you will never have to replace it" }), 'durability: "never have to replace it" is caught');
+// Enthusiasm is NOT a promise -- these all pass.
+ok(!durFires({ body2: "this thing feels so solid" }), 'durability: "feels so solid" (enthusiasm) passes');
+ok(!durFires({ body2: "it is really durable and well made" }), 'durability: "really durable and well made" (describing, not promising) passes');
+ok(!durFires({ body2: "it holds up so well" }), 'durability: "holds up so well" passes');
+ok(!durFires({ body2: "built to last" }), 'durability: bare "built to last" (marketing enthusiasm) passes -- only explicit permanence fires');
+// The CONDITIONAL maintenance answer is the honest form and is deliberately allowed.
+ok(!durFires({ body2: "oil it now and then and it won't warp" }), 'durability: the conditional maintenance answer ("oil it and it won\'t warp") passes');
+ok(!durFires({ preclose: "season it once in a while and it will never crack" }), 'durability: conditioned on seasoning, "never crack" passes');
+ok(!durFires({ body2: "a quick oil keeps it from warping" }), 'durability: positive maintenance phrasing (no absolute negator) passes');
+// Out-of-scope / false-positive guards.
+ok(!durFires({ cta: "you will never want to wear anything else" }), 'durability: apparel "never want to wear" is not a durability claim');
+ok(!durFires({ body1: "never a dull moment in this kitchen" }), 'durability: the idiom "never a dull moment" does not fire');
+ok(!durFires({ hook: "no more warped cutting boards" }), 'durability: a before/after "no more warped boards" is not an overclaim');
+ok(!durFires({ body2: "it won't slip around on the counter" }), 'durability: a performance claim ("won\'t slip") is out of scope');
 ok(B.scriptViolations({ body1: "It shuts off and the plant is dead by morning" }, {}).indexOf("moderation") >= 0, 'validator: catches a moderation word (dead)');
 // TWO-STATE ownership: both "hand" and "used" are first-person states (a TikTok Shop creator must have the
 // product to film), so first person is ALWAYS allowed -- there is no "ownership" (first-person block) code anymore.

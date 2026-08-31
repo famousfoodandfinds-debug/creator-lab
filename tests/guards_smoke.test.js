@@ -12,12 +12,12 @@ const psCode = blocks.find(b => b.includes('window.ProductScreen ='));
 const params = ['window','document','currentUser','sb','currentProductId','currentProductName','currentProduct','loadProductById','buildSelect','transcribeTikTokLink','claudeHeaders','showToast','fetch','console'];
 const chain = { select(){ return chain; }, eq(){ return chain; }, update(){ return chain; }, insert(){ return chain; }, order(){ return { then(r){ r({data:[],error:null}); } }; }, single(){ return { then(r){ r({data:{id:'p1'},error:null}); } }; }, then(r){ r({data:{id:'p1'},error:null}); } };
 
-// S1/S4 clean; S2 trips asserted-number (a percent -- NOT a liability guard); S3 trips health-claim (a liability
-// guard). Distinct openings so the repetition guard never fires.
+// S1 clean; S2 trips asserted-number (a percent -- NOT a liability guard); S3 trips health-claim (a liability
+// guard); S4 trips durability-overclaim (also a liability guard). Distinct openings so repetition never fires.
 const S1 = { hook:"Cold drinks should not be this hard",         body1:"Mornings you scramble for something cold", preclose:"", body2:"You pour a glass and move on", cta:"Grab yours today" };
 const S2 = { hook:"This cuts your ice waiting by 50 percent",    body1:"Every tray drips before it freezes",       preclose:"", body2:"You pour without a thought",   cta:"See it on the shop page" };
 const S3 = { hook:"Metal flakes are scraping into your food",    body1:"Your old pan sheds with every scrub",       preclose:"", body2:"This one never does",          cta:"Check it out today" };
-const S4 = { hook:"Nobody warned you about the endless store runs", body1:"The runs to the store never end",        preclose:"", body2:"Now the ice is always ready",  cta:"Tap the link to try it" };
+const S4 = { hook:"Nobody warned you about the endless store runs", body1:"The runs to the store never end",        preclose:"", body2:"This machine never wears out no matter how hard you run it", cta:"Tap the link to try it" };
 const BATCH = [S1, S2, S3, S4];
 
 function harness(guards){
@@ -50,20 +50,22 @@ async function run(h){
 }
 
 (async () => {
-  // 1. LIABILITY-ONLY: the figure script is KEPT with a note; the health script still DROPS.
+  // 1. LIABILITY-ONLY: the figure script is KEPT with a note; the health AND durability scripts still DROP.
   const Lib = await run(harness('liability'));
   ok(Lib.text.indexOf('This cuts your ice waiting by 50 percent') >= 0, 'liability-only: the figure script is rendered, not dropped');
   ok(/Guard notes \(liability-only\): unverifiable figure \('50 percent'\)/.test(Lib.text), 'liability-only: the kept script carries a guard note naming the figure');
   ok(Lib.text.indexOf('Metal flakes are scraping into your food') < 0, 'liability-only: a HEALTH claim still drops (never rendered)');
+  ok(Lib.text.indexOf('never wears out no matter') < 0, 'liability-only: a DURABILITY overclaim still drops (never rendered as a note)');
   ok(/liability-only guards/.test(Lib.status), 'the status marks the run as liability-only');
-  ok(/3 of 4/.test(Lib.status) && /Script 3: manufactured health/.test(Lib.status), 'liability-only: three kept, the health script named as the one drop: "' + Lib.status.slice(0,120) + '"');
+  ok(/2 of 4/.test(Lib.status) && /Script 3: manufactured health/.test(Lib.status) && /Script 4: absolute durability/.test(Lib.status), 'liability-only: two kept, the health and durability scripts named as the drops: "' + Lib.status.slice(0,160) + '"');
 
-  // 2. FULL (default): both the figure and the health script drop, and no notes are shown.
+  // 2. FULL (default): the figure, the health, and the durability script drop, and no notes are shown.
   const Full = await run(harness('full'));
   ok(Full.text.indexOf('This cuts your ice waiting by 50 percent') < 0, 'full guards: the figure script is dropped (as before)');
   ok(Full.text.indexOf('Metal flakes are scraping into your food') < 0, 'full guards: the health script is dropped');
+  ok(Full.text.indexOf('never wears out no matter') < 0, 'full guards: the durability script is dropped');
   ok(Full.text.indexOf('Guard notes') < 0, 'full guards: no guard-note banner is shown');
-  ok(/2 of 4/.test(Full.status), 'full guards: two dropped, two kept: "' + Full.status.slice(0,120) + '"');
+  ok(/1 of 4/.test(Full.status), 'full guards: three dropped, one kept: "' + Full.status.slice(0,120) + '"');
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

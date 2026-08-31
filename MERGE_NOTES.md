@@ -78,12 +78,21 @@ restore `main` — see the headline above.
    budget (the reason it exists — the synchronous `/api/claude` caps at ~26s).
 
 3. **Liability-only guards as default is a real loosening.**
-   Taste guards — repeated setups/CTAs, invented market trends, invented social
-   proof, citing the reviews, stating the current year, naming a doubt — now
-   render as an **amber note instead of being dropped/regenerated**. Hard-liability
-   guards (price, health/contamination, company service, ownership-time,
-   unverifiable figures, em-dash, moderation) still drop. A new member can now see
-   a flagged-but-on-screen script that Full guards would have removed.
+   In liability-only mode only the true liability guards still drop a script:
+   **health/contamination, durability/permanence overclaim, price, moderation**
+   (and the technical no-content case). Every other guard — em-dash, company
+   service, ownership-time, unverifiable figures, viewer-owns, repeated setups/
+   CTAs, invented market trends, invented social proof, citing the reviews,
+   stating the current year, naming a doubt — becomes an **amber note on the
+   rendered script instead of dropping it**. So a new member can see a flagged-
+   but-on-screen script that Full guards would have removed.
+
+   The **durability-overclaim** guard is new this cycle and sits in that
+   drop-in-liability set, so it protects members too: an absolute promise of
+   permanence ("nothing dulls over time", "never warps", "lasts a lifetime")
+   drops. A conditional maintenance answer ("oil it and it won't warp") and
+   ordinary enthusiasm ("feels so solid", "really durable") pass. Performance
+   claims are deliberately out of scope.
 
 ## Other changes worth knowing
 
