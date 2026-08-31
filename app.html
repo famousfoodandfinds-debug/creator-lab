@@ -14325,7 +14325,7 @@ function genOneScript(opts){
       features: arr(b.features).map(function(f){ f = obj(f); return { feature: str(f.feature), benefit: str(f.benefit), added: !!f.added }; }),
       description: str(raw.description),
       winningAngles: arr(raw.winningAngles).map(function(a){ a = obj(a); return { transcript: str(a.transcript), topic: str(a.topic) }; }),
-      leadPain: top(pains),               // default focus: lead with this pain
+      leadPain: top(pains.filter(function(p){ return String(p.about || "") === "alternative"; })),   // lead with an ALTERNATIVE pain only -- a product flaw must never be the lead/angle
       defuseObjection: top(objections),   // default focus: defuse this objection
       owns: !!raw.ownsProduct,            // creator owns/uses it -> first-person allowed, owns exemplars load
       reviewCount: b.meta.reviewCount|0,
@@ -15906,7 +15906,12 @@ function genOneScript(opts){
     // The claim BAN list still draws from every pain and objection -- these are never assertable anywhere.
     ctx.pains.concat(ctx.objections).forEach(function(f){ f.claims.forEach(function(x){ if (x && claimed.indexOf(x) < 0) claimed.push(x); }); });
     // Defuse pool = grounded objections PLUS grounded product-pains (both are doubts to answer in the pre-close).
-    var objPool = SB.defusePool(ctx.objections, productPainList);
+    // A product FLAW (about:'product') is the product's worst news. It must NEVER drive a script -- not the
+    // objection turn, not the "biggest doubt" line, and (because the model builds around whatever it is handed)
+    // not the hook or setup either. So product-pains are kept OUT of the objection pool entirely: only real
+    // buyer OBJECTIONS (price, fit, durability doubt) may be curated in the pre-close. A flaw advertised on
+    // stage is the one thing that cannot happen. (The curate-a-positive-feature role returns with concern->feature.)
+    var objPool = SB.defusePool(ctx.objections, []);
     var defuse = objPool[0] || null;
     // Two hook shapes make a CAUSAL claim -- objection-as-curiosity ("it's the filter") and reversal
     // ("it's not you, it's X"). Both only work when the MATERIAL supports a real cause a person would
@@ -15944,7 +15949,10 @@ function genOneScript(opts){
     // flaw is never a scenario -- it goes in the defuse list, not here.
     var scenarioPool = altPainList;
     if (scenarioPool.length) L.push("VARY THE SCENARIO AND THE NEED across the batch -- each script opens on a DIFFERENT real situation AND serves a DIFFERENT Maslow drive (assigned per script below), so four scripts are four genuinely different videos, not four wordings of one. Every situation here is about the OLD way or life WITHOUT this product (the problem it solves), never about this product performing badly. The situations available:\n" + scenarioPool.map(function(p){ return "- " + p.value + (needOf(p) ? "  [" + needOf(p) + "]" : ""); }).join("\n"));
-    if (productPainList.length) L.push("PRODUCT FLAWS ARE DOUBTS, NEVER OPENERS: these are complaints about THIS product -- each may ONLY be defused in the pre-close (if assigned), and must NEVER appear in a hook, setup, or payoff. Do not open a video on any of them:\n" + productPainList.map(function(p){ return "- " + p.value; }).join("\n"));
+    // Product flaws are deliberately NOT named to the model at all -- they are excluded from the objection pool
+    // (above) and never listed here, so the model cannot build on a defect it was never shown. Naming them even
+    // as "do not open on these" was a channel for the flaw to reach the screen; the safest place for the product's
+    // worst news is nowhere in the prompt.
     if (defuse) L.push("THE BIGGEST DOUBT (a pre-close may answer this one; it is a doubt to DEFUSE, never a line to open on): " + defuse.value + (defuse.words.length ? "\n  phrasing: " + defuse.words.join(", ") : ""));
     var oo = objPool.filter(function(o){ return !defuse || o.value !== defuse.value; }).map(function(o){ return "- " + o.value; });
     if (oo.length) L.push("OTHER GROUNDED DOUBTS (objections and product complaints -- the ONLY doubts that may ever be defused; never invent a hesitation beyond these):\n" + oo.join("\n"));

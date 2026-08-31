@@ -523,8 +523,8 @@ gcBrief.lines.who = B.normalizeBrief({lines:{who:{value:'busy parents', words:['
 gcBrief.lines.emotion = B.normalizeBrief({lines:{emotion:{value:'overwhelmed'}}}).lines.emotion;
 gcBrief.lines.desire = B.normalizeBrief({lines:{desire:{value:'a calm kitchen'}}}).lines.desire;
 gcBrief.lines.pains = B.normalizeBrief({lines:{pains:[
-  {value:'knives dull fast', count:4, words:['goes dull'], claims:['ruined my tomatoes']},
-  {value:'blocks wear out', count:9, words:['fell apart']}
+  {value:'knives dull fast', count:4, words:['goes dull'], claims:['ruined my tomatoes'], about:'alternative'},
+  {value:'blocks wear out', count:9, words:['fell apart'], about:'alternative'}
 ]}}).lines.pains;
 gcBrief.lines.objections = B.normalizeBrief({lines:{objections:[
   {value:'too pricey', count:2, words:['not worth it']},
@@ -533,7 +533,7 @@ gcBrief.lines.objections = B.normalizeBrief({lines:{objections:[
 gcBrief.features = [{feature:'German steel', benefit:'holds an edge'}];
 let gctx = B.briefToGenContext(gcBrief, { description: 'a knife set', winningAngles: [] });
 ok(gctx.who === 'busy parents' && gctx.desire === 'a calm kitchen', 'adapter: single lines carried across');
-ok(gctx.leadPain && gctx.leadPain.value === 'blocks wear out', 'adapter: default lead pain is the HIGHEST-count pain (9 > 4)');
+ok(gctx.leadPain && gctx.leadPain.value === 'blocks wear out', 'adapter: default lead pain is the highest-count ALTERNATIVE pain (9 > 4); a product flaw can never be the lead');
 ok(gctx.defuseObjection && gctx.defuseObjection.value === 'will it fit my drawer', 'adapter: default defuse objection is the highest-count objection (6 > 2)');
 ok(gctx.pains.length === 2 && gctx.features.length === 1, 'adapter: lists and features carried');
 // compliance split preserved: words are safe, claims are separate
@@ -633,6 +633,12 @@ let pool = B.defusePool(dpObjs, []);
 ok(pool.some(function(o){ return o.value === 'the board slides on the counter'; }), 'defusePool: a single-mention DEFUSE-ONLY objection (empty resolve) is grounded');
 ok(!pool.some(function(o){ return o.value === 'worried it warps in the dishwasher'; }), 'defusePool: a single-mention RESOLVABLE objection (has resolve) is still excluded (needs 2)');
 ok(pool.some(function(o){ return o.value === 'needs oiling now and then'; }), 'defusePool: a two-mention resolvable objection is kept');
+// A product FLAW must never enter the objection pool. Generation now passes [] for product-pains, so even a
+// heavily-reviewed defect ("arrives damaged", 7 mentions) can never be assigned, named, or become a subject.
+let flawObjs = B.normalizeBrief({lines:{objections:[{value:'will it warp over time', count:3}]}}).lines.objections;
+let poolNoFlaw = B.defusePool(flawObjs, []);   // the exact call generation now makes
+ok(!poolNoFlaw.some(function(o){ return /arrives damaged/.test(o.value); }), 'defusePool([]): a product flaw is excluded entirely (it was never passed in)');
+ok(poolNoFlaw.some(function(o){ return o.value === 'will it warp over time'; }), 'defusePool([]): a real buyer objection is still curated');
 
 // matchObjectionsToThreads: an objection goes to the script whose SCENARIO shares words with it, not by position
 let mObjs = [{ value:'the board slides around on the counter', words:['slides','sliding'] }, { value:'it arrives already oiled and ready', words:['oiled','ready'] }];

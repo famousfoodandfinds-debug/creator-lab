@@ -75,7 +75,10 @@ brief.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out too fa
 // words are added so the objections THREAD-FIT the scenarios (assignment is now by fit, not position):
 // "too small" carries ice/runs to fit the "ice runs out" scenario; the watery flaw carries cooler/melts to fit
 // the "cooler ... melt" scenario. Without a shared word an objection would (correctly) go unassigned.
-brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true, cause:'the tank holds less', resolve:'you top it off once and it keeps going', words:['ice','runs out']}]}}).lines.objections;
+// A resolvable objection (has resolve -> show-the-fix) and a defuse-only objection (empty resolve -> reframe).
+// Both carry words that thread-fit the ice scenarios. Product FLAWS are pains (about:product), not objections,
+// and are excluded from the pool entirely -- only real buyer objections curate the pre-close.
+brief.lines.objections = SB.normalizeBrief({lines:{objections:[{value:'worried it is too small', count:4, classified:true, cause:'the tank holds less', resolve:'you top it off once and it keeps going', words:['ice','runs out']}, {value:'it only makes a small batch before a refill', count:3, classified:true, words:['ice','batch']}]}}).lines.objections;
 brief.features = SB.normalizeBrief({features:[{feature:'makes 33 lbs per 24 hours', benefit:'plenty of ice'}, {feature:'1.8 L tank', benefit:'fewer refills'}]}).features;
 let raw = SB.emptyRaw(); raw.reviews = [{ id:'r1', full:'the nugget ice is so good' }];
 const product = { id:'p1', name:'Ice maker', updated_at:'2026-01-01T00:00:00Z', brief:brief, raw:raw };
@@ -124,12 +127,12 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(byKey['audience'] && byKey['audience'].indexOf('people who host and always run out of ice') >= 0, 'audience hook reads "who this is for" straight from the brief');
   ok(byKey['group'] && byKey['group'].indexOf('never run dry mid-party') >= 0, 'group hook reads the desire line from the brief');
   ok(byKey['fearvisual'], 'fear-visual is available when the material names an alternative pain');
-  // Pain split: the alternative pain is a scenario/opener; the product flaw is a doubt, never an opener.
+  // Pain split: the alternative pain is a scenario/opener; the PRODUCT flaw appears NOWHERE in the prompt now --
+  // it is excluded from the objection pool AND no longer named to the model, so it can never become a subject.
   const varyIdx = capturedPrompt.indexOf('VARY THE SCENARIO');
-  const flawIdx = capturedPrompt.indexOf('PRODUCT FLAWS ARE DOUBTS');
-  ok(varyIdx >= 0 && capturedPrompt.slice(varyIdx, flawIdx > varyIdx ? flawIdx : varyIdx + 400).indexOf('ice runs out too fast') >= 0, 'the ALTERNATIVE pain is in the scenario/opener list');
-  ok(flawIdx >= 0 && capturedPrompt.slice(flawIdx, flawIdx + 300).indexOf('the first batch is watery') >= 0, 'the PRODUCT flaw is listed as a doubt, never an opener');
-  ok(varyIdx >= 0 && capturedPrompt.slice(varyIdx, flawIdx > varyIdx ? flawIdx : varyIdx + 400).indexOf('the first batch is watery') < 0, 'the product flaw does NOT appear in the scenario/opener list');
+  ok(varyIdx >= 0 && capturedPrompt.indexOf('ice runs out too fast') >= 0, 'the ALTERNATIVE pain reaches the prompt as a scenario/opener');
+  ok(capturedPrompt.indexOf('the first batch is watery') < 0, 'the PRODUCT flaw is nowhere in the generation prompt -- not an opener, not a doubt, not named at all');
+  ok(capturedPrompt.indexOf('PRODUCT FLAWS ARE DOUBTS') < 0, 'the flaw-listing line is gone (it named the defect to the model)');
   // Maslow need is rotated per script; the arc and feeling-first setup are present.
   ok(/NEED \(the drive this script serves/.test(capturedPrompt), 'each script is assigned a Maslow need');
   ok(capturedPrompt.indexOf('SAFETY') >= 0, 'the safety drive gets a script (it converts hardest and kept being skipped)');
@@ -190,15 +193,16 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   // carry a resolving ACTION derivation worked out, handed to the script to put on screen.
   ok(capturedPrompt.indexOf('THE BRIEF IS INTELLIGENCE, NOT COPY') >= 0, 'the intelligence-not-copy principle is in the prompt');
   ok(capturedPrompt.indexOf('SHOW THIS ACTION as the answer') >= 0 && capturedPrompt.indexOf('you top it off once and it keeps going') >= 0, 'the resolving action is handed to the script to show');
-  // DEFUSE-ONLY branch: an objection with NO resolving action ("the first batch is watery", a product flaw with
-  // empty resolve) is routed to the dedicated REFRAME treatment, not the resolve/show-the-fix framing.
+  // DEFUSE-ONLY branch: a real buyer OBJECTION with NO resolving action ("only makes a small batch", empty
+  // resolve) is routed to the dedicated REFRAME treatment. (A product FLAW is no longer eligible at all -- it is
+  // excluded from the pool, so the reframe now only ever runs on genuine buyer objections, never on a defect.)
   ok(capturedPrompt.indexOf('REFRAME THIS LIMITATION AS THE BOUNDARY OF A JOB IT DOES WELL') >= 0, 'a defuse-only objection (empty resolve) gets the reframe-the-boundary instruction');
   ok(/Do NOT name this limitation, do NOT deny it, do NOT argue against it/.test(capturedPrompt), 'the reframe instruction forbids naming, denying, or arguing the limitation');
   ok(capturedPrompt.indexOf('PRE-CLOSE STYLE: REFRAME THE BOUNDARY') >= 0, 'the reframe is a dedicated pre-close treatment, not a rotated PRECLOSE angle');
-  // The reframe attaches to the flaw with no resolve ("watery"), and the resolvable doubt is NOT reframed.
+  // The reframe attaches to the resolve-less OBJECTION, and the resolvable doubt is NOT reframed.
   const rfIdx = capturedPrompt.indexOf('REFRAME THIS LIMITATION AS THE BOUNDARY');
   const rfWin = capturedPrompt.slice(rfIdx, rfIdx + 500);
-  ok(rfWin.indexOf('the first batch is watery') >= 0, 'the reframe is applied to the resolve-less product flaw');
+  ok(rfWin.indexOf('it only makes a small batch before a refill') >= 0, 'the reframe is applied to the resolve-less buyer objection');
   ok(rfWin.indexOf('you top it off once and it keeps going') < 0, 'the resolvable objection is not swept into the reframe branch (its resolve action is not in the reframe block)');
   // The old rotated "reframe it as the point" angle is gone -- the reframe is now the dedicated defuse-only path.
   ok(html.indexOf('Reframe it as the point') < 0, 'the reframe was removed from the rotated PRECLOSE_ANGLES list');
