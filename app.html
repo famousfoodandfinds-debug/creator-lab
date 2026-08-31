@@ -15938,6 +15938,15 @@ function genOneScript(opts){
   var guardLiabilityOnly = true;
   try { if (typeof localStorage !== "undefined" && localStorage.getItem("saxe_guards") === "full") guardLiabilityOnly = false; } catch (e) {}
   function setGuardMode(liability){ guardLiabilityOnly = !!liability; try { if (typeof localStorage !== "undefined") localStorage.setItem("saxe_guards", guardLiabilityOnly ? "liability" : "full"); } catch (e) {} renderGenScripts(); }
+  // OWNER GATE. The engine / model / guards toggles are experiment controls: a member has no way to know which
+  // setting is right, and every wrong pick makes the tool worse for them. So they are visible ONLY to the owner;
+  // members get the fixed best config (Minimal + Sonnet + liability-only) with no controls. isOwner reads the live
+  // currentUser global (set by auth, null before). applyOwnerGating FORCES the member config, but only for a
+  // CONFIRMED non-owner -- never while the user is unknown (that would clobber the owner's own loaded prefs before
+  // auth resolves). Called at the top of renderGenScripts and generateScripts so the fixed config always applies.
+  var OWNER_ID = "261c4239-34bc-427e-9a4d-8b23d73ede47";
+  function isOwner(){ try { return !!(currentUser && currentUser.id === OWNER_ID); } catch (e) { return false; } }
+  function applyOwnerGating(){ try { if (currentUser && currentUser.id !== OWNER_ID){ engine = "minimal"; guardLiabilityOnly = true; minimalModel = "sonnet"; } } catch (e) {} }
   // Monthly GENERATION cap (billing). A "generation" is one batch (one press of Generate = four scripts). The
   // count lives server-side; the client shows what remains so nobody is surprised at the wall. `genCount` is
   // { used, limit, remaining } once fetched, else null (fetch failed / not yet loaded -> show nothing, never
@@ -16788,6 +16797,7 @@ function genOneScript(opts){
   }
   function generateScripts(){
     if (generating) return;
+    applyOwnerGating();   // force the fixed member config before anything reads engine/guards/model
     if (!brief.meta.lastDerivedAt){ genStatus("Build the brief first, then generate.", "var(--red)"); return; }
     generating = true; renderGenScripts();
     try {
@@ -17035,6 +17045,7 @@ function genOneScript(opts){
     });
   }
   function renderGenScripts(){
+    applyOwnerGating();   // members render + run on the fixed config, whatever any stale localStorage says
     var host = el("genScripts"); if (!host) return;
     host.innerHTML = "";
     // The brief is the source, so generation only appears once a brief has been built. Never gated on a
@@ -17069,11 +17080,14 @@ function genOneScript(opts){
       return seg;
     }
     head.style.flexWrap = "wrap";
-    head.appendChild(segControl([["current","Current"],["lean","Lean"],["minimal","Minimal"]], engine, setEngine, "auto"));
-    head.appendChild(segControl([["full","Guards: Full"],["liability","Liability-only"]], guardLiabilityOnly ? "liability" : "full", function(v){ setGuardMode(v === "liability"); }, "8px"));
-    // Model toggle -- ONLY shown in Minimal, so Current/Lean are visibly Haiku-only. Flips the minimal batch to
-    // Sonnet for a direct comparison (is the ceiling the model, not the prompt).
-    if (engine === "minimal") head.appendChild(segControl([["haiku","Haiku"],["sonnet","Sonnet"]], minimalModel, setMinimalModel, "8px"));
+    // Owner-only experiment controls. Members never see these -- they run on the fixed config (see applyOwnerGating).
+    if (isOwner()){
+      head.appendChild(segControl([["current","Current"],["lean","Lean"],["minimal","Minimal"]], engine, setEngine, "auto"));
+      head.appendChild(segControl([["full","Guards: Full"],["liability","Liability-only"]], guardLiabilityOnly ? "liability" : "full", function(v){ setGuardMode(v === "liability"); }, "8px"));
+      // Model toggle -- ONLY shown in Minimal, so Current/Lean are visibly Haiku-only. Flips the minimal batch to
+      // Sonnet for a direct comparison (is the ceiling the model, not the prompt).
+      if (engine === "minimal") head.appendChild(segControl([["haiku","Haiku"],["sonnet","Sonnet"]], minimalModel, setMinimalModel, "8px"));
+    }
     host.appendChild(head);
     // Threshold warnings as the wall approaches: 80% used, then 5 left. Numbers come from the server's EFFECTIVE
     // limit (genCount.limit), never a hardcoded constant. The AT-limit (r<=0) case is deliberately NOT rendered

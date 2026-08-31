@@ -33,7 +33,7 @@ function harness(guards){
     return Promise.resolve(reply(BATCH));
   };
   global.localStorage = { getItem(k){ return k === 'saxe_guards' ? guards : 'current'; }, setItem(){} };
-  new Function(...params, psCode)(win, document, {id:'u1'}, { from(){ return chain; } }, 'p1', 'Ice maker', {}, function(){}, function(){}, function(){ return Promise.resolve({}); }, function(){ return {}; }, function(){}, fetchStub, console);
+  new Function(...params, psCode)(win, document, {id:'261c4239-34bc-427e-9a4d-8b23d73ede47'}, { from(){ return chain; } }, 'p1', 'Ice maker', {}, function(){}, function(){}, function(){ return Promise.resolve({}); }, function(){ return {}; }, function(){}, fetchStub, console);
   function freshBrief(){ let b = SB.emptyBrief(); b.meta.lastDerivedAt='2026-01-01'; b.meta.reviewCount=12; b.meta.classified=true;
     b.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'ice runs out on trips', count:5, classified:true, about:'alternative'}]}}).lines.pains; return b; }
   let raw = SB.emptyRaw(); raw.reviews=[{id:'r1',full:'great ice'}]; raw.description='Portable nugget ice maker. Makes 33 lbs a day.';

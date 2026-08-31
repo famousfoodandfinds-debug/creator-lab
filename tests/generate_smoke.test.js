@@ -57,7 +57,7 @@ const sbMock = { from(){ return chain; } };
 // This suite exercises the CURRENT engine with FULL guards -- pin them (the app default is now minimal/liability).
 global.localStorage = { getItem(k){ return k === 'saxe_engine' ? 'current' : k === 'saxe_guards' ? 'full' : k === 'saxe_minimal_model' ? 'haiku' : null; }, setItem(){} };
 new Function(...params, psCode)(
-  win, document, {id:'u1'}, sbMock,
+  win, document, {id:'261c4239-34bc-427e-9a4d-8b23d73ede47'}, sbMock,
   null, '', '', function(){}, function(){}, function(){ return Promise.resolve({}); }, function(){ return {}; }, function(){},
   fetchStub, console
 );

@@ -38,7 +38,7 @@ const REWORK2 = { hook:"A DIFFERENTBUYER angle for the second script", body1:"On
 const REWORK3 = { hook:"A GROUNDEDREASON angle for the third script",  body1:"Another separate setup", preclose:"", body2:"Another separate payoff", cta:"See it here" };
 
 // One shared harness factory: its own window/doc/byId so the lean and current instances never share DOM state.
-function harness(engine){
+function harness(engine, userId){
   const win = {}; new Function('window', blocks.find(b => b.includes('window.SaxeBrief =')))(win); const SB = win.SaxeBrief;
   const byId = {};
   const document = { readyState:'complete', getElementById(id){ if(!byId[id]) byId[id]=mkEl(id); return byId[id]; }, createElement(t){ return mkEl('<'+t+'>'); }, createDocumentFragment(){ return mkEl('#frag'); }, querySelector(s){ if(!byId[s]) byId[s]=mkEl(s); return byId[s]; }, addEventListener(){}, body:{classList:{add(){},remove(){}}} };
@@ -72,7 +72,7 @@ function harness(engine){
     return Promise.resolve(reply(BATCH));
   };
   global.localStorage = { getItem(k){ if (k === 'saxe_minimal_model') return MIN_UNSET ? null : (MIN_SONNET ? 'sonnet' : 'haiku'); return engine; }, setItem(){} };
-  new Function(...params, psCode)(win, document, {id:'u1'}, { from(){ return chain; } }, 'p1', 'Ninja Crispi Pro', {}, function(){}, function(){}, function(){ return Promise.resolve({}); }, function(){ return {}; }, function(){}, fetchStub, console);
+  new Function(...params, psCode)(win, document, {id: userId || '261c4239-34bc-427e-9a4d-8b23d73ede47'}, { from(){ return chain; } }, 'p1', 'Ninja Crispi Pro', {}, function(){}, function(){}, function(){ return Promise.resolve({}); }, function(){ return {}; }, function(){}, fetchStub, console);
   function freshBrief(){ let b = SB.emptyBrief(); b.meta.lastDerivedAt='2026-01-01'; b.meta.reviewCount=20; b.meta.classified=true;
     b.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'pulling the basket out to check', count:6, classified:true, about:'alternative'},{value:'heating a whole oven for a small meal', count:4, classified:true, about:'alternative'}]}}).lines.pains; return b; }
   let raw = SB.emptyRaw(); raw.reviews=[{id:'r1',full:'love the glass'}]; raw.description='Ninja Crispi Pro. Glass bowls.';
@@ -206,6 +206,21 @@ async function run(h, mode){
   ok(N.state.batchSystem === undefined, 'default engine is minimal -> no system prompt sent (the minimal tell)');
   ok(N.state.batchModel === SONNET && N.state.batchUrl === '/api/claude-stream', 'default MODEL is Sonnet, via the streaming endpoint');
   ok(/liability-only guards/.test(rn.status), 'default GUARDS are liability-only (the status names the mode)');
+  // OWNER sees the controls (positive control): the engine + guards + model toggles render for the owner. N was
+  // built with the owner id (harness default), so its rendered head carries the segmented toggles.
+  ok(rn.text.indexOf('Guards: Full') >= 0 && rn.text.indexOf('Current') >= 0 && rn.text.indexOf('Lean') >= 0, 'OWNER: the engine + guards toggles are rendered');
+  ok(rn.text.indexOf('Haiku') >= 0 && rn.text.indexOf('Sonnet') >= 0, 'OWNER: the model toggle is rendered (engine is minimal)');
+
+  // OWNER GATE: a MEMBER (non-owner id) never sees the toggles and is forced onto the fixed config, even when a
+  // stale localStorage says otherwise. localStorage here says engine=current, but applyOwnerGating overrides it.
+  MIN_UNSET = true;
+  const MEM = harness('current', 'member-not-the-owner');
+  const rmem = await run(MEM, 'flag');
+  MIN_UNSET = false;
+  ok(/Work in TWO steps/.test(MEM.state.captured), 'MEMBER: forced onto Minimal even though localStorage says current');
+  ok(MEM.state.batchModel === SONNET && MEM.state.batchUrl === '/api/claude-stream', 'MEMBER: forced onto Sonnet (streaming)');
+  ok(/liability-only guards/.test(rmem.status), 'MEMBER: forced onto liability-only guards');
+  ok(rmem.text.indexOf('Guards: Full') < 0 && rmem.text.indexOf('Current') < 0 && rmem.text.indexOf('Lean') < 0 && rmem.text.indexOf('Haiku') < 0, 'MEMBER: no engine/guards/model toggles are rendered');
 
   // SYSTEM PROMPT: minimal sends none (cuts the ~16.6k-token prefill that times Sonnet out); current & lean send it.
   ok(M.state.batchSystem === undefined, 'minimal sends NO system prompt (truly minimal; the prefill that blows the timeout is gone)');

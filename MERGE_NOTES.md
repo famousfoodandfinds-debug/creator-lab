@@ -38,16 +38,27 @@ composition described above.
 
 ---
 
-## New defaults (a member who never opens the toggles)
+## The fixed member config (Minimal + Sonnet + liability-only)
 
-- **Engine → Minimal** (was Current)
-- **Guards → Liability-only** (was Full)
-- **Model → Sonnet** (already the default before this change)
+Members run on a fixed configuration and have **no controls**:
 
-A stored choice still wins in every case; the defaults only decide where someone
-lands before they touch a toggle. Flipping any default back is a one-line change,
-and any member can toggle it themselves. **Caveat:** flipping the engine default
-back to Current does not restore `main` — see the headline above.
+- **Engine → Minimal**
+- **Model → Sonnet**
+- **Guards → Liability-only**
+
+The engine / model / guards toggles are experiment controls a member has no way
+to judge — every wrong pick makes the tool worse for them — so they are hidden
+from everyone except the owner (`isOwner()`, keyed on the owner's user id).
+`applyOwnerGating()` force-sets the fixed config for any confirmed non-owner on
+every render and generate, so a member lands there even if a stale `localStorage`
+value says otherwise; it never fires while the user is unknown (pre-auth), so the
+owner's own stored choices are not clobbered.
+
+The **owner** still sees all three toggles and their stored choices win. So the
+escape hatch is owner-only now: only the owner can flip the engine back to Current
+(or guards to Full), and doing so changes only what the owner sees — members stay
+on the fixed config. **Caveat:** flipping the engine back to Current does not
+restore `main` — see the headline above.
 
 ## What the new defaults expose
 
@@ -108,8 +119,10 @@ back to Current does not restore `main` — see the headline above.
 - [x] Dead `netlify.toml` timeout line removed.
 - [ ] Decide whether the compound-number guard change on Current is acceptable to
       ship on `main` (it is a bug fix, but it is a change — see the headline).
-- [ ] Confirm the new defaults (Minimal / Sonnet / liability-only) are the intended
-      landing spot for new members, and that the ~$2/member/month Sonnet cost is
-      accepted as the default.
-- [ ] Watch the first real generations after merge; the escape hatch (default back
-      to Current + Full) is a one-line change, but does not restore `main`.
+- [ ] Confirm the fixed member config (Minimal / Sonnet / liability-only, no
+      controls) is intended, and that the ~$2/member/month Sonnet cost is accepted.
+- [ ] Confirm the owner id in `isOwner()` is correct; the toggles are visible only
+      to that account.
+- [ ] Watch the first real generations after merge. The owner-only escape hatch
+      (flip the engine/guards toggles) changes only what the owner sees and does not
+      restore `main`; changing what MEMBERS get is a code change, not a toggle.
