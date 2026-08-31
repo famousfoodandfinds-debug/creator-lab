@@ -16913,9 +16913,14 @@ function genOneScript(opts){
       if (!val) return;   // only show fields the script actually has
       var lbl = document.createElement("div"); lbl.style.cssText = "font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:8px 0 2px;"; lbl.textContent = p[0]; card.appendChild(lbl);
       var ta = document.createElement("textarea");
-      ta.style.cssText = "width:100%;background:transparent;border:none;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;line-height:1.55;resize:none;outline:none;padding:0;box-sizing:border-box;white-space:pre-wrap;-webkit-user-select:text;user-select:text;";
-      ta.value = val; ta.rows = Math.ceil(val.length / 60) + 1;
-      ta.addEventListener("input", function(){ this.rows = Math.ceil(this.value.length / 60) + 1; });
+      // overflow:hidden so the field never shows its own scrollbar -- it grows to fit instead (see autosize below).
+      ta.style.cssText = "display:block;width:100%;background:transparent;border:none;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;line-height:1.55;resize:none;outline:none;padding:0;box-sizing:border-box;white-space:pre-wrap;overflow:hidden;-webkit-user-select:text;user-select:text;";
+      ta.rows = 1; ta.value = val;
+      // Auto-size to the actual wrapped content (not a chars-per-line guess): collapse, then grow to scrollHeight.
+      // Runs on every keystroke, and once after the card is in the DOM (scrollHeight is only real once laid out).
+      function autosize(){ ta.style.height = "auto"; ta.style.height = ta.scrollHeight + "px"; }
+      ta.addEventListener("input", autosize);
+      if (typeof requestAnimationFrame === "function") requestAnimationFrame(autosize); else setTimeout(autosize, 0);
       inputs[p[1]] = ta; card.appendChild(ta);
     });
     function collect(){ var o = {}; FIELDS.forEach(function(p){ if (inputs[p[1]]) o[p[1]] = inputs[p[1]].value.trim(); }); return o; }
