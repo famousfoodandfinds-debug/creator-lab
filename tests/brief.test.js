@@ -639,6 +639,11 @@ let flawObjs = B.normalizeBrief({lines:{objections:[{value:'will it warp over ti
 let poolNoFlaw = B.defusePool(flawObjs, []);   // the exact call generation now makes
 ok(!poolNoFlaw.some(function(o){ return /arrives damaged/.test(o.value); }), 'defusePool([]): a product flaw is excluded entirely (it was never passed in)');
 ok(poolNoFlaw.some(function(o){ return o.value === 'will it warp over time'; }), 'defusePool([]): a real buyer objection is still curated');
+// social-proof: invented claims about what OTHER buyers do (the recurring "buy a second one" fabrication).
+ok(B.scriptViolations({ body2: "people end up buying a second one for the other bathroom" }, {}).indexOf("social-proof") >= 0, 'validator: catches the invented "people end up buying a second one" social claim');
+ok(B.scriptViolations({ cta: "most people grab another one before they run out" }, {}).indexOf("social-proof") >= 0, 'validator: catches "most people grab another one"');
+ok(B.scriptViolations({ body2: "you reach for it every single morning and never look back" }, {}).indexOf("social-proof") < 0, 'validator: a first-person/second-person outcome line is not a social-proof claim');
+ok(B.scriptViolations({ preclose: "it just works, quietly, in the corner" }, {}).indexOf("social-proof") < 0, 'validator: an ordinary benefit line is not flagged');
 
 // matchObjectionsToThreads: an objection goes to the script whose SCENARIO shares words with it, not by position
 let mObjs = [{ value:'the board slides around on the counter', words:['slides','sliding'] }, { value:'it arrives already oiled and ready', words:['oiled','ready'] }];

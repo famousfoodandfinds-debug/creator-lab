@@ -173,6 +173,12 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(capturedPrompt.indexOf("ASK, DON'T ASSERT, THE VIEWER'S EXPERIENCE") >= 0, 'the hook asks the viewer\'s experience rather than asserting it');
   // Fix: the strongest hook makes the viewer supply the answer (names nothing, stays inside the claim rules).
   ok(capturedPrompt.indexOf('THE STRONGEST HOOK MAKES THE VIEWER SUPPLY THE ANSWER') >= 0 && /imply it, make them supply it, name nothing/.test(capturedPrompt), 'the strongest hook implies the subject and makes the viewer supply it');
+  // Four hooks must be four different REASONS to watch, not one idea reworded.
+  ok(capturedPrompt.indexOf('FOUR DIFFERENT REASONS TO WATCH, NOT ONE IDEA WORDED FOUR WAYS') >= 0 && /it is a duplicate/.test(capturedPrompt), 'each hook must be a different reason to watch, not a reworded variation of another');
+  // A striking listing spec MAY lead the hook when the spec is the drama (said in plain buyer words).
+  ok(capturedPrompt.indexOf('SPEC AS HOOK -- WHEN THE SPEC IS THE DRAMA') >= 0 && /a dull spec still stays in the payoff/.test(capturedPrompt), 'a striking spec may lead the hook; a dull one stays in the payoff');
+  // Never invent social proof -- any claim about what other buyers do/own/say must come from the material.
+  ok(capturedPrompt.indexOf('NEVER INVENT SOCIAL PROOF') >= 0 && /must come from the MATERIAL/.test(capturedPrompt), 'claims about what other buyers do must come from the material, never invented');
   // Fix: the health-claim rule holds in every slot, not just the hook.
   ok(/This holds in EVERY slot -- hook, setup, pre-close, payoff AND cta/.test(capturedPrompt), 'the health/safety/contamination ban is script-wide, not a hook-only rule');
   // The system prompt itself now scopes the doctrine and keeps the setup product-free (raw-file assertion).
