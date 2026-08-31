@@ -15735,6 +15735,13 @@ function genOneScript(opts){
   var GEN_COUNT = 4;   // one script per hook source, so all four shapes fire every batch (matches filming 3-4/day)
   var generatedScripts = [];
   var generating = false;
+  // ENGINE toggle: "current" (the full assignment+rules pipeline) or "lean" (minimal instruction, the model
+  // chooses the buyers and what to leave out, then the same guards + checks run). Remembered per browser so the
+  // owner can flip between them and read the two side by side on one brief. localStorage is guarded so the test
+  // harness (no localStorage) and a privacy-locked browser both fall back to "current" without throwing.
+  var leanEngine = false;
+  try { leanEngine = (typeof localStorage !== "undefined" && localStorage.getItem("saxe_engine") === "lean"); } catch (e) {}
+  function setEngine(lean){ leanEngine = !!lean; try { if (typeof localStorage !== "undefined") localStorage.setItem("saxe_engine", leanEngine ? "lean" : "current"); } catch (e) {} renderGenScripts(); }
   // Monthly GENERATION cap (billing). A "generation" is one batch (one press of Generate = four scripts). The
   // count lives server-side; the client shows what remains so nobody is surprised at the wall. `genCount` is
   // { used, limit, remaining } once fetched, else null (fetch failed / not yet loaded -> show nothing, never
@@ -16160,6 +16167,16 @@ function genOneScript(opts){
     L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the assigned-source opening line; body1 = the tight setup; preclose = the assigned objection turn, or "" when the script has a CLOSE MODE instead of an objection; body2 = the payoff, which must CLOSE THE EXACT GAP THE HOOK OPENED (the same subject, now resolved -- not a different benefit) at the NEED level assigned to this script (describe the moment using only a setting the material supports; do not invent a place or context the material never mentions, like an office or a cabin; do not say "you become the person who"); it is never a gift or scarcity close; cta = the shopping-button call to action -- for an objection script it echoes the hook, for a close-mode script it IS the gift/identity or scarcity close. Keep every script tight and speakable. No em dashes.');
     return L.join("\n");
   }
+  // ---- LEAN ENGINE ------------------------------------------------------------------------------------------
+  // The lean path hands the model the brief and a short instruction, and lets IT choose the four buyers, what to
+  // sell, and what to leave out -- instead of filling code-assigned slots. It keeps the LIABILITY floor (no
+  // invented figures, no health/price claims, no citing reviews, first person only if the creator owns it) and
+  // drops the taste-rule pile and the assignment machinery. Same five-field JSON out, so every downstream stage
+  // (guards, hook read-back, render, edit, save, cap) is shared with the current path.
+  // STEP 1: a stub that returns the CURRENT prompt, so the toggle is provably inert until step 2 fills this in.
+  function genLeanPrompt(ctx){
+    return genPrompt(ctx);
+  }
   // Ask for ONE script rewritten -- reuses the full batch prompt (all context + this script's assignment +
   // every rule) and just changes the output instruction, so nothing diverges from the batch rules.
   // extraReason (optional): a free-text reason from the hook read-back editor, not a guard code. It rides the same
@@ -16402,7 +16419,8 @@ function genOneScript(opts){
       // monthly cap counts this as ONE generation and the retries ride free.
       var genBatchId = newBatchId();
       guardOpts.generationId = genBatchId;   // carried into the regen calls so they ride free on this batch's id
-      claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: genBatchId, messages: [{ role: "user", content: genPrompt(ctx) }] }, function(text, err){
+      var usingLean = leanEngine;   // captured for THIS press, so a mid-flight toggle never splits a batch
+      claudeCall({ model: GEN_MODEL, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: genBatchId, messages: [{ role: "user", content: usingLean ? genLeanPrompt(ctx) : genPrompt(ctx) }] }, function(text, err){
         try {
           if (err){
             generating = false; renderGenScripts();
@@ -16435,7 +16453,7 @@ function genOneScript(opts){
               generating = false;
               if (clean.length){
                 generatedScripts = clean; renderGenScripts();
-                genStatus(clean.length + " of " + GEN_COUNT + " script" + (GEN_COUNT === 1 ? "" : "s") + " from your brief" + (dropped ? " (" + dropped + " dropped -- " + fmtDropsByScript(drops) + ")" : "") + ". Save the ones you want.", "var(--green)");
+                genStatus(clean.length + " of " + GEN_COUNT + " script" + (GEN_COUNT === 1 ? "" : "s") + " from your brief" + (usingLean ? " (lean engine)" : "") + (dropped ? " (" + dropped + " dropped -- " + fmtDropsByScript(drops) + ")" : "") + ". Save the ones you want.", "var(--green)");
               } else {
                 // NEVER an empty screen -- but NEVER a raw first-pass draft or a terminal-tier line either. Show the
                 // best TERMINAL-FREE attempt per slot (the rewrites we already paid for, dashes stripped, finalized),
@@ -16551,6 +16569,17 @@ function genOneScript(opts){
     head.appendChild(btn);
     // Persistent counter beside the button, in batches ("generations"), never scripts.
     if (genCount){ var cnt = document.createElement("div"); cnt.style.cssText = "font-size:12px;font-weight:600;color:var(--" + genCountTone() + ");"; cnt.textContent = genCountLabel(); head.appendChild(cnt); }
+    // ENGINE toggle -- a small segmented Current/Lean control, pushed to the right of the row. Flipping it only
+    // changes which engine the NEXT press uses; both run on the same brief so the two can be read side by side.
+    var seg = document.createElement("div"); seg.style.cssText = "margin-left:auto;display:inline-flex;border:1px solid var(--border-md);border-radius:8px;overflow:hidden;";
+    [["current", "Current"], ["lean", "Lean"]].forEach(function(pair){
+      var on = (pair[0] === "lean") === leanEngine;
+      var b = document.createElement("button"); b.type = "button"; b.textContent = pair[1];
+      b.style.cssText = "background:" + (on ? "var(--gold)" : "transparent") + ";color:" + (on ? "#080808" : "var(--muted)") + ";border:none;font-family:'Instrument Sans',sans-serif;font-size:11px;font-weight:700;padding:6px 11px;cursor:pointer;";
+      b.addEventListener("click", function(){ setEngine(pair[0] === "lean"); });
+      seg.appendChild(b);
+    });
+    head.appendChild(seg);
     host.appendChild(head);
     // Threshold warnings as the wall approaches: 80% used, then 5 left. Numbers come from the server's EFFECTIVE
     // limit (genCount.limit), never a hardcoded constant. The AT-limit (r<=0) case is deliberately NOT rendered
