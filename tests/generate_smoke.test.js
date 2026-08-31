@@ -189,6 +189,10 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(capturedPrompt.indexOf('SPEC AS HOOK -- WHEN THE SPEC IS THE DRAMA') >= 0 && /a dull spec still stays in the payoff/.test(capturedPrompt), 'a striking spec may lead the hook; a dull one stays in the payoff');
   // Never invent social proof -- any claim about what other buyers do/own/say must come from the material.
   ok(capturedPrompt.indexOf('NEVER INVENT SOCIAL PROOF') >= 0 && /must come from the MATERIAL/.test(capturedPrompt), 'claims about what other buyers do must come from the material, never invented');
+  // Every line must survive being said out loud -- a spoken-word test on EVERY slot, not just the hook.
+  ok(capturedPrompt.indexOf('EVERY LINE HAS TO SURVIVE BEING SAID OUT LOUD') >= 0 && /scans as WRITING instead of TALK/.test(capturedPrompt), 'every line, in every slot, must pass the said-out-loud test -- no evocative written prose');
+  // An opening claim must be true of THIS product, never the whole category (the viewer already owns one of those).
+  ok(capturedPrompt.indexOf('TRUE OF THIS PRODUCT, NOT THE WHOLE CATEGORY') >= 0 && /the viewer already owns one of those/.test(capturedPrompt), 'a category-generic hook is a description, not a reason to watch');
   // Fix: the health-claim rule holds in every slot, not just the hook.
   ok(/This holds in EVERY slot -- hook, setup, pre-close, payoff AND cta/.test(capturedPrompt), 'the health/safety/contamination ban is script-wide, not a hook-only rule');
   // The system prompt itself now scopes the doctrine and keeps the setup product-free (raw-file assertion).
