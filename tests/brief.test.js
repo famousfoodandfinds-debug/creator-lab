@@ -644,6 +644,21 @@ ok(B.scriptViolations({ body2: "people end up buying a second one for the other 
 ok(B.scriptViolations({ cta: "most people grab another one before they run out" }, {}).indexOf("social-proof") >= 0, 'validator: catches "most people grab another one"');
 ok(B.scriptViolations({ body2: "you reach for it every single morning and never look back" }, {}).indexOf("social-proof") < 0, 'validator: a first-person/second-person outcome line is not a social-proof claim');
 ok(B.scriptViolations({ preclose: "it just works, quietly, in the corner" }, {}).indexOf("social-proof") < 0, 'validator: an ordinary benefit line is not flagged');
+// cites-source: a script must never reference the reviews or the brief as a source.
+ok(B.scriptViolations({ body1: "the reviews talk about the packaging being impossibly thin" }, {}).indexOf("cites-source") >= 0, 'validator: catches a script that cites "the reviews"');
+ok(B.scriptViolations({ preclose: "reviewers keep mentioning how quiet it is" }, {}).indexOf("cites-source") >= 0, 'validator: catches "reviewers"');
+ok(B.scriptViolations({ body2: "it runs quiet enough to forget it is on" }, {}).indexOf("cites-source") < 0, 'validator: an ordinary line that does not cite a source is fine');
+// isDefectConcern: a shipping / packaging / delivery-damage concern is filtered out of the context entirely,
+// whether it was classified as a pain OR an objection -- so it can never drive a script.
+ok(B.isDefectConcern({ value: 'the board arrives damaged in shipping' }) === true, 'isDefectConcern: flags an arrival/shipping-damage complaint');
+ok(B.isDefectConcern({ value: 'the packaging is impossibly thin', words: ['brown paper','oversized box'] }) === true, 'isDefectConcern: flags a packaging complaint');
+ok(B.isDefectConcern({ value: 'will it crack over time' }) === false, 'isDefectConcern: a durability doubt is NOT a defect concern (still curates)');
+ok(B.isDefectConcern({ value: 'worried it is too small' }) === false, 'isDefectConcern: an ordinary size objection is not flagged');
+// the filter runs inside briefToGenContext, so a shipping-damage objection never reaches the generation context
+let defBrief = B.normalizeBrief({lines:{objections:[{value:'the packaging is too thin and it arrives damaged', count:7},{value:'will it fit my drawer', count:4}]}});
+let defCtx = B.briefToGenContext(defBrief, B.emptyRaw());
+ok(!defCtx.objections.some(function(o){ return /arrives damaged|packaging/.test(o.value); }), 'briefToGenContext: a shipping-damage OBJECTION is filtered out of the context (the leak past the pool exclusion)');
+ok(defCtx.objections.some(function(o){ return o.value === 'will it fit my drawer'; }), 'briefToGenContext: a real buyer objection survives the defect filter');
 
 // matchObjectionsToThreads: an objection goes to the script whose SCENARIO shares words with it, not by position
 let mObjs = [{ value:'the board slides around on the counter', words:['slides','sliding'] }, { value:'it arrives already oiled and ready', words:['oiled','ready'] }];

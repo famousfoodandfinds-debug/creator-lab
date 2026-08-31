@@ -14298,6 +14298,11 @@ function genOneScript(opts){
   // say), `claims` are buyer performance CLAIMS (never asserted). The default focus is the top-count pain
   // to lead with and the top-count objection to defuse -- so generation works with zero picking (the
   // picker UI comes later). Pure and DOM-free, so it can be unit-tested against a stored brief.
+  // A shipping / packaging / delivery-damage complaint -- the product's worst news, and not even about using it.
+  // Targeted band (delivery logistics + arrival damage), so a durability doubt like "will it crack" is NOT caught
+  // and still curates normally; a script never talks about shipping, so a false positive only costs a pre-close.
+  var DEFECT_RX = /\b(?:ship(?:ped|ping|s|ment)?|arriv(?:e|ed|es|al)|deliver(?:y|ed|ies|ing)?|packag(?:e|ed|ing|es)|packing|in transit|damaged|missing (?:parts|pieces))\b/;
+  function isDefectConcern(x){ x = obj(x); return DEFECT_RX.test((str(x.value) + " " + arr(x.words).map(str).join(" ")).toLowerCase()); }
   function briefToGenContext(brief, raw, name){
     var b = normalizeBrief(brief); raw = normalizeRaw(raw);
     function v(k){ return str(b.lines[k] && b.lines[k].value); }
@@ -14310,7 +14315,12 @@ function genOneScript(opts){
     }
     // Top by REVIEW count, then comment count -- evidence-ranked, added (count 0) lines never lead by default.
     function top(list){ return list.slice().sort(function(x, y){ return (y.count - x.count) || (y.ccount - x.ccount); })[0] || null; }
-    var pains = listOf("pains"), objections = listOf("objections");
+    // A SHIPPING / PACKAGING / DELIVERY-DAMAGE concern is the product's worst news and is not even about USING
+    // the product. It must NEVER drive a script. A defect can be classified as a pain OR an objection (and the
+    // model builds around whatever it is handed), so it is filtered out of BOTH lists here, before generation
+    // ever sees it -- the pool exclusion alone missed the ones that landed under objections.
+    var pains = listOf("pains").filter(function(p){ return !isDefectConcern(p); });
+    var objections = listOf("objections").filter(function(o){ return !isDefectConcern(o); });
     return {
       who: v("who"), whoWords: w("who"),
       emotion: v("emotion"), emotionWords: w("emotion"),
@@ -14421,6 +14431,10 @@ function genOneScript(opts){
     // an others-subject + an acquire verb + "a second / another / two / a backup". The broad principle (no
     // invented claim about what others do, own, or say) is carried by the prompt; this catches the repeat offender.
     if (/\b(?:people|everyone|everybody|buyers|customers|most people|so many people|they all|others)\b[^.!?]{0,40}\b(?:buy|buying|bought|get|getting|got|grab|grabbed|order|ordered|end(?:s|ed|ing)? up|keep|coming back|come back|reach for)\b[^.!?]{0,25}\b(?:a second|another one|another|two of|multiple|more than one|a backup|a spare|one for every)\b/.test(lc)) v.push("social-proof");
+    // (cites-source) The brief and the reviews are PRIVATE intelligence -- the viewer must never hear them cited.
+    // "the reviews talk about the packaging..." leaks the source. A sales script never says "reviews"/"reviewers"
+    // or "according to buyers"; it speaks from experience/observation, never by quoting where it learned a thing.
+    if (/\breviews?\b|\breviewers?\b|\baccording to (?:the )?(?:buyers|customers|reviewers|owners|reviews)\b/.test(lc)) v.push("cites-source");
     // (health-claim) The model MANUFACTURING its own contamination / leaching claim out of buyer complaint
     // language -- a liability the listing-claim suppression never covered (that only stops REPEATING the
     // seller's claims). Fires on the contamination/leaching band in ANY slot, but NOT when the SENTENCE frames
@@ -14657,6 +14671,7 @@ function genOneScript(opts){
     groundedFindings: groundedFindings,
     groundedObjections: groundedObjections,
     defusePool: defusePool,
+    isDefectConcern: isDefectConcern,
     matchObjectionsToThreads: matchObjectionsToThreads,
     fitTokens: fitTokens,
     causedObjection: causedObjection
@@ -16067,6 +16082,7 @@ function genOneScript(opts){
     L.push("NO-META -- talk to the viewer about THEIR life, never about your research. The brief is your source and the viewer has never seen it; never name reviews, buyers, ratings, social proof or specs. Put the detail inside the viewer's own moment instead.");
     L.push("INVENT NOTHING -- every fact, number, cause and outcome comes from the brief or listing. If you cannot point to where a cause is stated, reframe it as a benefit rather than naming it. Do not diagnose the viewer, make no claim about other products, and make NO sweeping claim about what people in general want or do (\"nobody wants regular ice anymore\", \"everyone is switching\") unless the material says it -- that is an invented market trend.");
     L.push("NEVER INVENT SOCIAL PROOF: any claim about what OTHER buyers do, own, or say -- \"people end up buying a second one\", \"everyone who tried it\", \"buyers keep coming back\", \"most people grab two\" -- must come from the MATERIAL (the reviews and comments). If the material does not support it, it does NOT go in: do not invent a behaviour, a count, a consensus, or a second purchase. The social-proof line in the brief is your ONLY source for what others think or do; when it is empty, the script makes no claim about other buyers at all.");
+    L.push("NEVER CITE THE MATERIAL: the brief and the reviews are your PRIVATE intelligence, never something the viewer hears about. No \"the reviews talk about...\", \"reviewers mention\", \"people in the reviews\", \"according to buyers\". You speak as a person sharing what they know, from experience or plain observation -- never by quoting or citing where the information came from. The viewer never learns that a review or a brief exists.");
     L.push("NO ANALYST OR SPEC-SHEET JARGON: a term from a spec sheet or from review-analysis language goes in a script ONLY if buyers actually use that phrase in the material. If the word is not in the buyer's own vocabulary in the reviews or comments, it does not go in. \"No drop-off\", \"runtime\", \"performance\", \"optimized\", \"ergonomic\", \"maintenance\" are analyst words, not buyer words -- say what a real buyer would say instead (\"it doesn't die halfway\", \"it still pulls hard hours later\"). Only words a buyer actually used in the material belong in the script.");
     L.push("TRANSLATE MANUFACTURER SPEC LANGUAGE, NEVER DROP IT IN RAW: material and build specs from the listing -- \"borosilicate glass\", \"thermal shock resistant\", \"PFAS-free and PTFE-free\", \"leak-proof snap-lock lids\", \"modular base\" -- are the seller's spec-sheet words, not a buyer's. No viewer knows what borosilicate is. A spec earns its place ONLY when it is said the way a buyer would say it: its plain benefit, in plain words. \"Glass, so there's no coating to wear off or flake\" NOT \"borosilicate, thermal shock resistant\"; \"the lid actually snaps shut and doesn't leak\" NOT \"leak-proof snap-lock lid\". Unless buyers use the exact spec phrase themselves in the material, translate it to the thing they would feel or notice, or leave it out. And NEVER list specs in a row -- one translated benefit beats five raw specs.");
     L.push("NEVER ASSERT A PHYSICAL PROPERTY THE MATERIAL DOES NOT STATE -- a claim about how the product physically behaves (it melts slower, lasts longer, holds more, runs cooler, stays sharper) is a FACT that must come from the listing or the reviews. If neither says it, you cannot say it, even if it sounds plausible (\"nugget ice melts slower\" is FALSE and invented). This is the same rule as an invented cause: do not state a behavior you cannot point to in the material. Speak instead to what the material DOES support.");
@@ -16115,7 +16131,7 @@ function genOneScript(opts){
     return genPrompt(ctx) +
       "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for: " + reasons + "." + repeatMsg +
       " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
-      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, NO money in any slot (no price, cost, cheapness, or value in money terms -- not 'without spending a fortune', 'worth every penny', 'a steal'), no company service or warranty or returns, " + (ctx.owns ? "" : "no first-person ownership, ") + "never assume the VIEWER already owns it, never assume they have already moved on from the old thing (no 'your old X', no 'you used to'), no manufactured health, safety, or contamination claim (no leaching, chemicals, or flakes 'into your food' -- speak to a worry someone raised, never assert it), no invented social proof (no 'people end up buying a second one' or any claim about what other buyers do/own unless the material states it), no moderation words, no invented market trend, never state the current year, keep the SAME viewer from hook to CTA, and NEVER reuse the words of a teaching example (write your own line for this product)." +
+      " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, NO money in any slot (no price, cost, cheapness, or value in money terms -- not 'without spending a fortune', 'worth every penny', 'a steal'), no company service or warranty or returns, " + (ctx.owns ? "" : "no first-person ownership, ") + "never assume the VIEWER already owns it, never assume they have already moved on from the old thing (no 'your old X', no 'you used to'), no manufactured health, safety, or contamination claim (no leaching, chemicals, or flakes 'into your food' -- speak to a worry someone raised, never assert it), no invented social proof (no 'people end up buying a second one' or any claim about what other buyers do/own unless the material states it), never cite the reviews or the brief as a source (no 'the reviews say', no 'reviewers'), no moderation words, no invented market trend, never state the current year, keep the SAME viewer from hook to CTA, and NEVER reuse the words of a teaching example (write your own line for this product)." +
       " Above all, use NO number or figure that is not in the PRODUCT LISTING above -- no invented count, weight, size, time, percentage or price; if you are unsure a figure is in the listing, drop it and describe the outcome in words instead." +
       " Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
   }
@@ -16167,7 +16183,7 @@ function genOneScript(opts){
     next();
   }
   // Human labels for the guard codes, used when a drop has to be explained to the owner.
-  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated setup, pre-close, or CTA opening", "names-doubt": "named the doubt instead of showing the fix", "viewer-owns": "assumes the viewer already owns it", "moved-on": "assumes the viewer already moved on from the old thing", "health-claim": "manufactured health or contamination claim", "social-proof": "invented social proof (what other buyers do)" };
+  var GUARD_LABELS = { "em-dash": "em dash", moderation: "moderation word", price: "price or discount", company: "company service", ownership: "first-person ownership", "asserted-number": "unverifiable figure", "current-year": "states the current year", "market-claim": "invented market trend", lifted: "lifted review line", "example-lift": "copied a teaching example", "generation-failed": "the model could not produce it", repetition: "repeated setup, pre-close, or CTA opening", "names-doubt": "named the doubt instead of showing the fix", "viewer-owns": "assumes the viewer already owns it", "moved-on": "assumes the viewer already moved on from the old thing", "health-claim": "manufactured health or contamination claim", "social-proof": "invented social proof (what other buyers do)", "cites-source": "referenced the reviews or brief as a source" };
   function fmtDrops(codes){ return Object.keys(codes || {}).map(function(c){ return (GUARD_LABELS[c] || c) + ((codes[c] | 0) > 1 ? " x" + codes[c] : ""); }).join(", "); }
   // Per-script drop line: "Script 2: unverifiable figure; Script 4: copied a teaching example" -- so two
   // scripts' reasons never merge into one line the owner cannot attribute. Codes within one script join with
