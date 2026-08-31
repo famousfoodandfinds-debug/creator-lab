@@ -802,6 +802,12 @@ ok(ctxN.pains[0].need === 'safety' && ctxN.desireNeed === 'esteem', 'briefToGenC
 // product name is threaded into the context so a script can actually say what the product is (not just "it")
 ok(B.briefToGenContext(B.emptyBrief(), B.emptyRaw(), 'Shark WANDVAC').name === 'Shark WANDVAC', 'briefToGenContext: threads the product name into ctx.name');
 ok(B.briefToGenContext(B.emptyBrief(), B.emptyRaw()).name === '', 'briefToGenContext: name defaults to empty when none is passed (old 2-arg callers unaffected)');
+// Must-include (the creator's non-negotiable): survives normalizeRaw round-trip and reaches ctx.mustInclude.
+ok(B.emptyRaw().mustInclude === '', 'emptyRaw: mustInclude defaults to empty');
+ok(B.normalizeRaw({ mustInclude: 'folds flat to two inches' }).mustInclude === 'folds flat to two inches', 'normalizeRaw: preserves mustInclude');
+ok(B.normalizeRaw({ mustInclude: 99 }).mustInclude === '99', 'normalizeRaw: coerces mustInclude to a string');
+ok(B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ mustInclude: 'say it folds flat' })).mustInclude === 'say it folds flat', 'briefToGenContext: threads the creator non-negotiable into ctx.mustInclude');
+ok(B.briefToGenContext(B.emptyBrief(), B.emptyRaw()).mustInclude === '', 'briefToGenContext: mustInclude is empty when the field is blank (generation unchanged)');
 let clN = B.applyClusters([{ value:'sharp ice', count:2, need:'safety' }, { value:'kids around', count:3, need:'' }], { groups:[{ value:'sharp ice near kids', members:[0,1] }] }, 10);
 ok(clN[0].need === 'safety', 'applyClusters: representative carries the first need through consolidation');
 // Cap at 5 so a giant brief never floods the batch.

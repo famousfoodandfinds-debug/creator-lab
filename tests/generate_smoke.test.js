@@ -113,6 +113,8 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(capturedPrompt.indexOf('OBJECTION AS CURIOSITY') >= 0, 'objection-as-curiosity hook IS in rotation when the material names a cause');
   ok(capturedPrompt.indexOf('the tank holds less') >= 0, 'the grounded cause is fed to the objection hook (never invented)');
   ok(/current year is 20\d\d/.test(capturedPrompt), 'the real current year is passed into the prompt for the contrast device');
+  // Must-include OFF (the fixture leaves it blank): the rule is absent, so the prompt is unchanged from before.
+  ok(capturedPrompt.indexOf('MUST INCLUDE -- THE CREATOR') < 0, 'no creator non-negotiable set -> the MUST INCLUDE rule is absent (generation byte-identical to before the field)');
   // Architecture-scoped body exemplars: this product has objections -> C, so setup/payoff examples load.
   ok(capturedPrompt.indexOf('PROBLEM -> TRANSFORMATION') >= 0, 'architecture picked (C) and named in the prompt');
   ok(capturedPrompt.indexOf('SETUP (body1) examples') >= 0 && capturedPrompt.indexOf('PAYOFF (body2) examples') >= 0, 'setup and payoff exemplars are loaded (previously empty)');
@@ -269,6 +271,18 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(joined.indexOf('Your drink deserves better than this') >= 0, 'the first script rendered into #genScripts');
   ok(joined.indexOf('It makes 33 pounds of ice a day') >= 0, 'the listing-figure script survived and rendered');
   ok(joined.indexOf('See it on the shop page') >= 0, 'the fourth script rendered too (all four accepted, no regen)');
+
+  // Must-include ON: set the creator non-negotiable and re-run. Every-script rule appears in the prompt,
+  // carrying the exact text, and does NOT gate generation (all four scripts still come back accepted).
+  capturedPrompt = '';
+  const raw2 = SB.emptyRaw(); raw2.reviews = [{ id:'r1', full:'the nugget ice is so good' }];
+  raw2.mustInclude = 'always mention it makes soft chewable nugget ice';
+  PS.fill({ id:'p1', name:'Ice maker', updated_at:'2026-01-01T00:00:00Z', brief:brief, raw:raw2 });
+  PS.generateScripts();
+  for (let k = 0; k < 80; k++) await Promise.resolve();
+  ok(capturedPrompt.indexOf('MUST INCLUDE -- THE CREATOR') >= 0, 'a creator non-negotiable set -> the MUST INCLUDE rule is in the prompt');
+  ok(capturedPrompt.indexOf('always mention it makes soft chewable nugget ice') >= 0, 'the exact creator non-negotiable text is passed into generation');
+  ok(/required in EVERY one of the \d+ scripts/.test(capturedPrompt) && /WHERE it lands is up to each script/.test(capturedPrompt), 'the rule requires it in every script but leaves placement to each script (and scripts must still differ)');
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

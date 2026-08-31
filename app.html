@@ -902,6 +902,15 @@ body.home-landing #homeLanding { display: block !important; }
         <textarea id="productInput" maxlength="8000" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste the full listing: brand, materials, sizes, every real feature."></textarea>
       </div>
 
+      <!-- Must-include: the creator's non-negotiable. The single highest-leverage input -- knowledge the
+           reviews cannot contain. Optional but framed as strongly recommended. When filled, it is passed into
+           generation and every script must work it in. Never gates generation. -->
+      <div style="margin-bottom:16px;background:rgba(144,144,240,0.08);border:1px solid rgba(144,144,240,0.35);border-radius:10px;padding:14px;">
+        <div class="field-label" style="margin-bottom:7px;">What every script must include <span style="font-size:11px;font-weight:600;color:rgba(144,144,240,0.95);">strongly recommended</span></div>
+        <div class="field-hints-line" style="margin-bottom:8px;">This is the single highest-leverage thing you can add, and filling it in makes every script better. Not what to lead with &ndash; what cannot be missing. You know things the reviews don't: what other creators are winning with, which feature actually sells, what a buyer needs to hear before they'll buy. Whatever you put here goes into every script we generate.</div>
+        <textarea id="psMustInclude" maxlength="600" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="e.g. Always mention it folds flat to two inches -- that's the feature that sells it every time."></textarea>
+      </div>
+
       <!-- Customer reviews: a growing SET. Reviews are added, never replaced. The box for new
            reviews is always empty so it is never ambiguous whether you are editing or adding. -->
       <div id="psReviewBox" style="margin-bottom:16px;">
@@ -13728,6 +13737,10 @@ function genOneScript(opts){
       competitorComments: "",  // pasted competitor / viral-video comments (buyer language + objections)
       winningAngles: [],       // product-level winning angles {url,handle,views,transcript,topic,role,source}
       authorityRaw: "",        // OPTIONAL creator-supplied credibility; if empty, authority is derived
+      mustInclude: "",         // OPTIONAL creator non-negotiable: the one thing that must not be left out of
+                               // ANY script (creator knowledge the reviews cannot contain). When present it is
+                               // passed into generation and every script must work it in; when empty, generation
+                               // is byte-identical to today. Never gates generation.
       ownsProduct: false       // the creator owns or USES this product (a free sample counts). When true,
                                // first-person testimony is allowed in scripts and ownership exemplars load;
                                // when false the voice stays recommender and first person is blocked. The tool
@@ -13766,6 +13779,7 @@ function genOneScript(opts){
     r.competitorComments = str(x.competitorComments);
     r.winningAngles      = arr(x.winningAngles).map(obj);
     r.authorityRaw       = str(x.authorityRaw);
+    r.mustInclude        = str(x.mustInclude);
     r.ownsProduct        = !!x.ownsProduct;
     return r;
   }
@@ -14341,6 +14355,7 @@ function genOneScript(opts){
       leadPain: top(pains.filter(function(p){ return String(p.about || "") === "alternative"; })),   // lead with an ALTERNATIVE pain only -- a product flaw must never be the lead/angle
       defuseObjection: top(objections),   // default focus: defuse this objection
       owns: !!raw.ownsProduct,            // creator owns/uses it -> first-person allowed, owns exemplars load
+      mustInclude: str(raw.mustInclude),  // creator non-negotiable: when set, every script must work it in
       reviewCount: b.meta.reviewCount|0,
       commentCount: b.meta.commentCount|0,
       name: str(name)                     // the saved product name -- so a script can actually say what it is
@@ -14722,6 +14737,7 @@ function genOneScript(opts){
     raw.description        = val("productInput");
     raw.competitorComments = val("psCompetitorText");
     raw.authorityRaw       = val("psAuthority");
+    raw.mustInclude        = val("psMustInclude");
     raw.ownsProduct        = !!(el("psOwnsProduct") && el("psOwnsProduct").checked);
     // reviews (raw.reviews), reviewShots and winningAngles are maintained by their own handlers.
   }
@@ -14809,6 +14825,7 @@ function genOneScript(opts){
     if (el("productInput"))     el("productInput").value     = raw.description;
     if (el("psCompetitorText")) el("psCompetitorText").value = raw.competitorComments;
     if (el("psAuthority"))      el("psAuthority").value      = raw.authorityRaw;
+    if (el("psMustInclude"))    el("psMustInclude").value    = raw.mustInclude || "";
     if (el("psOwnsProduct"))    el("psOwnsProduct").checked  = !!raw.ownsProduct;
     ["psAngleLink","psAngleText"].forEach(function(id){ if (el(id)) el(id).value = ""; });
     renderAngles(); renderReviewList(); renderReviewCount(); reviewMsg(""); toggleReviewAdd(false);
@@ -15973,6 +15990,14 @@ function genOneScript(opts){
     // makes no one want the product has failed. Write to sell; obey the rules while you do.
     L.push("THE JOB (above everything else): make the viewer WANT this product enough to stop scrolling and tap the link to buy. That is the whole point of the script. Everything below is how to do that honestly -- the constraints keep us from lying or getting the video suppressed, they are not the goal. A script that is perfectly safe but makes no one want the product is a failure. Sell.");
     L.push("");
+    // The creator's non-negotiable (raw.mustInclude). The creator knows things the reviews cannot contain --
+    // what other creators are winning with, which feature actually sells, what a buyer must hear before buying.
+    // When it is set, EVERY script must work it in; where it lands is the script's choice and the scripts must
+    // still differ. When empty, nothing is pushed here, so the prompt is byte-identical to before this field.
+    if (ctx.mustInclude) {
+      L.push("MUST INCLUDE -- THE CREATOR'S NON-NEGOTIABLE (required in EVERY one of the " + GEN_COUNT + " scripts, no exceptions): the creator knows this product better than the reviews do, and has told you the one thing that cannot be missing from any script: \"" + ctx.mustInclude + "\". Every script must work this in SOMEWHERE -- it is not optional and no script may skip it. WHERE it lands is up to each script (hook, setup, payoff, pre-close, or CTA -- wherever it fits that script's own angle most naturally), and the four scripts must still DIFFER from each other: do not drop it into the same slot with the same wording every time. Weave it in the way a real person would actually say it out loud, in that script's voice, never as a pasted-on tag. If it names a feature, give that feature real space; if it is something a buyer needs to hear, make sure the viewer hears it. This is required content, but it never overrides honesty or the guards -- work it in truthfully.");
+      L.push("");
+    }
     L.push("THE ARC (a script is ONE move, not five boxes): the HOOK opens a gap, the SETUP makes that gap FELT, the payoff CLOSES that exact gap, and the pre-close removes the risk of changing. The hook and the payoff are two ends of ONE move -- before you write the payoff, name the gap the hook opened and resolve THAT specific gap, never a different benefit. A hook about waiting for ice must pay off as ice with no waiting, never as something else. If the payoff does not close the hook's gap, the script is broken.");
     L.push("KEEP THE CONSEQUENCE THE SIZE OF THE PAIN: a pain can only cause what it PLAUSIBLY causes. A minor annoyance produces a minor consequence; a small friction pays off as small relief, never a life change. Do NOT inflate a small frustration into a life consequence that does not follow from it -- \"your cutting board is why you order takeout instead of cooking\" is a claim no viewer believes about themselves, so they tune out. Reaching for a bigger emotional payoff than the pain supports does NOT land harder; it loses the viewer, because they know it is not true of them. Match the payoff to the ACTUAL size of the frustration in the material: a dull knife makes dinner prep annoying, not a ruined relationship with cooking; a board that slips means chasing a tomato around the counter, not giving up on home-cooked meals.");
     L.push("");
@@ -16154,6 +16179,7 @@ function genOneScript(opts){
       "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + ". Your previous Script " + (i + 1) + " was REJECTED for: " + reasons + "." + repeatMsg +
       " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
       " Rewrite ONLY Script " + (i + 1) + " to its assignment above, obeying EVERY rule: no em dash, NO money in any slot (no price, cost, cheapness, or value in money terms -- not 'without spending a fortune', 'worth every penny', 'a steal'), no company service or warranty or returns, " + (ctx.owns ? "" : "no first-person ownership, ") + "never assume the VIEWER already owns it, never assume they have already moved on from the old thing (no 'your old X', no 'you used to'), no manufactured health, safety, or contamination claim (no leaching, chemicals, or flakes 'into your food' -- speak to a worry someone raised, never assert it), no invented social proof (no 'people end up buying a second one' or any claim about what other buyers do/own unless the material states it), never cite the reviews or the brief as a source (no 'the reviews say', no 'reviewers'), no moderation words, no invented market trend, never state the current year, keep the SAME viewer from hook to CTA, and NEVER reuse the words of a teaching example (write your own line for this product)." +
+      (ctx.mustInclude ? " And STILL work in the creator's non-negotiable (\"" + ctx.mustInclude + "\") somewhere in this script, naturally in its own voice." : "") +
       " Above all, use NO number or figure that is not in the PRODUCT LISTING above -- no invented count, weight, size, time, percentage or price; if you are unsure a figure is in the listing, drop it and describe the outcome in words instead." +
       " Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
   }
@@ -16434,7 +16460,7 @@ function genOneScript(opts){
   }
 
   function init(){
-    ["newProductNameInput","productInput","psCompetitorText","psAuthority"].forEach(function(id){ var e = el(id); if (e) e.addEventListener("input", scheduleSave); });
+    ["newProductNameInput","productInput","psCompetitorText","psAuthority","psMustInclude"].forEach(function(id){ var e = el(id); if (e) e.addEventListener("input", scheduleSave); });
     if (el("psOwnsProduct")) el("psOwnsProduct").addEventListener("change", scheduleSave);
     if (el("psReviewAddBtn"))     el("psReviewAddBtn").addEventListener("click", function(){ toggleReviewAdd(true); });
     if (el("psReviewAddCancel"))  el("psReviewAddCancel").addEventListener("click", function(){ toggleReviewAdd(false); reviewMsg(""); });
