@@ -724,6 +724,20 @@ ok(B.scriptViolations({ body2: "Just 13.58 inches of counter and it fits" }, { l
 ok(B.scriptViolations({ body2: "Only 6.7 inches wide on the shelf" }, { listingText: specListing }).indexOf("asserted-number") < 0, 'validator: a mid-dimension number (6.7) with no adjacent unit is still recognized from the listing');
 ok(B.scriptViolations({ preclose: "Ready every six or seven minutes" }, { listingText: specListing }).indexOf("asserted-number") >= 0, 'validator: a review figure (6 or 7 minutes) is still blocked -- those numbers are not in the listing');
 ok(B.scriptViolations({ hook: "Descale it once a month" }, { listingText: specListing }).indexOf("asserted-number") >= 0, 'validator: "once a month" (1) blocked -- 1 is not a listing number (1.8 is)');
+// CONVERSATIONAL FIGURES (lean/minimal): a bare time/quantity phrase is speech, not an unverifiable spec.
+// Percent and price stay hard; a physical spec unit not in the listing is still blocked.
+let convOn = { listingText: specListing, conversationalFigures: true };
+ok(B.scriptViolations({ body1: "I have not hidden a cutting board under my sink in two years" }, convOn).indexOf("asserted-number") < 0, 'conversational: "in two years" is speech, allowed in lean/minimal');
+ok(B.scriptViolations({ body1: "I have not hidden a cutting board under my sink in two years" }, { listingText: specListing }).indexOf("asserted-number") >= 0, 'conversational OFF (current): "in two years" is still blocked (2 not in listing)');
+ok(B.scriptViolations({ hook: "It chills a drink in seconds", body2: "ready every six or seven minutes" }, convOn).indexOf("asserted-number") < 0, 'conversational: time phrases ("in seconds", "six or seven minutes") pass in lean/minimal');
+ok(B.scriptViolations({ preclose: "I have said this a hundred times" }, convOn).indexOf("asserted-number") < 0, 'conversational: a frequency ("a hundred times") passes in lean/minimal');
+ok(B.scriptViolations({ cta: "You get 20 percent more ice" }, convOn).indexOf("asserted-number") >= 0, 'conversational: percent STAYS hard even in lean/minimal');
+ok(B.scriptViolations({ hook: "It survives 90-degree heat" }, convOn).indexOf("asserted-number") >= 0, 'conversational: a physical spec unit (90-degree) not in the listing is STILL blocked');
+ok(B.scriptViolations({ body1: "It holds 25 ounces" }, convOn).indexOf("asserted-number") >= 0, 'conversational: a fabricated spec (25 ounces, not in listing) is STILL blocked');
+ok(B.scriptViolations({ body1: "It makes 33 pounds of ice a day" }, convOn).indexOf("asserted-number") < 0, 'conversational: a real listing spec (33 pounds) stays allowed as before');
+// blockedFigures mirrors the guard: it must not name a conversational figure as blocked in lean/minimal.
+ok((B.blockedFigures({ body1: "in two years" }, convOn)["asserted-number"] || []).length === 0, 'blockedFigures: does not name "in two years" in lean/minimal');
+ok((B.blockedFigures({ hook: "90-degree heat" }, convOn)["asserted-number"] || []).length >= 1, 'blockedFigures: still names a spec figure (90-degree) in lean/minimal');
 // numbersIn: the shared helper, digit and word form.
 ok(B.numbersIn("33 lbs per 24 hours")["33"] && B.numbersIn("33 lbs per 24 hours")["24"], 'numbersIn: pulls 33 and 24 from a spec');
 ok(B.numbersIn("16.33 x 6.7 x 13.58")["16.33"] && B.numbersIn("16.33 x 6.7 x 13.58")["6.7"] && B.numbersIn("16.33 x 6.7 x 13.58")["13.58"], 'numbersIn: pulls all three dimension numbers');

@@ -14412,6 +14412,10 @@ function genOneScript(opts){
   // opts.nowYear = the real current year; a year at or after it (asserting "now") is blocked, older is allowed.
   // opts.ownershipState = "hand" (has the sample in hand) or "used" (has used it over time). Both states allow
   //   first-person testimony; only a DURATION/history claim is blocked, and only in the "hand" state.
+  // opts.conversationalFigures = the lean/minimal engines treat a bare TIME/QUANTITY phrase ("in two years",
+  //   "two seconds", "a hundred times") as speech rather than an unverifiable product spec. Percent and price
+  //   stay hard; a physical spec unit (pounds, inches, watts, decibels...) is still judged against the listing.
+  var CONVERSATIONAL_UNIT = /\b(?:seconds?|secs?|minutes?|mins?|hours?|hrs?|days?|weeks?|months?|years?|times)\b/;
   function scriptViolations(script, opts){
     script = obj(script); opts = obj(opts);
     var whole = [str(script.hook), str(script.body1), str(script.preclose), str(script.body2), str(script.cta)].join("\n");
@@ -14480,7 +14484,11 @@ function genOneScript(opts){
     var listNums = listingText ? numbersIn(listingText) : null;   // every number the listing states (any unit)
     var badFigure = false;
     numberUnits(whole).forEach(function(fig){
-      if (/percent|%/.test(fig)) { badFigure = true; return; }     // percent: always blocked
+      if (/percent|%/.test(fig)) { badFigure = true; return; }     // percent: always blocked (a claim, not a fact)
+      // Conversational figures (lean/minimal engines): a bare TIME or QUANTITY phrase is speech, not a product
+      // spec -- "I have not hidden a cutting board under my sink in two years", "it takes two seconds". Percent
+      // and price stay hard; a spec unit (pounds, inches, watts, decibels...) is still a provenance question.
+      if (opts.conversationalFigures && CONVERSATIONAL_UNIT.test(fig)) return;
       if (!listNums) return;                                       // no listing: cannot judge provenance, allow
       // A figure is allowed only if EVERY number in it is one the listing states. Match on the number, not
       // the unit word, so "33 pounds" clears against listing "33 lbs" and a review figure ("six or seven
@@ -14612,6 +14620,7 @@ function genOneScript(opts){
     var listNums = listingText ? numbersIn(listingText) : null;
     numberUnits(whole).forEach(function(fig){
       if (/percent|%/.test(fig)) { out["asserted-number"].push(fig); return; }   // percent: always blocked
+      if (opts.conversationalFigures && CONVERSATIONAL_UNIT.test(fig)) return;    // lean/minimal: time/quantity is speech
       if (!listNums) return;                                                      // no listing: figures allowed
       var figNums = Object.keys(numbersIn(fig));
       if (!figNums.every(function(n){ return listNums[n]; })) out["asserted-number"].push(fig);
@@ -16760,7 +16769,10 @@ function genOneScript(opts){
         // hook examples PLUS this architecture's loaded body examples -- a copied setup/payoff is caught too.
         exemplars: HOOK_EXEMPLARS.concat(architectureExemplars(ctx).all),
         nowYear: nowYear,
-        ownershipState: ctx.ownership  // "hand" blocks a claim of use OVER TIME; "used" allows it. First person
+        ownershipState: ctx.ownership,  // "hand" blocks a claim of use OVER TIME; "used" allows it. First person
+        // Lean/minimal treat bare time/quantity figures as conversational speech (percent + price stay hard, a
+        // listing figure stays allowed). Current keeps the strict provenance check on every figure.
+        conversationalFigures: (engine === "lean" || engine === "minimal")
       };
       // The names-doubt guard needs doubt VOCABULARY (built in code, not trusted to the model). doubtVocab is
       // the distinctive PHRASES buyers use for a DOUBT (objections + product-pains), MINUS the sanctioned ANSWER
@@ -16914,7 +16926,9 @@ function genOneScript(opts){
       var lbl = document.createElement("div"); lbl.style.cssText = "font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin:8px 0 2px;"; lbl.textContent = p[0]; card.appendChild(lbl);
       var ta = document.createElement("textarea");
       // overflow:hidden so the field never shows its own scrollbar -- it grows to fit instead (see autosize below).
-      ta.style.cssText = "display:block;width:100%;background:transparent;border:none;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;line-height:1.55;resize:none;outline:none;padding:0;box-sizing:border-box;white-space:pre-wrap;overflow:hidden;-webkit-user-select:text;user-select:text;";
+      // min-height:0 overrides the global `textarea{min-height:80px}` -- otherwise a short field (the hook) sits at
+      // the 80px floor with a gap while taller fields clear it. autosize sets the real height from scrollHeight.
+      ta.style.cssText = "display:block;width:100%;background:transparent;border:none;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;line-height:1.55;resize:none;outline:none;padding:0;min-height:0;box-sizing:border-box;white-space:pre-wrap;overflow:hidden;-webkit-user-select:text;user-select:text;";
       ta.rows = 1; ta.value = val;
       // Auto-size to the actual wrapped content (not a chars-per-line guess): collapse, then grow to scrollHeight.
       // Runs on every keystroke, and once after the card is in the DOM (scrollHeight is only real once laid out).
