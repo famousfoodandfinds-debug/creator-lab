@@ -136,6 +136,14 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   // Maslow need is rotated per script; the arc and feeling-first setup are present.
   ok(/NEED \(the drive this script serves/.test(capturedPrompt), 'each script is assigned a Maslow need');
   ok(capturedPrompt.indexOf('SAFETY') >= 0, 'the safety drive gets a script (it converts hardest and kept being skipped)');
+  // Only the needs the brief SUPPORTS are assigned. This fixture grounds safety + convenience (both >=2 reviews);
+  // belonging and esteem have no grounded pain, so they are never offered -- no empty need to invent a consequence for.
+  ok(capturedPrompt.indexOf('CONVENIENCE') >= 0, 'a second SUPPORTED need (convenience) is assigned');
+  ok(capturedPrompt.indexOf('NEED (the drive this script serves): BELONGING') < 0 && !/NEED \([^)]*\): [^\n]*BELONGING/.test(capturedPrompt), 'an UNSUPPORTED need (belonging, no grounded pain) is never assigned');
+  ok(!/the drive this script serves[^\n]*ESTEEM/.test(capturedPrompt), 'an UNSUPPORTED need (esteem, no grounded pain) is never assigned');
+  // Two needs, four scripts -> the four differ by ENTRY POINT, not by inflating a need the brief cannot support.
+  ok(/ENTRY POINT \(the ANGLE into this need/.test(capturedPrompt), 'each script gets an ENTRY POINT into its need');
+  ok(capturedPrompt.indexOf('THE FRICTION') >= 0 && capturedPrompt.indexOf('THE ABSENCE') >= 0 && capturedPrompt.indexOf('THE OBJECT') >= 0 && capturedPrompt.indexOf('THE CAPABILITY') >= 0, 'all four DISTINCT entry points are used across the four scripts');
   ok(capturedPrompt.indexOf('THE ARC') >= 0 && capturedPrompt.indexOf('CLOSE THE EXACT GAP THE HOOK OPENED') >= 0, 'the arc is in the prompt: hook opens a gap, payoff closes that gap');
   // Proportionality: a minor pain produces a minor consequence -- never inflate a small friction into a life change.
   ok(capturedPrompt.indexOf('KEEP THE CONSEQUENCE THE SIZE OF THE PAIN') >= 0 && /a pain can only cause what it PLAUSIBLY causes/.test(capturedPrompt), 'the payoff is kept proportional to the pain -- no inflating a small friction into a life consequence');

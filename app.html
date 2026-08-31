@@ -15916,8 +15916,22 @@ function genOneScript(opts){
     // MASLOW NEED, rotated across the batch so four scripts serve four different DRIVES, not four wordings of
     // one. Safety converts hardest and kept getting skipped (party scripts only), so it leads the rotation.
     var NEED_GLOSS = { safety: "removing a real risk or worry -- someone is safe, nothing can go wrong (this drive converts hardest)", belonging: "being included and together -- no one left out, no one waiting", esteem: "status and being noticed -- others ask about it, others are impressed", convenience: "the effort simply gone -- one easy motion instead of the old hassle" };
+    // ENTRY POINTS: four DIFFERENT angles into the SAME need. When the brief supports only two needs, four scripts
+    // use those two needs twice each -- differing by ENTRY POINT, not by inflating a need the brief cannot support.
+    // Four distinct reasons to watch, drawn from however many needs are real. Rotated so each script gets its own.
+    var ENTRY_POINTS = [
+      "THE FRICTION -- come at it through the frustration itself, the moment it bites, before the product exists.",
+      "THE ABSENCE -- come at it through the moment the friction is simply GONE: what an ordinary day feels like once it is solved.",
+      "THE OBJECT -- come at it through the product as a plain object: the one thing about what it IS that makes it the answer (buyer words, never spec-sheet).",
+      "THE CAPABILITY -- come at it through what the viewer can now DO that they could not before, what it makes them capable of."
+    ];
     function needOf(f){ var n = String((f && f.need) || "").toLowerCase(); return NEED_GLOSS[n] ? n : ""; }
-    var needsPresent = ["safety","belonging","esteem","convenience"].filter(function(n){ return altPainList.some(function(p){ return needOf(p) === n; }) || needOf({ need: ctx.desireNeed }) === n; });
+    // A need is SUPPORTED only when a GROUNDED alternative pain carries it (real evidence -- >=2 reviews, the same
+    // bar as the defuse pool -- or hand-added), or when it is the DESIRE's own need. A need with no evidenced pain
+    // behind it is never offered, so the model is never handed an empty drive to invent a consequence for (the
+    // "belonging -> you order takeout" fabrication came from an unsupported need). Grounded pains only.
+    var groundedAlt = altPainList.filter(function(p){ return (p.count | 0) >= 2 || !!p.added; });
+    var needsPresent = ["safety","belonging","esteem","convenience"].filter(function(n){ return groundedAlt.some(function(p){ return needOf(p) === n; }) || needOf({ need: ctx.desireNeed }) === n; });
     // Opener-safe language is who/feel/want/proof plus ALTERNATIVE-pain words only. Product-pain words
     // ("watery", "hard water", "mold") are the vocabulary of the flaw -- they leaked into setups when they sat
     // in this pool, so they are excluded here; they only ever surface when a pre-close defuses that doubt.
@@ -16002,7 +16016,7 @@ function genOneScript(opts){
       var needScen = need ? altPainList.filter(function(p){ return needOf(p) === need; }) : [];
       var scen = needScen.length ? needScen[off % needScen.length]
                : (scenarioPool.length ? scenarioPool[off % scenarioPool.length] : null);
-      return { hs: hs, i: i, off: off, need: need, scen: scen };
+      return { hs: hs, i: i, off: off, need: need, scen: scen, entry: ENTRY_POINTS[off % ENTRY_POINTS.length] };
     });
     // Assign objections by THREAD FIT, not by position: an objection goes to the script whose SCENARIO it shares
     // words with, so a turn never arrives from an unrelated angle (the unboxing turn on a sliding-board script).
@@ -16015,6 +16029,7 @@ function genOneScript(opts){
       var hs = sl.hs, i = sl.i, need = sl.need, scen = sl.scen;
       var line = "Script " + (i + 1) + ":\n  HOOK SOURCE: " + hs.instr;
       if (need) line += "\n  NEED (the drive this script serves -- frame the WHOLE script at this level, it is the emotional core): " + need.toUpperCase() + " -- " + NEED_GLOSS[need] + (needOf({ need: ctx.desireNeed }) === need && ctx.desire ? " The payoff at this level is the desire: \"" + ctx.desire + "\"." : "");
+      line += "\n  ENTRY POINT (the ANGLE into this need for THIS script -- a different angle from the other scripts, NOT a different or bigger need): " + sl.entry;
       if (scen) line += "\n  SCENARIO (open the setup on THIS situation, a different one from the other scripts): " + scen.value + (scen.words.length ? " (viewer's words: " + scen.words.join(", ") + ")" : "");
       // The two causal-claim hooks only appear when a mechanism is grounded; hand each the EXACT cause from
       // the material so it builds on the real reason and never invents one (the tank-size fabrication).
