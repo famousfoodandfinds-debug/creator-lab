@@ -12191,7 +12191,7 @@ function buildCarousel() {
   var prod = (typeof currentProduct === "string") ? currentProduct : "";
   frame.srcdoc = "<script>window.__SAXE_USER_ID__=" + JSON.stringify(uid) + ";window.__SAXE_TOKEN__=" + JSON.stringify(tok) + ";window.__SAXE_PRODUCT__=" + JSON.stringify(prod) + ";<\/script>" + tpl.innerHTML;
   // Push the product once the iframe has loaded (covers the first open).
-  frame.addEventListener("load", function() { pushCarouselProduct(); pushCarouselProducts(); }, { once: true });
+  frame.addEventListener("load", function() { pushCarouselProduct(); pushCarouselProducts(); pushCarousels(); }, { once: true });
   carouselBuilt = true;
 }
 
@@ -12202,7 +12202,8 @@ function pushCarouselProduct() {
   var cf = document.getElementById("carouselFrame");
   if (!cf || !cf.contentWindow) return;
   var prod = (typeof currentProduct === "string") ? currentProduct : "";
-  try { cf.contentWindow.postMessage({ type: "saxe-product", value: prod }, "*"); } catch (e) {}
+  // Carry the product ID (not just its description) so the studio can key a saved carousel to this product.
+  try { cf.contentWindow.postMessage({ type: "saxe-product", value: prod, id: (currentProductId || null), name: (currentProductName || "") }, "*"); } catch (e) {}
 }
 
 // Push the user's product library into the carousel iframe so its "Load from library" picker can
@@ -12222,6 +12223,54 @@ function pushCarouselProducts() {
     try { cf.contentWindow.postMessage({ type: "saxe-products", value: list }, "*"); } catch (e) {}
   });
 }
+
+// Load the current product's saved carousels and push them into the studio so it can list + reopen them.
+// A carousel belongs to a product the way a script does: same user_id/product_id keying as the scripts table.
+function pushCarousels() {
+  var cf = document.getElementById("carouselFrame");
+  if (!cf || !cf.contentWindow || !currentUser || !currentUser.id || !currentProductId) return;
+  sb.from("carousels").select("id, type, angle, slides, art_direction, updated_at")
+    .eq("user_id", currentUser.id).eq("product_id", currentProductId)
+    .order("updated_at", { ascending: false })
+    .then(function(result){
+      if (result.error || !result.data) return;
+      try { cf.contentWindow.postMessage({ type: "saxe-carousels", value: result.data }, "*"); } catch (e) {}
+    });
+}
+
+// Persist a carousel coming FROM the studio. Only the words + design are stored (slides carry elements, never
+// photos -- photos are transient and re-dropped on reopen). Update when the studio already holds a row id for
+// this carousel, else insert; either way reply with the id so the studio keeps updating the same row.
+function saveCarouselFromStudio(rec, ackFn) {
+  if (!currentUser || !currentUser.id || !sb || !rec || !rec.product_id) { ackFn(null); return; }
+  var row = {
+    user_id: currentUser.id,
+    product_id: rec.product_id,
+    type: (rec.type === "native") ? "native" : "curated",
+    angle: rec.angle || null,
+    slides: rec.slides || [],
+    art_direction: rec.art_direction || null,
+    updated_at: new Date().toISOString()
+  };
+  var q = rec.id
+    ? sb.from("carousels").update(row).eq("id", rec.id).eq("user_id", currentUser.id).select().single()
+    : sb.from("carousels").insert(row).select().single();
+  q.then(function(r){ ackFn(r && !r.error ? r.data : null); }, function(){ ackFn(null); });
+}
+
+// The studio (isolated iframe, no sb client) posts its carousel here to save. Verify it came from OUR iframe,
+// persist via the host's sb, ack the row id, and refresh the saved list so the new/updated one shows.
+window.addEventListener("message", function(ev){
+  try {
+    var cf = document.getElementById("carouselFrame");
+    if (!cf || ev.source !== cf.contentWindow) return;
+    var d = ev.data; if (!d || d.type !== "saxe-carousel-save") return;
+    saveCarouselFromStudio(d.value || {}, function(saved){
+      try { cf.contentWindow.postMessage({ type: "saxe-carousel-saved", ok: !!saved, id: saved ? saved.id : null }, "*"); } catch (e) {}
+      if (saved) pushCarousels();
+    });
+  } catch (e) {}
+});
 
 // Home = the quiet landing. Reachable from anywhere (the SAXE logo, or the Scripts tab with no product
 // open). Adds the home-landing class (CSS hides every product/tab surface) and clears the tab highlight.
@@ -12284,6 +12333,7 @@ function showMainTab(tab) {
     buildCarousel();
     pushCarouselProduct();
     pushCarouselProducts();
+    pushCarousels();
     return;
   }
   if (tab === "scripts") {
@@ -17552,6 +17602,10 @@ function genOneScript(opts){
             <option value="">Choose a product…</option>
           </select>
         </div>
+        <div id="savedRow" style="display:none;margin-bottom:10px">
+          <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Your saved carousels for this product</label>
+          <div id="savedList" style="display:flex;flex-direction:column;gap:6px"></div>
+        </div>
         <textarea id="brief" class="brief" placeholder="Paste the product description here."></textarea>
         <div class="shots" id="shots"></div>
         <div class="drop" id="shotdrop">+ Add screenshots of the description<br><span style="font-size:11px">paste with Ctrl/Cmd + V or tap to upload</span></div>
@@ -17577,6 +17631,8 @@ function genOneScript(opts){
       <!-- FIX 2: Write the carousel sits AFTER brief + photo upload, so it's in flow once you're ready -->
       <div class="card" id="cardGenerate">
         <button class="btn rose" id="gen" style="width:100%">Write the carousel</button>
+        <button class="btn ghost" id="saveCarousel" type="button" style="width:100%;margin-top:8px;display:none">Save carousel</button>
+        <div id="saveStatus" style="font-size:11px;color:var(--muted);margin-top:6px;text-align:center"></div>
         <div class="angle" id="angle" style="display:none"></div>
         <div class="status" id="genstatus"></div>
       </div>
@@ -19195,12 +19251,61 @@ function genOneScript(opts){
       if(brief){ briefEl.value=brief; if(typeof updateGenLabel==='function') updateGenLabel(); if(typeof phBriefSync==='function') phBriefSync(); }
     });
   }
+  // ---- SAVE / REOPEN: a carousel belongs to a product. The studio can't reach the DB (isolated iframe), so it
+  // posts its words+design to the host, which persists them; the host pushes back this product's saved carousels.
+  // Photos are transient -- they are NOT saved and come back empty on reopen, to be re-dropped for the new post.
+  var hostProductId = null, currentCarouselId = null;
+  const saveBtn = document.getElementById('saveCarousel'), saveStatusEl = document.getElementById('saveStatus');
+  const savedRow = document.getElementById('savedRow'), savedList = document.getElementById('savedList');
+  function setSaveStatus(t){ if(saveStatusEl) saveStatusEl.textContent = t || ''; }
+  function refreshSaveBtn(){ if(saveBtn) saveBtn.style.display = hasCarousel ? 'block' : 'none'; }
+  function slidesForSave(){ return state.slides.map(function(s){ return { elements: s.elements || [] }; }); }  // words+design only, no photos
+  function doSaveCarousel(){
+    if(!hasCarousel){ setSaveStatus('Write a carousel first'); return; }
+    if(!hostProductId){ setSaveStatus('Open a product first, then save'); return; }
+    setSaveStatus('Saving…');
+    parent.postMessage({ type:'saxe-carousel-save', value:{ id: currentCarouselId, product_id: hostProductId, type:'curated', angle:(angleInput ? angleInput.value.trim() : ''), slides: slidesForSave(), art_direction: artDirection } }, '*');
+  }
+  if(saveBtn) saveBtn.addEventListener('click', doSaveCarousel);
+  function renderSaved(list){
+    if(!savedRow || !savedList) return;
+    const arr = Array.isArray(list) ? list : [];
+    savedList.innerHTML = '';
+    if(!arr.length){ savedRow.style.display = 'none'; return; }
+    savedRow.style.display = 'block';
+    arr.forEach(function(rec){
+      const b = document.createElement('button'); b.type='button'; b.className='btn ghost sm';
+      b.style.cssText = 'text-align:left;justify-content:flex-start';
+      const n = (rec.slides || []).length, ang = String(rec.angle || '').trim();
+      b.textContent = (ang ? ('“' + ang.slice(0,42) + '”') : 'Carousel') + ' · ' + n + ' slide' + (n===1?'':'s');
+      b.addEventListener('click', function(){ openSaved(rec); });
+      savedList.appendChild(b);
+    });
+  }
+  function openSaved(rec){
+    try{
+      const slides = (rec.slides || []).slice(0,15).map(function(s){ return { photo:null, iw:0, ih:0, elements:(s && s.elements) || [] }; });
+      if(!slides.length) return;
+      pushUndo();
+      state.slides = slides; state.active = 0; state.selected = null;
+      artDirection = rec.art_direction || artDirection;
+      currentCarouselId = rec.id || null;
+      if(rec.angle && angleInput) angleInput.value = rec.angle;
+      if(rec.angle && angleEl){ angleEl.style.display='block'; angleEl.innerHTML = '<b>Angle:</b> ' + String(rec.angle); }
+      carouselStarted = true; hasCarousel = true; refreshSaveBtn();
+      render();
+      setSaveStatus('Loaded — drop your photos in, then post');
+    }catch(e){}
+  }
   // The host app can also push the current product in any time (e.g. each time the Carousel tab opens).
   window.addEventListener('message',ev=>{
     try{
       const d=ev.data; if(!d) return;
       if(d.type==='saxe-products'){ populateLibrary(d.value); return; }
+      if(d.type==='saxe-carousels'){ renderSaved(d.value); return; }
+      if(d.type==='saxe-carousel-saved'){ if(d.ok){ if(d.id) currentCarouselId=d.id; setSaveStatus('Saved'); } else { setSaveStatus('Could not save — try again'); } return; }
       if(d.type!=='saxe-product')return;
+      if(typeof d.id !== 'undefined') hostProductId = d.id || null;
       if(briefEl && !briefEl.value.trim() && d.value){ briefEl.value=String(d.value); }
     }catch(e){}
   });
@@ -19534,6 +19639,11 @@ Return ONLY valid JSON, no markdown, exactly:
     artDirectPhotoPass();   // async: cohesive accent + clean-area placement + designed containers
     updateGenLabel();
     if(typeof phBriefSync==='function') phBriefSync();
+    // A fresh generate is a NEW carousel identity: detach from any reopened row so Save creates a new one, and
+    // reveal the Save button now that there is a carousel to save.
+    currentCarouselId = null;
+    if(typeof refreshSaveBtn === 'function') refreshSaveBtn();
+    if(typeof setSaveStatus === 'function') setSaveStatus('');
   }
 
   async function generate(){
