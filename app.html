@@ -16213,6 +16213,16 @@ function genOneScript(opts){
     L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the opening that puts THIS buyer in the moment and makes them feel seen in one second (a frustration, not liking the product); body1 = the setup where you TWIST THE KNIFE (stack the old way before the product appears); body2 = the payoff, the product arriving as the answer and the transformation it brings; preclose = "" unless one objection truly fits, then ONE sentence that answers it without naming the doubt; cta = point them to the link in this script\'s own voice. About 60 to 110 spoken words each. No em dashes.');
     return L.join("\n");
   }
+  // Lean single-script rewrite -- reuses the lean batch prompt (framework + floor + brief) and asks for ONE script
+  // rewritten, so a lean-mode guard retry, hook fix, or buyer/grounding fix stays in the LEAN voice instead of
+  // being rewritten with the current path's rule pile. Same signature as genOnePrompt.
+  function genLeanOnePrompt(ctx, i, prev, violations, accepted, extraReason){
+    var reasons = (violations || []).map(function(c){ return GUARD_LABELS[c] || c; }).concat(extraReason ? [String(extraReason)] : []).join("; ") || "it needs to be stronger";
+    return genLeanPrompt(ctx) +
+      "\n\nREGENERATE ONLY SCRIPT " + (i + 1) + " of the four. Your previous version was rejected for: " + reasons + "." +
+      " The rejected version was: " + JSON.stringify({ hook: prev.hook, body1: prev.body1, preclose: prev.preclose, body2: prev.body2, cta: prev.cta }) + "." +
+      " Rewrite ONLY that one script, fixing exactly what is named above and keeping every HARD RULE (invent nothing, no price or money, no company guarantee or returns, no invented social proof, no health claim, first person only if the creator owns it, no em dash). If the reason says to change the BUYER, write to a genuinely different buyer and reason, still grounded in the brief. Return ONLY one JSON object: {\"hook\":\"\",\"body1\":\"\",\"preclose\":\"\",\"body2\":\"\",\"cta\":\"\"}.";
+  }
   // Ask for ONE script rewritten -- reuses the full batch prompt (all context + this script's assignment +
   // every rule) and just changes the output instruction, so nothing diverges from the batch rules.
   // extraReason (optional): a free-text reason from the hook read-back editor, not a guard code. It rides the same
@@ -16274,7 +16284,8 @@ function genOneScript(opts){
   }
   // Read the hooks, rewrite the flagged ones, verify, and hand the (possibly-improved) drafts to `done`. Any
   // failure at any step falls through to the original drafts, so this can only help, never block or corrupt.
-  function hookReadback(ctx, guardOpts, drafts, done){
+  function hookReadback(ctx, guardOpts, drafts, usingLean, done){
+    var onePrompt = usingLean ? genLeanOnePrompt : genOnePrompt;   // rewrite in the engine's own voice
     if (!READBACK_ENABLED || !drafts || !drafts.length){ done(drafts); return; }
     var orig = drafts.slice();   // keep originals so a rewrite that does not verify can be reverted
     function readCall(hooks, cb){
@@ -16293,7 +16304,7 @@ function genOneScript(opts){
         if (k >= flagged.length){ verify(); return; }
         var f = flagged[k];
         genStatus("Sharpening the hook on script " + (f.i + 1) + "...");
-        claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "hook_readback", generation_id: guardOpts.generationId, messages: [{ role: "user", content: genOnePrompt(ctx, f.i, drafts[f.i], [], [], f.fix || "the hook did not survive a read: rewrite it as one clear thought a real person would say, and make the setup follow it") }] }, function(t2, e2){
+        claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "hook_readback", generation_id: guardOpts.generationId, messages: [{ role: "user", content: onePrompt(ctx, f.i, drafts[f.i], [], [], f.fix || "the hook did not survive a read: rewrite it as one clear thought a real person would say, and make the setup follow it") }] }, function(t2, e2){
           if (!e2){ var o = parseJson(t2, "{", "}"); if (o) drafts[f.i] = cleanScript(o); }
           rewriteNext(k + 1);
         });
@@ -16311,13 +16322,63 @@ function genOneScript(opts){
       }
     });
   }
+  // ---- LEAN REVIEW (diversity + grounding) ------------------------------------------------------------------
+  // The two guarantees the assembly used to pre-arrange and lean does not: (1) four DIFFERENT buyers (the need +
+  // entry-point rotation guaranteed no collision), and (2) every reason GROUNDED in the brief (leads came only
+  // from grounded pains). Lean lets the model choose, so one call reads the four whole scripts and flags any two
+  // that are the same buyer, or any whose reason/buyer/fact is not supported by the brief. A flag rewrites that
+  // script to a different buyer / a grounded reason via the lean rewrite path. Lean-only, fail-open: any error or
+  // unparseable reply passes the drafts through untouched.
+  function leanReviewPrompt(ctx, scripts){
+    var alt = (ctx.pains || []).filter(function(p){ return String(p.about || "") === "alternative"; });
+    var B = [];
+    B.push("BUYER + GROUNDING CHECK. You are reviewing " + scripts.length + " short-form video scripts for this product. Each is meant to reach a DIFFERENT buyer, and every reason to buy must be GROUNDED in the brief below -- nothing invented.");
+    B.push("");
+    B.push("THE BRIEF (the ONLY allowed source):");
+    if (ctx.name) B.push("Product: " + ctx.name);
+    if (ctx.who) B.push("Who buys it: " + ctx.who);
+    if (ctx.desire) B.push("What they want: " + ctx.desire);
+    if (ctx.problem) B.push("Core problem: " + ctx.problem);
+    if (ctx.positioning) B.push("What makes it different: " + ctx.positioning);
+    if (alt.length) B.push("Frustrations with the old way: " + alt.map(function(p){ return p.value; }).join("; "));
+    if ((ctx.features || []).length) B.push("Features and benefits: " + ctx.features.map(function(f){ return f.feature + (f.benefit ? " (" + f.benefit + ")" : ""); }).join("; "));
+    if (ctx.description) B.push("Listing: " + ctx.description);
+    B.push("");
+    B.push("THE SCRIPTS:");
+    scripts.forEach(function(s, k){ B.push((k + 1) + ". HOOK: " + String(s.hook || "") + " | SETUP: " + String(s.body1 || "") + " | PAYOFF: " + String(s.body2 || "") + (s.preclose ? " | TURN: " + s.preclose : "") + " | CTA: " + String(s.cta || "")); });
+    B.push("");
+    B.push("For EACH script decide two things: is it a DIFFERENT buyer/reason from the others, and is its reason to buy GROUNDED in the brief above? Flag a script (keep:false) if EITHER: (a) it is really the SAME buyer/reason as another script -- flag only ONE of the pair, the weaker one -- or (b) its core reason, its buyer, or a key fact is NOT supported by the brief (an invented angle, an invented feature, a number not in the listing). Otherwise keep:true. Be strict about invention: a reason that is plausible but not actually in the brief is NOT grounded.");
+    B.push("Return ONLY a JSON array, one object per script IN ORDER, nothing else: {\"i\":1,\"keep\":true} or {\"i\":2,\"keep\":false,\"fix\":\"what is wrong (same buyer as script 1 / reason not in the brief) and what to change\"}.");
+    return B.join("\n");
+  }
+  function leanReview(ctx, guardOpts, drafts, done){
+    if (!drafts || !drafts.length){ done(drafts); return; }
+    genStatus("Checking the four buyers...");
+    claudeCall({ model: GEN_MODEL, max_tokens: 900, call_name: "lean_review", generation_id: guardOpts.generationId, messages: [{ role: "user", content: leanReviewPrompt(ctx, drafts) }] }, function(t, e){
+      var verdicts = e ? null : parseJson(t, "[", "]");
+      if (!Array.isArray(verdicts)){ done(drafts); return; }   // fail-open
+      var flagged = [];
+      verdicts.forEach(function(v){ if (!v || v.keep !== false) return; var i = (v.i | 0) - 1; if (i >= 0 && i < drafts.length) flagged.push({ i: i, fix: String(v.fix || "") }); });
+      if (!flagged.length){ done(drafts); return; }
+      (function next(k){
+        if (k >= flagged.length){ done(drafts); return; }
+        var f = flagged[k];
+        genStatus("Reworking script " + (f.i + 1) + " to a different buyer...");
+        claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "lean_review", generation_id: guardOpts.generationId, messages: [{ role: "user", content: genLeanOnePrompt(ctx, f.i, drafts[f.i], [], [], f.fix || "make this a genuinely different buyer, with a reason grounded in the brief") }] }, function(t2, e2){
+          if (!e2){ var o = parseJson(t2, "{", "}"); if (o) drafts[f.i] = cleanScript(o); }
+          next(k + 1);
+        });
+      })(0);
+    });
+  }
   // The GUARD: check each script; a violation regenerates it once; a second failure DROPS it. A banned
   // move never reaches the screen. Sequential so `scriptRepeats` can compare against already-accepted ones.
   // Validate to a TARGET count, never just to whatever the model returned. If the model gives back fewer than
   // GEN_COUNT objects (it sometimes does), the skipped slots are GENERATED fresh to their assignment -- so the
   // batch is never silently short, and a slot that still cannot be produced is recorded as a drop and named,
   // instead of two scripts quietly coming back with no message (the exact silent failure we keep hitting).
-  function validateBatch(ctx, guardOpts, scripts, target, done){
+  function validateBatch(ctx, guardOpts, scripts, target, usingLean, done){
+    var onePrompt = usingLean ? genLeanOnePrompt : genOnePrompt;   // a guard retry rewrites in the engine's own voice
     var accepted = [], dropped = 0, dropCodes = {}, drops = [], i = 0;
     // Best RENDERABLE attempt per slot, for the all-flagged fallback. An attempt is renderable only when it
     // carries NO terminal code; among renderable attempts the one with the fewest taste flags wins. A slot that
@@ -16348,7 +16409,7 @@ function genOneScript(opts){
     // named. `missing` marks a slot the model never returned (recorded as generation-failed if it never comes).
     function regen(idx, prev, viol, tries, missing){
       genStatus((missing ? "Writing script " : "Fixing script ") + (idx + 1) + (missing ? " (the model skipped it)" : " (" + label(viol) + ")") + (tries > 1 ? ", attempt " + tries : "") + "...");
-      claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: guardOpts.generationId, messages: [{ role: "user", content: genOnePrompt(ctx, idx, prev, viol, accepted) }] }, function(t, e){
+      claudeCall({ model: GEN_MODEL, max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: guardOpts.generationId, messages: [{ role: "user", content: onePrompt(ctx, idx, prev, viol, accepted) }] }, function(t, e){
         var s2 = null; if (!e){ var o = parseJson(t, "{", "}"); if (o) s2 = cleanScript(o); }
         var v2 = s2 ? problems(s2) : (missing ? ["generation-failed"] : viol);
         if (s2) consider(idx, finalizeScript(s2, ctx), v2);   // remember the best terminal-free rewrite for the fallback
@@ -16480,11 +16541,15 @@ function genOneScript(opts){
           if (genCount && typeof genCount.remaining === "number"){ genCount.used = (genCount.used | 0) + 1; genCount.remaining = Math.max(0, (genCount.remaining | 0) - 1); }
           var out = parseJson(text, "[", "]");
           if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
+          // Lean-only buyer/grounding check FIRST (four different buyers, every reason grounded), then the hook
+          // read-back, then the guards. Each stage is fail-open; the current path skips leanReview entirely.
+          var drafts0 = out.slice(0, GEN_COUNT).map(cleanScript);
+          function afterReview(draftsR){
           // Read the hooks back and sharpen the weak ones BEFORE the guards run. Fail-open: on any error or with
           // the flag off, drafts1 is the untouched batch and the rest of the path is exactly as before.
-          hookReadback(ctx, guardOpts, out.slice(0, GEN_COUNT).map(cleanScript), function(drafts1){
+          hookReadback(ctx, guardOpts, draftsR, usingLean, function(drafts1){
           genStatus("Checking each script against the hard rules...");
-          validateBatch(ctx, guardOpts, drafts1, GEN_COUNT, function(clean, dropped, dropCodes, drops, bestBySlot){
+          validateBatch(ctx, guardOpts, drafts1, GEN_COUNT, usingLean, function(clean, dropped, dropCodes, drops, bestBySlot){
             try {
               generating = false;
               if (clean.length){
@@ -16511,6 +16576,9 @@ function genOneScript(opts){
             } catch (e2){ genFail(e2); }
           });
           });
+          }   // end afterReview
+          if (usingLean) leanReview(ctx, guardOpts, drafts0, afterReview);
+          else afterReview(drafts0);
         } catch (e1){ genFail(e1); }
       });
     } catch (e0){ genFail(e0); }
