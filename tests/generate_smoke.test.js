@@ -137,6 +137,8 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   ok(/NEED \(the drive this script serves/.test(capturedPrompt), 'each script is assigned a Maslow need');
   ok(capturedPrompt.indexOf('SAFETY') >= 0, 'the safety drive gets a script (it converts hardest and kept being skipped)');
   ok(capturedPrompt.indexOf('THE ARC') >= 0 && capturedPrompt.indexOf('CLOSE THE EXACT GAP THE HOOK OPENED') >= 0, 'the arc is in the prompt: hook opens a gap, payoff closes that gap');
+  // Proportionality: a minor pain produces a minor consequence -- never inflate a small friction into a life change.
+  ok(capturedPrompt.indexOf('KEEP THE CONSEQUENCE THE SIZE OF THE PAIN') >= 0 && /a pain can only cause what it PLAUSIBLY causes/.test(capturedPrompt), 'the payoff is kept proportional to the pain -- no inflating a small friction into a life consequence');
   ok(capturedPrompt.indexOf('names the FEELING') >= 0, 'the setup rule leads with the feeling, not just the situation');
   // The setup is the viewer's world: the product arrives at the END, the "write from specifics" doctrine is
   // scoped to the payoff/turn, and a sequence-walk exemplar gives the setup a positive shape to imitate.
