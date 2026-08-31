@@ -282,7 +282,8 @@ ok(!fillErr, 'fill(product) does not throw' + (fillErr ? ' (' + fillErr.message 
   for (let k = 0; k < 80; k++) await Promise.resolve();
   ok(capturedPrompt.indexOf('MUST INCLUDE -- THE CREATOR') >= 0, 'a creator non-negotiable set -> the MUST INCLUDE rule is in the prompt');
   ok(capturedPrompt.indexOf('always mention it makes soft chewable nugget ice') >= 0, 'the exact creator non-negotiable text is passed into generation');
-  ok(/required in EVERY one of the \d+ scripts/.test(capturedPrompt) && /WHERE it lands is up to each script/.test(capturedPrompt), 'the rule requires it in every script but leaves placement to each script (and scripts must still differ)');
+  ok(/POINT below must be made in EVERY one of the \d+ scripts/.test(capturedPrompt) && /POINT to MAKE, not a sentence to reproduce/.test(capturedPrompt), 'the rule requires the POINT in every script, made in each script\'s own words (not the pasted sentence)');
+  ok(/Do NOT copy these words/.test(capturedPrompt) && /a DIFFERENT spot each time/.test(capturedPrompt), 'the fix: the point is reworded per script and placed in a different spot, never the verbatim sentence in the same slot');
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
