@@ -648,6 +648,14 @@ ok(B.scriptViolations({ preclose: "it just works, quietly, in the corner" }, {})
 ok(B.scriptViolations({ body1: "the reviews talk about the packaging being impossibly thin" }, {}).indexOf("cites-source") >= 0, 'validator: catches a script that cites "the reviews"');
 ok(B.scriptViolations({ preclose: "reviewers keep mentioning how quiet it is" }, {}).indexOf("cites-source") >= 0, 'validator: catches "reviewers"');
 ok(B.scriptViolations({ body2: "it runs quiet enough to forget it is on" }, {}).indexOf("cites-source") < 0, 'validator: an ordinary line that does not cite a source is fine');
+// The general failure: citation by ATTRIBUTION to an anonymous third party, even without the word "reviews".
+ok(B.scriptViolations({ body2: "one person said it was the best Amazon purchase they ever made" }, {}).indexOf("cites-source") >= 0, 'validator: catches "one person said" (the review-citation shape that leaked)');
+ok(B.scriptViolations({ preclose: "a buyer wrote that it changed her mornings" }, {}).indexOf("cites-source") >= 0, 'validator: catches "a buyer wrote"');
+ok(B.scriptViolations({ body1: "someone commented that it never slips" }, {}).indexOf("cites-source") >= 0, 'validator: catches "someone commented"');
+ok(B.scriptViolations({ body2: "people who bought it keep saying the same thing" }, {}).indexOf("cites-source") >= 0, 'validator: catches "people who bought it"');
+// Social proof the creator EXPERIENCED is NOT a citation and must stay allowed.
+ok(B.scriptViolations({ body2: "my friends keep asking me where I got it" }, {}).indexOf("cites-source") < 0, 'validator: the creator\'s own social proof ("my friends") is not a citation');
+ok(B.scriptViolations({ body2: "everyone who comes over notices it right away" }, {}).indexOf("cites-source") < 0, 'validator: "everyone who comes over" (real-life observation) is not a citation');
 // isDefectConcern: a shipping / packaging / delivery-damage concern is filtered out of the context entirely,
 // whether it was classified as a pain OR an objection -- so it can never drive a script.
 ok(B.isDefectConcern({ value: 'the board arrives damaged in shipping' }) === true, 'isDefectConcern: flags an arrival/shipping-damage complaint');

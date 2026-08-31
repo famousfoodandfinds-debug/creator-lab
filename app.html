@@ -14476,9 +14476,21 @@ function genOneScript(opts){
     // invented claim about what others do, own, or say) is carried by the prompt; this catches the repeat offender.
     if (/\b(?:people|everyone|everybody|buyers|customers|most people|so many people|they all|others)\b[^.!?]{0,40}\b(?:buy|buying|bought|get|getting|got|grab|grabbed|order|ordered|end(?:s|ed|ing)? up|keep|coming back|come back|reach for)\b[^.!?]{0,25}\b(?:a second|another one|another|two of|multiple|more than one|a backup|a spare|one for every)\b/.test(lc)) v.push("social-proof");
     // (cites-source) The brief and the reviews are PRIVATE intelligence -- the viewer must never hear them cited.
-    // "the reviews talk about the packaging..." leaks the source. A sales script never says "reviews"/"reviewers"
-    // or "according to buyers"; it speaks from experience/observation, never by quoting where it learned a thing.
-    if (/\breviews?\b|\breviewers?\b|\baccording to (?:the )?(?:buyers|customers|reviewers|owners|reviews)\b/.test(lc)) v.push("cites-source");
+    // The word "reviews" is only the obvious form. The general failure is CITATION: attributing a statement to an
+    // anonymous third party ("one person said it was the best Amazon purchase ever", "a buyer wrote", "someone
+    // commented") -- it tells the viewer the creator researched the product instead of using it, which undercuts
+    // the first-person voice. Social proof the creator EXPERIENCED is fine ("my friends kept asking", "everyone
+    // who comes over notices"), so this fires only on purchase/review-source nouns (buyer, customer, reviewer,
+    // shopper, owner, commenter, "one person") + a said/wrote verb, or on people-who-BOUGHT-it -- never on "my
+    // friends" or "everyone who comes over".
+    if (/\breviews?\b|\breviewers?\b|\bcommenters?\b/.test(lc)
+        || /\baccording to (?:the )?(?:buyers?|customers?|reviewers?|owners?|reviews?|shoppers?|comments?|one person|someone|people)\b/.test(lc)
+        || /\bin the (?:reviews?|comments?)\b/.test(lc)
+        || /\b(?:one|someone|a|an|another|this) (?:person|buyer|customer|reviewer|shopper|owner|user|commenter) (?:said|says|wrote|writes|commented|comments|mentioned|mentions|posted|reviewed|called it|put it|raved|swears)\b/.test(lc)
+        || /\bsomeone (?:said|says|wrote|writes|commented|mentioned|posted|raved|swears|called it|put it)\b/.test(lc)
+        || /\b(?:buyers|customers|owners|shoppers|reviewers|commenters|comments) (?:said|say|wrote|write|mention|mentioned|rave|raved|noted?|call|called|keep calling|are calling)\b/.test(lc)
+        || /\bpeople (?:online|on here|in the comments|who (?:bought|tried|got|own|ordered|use|used) (?:it|one|this|these))\b/.test(lc)
+       ) v.push("cites-source");
     // (health-claim) The model MANUFACTURING its own contamination / leaching claim out of buyer complaint
     // language -- a liability the listing-claim suppression never covered (that only stops REPEATING the
     // seller's claims). Fires on the contamination/leaching band in ANY slot, but NOT when the SENTENCE frames
@@ -15826,8 +15838,10 @@ function genOneScript(opts){
   // whether the ceiling is the model rather than the prompt -- a config the owner toggles, not a permanent
   // switch, and it never touches Current or Lean (they stay on GEN_MODEL). localStorage-backed, default Haiku.
   var GEN_MODEL_SONNET = "claude-sonnet-4-6";
-  var minimalModel = "haiku";
-  try { if (typeof localStorage !== "undefined" && localStorage.getItem("saxe_minimal_model") === "sonnet") minimalModel = "sonnet"; } catch (e) {}
+  // Minimal defaults to Sonnet (the owner judged the quality worth the ~$2/member/month) and streams past the
+  // sync timeout. The toggle can still pin it back to Haiku for a direct comparison.
+  var minimalModel = "sonnet";
+  try { if (typeof localStorage !== "undefined" && localStorage.getItem("saxe_minimal_model") === "haiku") minimalModel = "haiku"; } catch (e) {}
   function setMinimalModel(name){ minimalModel = (name === "sonnet") ? "sonnet" : "haiku"; try { if (typeof localStorage !== "undefined") localStorage.setItem("saxe_minimal_model", minimalModel); } catch (e) {} renderGenScripts(); }
   var GEN_COUNT = 4;   // one script per hook source, so all four shapes fire every batch (matches filming 3-4/day)
   var generatedScripts = [];
@@ -16313,7 +16327,7 @@ function genOneScript(opts){
     L.push("");
     L.push("THE ONLY HARD RULES (everything else is your judgment as a writer):");
     L.push("- INVENT NOTHING. Every buyer, reason, and fact traces to the brief or listing below. No invented feature, no number that is not in the listing (no made-up count, weight, size, time, or percentage), no buyer the material cannot support.");
-    L.push("- NO price, money, discount, or price comparison. NO money-back guarantee, warranty, returns, or anything the company does (you cannot verify it). NO invented social proof (no \"50,000 sold\", no \"thousands of 5-star reviews\") -- use social proof ONLY if the material states it, and never cite the reviews (\"reviewers say\", \"people in the reviews\") -- you simply know it.");
+    L.push("- NO price, money, discount, or price comparison. NO money-back guarantee, warranty, returns, or anything the company does (you cannot verify it). NO invented social proof (no \"50,000 sold\", no \"thousands of 5-star reviews\") -- use social proof ONLY if the material states it. NEVER cite or quote the reviews, and never attribute anything to an outside party -- no \"reviewers say\", no \"one person said\", no \"a buyer wrote\", no \"someone commented\". You speak from YOUR OWN experience and observation; social proof is fine only as something you noticed yourself (\"my friends keep asking about it\"), never as what a reviewer wrote.");
     L.push("- NO health, safety, or contamination claim (nothing leaching, no chemicals or flakes \"into your food\"); you may speak to a worry a buyer raised, never assert it, and never as a question. No em dashes anywhere.");
     L.push("- Scarcity only if it is genuinely real and in the material, framed as honest uncertainty (\"I don't know how long this stays up\") -- never an invented countdown, stock count, or deadline.");
     L.push("");
@@ -16402,6 +16416,7 @@ function genOneScript(opts){
     if (audienceNote) L.push(audienceNote.trim());
     if (voiceNote || audienceNote) L.push("");
     L.push("Hard limits: invent nothing that is not in the brief or listing below (no made-up number, figure, or feature); no health, safety, or contamination claim; no price or money; " + (ctx.owns ? "you own this product, so first person from real experience is fine." : "do NOT claim to own or use it (the creator does not) -- speak to the viewer.") + " No em dashes.");
+    L.push("NEVER cite or quote the reviews, and never attribute anything to an outside party -- no \"reviewers say\", no \"one person said\", no \"a buyer wrote\", no \"someone commented\". You speak from YOUR OWN experience and observation; social proof is fine only as something you noticed yourself (\"my friends keep asking about it\"), never as what a reviewer wrote.");
     L.push("");
     L.push("THE BRIEF:");
     L.push(block("PRODUCT", ctx.name) + block("WHO BUYS IT", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning) + block("WHAT OTHERS SAY", ctx.socialProof) + block("THE CREATOR'S STANDING", ctx.owns ? ctx.authority : ""));

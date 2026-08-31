@@ -26,6 +26,7 @@ const BATCH = [
 // (angle/doNotDiscuss) carry a STRIPPEDSTRAT marker that must not survive into the rendered card.
 let MIN_OBJECT = false;
 let MIN_SONNET = false;
+let MIN_UNSET = false;   // when true, the minimal-model config is unset -> exercises the DEFAULT (now Sonnet)
 const HAIKU = 'claude-haiku-4-5-20251001', SONNET = 'claude-sonnet-4-6';
 const MINOBJ = { hooks:["HOOKONE lands massive","HOOKTWO finally sharp","HOOKTHREE oil slick by 3","HOOKFOUR bread aisle"], scripts:[
   { buyer:"b1", angle:"STRIPPEDSTRAT1", coreDesire:"d", featureProof:"f", doNotDiscuss:"STRIPPEDSTRAT1b", body1:"You reach for it early", body2:"It just works", cta:"Grab it now" },
@@ -70,7 +71,7 @@ function harness(engine){
     if (MIN_OBJECT && content.indexOf('write 4 HOOKS') >= 0) return Promise.resolve(reply(MINOBJ));   // minimal two-step batch
     return Promise.resolve(reply(BATCH));
   };
-  global.localStorage = { getItem(k){ if (k === 'saxe_minimal_model') return MIN_SONNET ? 'sonnet' : 'haiku'; return engine; }, setItem(){} };
+  global.localStorage = { getItem(k){ if (k === 'saxe_minimal_model') return MIN_UNSET ? null : (MIN_SONNET ? 'sonnet' : 'haiku'); return engine; }, setItem(){} };
   new Function(...params, psCode)(win, document, {id:'u1'}, { from(){ return chain; } }, 'p1', 'Ninja Crispi Pro', {}, function(){}, function(){}, function(){ return Promise.resolve({}); }, function(){ return {}; }, function(){}, fetchStub, console);
   function freshBrief(){ let b = SB.emptyBrief(); b.meta.lastDerivedAt='2026-01-01'; b.meta.reviewCount=20; b.meta.classified=true;
     b.lines.pains = SB.normalizeBrief({lines:{pains:[{value:'pulling the basket out to check', count:6, classified:true, about:'alternative'},{value:'heating a whole oven for a small meal', count:4, classified:true, about:'alternative'}]}}).lines.pains; return b; }
@@ -181,6 +182,14 @@ async function run(h, mode){
   const S2 = harness('minimal');
   await run(S2, 'flag');
   ok(S2.state.batchModel === HAIKU, 'flipping the config back returns minimal to Haiku (not a permanent switch)');
+
+  // DEFAULT: with the config unset, minimal now defaults to Sonnet (and therefore the streaming endpoint).
+  MIN_UNSET = true;
+  const D = harness('minimal');
+  await run(D, 'flag');
+  ok(D.state.batchModel === SONNET && D.state.batchUrl === '/api/claude-stream', 'minimal DEFAULTS to Sonnet (via streaming) when the model config is unset');
+  MIN_UNSET = false;
+  ok(/NEVER cite or quote the reviews, and never attribute anything to an outside party/.test(M.state.captured), 'minimal floor bans citing reviews and attributing to an outside party ("one person said")');
 
   // SYSTEM PROMPT: minimal sends none (cuts the ~16.6k-token prefill that times Sonnet out); current & lean send it.
   ok(M.state.batchSystem === undefined, 'minimal sends NO system prompt (truly minimal; the prefill that blows the timeout is gone)');
