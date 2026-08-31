@@ -16597,7 +16597,7 @@ function genOneScript(opts){
     // named. `missing` marks a slot the model never returned (recorded as generation-failed if it never comes).
     function regen(idx, prev, viol, tries, missing){
       genStatus((missing ? "Writing script " : "Fixing script ") + (idx + 1) + (missing ? " (the model skipped it)" : " (" + label(viol) + ")") + (tries > 1 ? ", attempt " + tries : "") + "...");
-      claudeCall({ model: (guardOpts.model || GEN_MODEL), max_tokens: 1500, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: guardOpts.generationId, messages: [{ role: "user", content: onePrompt(ctx, idx, prev, viol, accepted) }] }, function(t, e){
+      claudeCall({ model: (guardOpts.model || GEN_MODEL), max_tokens: 1500, system: ("system" in guardOpts ? guardOpts.system : (typeof system !== "undefined" ? system : undefined)), call_name: "script_batch", generation_id: guardOpts.generationId, messages: [{ role: "user", content: onePrompt(ctx, idx, prev, viol, accepted) }] }, function(t, e){
         var s2 = null; if (!e){ var o = parseJson(t, "{", "}"); if (o) s2 = cleanScript(o); }
         var v2 = s2 ? problems(s2) : (missing ? ["generation-failed"] : viol);
         var block2 = blockingOf(v2);
@@ -16653,8 +16653,9 @@ function genOneScript(opts){
   // so any throw clears the spinner and shows a visible message instead of a silent hang.
   function genFail(e){
     generating = false;
+    generatedScripts = [];   // clear any previous batch so a crashed generation does not leave stale scripts on screen
     try { renderGenScripts(); } catch (_e) {}
-    genStatus("Generation hit an error and stopped: " + ((e && e.message) ? e.message : String(e)) + ". Nothing was saved. Please send me this message.", "var(--red)");
+    genStatus("Generation hit an error and stopped: " + ((e && e.message) ? e.message : String(e)) + ". No new scripts were produced. Please send me this message.", "var(--red)");
   }
   function generateScripts(){
     if (generating) return;
@@ -16721,11 +16722,17 @@ function genOneScript(opts){
       var pressModel = (usingMinimal && minimalModel === "sonnet") ? GEN_MODEL_SONNET : GEN_MODEL;
       guardOpts.model = pressModel;
       var onSonnet = pressModel === GEN_MODEL_SONNET;
+      // The MINIMAL engine sends NO system prompt. That ~16.6k-token system block is the current path's rule pile
+      // -- antithetical to "minimal", and its prefill is the main reason a slower model (Sonnet) blows the backend
+      // request timeout. Dropping it makes minimal truly minimal, cuts input cost ~90%, and gives Sonnet a real
+      // chance to finish in time. The code guards still enforce the liability floor, so nothing is un-gated.
+      var pressSystem = usingMinimal ? undefined : (typeof system !== "undefined" ? system : undefined);
+      guardOpts.system = pressSystem;   // minimal guard-retries also skip the system prompt
       var batchContent = usingLean ? genLeanPrompt(ctx) : usingMinimal ? genMinimalPrompt(ctx) : genPrompt(ctx);
-      claudeCall({ model: pressModel, max_tokens: 4000, system: (typeof system !== "undefined" ? system : undefined), call_name: "script_batch", generation_id: genBatchId, messages: [{ role: "user", content: batchContent }] }, function(text, err){
+      claudeCall({ model: pressModel, max_tokens: 4000, system: pressSystem, call_name: "script_batch", generation_id: genBatchId, messages: [{ role: "user", content: batchContent }] }, function(text, err){
         try {
           if (err){
-            generating = false; renderGenScripts();
+            generating = false;
             // 429 = monthly cap. claudeCall surfaces the error CODE, not the body, so build the copy here and cite
             // the EFFECTIVE limit (genCount.limit from count_only), never a hardcoded number. If the real limit is
             // unknown (count_only failed), omit the number. Library/Planner stay open; resets on the 1st.
@@ -16739,7 +16746,10 @@ function genOneScript(opts){
                 "var(--red)");
               return;
             }
-            genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + "). Nothing was lost.", "var(--red)"); return;
+            // A technical failure (timeout, network, error) produced NO new scripts. Clear the previous batch so it
+            // does not sit on screen under a "failed" line looking like current output.
+            generatedScripts = []; renderGenScripts();
+            genStatus("Generation failed (" + ((err && err.message) ? err.message : "try again") + ") -- no new scripts were produced. Press Generate to try again.", "var(--red)"); return;
           }
           // The batch was accepted by the cap (a 429 would have returned above), so a slot was spent. Decrement
           // the visible counter locally; the server stays the source of truth on the next screen.
@@ -16755,7 +16765,7 @@ function genOneScript(opts){
               out = mss.map(function(s, i){ s = s || {}; return { hook: (mh[i] != null ? mh[i] : s.hook), body1: s.body1, preclose: "", body2: s.body2, cta: s.cta }; });
             } else { out = parseJson(text, "[", "]"); }
           } else { out = parseJson(text, "[", "]"); }
-          if (!Array.isArray(out) || !out.length){ generating = false; renderGenScripts(); genStatus("The model did not return usable scripts. Try again.", "var(--red)"); return; }
+          if (!Array.isArray(out) || !out.length){ generating = false; generatedScripts = []; renderGenScripts(); genStatus("The model did not return usable scripts -- no new scripts were produced. Press Generate to try again.", "var(--red)"); return; }
           // Lean-only buyer/grounding check FIRST (four different buyers, every reason grounded), then the hook
           // read-back, then the guards. Each stage is fail-open; the current path skips leanReview entirely.
           var drafts0 = out.slice(0, GEN_COUNT).map(cleanScript);

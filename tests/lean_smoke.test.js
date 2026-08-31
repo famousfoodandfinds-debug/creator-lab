@@ -8,6 +8,8 @@ const html = fs.readFileSync(__dirname + '/../app.html', 'utf8');
 const blocks = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/gi)].map(m => m[1]);
 function mkEl(id){ return { id:id||'', style:{cssText:'',display:'',color:''}, value:'', textContent:'', disabled:false, _children:[], classList:{add(){},remove(){}}, set innerHTML(v){ this._children=[]; this._html=v; }, get innerHTML(){ return this._html||''; }, appendChild(c){ this._children.push(c); return c; }, addEventListener(){}, focus(){}, click(){}, removeChild(){}, querySelector(){ return null; } }; }
 global.setTimeout = function(fn){ try { fn(); } catch(e){} };
+global.system = 'SYSTEMPROMPTMARKER';   // stand-in for the ~16.6k-token system prompt current/lean send and minimal must not
+let FAIL_NEXT = false;                   // when true, the next batch call returns a technical failure (timeout)
 
 const psCode = blocks.find(b => b.includes('window.ProductScreen ='));
 const params = ['window','document','currentUser','sb','currentProductId','currentProductName','currentProduct','loadProductById','buildSelect','transcribeTikTokLink','claudeHeaders','showToast','fetch','console'];
@@ -39,11 +41,14 @@ function harness(engine){
   const win = {}; new Function('window', blocks.find(b => b.includes('window.SaxeBrief =')))(win); const SB = win.SaxeBrief;
   const byId = {};
   const document = { readyState:'complete', getElementById(id){ if(!byId[id]) byId[id]=mkEl(id); return byId[id]; }, createElement(t){ return mkEl('<'+t+'>'); }, createDocumentFragment(){ return mkEl('#frag'); }, querySelector(s){ if(!byId[s]) byId[s]=mkEl(s); return byId[s]; }, addEventListener(){}, body:{classList:{add(){},remove(){}}} };
-  const state = { captured:'', batchModel:'', mode:'flag', buyerChecks:0, hookReads:0, regen:{} };
+  const state = { captured:'', batchModel:'', batchSystem:'__unset__', mode:'flag', buyerChecks:0, hookReads:0, regen:{} };
   function reply(obj){ return { status:200, text(){ return Promise.resolve(JSON.stringify({ content:[{ type:'text', text:(typeof obj==='string'?obj:JSON.stringify(obj)) }] })); } }; }
   const fetchStub = function(u, o){
     const body = JSON.parse(o.body); const content = body.messages[0].content;
-    if (!state.captured){ state.captured = content; state.batchModel = body.model; }  // the batch prompt is the first call
+    if (!state.captured){ state.captured = content; state.batchModel = body.model; state.batchSystem = body.system; }  // the batch prompt is the first call
+    if (FAIL_NEXT && content.indexOf('REGENERATE ONLY SCRIPT') < 0 && content.indexOf('HOOK READ-BACK') < 0 && content.indexOf('BUYER + GROUNDING CHECK') < 0){
+      return Promise.resolve({ status:504, text(){ return Promise.resolve('inactivity timeout'); } });   // the batch times out
+    }
     if (content.indexOf('BUYER + GROUNDING CHECK') >= 0){
       state.buyerChecks++;
       if (state.mode === 'junk') return Promise.resolve(reply("the check could not answer"));   // fail-open
@@ -163,6 +168,20 @@ async function run(h, mode){
   const S2 = harness('minimal');
   await run(S2, 'flag');
   ok(S2.state.batchModel === HAIKU, 'flipping the config back returns minimal to Haiku (not a permanent switch)');
+
+  // SYSTEM PROMPT: minimal sends none (cuts the ~16.6k-token prefill that times Sonnet out); current & lean send it.
+  ok(M.state.batchSystem === undefined, 'minimal sends NO system prompt (truly minimal; the prefill that blows the timeout is gone)');
+  ok(C.state.batchSystem === 'SYSTEMPROMPTMARKER' && P.state.batchSystem === 'SYSTEMPROMPTMARKER', 'Current and Lean still send the system prompt (unchanged)');
+
+  // STALE SCRIPTS: a technical failure (timeout) clears the previous batch instead of leaving it on screen.
+  const F = harness('current');
+  const f1 = await run(F, 'flag');
+  ok(f1.text.indexOf('Cold drinks should not be this hard') >= 0, 'a successful generation renders its batch');
+  FAIL_NEXT = true;
+  const f2 = await run(F, 'flag');
+  FAIL_NEXT = false;
+  ok(f2.text.indexOf('Cold drinks should not be this hard') < 0, 'a failed generation CLEARS the previous batch -- no stale scripts left on screen');
+  ok(/Generation failed/.test(f2.status) && /no new scripts were produced/.test(f2.status), 'the failure line says no new scripts were produced, not "nothing was lost"');
   delete global.getVoiceProfileNote; delete global.audienceTargetingNote;
 
   console.log(`\n${pass} passed, ${fail} failed`);
