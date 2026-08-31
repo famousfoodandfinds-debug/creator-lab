@@ -1038,32 +1038,14 @@ body.home-landing #homeLanding { display: block !important; }
     </div>
 
     <div class="card">
-      <h2>Winning videos <span class="muted small">(optional, up to 2)</span></h2>
-      <p class="small muted" style="margin:4px 0 10px;">Paste up to two links to winning videos. Their transcripts guide the structure of every script generated this week.</p>
-      <div class="row" style="gap:8px;">
-        <input id="plLink" class="srch" placeholder="Paste a TikTok link" style="flex:1;min-width:180px;">
-        <button class="btn ghost" onclick="Planner.addLink()">Add</button>
-      </div>
-      <div id="plLinkStatus" class="small" style="margin-top:6px;display:none;"></div>
-      <div id="plLinks" style="margin-top:10px;"></div>
-    </div>
-
-    <div class="card">
-      <h2>How to generate</h2>
+      <h2>Build your week</h2>
+      <p class="small muted" style="margin:4px 0 10px;">Your week is built from the scripts already saved for the products you picked. Need more for a product? Open it with <b>Scripts &rarr;</b> above, press Generate there, then come back.</p>
       <div class="row" style="margin-top:10px;gap:16px;align-items:flex-start;flex-wrap:wrap;">
-        <div>
-          <div class="lbl" style="margin-bottom:5px;">For each product</div>
-          <div class="seg" id="plIterSeg">
-            <button id="plIterFresh" class="on" onclick="Planner.setIter('fresh')">New angles</button>
-            <button id="plIterSame" onclick="Planner.setIter('same')">Same angle, fresh wording</button>
-          </div>
-        </div>
-        <div><div class="lbl" style="margin-bottom:5px;">Videos per product</div><input class="numin" id="plPerProd" type="number" min="1" max="7" value="2"></div>
-        <div><div class="lbl" style="margin-bottom:5px;">Videos per day</div><input class="numin" id="plPerDay" type="number" min="1" max="30" value="4"></div>
+        <div><div class="lbl" style="margin-bottom:5px;">Scripts per day</div><input class="numin" id="plPerDay" type="number" min="1" max="30" value="4"></div>
       </div>
       <div class="row" style="margin-top:16px;align-items:center;">
-        <div class="note" id="plSetupNote" style="margin:0;">Select at least one product to generate.</div>
-        <button class="btn" id="plGenBtn" style="margin-left:auto;" onclick="Planner.generate()">Generate my plan</button>
+        <div class="note" id="plSetupNote" style="margin:0;">Assign at least one product to a bucket.</div>
+        <button class="btn" id="plGenBtn" style="margin-left:auto;" onclick="Planner.generate()">Build my week</button>
       </div>
       <div class="err hidden" id="plErr"></div>
     </div>
@@ -12997,67 +12979,10 @@ function transcribeTikTokLink(url){
     }, function(e){ clearTimeout(timer); if(e&&e.name==="AbortError"){ throw new Error("the transcription took too long (over 75s) — try again"); } throw e; });
 }
 
-// 3) Up to n fresh buyer-desire angles for a product (constrained to the standard desire list).
-function suggestFreshAngles(desc, motivation, n){
-  n=n||5;
-  var safe=String(desc||"").replace(/AUTHORITY:[^\n]*/gi,"").replace(/REAL REASON:[^\n]*/gi,"").trim();
-  var prompt='Respond ONLY with valid JSON. No preamble. No explanation. No markdown. Start your response with { and end with }. JSON format: {"focuses":[{"focus":"string","desire":"string","description":"string"}]} CRITICAL: The creator described their buyer as: '+(motivation||"a real buyer who genuinely wants this product")+'. Generate angles that serve THIS buyer. Do not generate feature-based angles the buyer did not mention. Task: '+n+' buyer desire angles for this product: '+safe+' Rules: desire must be one of: Pain/Problem Relief, Emotion/Identity, Dopamine/Instant Gratification, Urgency/Scarcity, Status/Upgrade, Habit/Routine, Trust/Brand Recognition, Convenience, Social Proof/Belonging, Fear of Future Regret, Transformation. NEVER Social Media, Influencer, Viral. focus is 4-8 words specific to this product. BEAUTY/SKINCARE ANGLE RULES: Never generate angles referencing injectable fillers needles or medical procedures. Never use in focus titles: filler needle injectable botox without-needles needle-free filler-alternative clinical. Focus titles must describe creator experience only.'+((typeof SUPP_GUARD==="string")?SUPP_GUARD:"")+' Output JSON only. Begin with {';
-  return fetch("/api/claude",{ method:"POST", headers:claudeHeaders(),
-      body:JSON.stringify({ model:"claude-sonnet-4-6", max_tokens:600, messages:[{role:"user",content:prompt}] }) })
-    .then(function(r){ if(r.status===429){ var e=new Error("rate_limit"); e.code=429; throw e; } return r.json(); })
-    .then(function(data){
-      if(data&&data.error) throw new Error(data.error.message||"request failed");
-      var t=""; (data.content||[]).forEach(function(b){ if(b.type==="text") t+=b.text; });
-      var cleaned=t.replace(/```json|```/g,"").replace(/\*\*/g,"").replace(/\*/g,"").trim();
-      var arr=[]; try{ arr=JSON.parse(cleaned).focuses||[]; }catch(e){ arr=[]; }
-      return arr.slice(0,n);
-    });
-}
-
-// Compact week-level "winning videos to borrow" block, built from pasted link transcripts.
-function plannerWinnersBlock(links){
-  var arr=Array.isArray(links)?links:[];
-  var t=arr.map(function(l){ return String((l&&l.transcript)||"").trim(); }).filter(Boolean);
-  if(!t.length) return "";
-  var b=" WINNING VIDEOS TO BORROW FROM (guide STRUCTURE and PSYCHOLOGY only, never copy wording):";
-  t.forEach(function(x,i){ b+=" VIRAL FORMAT "+(i+1)+" to optionally borrow: "+x; });
-  b+=" HOW TO USE THESE: study the hook style, the beat order, the genuine-reaction and demonstration moments, and any honest-uncertainty scarcity move, then write FRESH lines in the creator's own voice that hit those same moves. Never reuse their phrases.";
-  return b;
-}
-
-// 4) Generate ONE script for a product description + a chosen desire/angle. Returns parsed JSON
-//    (caller persists). Counts against the member's cap exactly like any other generation: it
-//    POSTs to /api/claude with claudeHeaders() (the proxy increments the per-user limit) under a
-//    fresh generation_id, and the result is inserted into the same `scripts` table.
-function genOneScript(opts){
-  opts=opts||{};
-  var desc=opts.desc||"";
-  var desire=opts.desire||"the single strongest want for this product";
-  var winnersBlock=opts.winnersBlock||"";
-  var priorHook=opts.priorHook||"";
-  var voiceNote=(typeof getVoiceProfileNote==="function")?getVoiceProfileNote():"";
-  var facts=(typeof factsBlock==="function")?factsBlock(desc):"";
-  var gid=(typeof newGenerationId==="function")?newGenerationId():null;
-  var prompt="Write ONE complete TikTok Shop show-and-highlight video script to the SAXE SCRIPT STANDARD exactly."+
-    " ONE CORE DESIRE AND TARGET CATEGORY for this video, build the hook, the facts, and the close around only this single want and target: "+(desire)+"."+
-    " Say that target out loud, naturally woven into the hook or the very first line, within the first five seconds, and surface it in the on-screen text too. Keep it natural and varied, never a robotic This product opener. Only aim it at a use case the product can physically deliver."+
-    " Product details (only use real features stated here, never invent a spec): "+String(desc||"").slice(0,4000)+"."+
-    facts + winnersBlock +
-    (priorHook?(" The previous hook was: "+priorHook+". Write a fresh, stronger version to the standard, do not copy it."):"")+
-    voiceNote+
-    " Return ONLY valid JSON, no markdown: {\"hook\":str,\"body1\":str,\"preclose\":str,\"body2\":str,\"cta\":str,\"screenText\":[3 short on-screen text hook options],\"caption\":str,\"hashtags\":[5 strings, no hash symbol]}.";
-  var reqBody={ model:"claude-haiku-4-5-20251001", max_tokens:1500, system:system, messages:[{role:"user",content:prompt}] };
-  if(gid) reqBody.generation_id=gid;
-  return fetch("/api/claude",{ method:"POST", headers:claudeHeaders(), body:JSON.stringify(reqBody) })
-    .then(function(r){ if(r.status===429){ var e=new Error("rate_limit"); e.code=429; throw e; } return r.json(); })
-    .then(function(data){
-      if(data&&data.error) throw new Error(data.error.message||"request failed");
-      var text=""; (data.content||[]).forEach(function(b){ if(b.type==="text") text+=b.text; });
-      var parsed=JSON.parse(text.replace(/```json|```/g,"").trim());
-      if(typeof stripEmDashesDeep==="function") parsed=stripEmDashesDeep(parsed);
-      return parsed;
-    });
-}
+// REMOVED: the Planner's bulk write-a-week generation surface (suggestFreshAngles, plannerWinnersBlock,
+// genOneScript). The Planner no longer generates -- it schedules the scripts already in your library, and any
+// new scripts come from the standard cap-counted Generate in the Scripts tab. This deleted the only uncapped
+// script-generation path in the app.
 </script>
 
 <!-- ===== CONTENT PLANNER LOGIC (isolated namespace) ===== -->
@@ -13119,6 +13044,12 @@ function genOneScript(opts){
       var row = document.createElement('div'); row.className='trow';
       row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:0.5px solid var(--border);';
       var name = document.createElement('div'); name.style.cssText='flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'; name.textContent = p.name||'(unnamed)';
+      // Route into the SAME Generate everywhere else uses: open the product in the Scripts tab. New scripts saved
+      // there are cap-counted and show up here on the next "Build my week".
+      var open = document.createElement('button'); open.type='button'; open.className='btn ghost'; open.textContent='Scripts →';
+      open.title='Open this product in the Scripts tab to generate or edit its scripts';
+      open.style.cssText='font-size:11px;padding:4px 8px;white-space:nowrap;';
+      open.addEventListener('click', function(){ if(typeof loadProductById==='function') loadProductById(p.id); if(typeof showMainTab==='function') showMainTab('scripts'); });
       var seg = document.createElement('div'); seg.className='seg';
       BUCKETS.forEach(function(b){
         var btn = document.createElement('button'); btn.type='button'; btn.textContent = b.label.split(' ')[0]; btn.title = b.label;
@@ -13126,7 +13057,7 @@ function genOneScript(opts){
         btn.addEventListener('click', function(){ S.picks[p.id] = (S.picks[p.id]===b.key) ? null : b.key; renderPicker(); syncGenBtn(); save(); });
         seg.appendChild(btn);
       });
-      row.appendChild(name); row.appendChild(seg); box.appendChild(row);
+      row.appendChild(name); row.appendChild(open); row.appendChild(seg); box.appendChild(row);
     });
     syncGenBtn();
   }
@@ -13135,7 +13066,7 @@ function genOneScript(opts){
     // WHILE a generation is running (to prevent double-fire).
     var n = selectedIds().length, btn = el('plGenBtn'), note = el('plSetupNote');
     if(btn) btn.disabled = S.generating;
-    if(note) note.textContent = n ? (n + ' product' + (n>1?'s':'') + ' selected' + (S.links.length ? (' · ' + S.links.length + ' winning video' + (S.links.length>1?'s':'')) : '')) : 'Assign at least one product to a bucket to generate.';
+    if(note) note.textContent = n ? (n + ' product' + (n>1?'s':'') + ' selected') : 'Assign at least one product to a bucket.';
   }
 
   // ---- winning-video links ----
@@ -13174,99 +13105,61 @@ function genOneScript(opts){
   }
 
   // ---- generation orchestrator ----
+  // Build the week from the SCRIPTS ALREADY IN YOUR LIBRARY -- the Planner no longer generates. A product is
+  // plannable because it is in your library; its saved scripts become the takes to schedule. To add scripts for a
+  // product you Generate in the Scripts tab (the same, cap-counted Generate everywhere else uses) and they show up
+  // here. This is what removed the Planner's uncapped generation surface.
   function generate(){
     var errEl = el('plErr');
     function showErr(m){ if(errEl){ errEl.textContent = m; errEl.classList.remove('hidden'); } }
     if(errEl) errEl.classList.add('hidden');
     if(S.generating) return;
-    // Never fail silently: say exactly what's missing.
     if(!currentUser || !sb){ showErr('Please sign in first, then try again.'); return; }
-    if(!S.lib.length){ showErr('No products in your library yet — add a sample below, or build a product in the Scripts tab first.'); return; }
+    if(!S.lib.length){ showErr('No products in your library yet — build a product in the Scripts tab first.'); return; }
     var ids = bucketOrderIds();
     if(!ids.length){ showErr('Assign at least one product to a bucket first — tap Top, Focus, or Incoming next to a product in the list above.'); return; }
-    S.perProd = Math.max(1, Math.min(7, parseInt(el('plPerProd').value) || 2));
-    S.perDay = Math.max(1, Math.min(30, parseInt(el('plPerDay').value) || 4));
+    var pd = el('plPerDay'); S.perDay = Math.max(1, Math.min(30, parseInt(pd && pd.value) || 4));
     S.generating = true; syncGenBtn();
     var btn = el('plGenBtn');
     // reset any prior plan
     S.takes = {}; S.order = []; S.board = { days: [] }; S.posted = {}; S.filmed = {};
-    var winners = plannerWinnersBlock(S.links);
-    var queue = ids.slice(), done = 0, total = ids.length, stopped = false;
-    function fail(msg){
-      stopped = true; S.generating = false; if(btn) btn.textContent = 'Generate my plan'; syncGenBtn();
-      if(S.order.length){ finish(msg); } else if(errEl){ errEl.textContent = msg; errEl.classList.remove('hidden'); }
-    }
+    var queue = ids.slice(), done = 0, total = ids.length;
     function nextProduct(){
-      if(stopped) return;
-      if(!queue.length){ finish(''); return; }
+      if(!queue.length){ finish(); return; }
       var id = queue.shift(); var p = prod(id); done++;
-      if(btn) btn.textContent = 'Generating ' + done + ' of ' + total + '...';
+      if(btn) btn.textContent = 'Loading ' + done + ' of ' + total + '...';
       if(!p){ nextProduct(); return; }
-      var desc = (p.bank && p.bank.facts) || p.description || p.name || '';
-      var motivation = p.motivation || '';
-      buildTakesForProduct(p, desc, motivation, S.perProd, winners, nextProduct, fail);
+      loadTakesForProduct(p, nextProduct);
     }
-    function finish(msg){
-      S.generating = false; if(btn) btn.textContent = 'Generate my plan';
+    function finish(){
+      S.generating = false; if(btn) btn.textContent = 'Build my week'; syncGenBtn();
+      if(!S.order.length){
+        showErr('None of the selected products have saved scripts yet. Open a product with "Scripts →", press Generate there, then come back and build your week.');
+        return;
+      }
       el('plSetup').classList.add('hidden'); el('plResults').classList.remove('hidden');
       dealDays(); renderResults(); save(); window.scrollTo(0,0);
-      if(msg && errEl){ /* soft notice on the results screen */ if(typeof showToast==='function') showToast(msg); }
     }
     nextProduct();
   }
 
-  function buildTakesForProduct(p, desc, motivation, perProd, winners, doneCb, failCb){
+  // Pull a product's EXISTING saved scripts and turn each into a take. No model call. The board/day/week views
+  // are unchanged -- they schedule takes, and a take is now a pointer to a script you already wrote and kept.
+  function loadTakesForProduct(p, doneCb){
+    if(!currentUser || !sb){ doneCb(); return; }
     var bucket = S.picks[p.id];
-    function makeTake(angle, priorHook, cb){
-      genOneScript({ desc: desc, desire: angle, winnersBlock: winners, priorHook: priorHook }).then(function(parsed){
-        insertScript(p.id, angle, parsed, function(row){
+    sb.from('scripts').select('id, hook, angle, desire, created_at')
+      .eq('user_id', currentUser.id).eq('product_id', p.id)
+      .order('created_at', { ascending: false })
+      .then(function(r){
+        var rows = (r && !r.error && Array.isArray(r.data)) ? r.data : [];
+        rows.forEach(function(row){
           var iid = nid();
-          S.takes[iid] = { iid: iid, productId: p.id, bucket: bucket, angle: angle, scriptId: row ? row.id : null, hook: parsed.hook || '' };
+          S.takes[iid] = { iid: iid, productId: p.id, bucket: bucket, angle: (row.angle || row.desire || ''), scriptId: row.id, hook: row.hook || '' };
           S.order.push(iid);
-          cb();
         });
-      }).catch(function(e){
-        if(e && e.code === 429){ failCb('You have reached your generation limit for now. The plan so far is saved.'); return; }
-        cb(); // skip this take on other errors, keep going
-      });
-    }
-    if(S.iter === 'same'){
-      var angle = (p.bank && p.bank.desireAngle) || 'the single strongest want for this product';
-      var i = 0, prior = '';
-      (function loop(){
-        if(i >= perProd){ doneCb(); return; }
-        i++;
-        makeTake(angle, prior, function(){ var last = S.order[S.order.length-1]; prior = (S.takes[last] && S.takes[last].hook) || prior; loop(); });
-      })();
-    } else {
-      suggestFreshAngles(desc, motivation, perProd).then(function(focuses){
-        var angles = (focuses||[]).map(function(f){ return (f && f.focus) ? f.focus : (typeof f==='string' ? f : ''); }).filter(Boolean);
-        var fallback = (p.bank && p.bank.desireAngle) || 'the single strongest want for this product';
-        while(angles.length < perProd) angles.push(fallback);
-        var i = 0;
-        (function loop(){ if(i >= perProd){ doneCb(); return; } var a = angles[i]; i++; makeTake(a, '', loop); })();
-      }).catch(function(e){
-        if(e && e.code === 429){ failCb('You have reached your generation limit for now. The plan so far is saved.'); return; }
-        // angle generation failed -> fall back to same-angle takes
-        var angle = (p.bank && p.bank.desireAngle) || 'the single strongest want for this product';
-        var i = 0, prior = '';
-        (function loop(){ if(i >= perProd){ doneCb(); return; } i++; makeTake(angle, prior, function(){ var last = S.order[S.order.length-1]; prior = (S.takes[last] && S.takes[last].hook) || prior; loop(); }); })();
-      });
-    }
-  }
-
-  // Planner-generated scripts insert into the same `scripts` table as any other generation.
-  function insertScript(productId, angle, parsed, cb){
-    if(!currentUser || !sb){ cb(null); return; }
-    sb.from('scripts').insert({
-      user_id: currentUser.id, product_id: productId,
-      hook: parsed.hook || null, body1: parsed.body1 || null, body2: parsed.body2 || null,
-      cta: parsed.cta || null, preclose: parsed.preclose || null,
-      screen_text: parsed.screenText ? JSON.stringify(parsed.screenText) : null,
-      angle: angle || null, desire: angle || null,
-      caption: parsed.caption || null,
-      hashtags: parsed.hashtags ? JSON.stringify(parsed.hashtags) : null
-    }).select().single().then(function(r){ cb(r && !r.error ? r.data : null); }, function(){ cb(null); });
+        doneCb();
+      }, function(){ doneCb(); });
   }
 
   // ---- brainless round-robin day dealer (no ranking) ----
@@ -13497,10 +13390,9 @@ function genOneScript(opts){
     ov.innerHTML = '<div class="sheet"><h3 style="margin:0 0 12px;">How the Planner works</h3>' +
       '<ol style="margin:0 0 16px;padding-left:22px;font-size:14px;line-height:1.7;color:var(--text);">' +
         '<li><b>Pick products.</b> Assign products from your library to a bucket — top sellers, focus products, or incoming samples.</li>' +
-        '<li style="margin-top:6px;"><b>Add winning videos (optional).</b> Paste up to two links; their transcripts guide the structure of every script.</li>' +
-        '<li style="margin-top:6px;"><b>Choose how to generate.</b> New angles, or Same angle / fresh wording — and how many videos per product.</li>' +
-        '<li style="margin-top:6px;"><b>Generate.</b> Saxe writes the scripts, saves them to your library, and groups them by bucket.</li>' +
-        '<li style="margin-top:6px;"><b>Plan your week.</b> Switch to <b>Daily</b> to see one day at a time, or <b>Weekly</b> to see the whole week and drag cards between days.</li>' +
+        '<li style="margin-top:6px;"><b>Need scripts for a product?</b> Tap <b>Scripts &rarr;</b> next to it to open it in the Scripts tab, press Generate there, and save the ones you want. That is the same Generate everywhere else uses, and it counts against your monthly generations.</li>' +
+        '<li style="margin-top:6px;"><b>Build your week.</b> The Planner schedules the scripts you have already saved for the products you picked — it does not write new ones.</li>' +
+        '<li style="margin-top:6px;"><b>Plan the days.</b> Switch to <b>Daily</b> to see one day at a time, or <b>Weekly</b> to see the whole week and drag cards between days.</li>' +
       '</ol>' +
       '<div style="text-align:center;"><button class="btn ghost" type="button" onclick="document.getElementById(\'overlay\').classList.add(\'hidden\')">Close</button></div></div>';
     ov.classList.remove('hidden');
