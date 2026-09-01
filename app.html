@@ -12219,17 +12219,20 @@ function pushCarouselProducts() {
 
 // Load the current product's saved carousels and push them into the studio so it can list + reopen them.
 // A carousel belongs to a product the way a script does: same user_id/product_id keying as the scripts table.
-function pushCarousels() {
+function pushCarouselsFor(pid) {
   var cf = document.getElementById("carouselFrame");
-  if (!cf || !cf.contentWindow || !currentUser || !currentUser.id || !currentProductId) return;
+  if (!cf || !cf.contentWindow || !currentUser || !currentUser.id || !pid) return;
+  // Always scope to this user, so a product_id coming back from the studio can only read the user's own rows.
   sb.from("carousels").select("id, type, angle, slides, art_direction, updated_at")
-    .eq("user_id", currentUser.id).eq("product_id", currentProductId)
+    .eq("user_id", currentUser.id).eq("product_id", pid)
     .order("updated_at", { ascending: false })
     .then(function(result){
       if (result.error || !result.data) return;
       try { cf.contentWindow.postMessage({ type: "saxe-carousels", value: result.data }, "*"); } catch (e) {}
     });
 }
+// The main-app-open product's saved carousels (fired on each Carousel-tab open).
+function pushCarousels() { pushCarouselsFor(currentProductId); }
 
 // Persist a carousel coming FROM the studio. Only the words + design are stored (slides carry elements, never
 // photos -- photos are transient and re-dropped on reopen). Update when the studio already holds a row id for
@@ -12257,10 +12260,15 @@ window.addEventListener("message", function(ev){
   try {
     var cf = document.getElementById("carouselFrame");
     if (!cf || ev.source !== cf.contentWindow) return;
-    var d = ev.data; if (!d || d.type !== "saxe-carousel-save") return;
+    var d = ev.data; if (!d) return;
+    // The studio can pick a product from its OWN library (not the Scripts-tab product), so it asks the host for
+    // that product's saved carousels by id. Scoped to the user inside pushCarouselsFor.
+    if (d.type === "saxe-request-carousels") { pushCarouselsFor(d.product_id); return; }
+    if (d.type !== "saxe-carousel-save") return;
     saveCarouselFromStudio(d.value || {}, function(saved){
       try { cf.contentWindow.postMessage({ type: "saxe-carousel-saved", ok: !!saved, id: saved ? saved.id : null }, "*"); } catch (e) {}
-      if (saved) pushCarousels();
+      // Refresh the list for the product we actually saved to (may be a studio-picked product, not currentProductId).
+      if (saved) pushCarouselsFor(d.value && d.value.product_id);
     });
   } catch (e) {}
 });
@@ -19271,8 +19279,17 @@ function transcribeTikTokLink(url){
     if(!p) return;
     libSearch.value=p.name||'';
     hideLibResults();
+    // Key saves/reopens to THIS product. hostProductId used to arrive ONLY via the host's saxe-product message,
+    // which fires when a product is open in the Scripts tab -- so picking from the studio's own library left it
+    // null and Save failed with "Open a product first." Set it here from the picked product's id.
+    hostProductId = p.id || null;
+    currentCarouselId = null;   // a different product -> not still editing the previous product's saved row
     const brief=String(p.brief||'').trim();
     if(brief){ briefEl.value=brief; if(typeof updateGenLabel==='function') updateGenLabel(); if(typeof phBriefSync==='function') phBriefSync(); }
+    // Clear any prior product's saved list right away, then ask the host for THIS product's saved carousels so
+    // the saved list + reopen work for a studio-picked product (the host repopulates it if there are any).
+    if(typeof renderSaved==='function') renderSaved([]);
+    if(hostProductId){ try{ parent.postMessage({ type:'saxe-request-carousels', product_id: hostProductId }, '*'); }catch(e){} }
   }
   function renderLibResults(q){
     if(!libResults) return;
