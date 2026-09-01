@@ -18028,7 +18028,16 @@ function transcribeTikTokLink(url){
       const t=document.createElement('div');
       t.className='stab'+(i===state.active?' active':'');
       t.textContent=(i+1);
+      t.title='Drag to reorder your photos (the copy for each slide stays put)';
       t.addEventListener('click',()=>{state.active=i;state.selected=null;render();});
+      // Drag the thumbnail to reorder PHOTOS across the fixed copy positions. Inline outline for feedback so it
+      // needs no extra CSS. (Touch devices can't HTML5-drag; the "◀ photo / photo ▶" buttons cover mobile.)
+      t.draggable=true;
+      t.addEventListener('dragstart',e=>{ dragFrom=i; try{ e.dataTransfer.setData('text/plain',String(i)); e.dataTransfer.effectAllowed='move'; }catch(_){ } t.style.opacity='0.4'; });
+      t.addEventListener('dragend',()=>{ t.style.opacity=''; t.style.outline=''; dragFrom=null; });
+      t.addEventListener('dragover',e=>{ e.preventDefault(); try{ e.dataTransfer.dropEffect='move'; }catch(_){ } t.style.outline='2px solid var(--rose,#c66)'; });
+      t.addEventListener('dragleave',()=>{ t.style.outline=''; });
+      t.addEventListener('drop',e=>{ e.preventDefault(); t.style.outline=''; var from=(dragFrom!=null)?dragFrom:parseInt((e.dataTransfer&&e.dataTransfer.getData('text/plain'))||'',10); if(!isNaN(from)) reorderPhotos(from,i); });
       slidetabs.appendChild(t);
     });
     if(state.slides.length<15){
@@ -19042,6 +19051,19 @@ function transcribeTikTokLink(url){
     a.photo=b.photo; a.iw=b.iw; a.ih=b.ih;
     b.photo=tp; b.iw=ti; b.ih=th;
     state.active=j; state.selected=null;
+    render();
+  }
+  // Drag a slide thumbnail from position `from` to position `to`: the PHOTO sequence is reordered across the
+  // fixed copy positions (the elements never move), so uploading out of order no longer means starting over.
+  var dragFrom = null;
+  function reorderPhotos(from, to){
+    if(from==null || from===to || from<0 || to<0 || from>=state.slides.length || to>=state.slides.length) return;
+    pushUndo();
+    var photos = state.slides.map(function(s){ return { photo:s.photo, iw:s.iw, ih:s.ih }; });
+    var moved = photos.splice(from,1)[0];
+    photos.splice(to,0,moved);
+    state.slides.forEach(function(s,i){ s.photo=photos[i].photo; s.iw=photos[i].iw; s.ih=photos[i].ih; });
+    state.active=to; state.selected=null;
     render();
   }
   async function handlePhotos(fl){
