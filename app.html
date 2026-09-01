@@ -887,6 +887,12 @@ body.home-landing #homeLanding { display: block !important; }
     <!-- ===== Product inputs: name, listing, reviews, competitor comments, winning angles, authority ===== -->
     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:16px;max-width:760px;margin:0 auto;">
 
+      <!-- Shown only until a brief exists, so a brand-new or reviews-less product tells you what to do next
+           instead of looking empty. Toggled in renderBrief by whether the brief has been derived. -->
+      <div id="psNoBriefPrompt" style="display:none;background:rgba(206,154,128,0.12);border:1px solid rgba(206,154,128,0.4);border-radius:10px;padding:13px 15px;margin-bottom:14px;font-size:13px;line-height:1.6;color:var(--white);">
+        <strong style="color:var(--gold);">No brief yet.</strong> Paste this product's <strong>4&ndash;5&#9733; reviews</strong> and <strong>comments from viral videos</strong> below, then press <strong>Build brief</strong>. Without a brief there are no scripts.
+      </div>
+
       <div id="psSavedChip" style="font-size:11px;color:var(--muted);text-align:right;margin-bottom:10px;min-height:14px;">Saved automatically as you type.</div>
 
       <!-- Product name -->
@@ -13024,9 +13030,11 @@ function transcribeTikTokLink(url){
   function countForProduct(pid){ var n=0; for(var iid in S.takes){ if(S.takes[iid].productId===pid) n++; } return n; }
 
   // ---- reuse the existing card-to-script navigation ----
+  // Load the product FIRST (it sets currentProductId and fills the form, incl. the no-brief prompt), then switch
+  // to the Scripts tab. Order matters: showMainTab('scripts') sends you home if no product is current yet.
   function goToScripts(scriptProductId){
-    if(typeof showMainTab==='function') showMainTab('scripts');
     if(typeof loadProductById==='function') loadProductById(scriptProductId);
+    if(typeof showMainTab==='function') showMainTab('scripts');
   }
   function goToCreateNew(name){
     if(typeof showMainTab==='function') showMainTab('scripts');
@@ -13371,6 +13379,9 @@ function transcribeTikTokLink(url){
       S.q = ''; var srch = el('plProdSearch'); if(srch) srch.value = '';
       renderPicker(); syncGenBtn(); save();
       if(typeof buildSelect === 'function'){ try{ buildSelect(); }catch(e){} }  // keep the main app picker in sync
+      // A brand-new product has no reviews and no brief -- take the member straight to its setup, where the
+      // "paste reviews, then Build brief" prompt tells them the next step (instead of leaving it half-made).
+      goToScripts(p.id);
     }, function(){ if(sv){ sv.disabled = false; sv.textContent = 'Add to samples'; } showErr('Could not add that sample, please try again.'); });
   }
 
@@ -14898,6 +14909,7 @@ function transcribeTikTokLink(url){
     currentProductName = product.name || "";
     lastSavedAt = product.updated_at ? new Date(product.updated_at) : null;
     showForm(true); renderInputs(); setSetupOpen(!brief.meta.lastDerivedAt); setSaved("saved");
+    var nbp = el("psNoBriefPrompt"); if (nbp) nbp.style.display = brief.meta.lastDerivedAt ? "none" : "";   // brief-less products show the "paste reviews, then Build brief" prompt
     renderSavedScripts();   // the product's saved-script library -- editable, re-savable, no-op in the test harness
   }
   // Sign-in ALWAYS lands on the quiet page (New product / My products / Planner / Carousels), whether or
@@ -15737,6 +15749,8 @@ function transcribeTikTokLink(url){
     // form top-to-bottom ends on a Build/Update button instead of a scroll back up to this header.
     var bbtn = el("psBuildBriefBottom");
     if (bbtn){ bbtn.textContent = btn.textContent; bbtn.disabled = deriving; bbtn.style.opacity = deriving ? ".6" : "1"; bbtn.style.cursor = deriving ? "default" : "pointer"; }
+    // A product with no brief yet shows the "paste reviews, then Build brief" prompt (so it never looks empty).
+    var nbp = el("psNoBriefPrompt"); if (nbp) nbp.style.display = derived ? "none" : "";
     var stat = document.createElement("div"); stat.id = "briefStatus"; stat.style.cssText = "font-size:12px;color:var(--muted);margin-top:8px;display:none;line-height:1.5;"; card.appendChild(stat);
     host.appendChild(card);   // card + Build button are now guaranteed on screen
 
