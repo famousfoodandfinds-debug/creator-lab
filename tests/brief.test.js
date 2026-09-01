@@ -611,6 +611,17 @@ ok(!durFires({ cta: "you will never want to wear anything else" }), 'durability:
 ok(!durFires({ body1: "never a dull moment in this kitchen" }), 'durability: the idiom "never a dull moment" does not fire');
 ok(!durFires({ hook: "no more warped cutting boards" }), 'durability: a before/after "no more warped boards" is not an overclaim');
 ok(!durFires({ body2: "it won't slip around on the counter" }), 'durability: a performance claim ("won\'t slip") is out of scope');
+// name-stumble: the model writing IN a mistake to sound casual -- misstate the product name then correct it.
+function stumbleFires(o){ return B.scriptViolations(o, {}).indexOf("name-stumble") >= 0; }
+ok(stumbleFires({ hook: "This is the Shark BlastBoom. BlastBoss, sorry, I keep saying that" }), 'name-stumble: the real failure ("sorry, I keep saying that") is caught');
+ok(stumbleFires({ body1: "I mean BlastBoss, not BlastBoom" }), 'name-stumble: an "I mean X, not Y" name self-correction is caught');
+ok(stumbleFires({ body2: "wait, it is actually called the BlastBoss" }), 'name-stumble: "wait, it is actually called" is caught');
+ok(stumbleFires({ preclose: "sorry, wrong name" }), 'name-stumble: "wrong name" is caught');
+ok(stumbleFires({ cta: "I keep calling it that by mistake" }), 'name-stumble: "I keep calling it that" is caught');
+// Normal casual copy is NOT a stumble.
+ok(!stumbleFires({ hook: "okay I have to tell you about this like we are friends" }), 'name-stumble: ordinary casual talk passes');
+ok(!stumbleFires({ body1: "I mean it, this thing is genuinely good" }), 'name-stumble: "I mean it" (emphasis, no name swap) passes');
+ok(!stumbleFires({ body2: "you are going to want this before they sell out" }), 'name-stumble: a plain line passes');
 ok(B.scriptViolations({ body1: "It shuts off and the plant is dead by morning" }, {}).indexOf("moderation") >= 0, 'validator: catches a moderation word (dead)');
 // TWO-STATE ownership: both "hand" and "used" are first-person states (a TikTok Shop creator must have the
 // product to film), so first person is ALWAYS allowed -- there is no "ownership" (first-person block) code anymore.
