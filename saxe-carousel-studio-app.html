@@ -297,9 +297,10 @@
         <h2>Product brief</h2>
         <div id="libRow" style="display:none;margin-bottom:10px">
           <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Load from your product library</label>
-          <select id="libSelect" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;color:var(--ink);background:#fff;box-sizing:border-box">
-            <option value="">Choose a product…</option>
-          </select>
+          <div style="position:relative">
+            <input id="libSearch" type="text" autocomplete="off" placeholder="Type a product name…" style="width:100%;border:1px solid var(--line);border-radius:8px;padding:8px;font-family:inherit;font-size:13px;color:var(--ink);background:#fff;box-sizing:border-box">
+            <div id="libResults" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 2px);z-index:20;max-height:220px;overflow:auto;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.08)"></div>
+          </div>
         </div>
         <textarea id="brief" class="brief" placeholder="Paste the product description here."></textarea>
         <div class="shots" id="shots"></div>
@@ -1470,22 +1471,47 @@
   // Only the main app posts {type:'saxe-products', value:[{id,name,brief}]}; the standalone studio
   // has no host, so the picker stays hidden there. Choosing a product fills the brief with its
   // description so the creator does not have to paste it by hand.
-  const libRow=document.getElementById('libRow'), libSelect=document.getElementById('libSelect');
+  // A real library is long, so the picker is type-to-search: filter by name, click a result to load its
+  // brief. (It was a plain scroll-through <select> before; the search matches the main app's product finder.)
+  const libRow=document.getElementById('libRow'), libSearch=document.getElementById('libSearch'), libResults=document.getElementById('libResults');
   let libProducts=[];
   function populateLibrary(list){
-    if(!libSelect||!libRow) return;
+    if(!libSearch||!libRow) return;
     libProducts=Array.isArray(list)?list.filter(p=>p&&p.id):[];
-    while(libSelect.options.length>1) libSelect.remove(1);
-    libProducts.forEach(p=>{ const o=document.createElement('option'); o.value=String(p.id); o.textContent=p.name||'Untitled product'; libSelect.appendChild(o); });
     libRow.style.display=libProducts.length?'block':'none';
+    if(!libProducts.length){ libSearch.value=''; hideLibResults(); }
   }
-  if(libSelect){
-    libSelect.addEventListener('change',function(){
-      const p=libProducts.find(x=>String(x.id)===libSelect.value);
-      if(!p) return;
-      const brief=String(p.brief||'').trim();
-      if(brief){ briefEl.value=brief; if(typeof updateGenLabel==='function') updateGenLabel(); if(typeof phBriefSync==='function') phBriefSync(); }
+  function hideLibResults(){ if(libResults){ libResults.style.display='none'; libResults.innerHTML=''; } }
+  function pickLibProduct(p){
+    if(!p) return;
+    libSearch.value=p.name||'';
+    hideLibResults();
+    const brief=String(p.brief||'').trim();
+    if(brief){ briefEl.value=brief; if(typeof updateGenLabel==='function') updateGenLabel(); if(typeof phBriefSync==='function') phBriefSync(); }
+  }
+  function renderLibResults(q){
+    if(!libResults) return;
+    const term=String(q||'').trim().toLowerCase();
+    const matches=(term?libProducts.filter(p=>String(p.name||'').toLowerCase().indexOf(term)>=0):libProducts.slice()).slice(0,50);
+    if(!matches.length){ hideLibResults(); return; }
+    libResults.innerHTML='';
+    matches.forEach(p=>{
+      const row=document.createElement('div');
+      row.textContent=p.name||'Untitled product';
+      row.style.cssText='padding:8px 10px;cursor:pointer;font-size:13px;color:var(--ink);border-bottom:1px solid var(--line)';
+      row.addEventListener('mouseenter',function(){ row.style.background='var(--wash,#f6f6f8)'; });
+      row.addEventListener('mouseleave',function(){ row.style.background=''; });
+      // mousedown (not click) so selection lands BEFORE the input's blur hides the list.
+      row.addEventListener('mousedown',function(e){ e.preventDefault(); pickLibProduct(p); });
+      libResults.appendChild(row);
     });
+    libResults.style.display='block';
+  }
+  if(libSearch){
+    libSearch.addEventListener('input',function(){ renderLibResults(libSearch.value); });
+    libSearch.addEventListener('focus',function(){ renderLibResults(libSearch.value); });
+    libSearch.addEventListener('blur',function(){ setTimeout(hideLibResults,120); });
+    libSearch.addEventListener('keydown',function(e){ if(e.key==='Escape') hideLibResults(); });
   }
   // The host app can also push the current product in any time (e.g. each time the Carousel tab opens).
   window.addEventListener('message',ev=>{
