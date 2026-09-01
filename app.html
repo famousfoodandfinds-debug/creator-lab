@@ -18213,6 +18213,14 @@ function transcribeTikTokLink(url){
       }
     });
     meta.innerHTML='<b>Slide '+(state.active+1)+' of '+state.slides.length+'</b> · rules on: no prices, no competing brands, action CTA, no em dashes';
+    // Move-photo controls: reorder the IMAGE across positions; the copy for each slide stays put (the story holds).
+    if(state.slides.length>1 && cur().photo){
+      var mv=document.createElement('span'); mv.style.cssText='margin-left:10px;white-space:nowrap;';
+      function mvBtn(label,d,dis){ var b=document.createElement('button'); b.type='button'; b.textContent=label; b.title='Move this photo — the copy for each slide stays where it is'; b.style.cssText='font-size:11px;padding:2px 8px;margin-left:4px;border:1px solid var(--line,rgba(0,0,0,0.2));border-radius:6px;background:transparent;color:inherit;cursor:pointer;'+(dis?'opacity:.4;cursor:default;':''); if(dis) b.disabled=true; else b.addEventListener('click',function(){ movePhoto(d); }); return b; }
+      mv.appendChild(mvBtn('◀ photo',-1, state.active<=0));
+      mv.appendChild(mvBtn('photo ▶',1, state.active>=state.slides.length-1));
+      meta.appendChild(mv);
+    }
     renderSafeZones();
     syncFade();
     syncVeil();
@@ -19006,6 +19014,21 @@ function transcribeTikTokLink(url){
     if(!r) return false;
     slide.photo=r.url; slide.iw=r.w; slide.ih=r.h; return true;
   }
+  // Move a PHOTO between positions while the COPY stays put. The copy is the story (hook, build, close) and it
+  // belongs to the POSITION -- slide 1 is always the hook. Moving a photo left/right swaps ONLY the image (photo,
+  // iw, ih) with the neighbour; the text elements never move. So dragging a photo to slide 1 makes it the hook
+  // image, it does not send the hook copy to slide 4. You follow the photo to its new slot.
+  function movePhoto(dir){
+    var i=state.active, j=i+dir;
+    if(j<0 || j>=state.slides.length) return;
+    pushUndo();
+    var a=state.slides[i], b=state.slides[j];
+    var tp=a.photo, ti=a.iw, th=a.ih;
+    a.photo=b.photo; a.iw=b.iw; a.ih=b.ih;
+    b.photo=tp; b.iw=ti; b.ih=th;
+    state.active=j; state.selected=null;
+    render();
+  }
   async function handlePhotos(fl){
     const list=[...fl].filter(isImageFile);
     if(list.length===0)return;
@@ -19499,6 +19522,11 @@ Return ONLY valid JSON, no markdown, exactly:
     const targetN=photoCount()>=2?photoCount():0;
     const matchOn=document.getElementById('matchPhotos').checked && photoCount()>0;
     const angle=angleInput.value.trim();
+    // Writing (and re-writing) the carousel costs money, and the copy is written to MATCH the photo order.
+    // So before spending a generation, confirm the photos are in the sequence the story should follow.
+    if(photoCount() >= 2 && matchOn){
+      if(!window.confirm('Make sure your photos are in the order you want.\n\nThe copy is written to match this sequence — the hook is written for slide 1, the build for the middle, the close for the last. Reorder your photos first if you need to.')) return;
+    }
     genBtn.disabled=true; genBtn.textContent='Writing…'; showGenLoading(true);   // ITEM 5: loading state
     statusEl.textContent=targetN?('Writing '+targetN+' slides for your photos.'):'Reading the product and writing your carousel.';
     try{
