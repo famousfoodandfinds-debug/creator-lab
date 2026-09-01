@@ -17531,7 +17531,7 @@ function transcribeTikTokLink(url){
         <button type="button" id="undoBtn" class="undo-btn" style="margin-left:auto" disabled title="Undo (Ctrl/Cmd+Z)">↶ Undo</button>
       </div>
       <div class="stage" id="stage">
-        <div class="ph" id="ph">No photo on this slide yet. You can still place and style the text. Upload a photo to see it land.</div>
+        <div class="ph" id="ph">No photo on this slide yet. Click here to add one — it fills this slide only. You can still place and style the text either way.</div>
         <img class="bg" id="bg" alt="">
       </div>
       <div class="meta" id="meta"></div>
@@ -19080,33 +19080,75 @@ function transcribeTikTokLink(url){
     if(typeof updateGenLabel==='function') updateGenLabel();
     if(typeof phBriefSync==='function') phBriefSync();
   }
-  // The photo thumbnails in the sidebar: the sequence you set BEFORE generating (that is the whole point --
-  // order the photos, then spend one generation on copy written to match). Every slide that has a photo shows
-  // as a draggable thumbnail; dragging one reorders the PHOTO sequence via reorderPhotos (copy stays put).
+  // Set/replace the photo on ONE existing slide WITHOUT adding a slide -- the repeat-post workflow: reopen a
+  // saved carousel (copy intact, photo slots empty because photos are transient) and drop a new photo into each
+  // slot. A single-file picker targets one slide index; setPhoto swaps only that slide's image, copy untouched.
+  var slidePhotoTarget = null;
+  var slidePhotoInput = document.createElement('input');
+  slidePhotoInput.type='file';
+  slidePhotoInput.accept='image/png,image/jpeg,image/jpg,image/webp,image/heic,image/heif,image/*';
+  slidePhotoInput.addEventListener('change', async function(){
+    var f = slidePhotoInput.files && slidePhotoInput.files[0];
+    var idx = slidePhotoTarget; slidePhotoTarget=null; slidePhotoInput.value='';
+    if(!f || idx==null || idx<0 || idx>=state.slides.length) return;
+    if(!isImageFile(f)) return;
+    var note=document.getElementById('photonote'); if(note)note.textContent='Loading photo...';
+    pushUndo();
+    var ok = await setPhoto(state.slides[idx], f);
+    if(ok) carouselStarted=true;
+    if(note)note.textContent = ok ? '' : 'Could not read that photo. Save as JPG first (Mac Finder: right-click, Quick Actions, Convert Image, JPEG), then re-upload.';
+    state.active=idx; state.selected=null; render();
+    if(typeof updateGenLabel==='function') updateGenLabel();
+    if(typeof phBriefSync==='function') phBriefSync();
+  });
+  function replaceSlidePhoto(idx){ if(idx<0||idx>=state.slides.length) return; slidePhotoTarget=idx; slidePhotoInput.click(); }
+  // The empty-slide canvas placeholder is itself a target: click it to fill the CURRENT slide's photo in place.
+  if(ph){ ph.style.cursor='pointer'; ph.title='Click to add a photo to this slide'; ph.addEventListener('click',function(){ replaceSlidePhoto(state.active); }); }
+  // The photo thumbnails in the sidebar: the sequence you set BEFORE generating (order the photos, then spend
+  // one generation on copy written to match). Once a carousel exists it shows EVERY slot -- filled slots are
+  // draggable image tiles (drag = reorder via reorderPhotos, copy stays put; the ↺ swaps the photo in place
+  // without adding a slide; the × removes it); empty slots are click-to-fill tiles, which is how a reopened
+  // carousel gets its new photos dropped into the existing copy positions.
   function renderPhotoStrip(){
     var strip=document.getElementById('photostrip'), hint=document.getElementById('photohint');
     if(!strip) return;
-    var idxs=[]; state.slides.forEach(function(s,i){ if(s.photo) idxs.push(i); });
-    if(!idxs.length){ strip.style.display='none'; strip.innerHTML=''; if(hint)hint.style.display='none'; return; }
-    strip.style.display='flex'; if(hint)hint.style.display=idxs.length>1?'block':'none';
+    var anyPhoto = state.slides.some(function(s){ return s.photo; });
+    // Show the strip once a carousel is underway (photos uploaded, generated, or a saved one reopened). Before
+    // that it is just the 3 demo slides, so stay hidden.
+    if(!anyPhoto && !carouselStarted){ strip.style.display='none'; strip.innerHTML=''; if(hint)hint.style.display='none'; return; }
+    strip.style.display='flex'; if(hint)hint.style.display=state.slides.length>1?'block':'none';
     strip.innerHTML='';
-    idxs.forEach(function(idx){
-      var s=state.slides[idx];
+    state.slides.forEach(function(s,idx){
+      var active = (idx===state.active);
       var cell=document.createElement('div');
-      cell.style.cssText='position:relative;width:52px;height:52px;border-radius:6px;overflow:hidden;flex:0 0 auto;cursor:grab;border:2px solid '+(idx===state.active?'var(--rose,#c66)':'transparent');
-      cell.draggable=true; cell.title='Drag to reorder — this photo is slide '+(idx+1);
-      var img=document.createElement('img'); img.src=s.photo; img.style.cssText='width:100%;height:100%;object-fit:cover;display:block;pointer-events:none'; cell.appendChild(img);
-      var num=document.createElement('span'); num.textContent=(idx+1); num.style.cssText='position:absolute;left:2px;top:2px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;line-height:1;padding:2px 4px;border-radius:4px;pointer-events:none'; cell.appendChild(num);
-      var rm=document.createElement('button'); rm.type='button'; rm.textContent='×'; rm.title='Remove this photo';
-      rm.style.cssText='position:absolute;right:1px;top:1px;width:16px;height:16px;border:none;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:12px;line-height:14px;text-align:center;cursor:pointer;padding:0';
-      rm.addEventListener('click',function(e){ e.stopPropagation(); removePhotoAt(idx); });
-      cell.appendChild(rm);
-      cell.addEventListener('click',function(){ state.active=idx; state.selected=null; render(); });
-      cell.addEventListener('dragstart',function(e){ dragFrom=idx; try{ e.dataTransfer.setData('text/plain',String(idx)); e.dataTransfer.effectAllowed='move'; }catch(_){ } cell.style.opacity='0.4'; });
-      cell.addEventListener('dragend',function(){ cell.style.opacity=''; cell.style.outline=''; dragFrom=null; });
-      cell.addEventListener('dragover',function(e){ e.preventDefault(); try{ e.dataTransfer.dropEffect='move'; }catch(_){ } cell.style.outline='2px solid var(--rose,#c66)'; });
-      cell.addEventListener('dragleave',function(){ cell.style.outline=''; });
-      cell.addEventListener('drop',function(e){ e.preventDefault(); cell.style.outline=''; var from=(dragFrom!=null)?dragFrom:parseInt((e.dataTransfer&&e.dataTransfer.getData('text/plain'))||'',10); if(!isNaN(from)) reorderPhotos(from,idx); });
+      var num=document.createElement('span'); num.textContent=(idx+1);
+      num.style.cssText='position:absolute;left:2px;top:2px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;line-height:1;padding:2px 4px;border-radius:4px;pointer-events:none';
+      if(s.photo){
+        cell.style.cssText='position:relative;width:52px;height:52px;border-radius:6px;overflow:hidden;flex:0 0 auto;cursor:grab;border:2px solid '+(active?'var(--rose,#c66)':'transparent');
+        cell.draggable=true; cell.title='Drag to reorder — slide '+(idx+1)+'. ↺ replaces this photo, × removes it.';
+        var img=document.createElement('img'); img.src=s.photo; img.style.cssText='width:100%;height:100%;object-fit:cover;display:block;pointer-events:none'; cell.appendChild(img);
+        cell.appendChild(num);
+        var rm=document.createElement('button'); rm.type='button'; rm.textContent='×'; rm.title='Remove this photo';
+        rm.style.cssText='position:absolute;right:1px;top:1px;width:16px;height:16px;border:none;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:12px;line-height:14px;text-align:center;cursor:pointer;padding:0';
+        rm.addEventListener('click',function(e){ e.stopPropagation(); removePhotoAt(idx); });
+        cell.appendChild(rm);
+        var rep=document.createElement('button'); rep.type='button'; rep.textContent='↺'; rep.title='Replace this photo (keeps the copy, adds no slide)';
+        rep.style.cssText='position:absolute;right:1px;bottom:1px;width:16px;height:16px;border:none;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:11px;line-height:14px;text-align:center;cursor:pointer;padding:0';
+        rep.addEventListener('click',function(e){ e.stopPropagation(); replaceSlidePhoto(idx); });
+        cell.appendChild(rep);
+        cell.addEventListener('click',function(){ state.active=idx; state.selected=null; render(); });
+        cell.addEventListener('dragstart',function(e){ dragFrom=idx; try{ e.dataTransfer.setData('text/plain',String(idx)); e.dataTransfer.effectAllowed='move'; }catch(_){ } cell.style.opacity='0.4'; });
+        cell.addEventListener('dragend',function(){ cell.style.opacity=''; cell.style.outline=''; dragFrom=null; });
+        cell.addEventListener('dragover',function(e){ e.preventDefault(); try{ e.dataTransfer.dropEffect='move'; }catch(_){ } cell.style.outline='2px solid var(--rose,#c66)'; });
+        cell.addEventListener('dragleave',function(){ cell.style.outline=''; });
+        cell.addEventListener('drop',function(e){ e.preventDefault(); cell.style.outline=''; var from=(dragFrom!=null)?dragFrom:parseInt((e.dataTransfer&&e.dataTransfer.getData('text/plain'))||'',10); if(!isNaN(from)) reorderPhotos(from,idx); });
+      } else {
+        cell.style.cssText='position:relative;width:52px;height:52px;border-radius:6px;flex:0 0 auto;cursor:pointer;box-sizing:border-box;border:2px dashed '+(active?'var(--rose,#c66)':'var(--line,#ccc)')+';background:var(--wash,#f4f4f6);display:flex;align-items:center;justify-content:center';
+        cell.title='Add a photo to slide '+(idx+1);
+        var plus=document.createElement('span'); plus.textContent='+'; plus.style.cssText='font-size:20px;color:var(--muted,#999);line-height:1;pointer-events:none'; cell.appendChild(plus);
+        cell.appendChild(num);
+        cell.addEventListener('click',function(){ state.active=idx; state.selected=null; replaceSlidePhoto(idx); });
+      }
       strip.appendChild(cell);
     });
   }
@@ -19115,28 +19157,40 @@ function transcribeTikTokLink(url){
   // with its POSITION (slide 1 is always the hook), so the photos are what you sequence -- drag to reorder,
   // then generate copy once, written to match. (Before, uploads reused/extended the 3 demo slides, which is
   // why five photos could still read as three tabs.)
+  //
+  // EXCEPTION -- a WRITTEN or REOPENED carousel (hasCarousel) already has its copy laid out. There, a bulk drop
+  // FILLS the existing slots in order and never rebuilds: the repeat-post workflow is reopen a saved carousel
+  // (copy intact, slots empty) and drop this week's photos in. Extra photos append; no slot's copy is destroyed.
   async function handlePhotos(fl){
     const list=[...fl].filter(isImageFile);
     if(list.length===0)return;
     const note=document.getElementById('photonote');
     if(note)note.textContent='Loading photos...';
     let failed=0;
-    const hadPhotos = state.slides.some(s=>s.photo);
-    if(!hadPhotos){
-      // No photos yet -> the carousel IS these photos, one slide each. Build fresh, drop the demo copy.
-      const built=[];
+    if(hasCarousel){
+      pushUndo();
       for(let i=0;i<list.length && i<15;i++){
-        const sl=blankSlide();
-        const ok=await setPhoto(sl,list[i]); if(!ok)failed++;
-        built.push(sl);
+        if(i>=state.slides.length) state.slides.push(blankSlide());   // more photos than slots -> append
+        const ok=await setPhoto(state.slides[i],list[i]); if(!ok)failed++;   // fill the slot, copy untouched
       }
-      if(built.some(s=>s.photo)) state.slides=built;   // only replace the demo if at least one photo loaded
     } else {
-      // Already have photos -> append the new ones as new slides at the end (up to the 15 cap).
-      for(let i=0;i<list.length && state.slides.length<15;i++){
-        const sl=blankSlide();
-        const ok=await setPhoto(sl,list[i]); if(!ok)failed++;
-        state.slides.push(sl);
+      const hadPhotos = state.slides.some(s=>s.photo);
+      if(!hadPhotos){
+        // No photos yet -> the carousel IS these photos, one slide each. Build fresh, drop the demo copy.
+        const built=[];
+        for(let i=0;i<list.length && i<15;i++){
+          const sl=blankSlide();
+          const ok=await setPhoto(sl,list[i]); if(!ok)failed++;
+          built.push(sl);
+        }
+        if(built.some(s=>s.photo)) state.slides=built;   // only replace the demo if at least one photo loaded
+      } else {
+        // Have photos but never generated (pre-generation sequencing) -> append as new slides (up to 15).
+        for(let i=0;i<list.length && state.slides.length<15;i++){
+          const sl=blankSlide();
+          const ok=await setPhoto(sl,list[i]); if(!ok)failed++;
+          state.slides.push(sl);
+        }
       }
     }
     if(state.slides.some(s=>s.photo)) carouselStarted=true;
