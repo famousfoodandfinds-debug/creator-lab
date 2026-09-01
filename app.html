@@ -17488,7 +17488,9 @@ function transcribeTikTokLink(url){
         <h2>Photos</h2>
         <div class="drop" id="photodrop" style="margin-top:0">Upload photos (select several)<br><span style="font-size:11px">one per slide, your originals never change</span></div>
         <div id="photonote" class="status" style="margin-top:8px"></div>
-        <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:4px">HEIC photos from iPhone need saving as JPG first. On a Mac: select them in Finder, right-click, Quick Actions, Convert Image, JPEG. Going forward: Settings, Camera, Formats, Most Compatible.</div>
+        <div id="photohint" style="display:none;font-size:11px;color:var(--muted);line-height:1.4;margin-top:8px">Drag the thumbnails to set the order. The copy is written to match it — slide 1 is the hook, the last is the close — so get the sequence right before you generate.</div>
+        <div id="photostrip" style="display:none;flex-wrap:wrap;gap:6px;margin-top:6px"></div>
+        <div style="font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px">HEIC photos from iPhone need saving as JPG first. On a Mac: select them in Finder, right-click, Quick Actions, Convert Image, JPEG. Going forward: Settings, Camera, Formats, Most Compatible.</div>
       </div>
 
       <!-- FIX 2: Write the carousel sits AFTER brief + photo upload, so it's in flow once you're ready -->
@@ -18858,7 +18860,7 @@ function transcribeTikTokLink(url){
     cur().elements.push(copy); state.selected=copy.id; render();
   }
 
-  function render(){ renderTabs(); renderCanvas(); renderInspector(); phoneSync(); }
+  function render(){ renderTabs(); renderPhotoStrip(); renderCanvas(); renderInspector(); phoneSync(); }
 
   // ===== ITEM 1: UNDO =====================================================
   // Snapshot the whole slide model before a mutation. A single capture-phase pointerdown
@@ -19067,20 +19069,78 @@ function transcribeTikTokLink(url){
     state.active=to; state.selected=null;
     render();
   }
+  // Remove one photo. Photo count drives slide count, so removing a photo removes its slide (until the 2-slide
+  // minimum, where we just clear the image instead of dropping below two).
+  function removePhotoAt(idx){
+    if(idx<0 || idx>=state.slides.length) return;
+    pushUndo();
+    if(state.slides.length<=2){ var s=state.slides[idx]; s.photo=null; s.iw=0; s.ih=0; }
+    else { state.slides.splice(idx,1); if(state.active>=state.slides.length) state.active=state.slides.length-1; }
+    state.selected=null; render();
+    if(typeof updateGenLabel==='function') updateGenLabel();
+    if(typeof phBriefSync==='function') phBriefSync();
+  }
+  // The photo thumbnails in the sidebar: the sequence you set BEFORE generating (that is the whole point --
+  // order the photos, then spend one generation on copy written to match). Every slide that has a photo shows
+  // as a draggable thumbnail; dragging one reorders the PHOTO sequence via reorderPhotos (copy stays put).
+  function renderPhotoStrip(){
+    var strip=document.getElementById('photostrip'), hint=document.getElementById('photohint');
+    if(!strip) return;
+    var idxs=[]; state.slides.forEach(function(s,i){ if(s.photo) idxs.push(i); });
+    if(!idxs.length){ strip.style.display='none'; strip.innerHTML=''; if(hint)hint.style.display='none'; return; }
+    strip.style.display='flex'; if(hint)hint.style.display=idxs.length>1?'block':'none';
+    strip.innerHTML='';
+    idxs.forEach(function(idx){
+      var s=state.slides[idx];
+      var cell=document.createElement('div');
+      cell.style.cssText='position:relative;width:52px;height:52px;border-radius:6px;overflow:hidden;flex:0 0 auto;cursor:grab;border:2px solid '+(idx===state.active?'var(--rose,#c66)':'transparent');
+      cell.draggable=true; cell.title='Drag to reorder — this photo is slide '+(idx+1);
+      var img=document.createElement('img'); img.src=s.photo; img.style.cssText='width:100%;height:100%;object-fit:cover;display:block;pointer-events:none'; cell.appendChild(img);
+      var num=document.createElement('span'); num.textContent=(idx+1); num.style.cssText='position:absolute;left:2px;top:2px;background:rgba(0,0,0,.6);color:#fff;font-size:10px;line-height:1;padding:2px 4px;border-radius:4px;pointer-events:none'; cell.appendChild(num);
+      var rm=document.createElement('button'); rm.type='button'; rm.textContent='×'; rm.title='Remove this photo';
+      rm.style.cssText='position:absolute;right:1px;top:1px;width:16px;height:16px;border:none;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:12px;line-height:14px;text-align:center;cursor:pointer;padding:0';
+      rm.addEventListener('click',function(e){ e.stopPropagation(); removePhotoAt(idx); });
+      cell.appendChild(rm);
+      cell.addEventListener('click',function(){ state.active=idx; state.selected=null; render(); });
+      cell.addEventListener('dragstart',function(e){ dragFrom=idx; try{ e.dataTransfer.setData('text/plain',String(idx)); e.dataTransfer.effectAllowed='move'; }catch(_){ } cell.style.opacity='0.4'; });
+      cell.addEventListener('dragend',function(){ cell.style.opacity=''; cell.style.outline=''; dragFrom=null; });
+      cell.addEventListener('dragover',function(e){ e.preventDefault(); try{ e.dataTransfer.dropEffect='move'; }catch(_){ } cell.style.outline='2px solid var(--rose,#c66)'; });
+      cell.addEventListener('dragleave',function(){ cell.style.outline=''; });
+      cell.addEventListener('drop',function(e){ e.preventDefault(); cell.style.outline=''; var from=(dragFrom!=null)?dragFrom:parseInt((e.dataTransfer&&e.dataTransfer.getData('text/plain'))||'',10); if(!isNaN(from)) reorderPhotos(from,idx); });
+      strip.appendChild(cell);
+    });
+  }
+  // Photo count drives slide count: each uploaded photo becomes ONE slide, in upload order. The FIRST real
+  // upload replaces the demo slides with exactly these photos; a later upload APPENDS more slides. Copy stays
+  // with its POSITION (slide 1 is always the hook), so the photos are what you sequence -- drag to reorder,
+  // then generate copy once, written to match. (Before, uploads reused/extended the 3 demo slides, which is
+  // why five photos could still read as three tabs.)
   async function handlePhotos(fl){
     const list=[...fl].filter(isImageFile);
     if(list.length===0)return;
     const note=document.getElementById('photonote');
     if(note)note.textContent='Loading photos...';
     let failed=0;
-    if(list.length===1){ const ok=await setPhoto(cur(),list[0]); if(!ok)failed++; if(ok)carouselStarted=true; render(); }
-    else{
+    const hadPhotos = state.slides.some(s=>s.photo);
+    if(!hadPhotos){
+      // No photos yet -> the carousel IS these photos, one slide each. Build fresh, drop the demo copy.
+      const built=[];
       for(let i=0;i<list.length && i<15;i++){
-        if(!state.slides[i])state.slides.push(blankSlide());
-        const ok=await setPhoto(state.slides[i],list[i]); if(!ok)failed++; else carouselStarted=true;
+        const sl=blankSlide();
+        const ok=await setPhoto(sl,list[i]); if(!ok)failed++;
+        built.push(sl);
       }
-      state.active=0; state.selected=null; render();
+      if(built.some(s=>s.photo)) state.slides=built;   // only replace the demo if at least one photo loaded
+    } else {
+      // Already have photos -> append the new ones as new slides at the end (up to the 15 cap).
+      for(let i=0;i<list.length && state.slides.length<15;i++){
+        const sl=blankSlide();
+        const ok=await setPhoto(sl,list[i]); if(!ok)failed++;
+        state.slides.push(sl);
+      }
     }
+    if(state.slides.some(s=>s.photo)) carouselStarted=true;
+    state.active=0; state.selected=null; render();
     if(note)note.textContent=failed?('Could not read '+failed+' photo'+(failed>1?'s':'')+'. Save as JPG first (Mac Finder: right-click, Quick Actions, Convert Image, JPEG), then re-upload.'):'';
     updateGenLabel();   // ITEM 4: keep the generate button label current once photos are in
     if(typeof phBriefSync==='function') phBriefSync();
@@ -19817,6 +19877,8 @@ Return ONLY valid JSON, no markdown, exactly:
     phMove(stage, phDock);
     phMove(photodrop, phAdd);   // photo upload first so it's always visible in the strip
     phMove(photonote, phAdd);
+    phMove(document.getElementById('photohint'), phAdd);   // keep the reorder hint + draggable strip
+    phMove(document.getElementById('photostrip'), phAdd);  // reachable on phone too (cardPhotos is hidden there)
     phMove(addel, phAdd);
     phAdd.appendChild(phStickersBtn);          // compact "Stickers" button in the strip
     phMove(gallery, phSheetBody);              // the full gallery lives in the dismissible sheet
