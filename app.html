@@ -980,6 +980,10 @@ body.home-landing #homeLanding { display: block !important; }
       </div>
 
       <div id="psSaveStatus" style="font-size:12px;color:var(--muted);margin-top:14px;">Saved automatically as you type.</div>
+      <!-- Build brief at the BOTTOM of the form, where you finish filling it, so you don't scroll back up to the
+           brief card's header button (which stays, for updating once the setup is collapsed). State is mirrored
+           from that header button in renderBrief. -->
+      <button type="button" id="psBuildBriefBottom" style="margin-top:16px;width:100%;background:var(--gold);border:none;border-radius:10px;color:#080808;font-family:'Instrument Sans',sans-serif;font-size:14px;font-weight:600;padding:13px 16px;cursor:pointer;box-sizing:border-box;">Build brief</button>
     </div>
 
     </div><!-- /#setupWrap -->
@@ -15797,6 +15801,10 @@ function transcribeTikTokLink(url){
     btn.addEventListener("click", deriveBrief);
     head.appendChild(btn);
     card.appendChild(head);
+    // Mirror the primary action onto the bottom-of-form button (same label + disabled state), so filling the
+    // form top-to-bottom ends on a Build/Update button instead of a scroll back up to this header.
+    var bbtn = el("psBuildBriefBottom");
+    if (bbtn){ bbtn.textContent = btn.textContent; bbtn.disabled = deriving; bbtn.style.opacity = deriving ? ".6" : "1"; bbtn.style.cursor = deriving ? "default" : "pointer"; }
     var stat = document.createElement("div"); stat.id = "briefStatus"; stat.style.cssText = "font-size:12px;color:var(--muted);margin-top:8px;display:none;line-height:1.5;"; card.appendChild(stat);
     host.appendChild(card);   // card + Build button are now guaranteed on screen
 
@@ -17101,6 +17109,7 @@ function transcribeTikTokLink(url){
     if (el("psAngleFetch")) el("psAngleFetch").addEventListener("click", fetchAngle);
     if (el("psAngleAdd"))   el("psAngleAdd").addEventListener("click", addAngleFromText);
     if (el("setupToggle"))  el("setupToggle").addEventListener("click", function(){ setSetupOpen(el("setupWrap") && el("setupWrap").style.display === "none"); });
+    if (el("psBuildBriefBottom")) el("psBuildBriefBottom").addEventListener("click", deriveBrief);   // same action as the brief-card header button, at the bottom of the form
     if (el("homePickerSearch")) el("homePickerSearch").addEventListener("input", function(){ renderHomePicker(this.value); });
   }
   // Export FIRST, so a throw inside init() can never leave window.ProductScreen undefined.
