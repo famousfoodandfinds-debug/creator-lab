@@ -805,6 +805,12 @@ ok(B.stripLeadingHook("WOW this is massive", "WOW, this is massive! The box bare
 ok(B.stripLeadingHook("A clean hook", "A totally different setup that shares a word.") === "A totally different setup that shares a word.", 'stripLeadingHook: leaves a setup that does not open with the hook untouched');
 ok(B.stripLeadingHook("Only the hook", "Only the hook.") === "Only the hook.", 'stripLeadingHook: never blanks the field (nothing left -> unchanged)');
 ok(B.stripLeadingHook("Some hook", "") === "", 'stripLeadingHook: empty body is safe');
+// CONTINUATION echo: the setup repeats the hook, then keeps the SAME sentence going (comma or dash) instead of
+// restarting. The old code compared the whole first sentence to the hook, so a continuation never matched and
+// the echo survived. The prefix match peels the hook words and stands the remainder up as its own sentence.
+ok(B.stripLeadingHook("If dragging out the vacuum for every little mess is your version of a punishment.", "If dragging out the vacuum for every little mess is your version of a punishment, then this changes everything.") === "Then this changes everything.", 'stripLeadingHook: peels a hook the setup CONTINUES past with a comma');
+ok(B.stripLeadingHook("You keep reaching for it", "You keep reaching for it -- and that is the point.") === "And that is the point.", 'stripLeadingHook: peels a hook continued with a dash');
+ok(B.stripLeadingHook("WOW this is massive", "WOW, this is massive, and it barely fit.") === "And it barely fit.", 'stripLeadingHook: continuation with normalized punctuation still peels');
 ok(B.scriptViolations({ cta: "Grab it for just $40 today" }, {}).indexOf("price") >= 0, 'validator: a currency figure ($40) is blocked as price');
 ok(B.scriptViolations({ cta: "Only 40 bucks right now" }, {}).indexOf("price") >= 0, 'validator: "40 bucks" is blocked as price');
 ok(B.scriptViolations({ body2: "The ice is ready before you know it" }, { listingText: listing }).indexOf("asserted-number") < 0, 'validator: a figure-free script with a listing still passes');

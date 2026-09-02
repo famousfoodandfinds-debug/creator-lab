@@ -14592,11 +14592,22 @@ function transcribeTikTokLink(url){
     if (!hook.trim() || !body.trim()) return body;
     function norm(s){ return String(s).toLowerCase().replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[^a-z0-9 ]/g, " ").replace(/\s+/g, " ").trim(); }
     var nh = norm(hook); if (!nh) return body;
-    var m = body.match(/^\s*[^.!?\n]*[.!?]?/);   // the first sentence of the setup, with its terminal mark
-    if (!m || !m[0]) return body;
-    if (norm(m[0]) !== nh) return body;          // setup does not open with the hook -- leave it alone
-    var rest = body.slice(m[0].length).replace(/^[\s"'“”‘’.,;:-]+/, "");
-    return rest ? rest : body;                   // never leave the setup empty
+    // Match the hook as a PREFIX of the setup, word for word -- so it catches a standalone repeat
+    // ("<hook>. Rest...") AND a CONTINUED one ("<hook>, then rest..."), where the setup keeps the sentence
+    // going instead of restarting. (The old code only compared the setup's whole first SENTENCE to the hook,
+    // so a continuation never matched and the echo survived.)
+    var nb = norm(body);
+    if (nb.indexOf(nh) !== 0) return body;       // setup does not open with the hook -- leave it alone
+    var hookWords = nh.split(" ").length;
+    // Walk the ORIGINAL body's word tokens to the end of the hook's words, so the cut lands past whatever
+    // punctuation the setup used (a period, a comma, a dash). Token counting is consistent with norm(), which
+    // splits on the same non-alphanumeric boundaries.
+    var re = /[a-z0-9]+/gi, seen = 0, cut = 0, m2;
+    while ((m2 = re.exec(body)) !== null){ if (++seen === hookWords){ cut = m2.index + m2[0].length; break; } }
+    if (!cut) return body;
+    var rest = body.slice(cut).replace(/^[\s"'“”‘’.,;:!?—–-]+/, "");   // drop the connective/punctuation after the hook
+    if (!rest) return body;                                          // never leave the setup empty
+    return rest.charAt(0).toUpperCase() + rest.slice(1);            // stand the continuation up as its own sentence
   }
   // DIAGNOSTIC: the EXACT text that trips the figure and price guards, so a drop message can name what to fix
   // ("Script 3: unverifiable figure -- 'twenty minutes'") instead of just the reason. Mirrors the guard logic in
