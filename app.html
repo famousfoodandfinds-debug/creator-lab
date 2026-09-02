@@ -17525,6 +17525,7 @@ function transcribeTikTokLink(url){
         <textarea id="brief" class="brief" placeholder="Paste the product description here."></textarea>
         <div class="shots" id="shots"></div>
         <div class="drop" id="shotdrop">+ Add screenshots of the description<br><span style="font-size:11px">paste with Ctrl/Cmd + V or tap to upload</span></div>
+        <div id="shotsRedundantNote" style="display:none;font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4">Description already loaded — screenshots aren't needed. They're only for when you don't have the description as text.</div>
         <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);margin-top:10px;cursor:pointer;user-select:none"><input type="checkbox" id="matchPhotos" checked style="accent-color:var(--rose)"> Read each photo and match the copy to the product shown</label>
         <div style="margin-top:12px" id="angleBlock">
           <label style="display:block;font-size:12px;color:var(--muted);margin-bottom:4px">Angle to focus on (optional)</label>
@@ -19290,6 +19291,16 @@ function transcribeTikTokLink(url){
   }
   function renderShots(){shotsEl.innerHTML='';shots.forEach((s,i)=>{const d=document.createElement('div');d.className='th';
     d.innerHTML='<img src="'+s.url+'"><b data-i="'+i+'">\u00d7</b>';shotsEl.appendChild(d);});}
+  // The "add screenshots of the description" field is only for when you DON'T have the description as text.
+  // Once a description is loaded -- from the library picker, a host push, or a manual paste -- it is redundant,
+  // so hide the drop zone and explain why (a note, not a silent disappearance).
+  function syncShotsVisibility(){
+    var hasDesc = !!(briefEl && briefEl.value.trim().length >= 40);
+    if(shotDrop) shotDrop.style.display = hasDesc ? 'none' : '';
+    var note = document.getElementById('shotsRedundantNote');
+    if(note) note.style.display = hasDesc ? 'block' : 'none';
+  }
+  if(briefEl) briefEl.addEventListener('input', syncShotsVisibility);
   shotsEl.addEventListener('click',e=>{const b=e.target.closest('b[data-i]');if(!b)return;shots.splice(+b.dataset.i,1);renderShots();});
   const shotInput=document.createElement('input'); shotInput.type='file';
   shotInput.accept='image/png,image/jpeg,image/jpg,image/webp,image/heic,image/heif,image/*'; shotInput.multiple=true;
@@ -19305,6 +19316,7 @@ function transcribeTikTokLink(url){
   document.addEventListener('paste',e=>{if(document.activeElement===briefEl)return;handlePaste(e);});
   // Prefill from a product description supplied by the host app (set on window before this runs).
   try{ if(briefEl && !briefEl.value){ const pd=window.__SAXE_PRODUCT__||window.parent&&window.parent.__SAXE_PRODUCT__; if(pd) briefEl.value=String(pd); } }catch(e){}
+  syncShotsVisibility();   // set the screenshots field's initial visibility from whatever prefilled the brief
   // ---------- product library picker ----------
   // Only the main app posts {type:'saxe-products', value:[{id,name,brief}]}; the standalone studio
   // has no host, so the picker stays hidden there. Choosing a product fills the brief with its
@@ -19330,7 +19342,7 @@ function transcribeTikTokLink(url){
     hostProductId = p.id || null;
     currentCarouselId = null;   // a different product -> not still editing the previous product's saved row
     const brief=String(p.brief||'').trim();
-    if(brief){ briefEl.value=brief; if(typeof updateGenLabel==='function') updateGenLabel(); if(typeof phBriefSync==='function') phBriefSync(); }
+    if(brief){ briefEl.value=brief; if(typeof updateGenLabel==='function') updateGenLabel(); if(typeof phBriefSync==='function') phBriefSync(); if(typeof syncShotsVisibility==='function') syncShotsVisibility(); }
     // Clear any prior product's saved list right away, then ask the host for THIS product's saved carousels so
     // the saved list + reopen work for a studio-picked product (the host repopulates it if there are any).
     if(typeof renderSaved==='function') renderSaved([]);
@@ -19417,6 +19429,7 @@ function transcribeTikTokLink(url){
       if(d.type!=='saxe-product')return;
       if(typeof d.id !== 'undefined') hostProductId = d.id || null;
       if(briefEl && !briefEl.value.trim() && d.value){ briefEl.value=String(d.value); }
+      if(typeof syncShotsVisibility==='function') syncShotsVisibility();
     }catch(e){}
   });
 
@@ -19734,27 +19747,14 @@ Return ONLY valid JSON, no markdown, exactly:
         const isPlainStack = texts.length && s.elements.every(function(e){ return !isTextish(e)||TEXT_TYPES.includes(e.type); });
         const isLast = si===state.slides.length-1;
         if(isPlainStack && !isLast){
-          // Place the whole stack where the photo is CLEAREST. The old pass only compared a top band to a
-          // bottom band across the FULL width and could only slide down, so copy still landed on a logo or a
-          // bag when the busy spot was mid-slide, low, or off to one side. Now: measure busyness under the
-          // copy's OWN column (left-aligned stacks sit in the left ~70%, so a logo on the right the text never
-          // touches does not skew it) and scan candidate positions top-to-bottom, picking the least-busy one.
-          let minY=1,maxY=0; texts.forEach(function(e){ minY=Math.min(minY,e.y); maxY=Math.max(maxY,e.y+blockH(e)); });
-          const H=Math.max(0.08, maxY-minY);
-          let tx0=1, tx1=0; texts.forEach(function(e){ tx0=Math.min(tx0,e.x); tx1=Math.max(tx1, e.x+(e.w||0.62)); });
-          if(!(tx1>tx0)){ tx0=0.05; tx1=0.72; }
-          tx0=Math.max(0,tx0-0.02); tx1=Math.min(1,tx1+0.02);
-          const bandTop=LAY_TOP, bandBot=Math.min(LAY_BOTTOM-0.04, 0.86);
-          if(bandBot-H > bandTop+0.001){
-            let bestY=minY, best=Infinity; const STEPS=12;
-            for(let k=0;k<=STEPS;k++){
-              const y0=bandTop + (bandBot-H-bandTop)*(k/STEPS);
-              // + a small stability penalty so a hook is only moved when a band is CLEARLY cleaner, not for a hair.
-              const score=busy(tx0*cw, tx1*cw, y0*ch, (y0+H)*ch) + Math.abs(y0-minY)*7;
-              if(score<best){ best=score; bestY=y0; }
-            }
-            const dy=bestY-minY;
-            if(Math.abs(dy)>0.03) texts.forEach(function(e){ e.y=Math.max(LAY_TOP, Math.min(e.y+dy, LAY_BOTTOM-0.06)); });
+          const topBusy=busy(0,cw, 0.08*ch, 0.52*ch);
+          const botBusy=busy(0,cw, 0.46*ch, 0.82*ch);
+          if(topBusy > botBusy + 9){
+            // top is notably busier -> slide the whole stack down into the cleaner lower band
+            let minY=1,maxY=0; texts.forEach(function(e){ minY=Math.min(minY,e.y); maxY=Math.max(maxY,e.y+blockH(e)); });
+            const target=Math.min(LAY_BOTTOM-0.04, 0.80) - (maxY-minY);
+            const dy=target-minY;
+            if(dy>0.02) texts.forEach(function(e){ e.y=Math.max(LAY_TOP, Math.min(e.y+dy, LAY_BOTTOM-0.06)); });
           }
         }
         // ITEM 1: containers are RARE. Only a dense benefit/feature LIST gets one, and only when it sits
