@@ -1052,9 +1052,9 @@ body.home-landing #homeLanding { display: block !important; }
 
     <div class="card">
       <h2>Build your week</h2>
-      <p class="small muted" style="margin:4px 0 10px;">Spread your videos across the week. You pick which script to film when you sit down; the plan just says what to film and when.</p>
+      <p class="small muted" style="margin:4px 0 10px;">Videos per day sets your weekly goal — 5 a day is 35 for the week. Set it, then give products above enough videos to hit it. You pick which script to film when you sit down.</p>
       <div class="row" style="margin-top:10px;gap:16px;align-items:flex-start;flex-wrap:wrap;">
-        <div><div class="lbl" style="margin-bottom:5px;">Videos per day</div><input class="numin" id="plPerDay" type="number" min="1" max="30" value="4"></div>
+        <div><div class="lbl" style="margin-bottom:5px;">Videos per day (weekly goal = ×7)</div><input class="numin" id="plPerDay" type="number" min="1" max="30" value="4" oninput="Planner.setPerDay(this.value)"></div>
       </div>
       <div class="row" style="margin-top:16px;align-items:center;">
         <div class="note" id="plSetupNote" style="margin:0;">Set at least one product to 1 or more videos above.</div>
@@ -4268,7 +4268,13 @@ function openReviewInput(){
 function processBlob(blob, name) {
   var reader = new FileReader();
   reader.onload = function(e) {
-    uploadedImages = [{ b64: e.target.result.split(",")[1], type: "image/jpeg", name: name, dataUrl: e.target.result }];
+    // Sniff the REAL media type from the data URL (readAsDataURL stamps the blob's true MIME). Pasted
+    // screenshots are usually PNG; hardcoding image/jpeg here made Anthropic reject them ("specified
+    // image/jpeg but appears image/png"). Every other upload path already sniffs -- this paste path did not.
+    var dataUrl = e.target.result, b64 = dataUrl.split(",")[1];
+    var mtm = dataUrl.match(/^data:(image\/[a-z0-9.+-]+)/i);
+    var mt = mtm ? mtm[1].toLowerCase() : "image/jpeg";
+    uploadedImages = [{ b64: b64, type: mt, name: name, dataUrl: dataUrl }];
     document.getElementById("imgThumb").src = e.target.result;
     document.getElementById("imgName").textContent = name;
     document.getElementById("imgPreviewWrap").style.display = "block";
@@ -13082,6 +13088,36 @@ function transcribeTikTokLink(url){
     loadLibraryProducts().then(function(list){ S.lib = list || []; if(cb) cb(); }, function(){ S.lib=[]; if(cb) cb(); });
   }
   function onSearch(v){ S.q = (v || '').trim(); renderPicker(); }
+  function pickerRow(p){
+    var row = document.createElement('div'); row.className='trow';
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:0.5px solid var(--border);';
+    var name = document.createElement('div'); name.style.cssText='flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'; name.textContent = p.name||'(unnamed)';
+    // ITEM 2b: a build-brief entry beside every product. Opens the product's setup (reviews + Build brief), which
+    // is entirely optional -- add the product now, build its brief whenever you choose.
+    var setup = document.createElement('button'); setup.type='button'; setup.className='btn ghost'; setup.textContent='Set up →'; setup.style.cssText='font-size:11px;padding:2px 8px;flex:none;white-space:nowrap;';
+    setup.title='Open this product to add reviews and build its brief (optional -- do it whenever you like)';
+    setup.addEventListener('click', function(){ goToScripts(p.id); });
+    // How many videos to film for this product this week. A plain stepper -- this is the whole plan input now.
+    var stepper = document.createElement('div'); stepper.style.cssText='display:flex;align-items:center;gap:8px;flex:none;';
+    var minus = document.createElement('button'); minus.type='button'; minus.className='btn ghost'; minus.textContent='−'; minus.style.cssText='font-size:15px;padding:2px 10px;line-height:1;';
+    var num = document.createElement('span'); num.style.cssText='min-width:16px;text-align:center;font-size:14px;font-weight:600;'; num.textContent = String(countFor(p.id));
+    var plus = document.createElement('button'); plus.type='button'; plus.className='btn ghost'; plus.textContent='+'; plus.style.cssText='font-size:15px;padding:2px 10px;line-height:1;';
+    function bump(d){
+      var before = countFor(p.id) > 0;
+      setCount(p.id, countFor(p.id) + d);
+      var after = countFor(p.id) > 0;
+      num.textContent = String(countFor(p.id)); minus.disabled = countFor(p.id) <= 0;
+      if(before !== after) renderPicker();   // crossed in/out of the plan -> re-group so it rises to (or leaves) the top
+      syncGenBtn(); save();
+    }
+    minus.disabled = countFor(p.id) <= 0;
+    minus.addEventListener('click', function(){ bump(-1); });
+    plus.addEventListener('click', function(){ bump(1); });
+    stepper.appendChild(minus); stepper.appendChild(num); stepper.appendChild(plus);
+    row.appendChild(name); row.appendChild(setup); row.appendChild(stepper);
+    return row;
+  }
+  function pickerHeader(t){ var h=document.createElement('div'); h.textContent=t; h.style.cssText='font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:12px 2px 4px;font-weight:600;'; return h; }
   function renderPicker(){
     var box = el('plProductPicker'); if(!box) return;
     box.innerHTML = '';
@@ -13089,32 +13125,37 @@ function transcribeTikTokLink(url){
     var q = (S.q||'').toLowerCase();
     var shown = S.lib.filter(function(p){ return (typeof productNameMatch === "function") ? productNameMatch(p.name, S.q) : (!q || String(p.name||'').toLowerCase().indexOf(q) >= 0); });
     if(!shown.length){ box.innerHTML = '<div class="note" style="margin:6px 0;">No products match that search.</div>'; syncGenBtn(); return; }
-    shown.forEach(function(p){
-      var row = document.createElement('div'); row.className='trow';
-      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:0.5px solid var(--border);';
-      var name = document.createElement('div'); name.style.cssText='flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'; name.textContent = p.name||'(unnamed)';
-      // How many videos to film for this product this week. A plain stepper -- this is the whole plan input now.
-      var stepper = document.createElement('div'); stepper.style.cssText='display:flex;align-items:center;gap:8px;flex:none;';
-      var minus = document.createElement('button'); minus.type='button'; minus.className='btn ghost'; minus.textContent='−'; minus.style.cssText='font-size:15px;padding:2px 10px;line-height:1;';
-      var num = document.createElement('span'); num.style.cssText='min-width:16px;text-align:center;font-size:14px;font-weight:600;'; num.textContent = String(countFor(p.id));
-      var plus = document.createElement('button'); plus.type='button'; plus.className='btn ghost'; plus.textContent='+'; plus.style.cssText='font-size:15px;padding:2px 10px;line-height:1;';
-      function bump(d){ setCount(p.id, countFor(p.id) + d); num.textContent = String(countFor(p.id)); minus.disabled = countFor(p.id) <= 0; syncGenBtn(); save(); }
-      minus.disabled = countFor(p.id) <= 0;
-      minus.addEventListener('click', function(){ bump(-1); });
-      plus.addEventListener('click', function(){ bump(1); });
-      stepper.appendChild(minus); stepper.appendChild(num); stepper.appendChild(plus);
-      row.appendChild(name); row.appendChild(stepper); box.appendChild(row);
-    });
+    // ITEM 6a: products you have already given a number to rise into their own section at the top, so your
+    // choices are visible without scrolling the whole alphabetical library.
+    var chosen = shown.filter(function(p){ return countFor(p.id) > 0; });
+    var rest   = shown.filter(function(p){ return countFor(p.id) <= 0; });
+    if(chosen.length){
+      box.appendChild(pickerHeader('In your plan (' + chosen.length + ')'));
+      chosen.forEach(function(p){ box.appendChild(pickerRow(p)); });
+      if(rest.length) box.appendChild(pickerHeader('Your library'));
+    }
+    rest.forEach(function(p){ box.appendChild(pickerRow(p)); });
     syncGenBtn();
   }
+  function weeklyGoal(){ return Math.max(1, (parseInt(S.perDay, 10) || 4) * 7); }   // ITEM 6b: videos per day x 7
   function syncGenBtn(){
     // The button stays clickable so generate() can explain what's missing; disabled only WHILE building. Also
-    // drives the running weekly TOTAL, which updates live as the per-product counts change.
-    var total = weekTotal(), nprods = productsInPlan().length, btn = el('plGenBtn'), note = el('plSetupNote'), tot = el('plWeekTotal');
+    // drives the running weekly TOTAL against the GOAL (videos per day x 7), so the counter says how many videos
+    // across how many products you've chosen and how many more you need to hit the goal.
+    var total = weekTotal(), nprods = productsInPlan().length, goal = weeklyGoal(), remaining = Math.max(0, goal - total);
+    var btn = el('plGenBtn'), note = el('plSetupNote'), tot = el('plWeekTotal');
     if(btn) btn.disabled = S.generating;
-    if(tot) tot.textContent = total + ' video' + (total===1?'':'s') + ' this week' + (nprods ? (' · ' + nprods + ' product' + (nprods===1?'':'s')) : '');
-    if(note) note.textContent = total ? 'Ready to build your week.' : 'Set at least one product to 1 or more videos above.';
+    if(tot) tot.textContent = total + ' of ' + goal + ' this week' + (nprods ? (' · ' + nprods + ' product' + (nprods===1?'':'s')) : '');
+    if(note){
+      note.textContent = total === 0
+        ? ('Your goal is ' + goal + ' videos this week (' + (parseInt(S.perDay,10)||4) + '/day). Set at least one product to 1 or more videos above.')
+        : remaining > 0
+          ? (remaining + ' more video' + (remaining===1?'':'s') + ' to reach your weekly goal of ' + goal + '.')
+          : ('Weekly goal of ' + goal + ' reached across ' + nprods + ' product' + (nprods===1?'':'s') + '. Ready to build your week.');
+    }
   }
+  // ITEM 6b: the "videos per day" input sets the weekly goal (x7). Update it live and re-sync the counter.
+  function setPerDay(v){ S.perDay = Math.max(1, Math.min(30, parseInt(v, 10) || 4)); syncGenBtn(); save(); }
 
   // ---- winning-video links ----
   function addLink(){
@@ -13208,8 +13249,8 @@ function transcribeTikTokLink(url){
     else renderDays();
   }
   function renderSummary(){
-    var total = weekTotal(), prods = productsInPlan().length;
-    el('plSummary').innerHTML = st(prods, 'product'+(prods===1?'':'s')) + st(total, 'video'+(total===1?'':'s')+' this week');
+    var total = weekTotal(), prods = productsInPlan().length, goal = weeklyGoal();
+    el('plSummary').innerHTML = st(prods, 'product'+(prods===1?'':'s')) + st(total + '/' + goal, 'videos vs goal');
   }
   // Per-product strip: each product in the plan, how many videos, and the ONE button that takes you to its
   // scripts to read, edit, or generate more. You pick which script to use at the camera, not here.
@@ -13379,7 +13420,7 @@ function transcribeTikTokLink(url){
   function openAddSample(){
     var ov = el('overlay'); if(!ov) return;
     ov.innerHTML = '<div class="sheet"><h3>Add a sample</h3>' +
-      '<div class="note" style="margin:0 0 12px;">This creates a new product in your library and adds it to your plan. To get scripts for it you will still need to add its reviews and build a brief.</div>' +
+      '<div class="note" style="margin:0 0 12px;">Just the name and description — this adds the product to your library and your plan so you can keep going. Build its brief whenever you like, from the "Set up →" button beside it.</div>' +
       '<div class="lbl" style="margin-bottom:4px;">Product name</div>' +
       '<input id="plSampleName" class="srch" placeholder="e.g. Ceramic pour-over kettle" style="width:100%;margin-bottom:10px;">' +
       '<div class="lbl" style="margin-bottom:4px;">Product details</div>' +
@@ -13401,7 +13442,10 @@ function transcribeTikTokLink(url){
     if(!name){ showErr('Give the sample a name.'); return; }
     if(!currentUser || !sb){ showErr('Please sign in first.'); return; }
     if(sv){ sv.disabled = true; sv.textContent = 'Adding...'; }
-    sb.from('products').insert({ user_id: currentUser.id, name: name, description: desc || null, bank: { incoming: true } }).select().single().then(function(r){
+    // Write the description to BOTH the top-level column AND raw.description. The product-setup listing field is
+    // filled from raw.description (via normalizeRaw), so writing only the top-level column dropped the description
+    // the moment you opened the product -- it looked lost. raw.description makes it round-trip.
+    sb.from('products').insert({ user_id: currentUser.id, name: name, description: desc || null, raw: (desc ? { description: desc } : null), bank: { incoming: true } }).select().single().then(function(r){
       if(!r || r.error || !r.data){ if(sv){ sv.disabled = false; sv.textContent = 'Add to samples'; } showErr('Could not add that sample, please try again.'); return; }
       var p = r.data;
       S.lib = S.lib.filter(function(x){ return x.id !== p.id; });
@@ -13412,9 +13456,9 @@ function transcribeTikTokLink(url){
       S.q = ''; var srch = el('plProdSearch'); if(srch) srch.value = '';
       renderPicker(); syncGenBtn(); save();
       if(typeof buildSelect === 'function'){ try{ buildSelect(); }catch(e){} }  // keep the main app picker in sync
-      // A brand-new product has no reviews and no brief -- take the member straight to its setup, where the
-      // "paste reviews, then Build brief" prompt tells them the next step (instead of leaving it half-made).
-      goToScripts(p.id);
+      // Do NOT force the member into the setup screen. Adding a product just captures name + description and adds
+      // it to the plan (count 1) so they can keep planning; the brief is built whenever they choose, from the
+      // "Set up →" button beside the product. The picker now shows it at the top under "In your plan".
     }, function(){ if(sv){ sv.disabled = false; sv.textContent = 'Add to samples'; } showErr('Could not add that sample, please try again.'); });
   }
 
@@ -13488,7 +13532,7 @@ function transcribeTikTokLink(url){
     });
   }
 
-  window.Planner = { load: load, openGuide: openGuide, onSearch: onSearch, addLink: addLink, setIter: setIter, generate: generate, setLayout: setLayout, startOver: startOver, openAddSample: openAddSample, saveSample: saveSample };
+  window.Planner = { load: load, openGuide: openGuide, onSearch: onSearch, addLink: addLink, setIter: setIter, generate: generate, setLayout: setLayout, startOver: startOver, openAddSample: openAddSample, saveSample: saveSample, setPerDay: setPerDay };
 })();
 </script>
 
@@ -15240,7 +15284,7 @@ function transcribeTikTokLink(url){
       // Do not silently treat an unparseable reply as "no reviews" -- that would clear the screenshots.
       if (!Array.isArray(arr)){ cb(null, { status: 200, message: "the screenshot text could not be read as JSON. Reply started: " + String(text || "").replace(/\s+/g, " ").slice(0, 160) }); return; }
       cb(arr.map(function(r){ r = r || {}; return { reviewer: String(r.reviewer||""), full: String(r.full||""), praise: String(r.praise||""), complaint: String(r.complaint||""), quote: String(r.quote||""), source: "ocr" }; }).filter(function(r){ return r.full || r.quote; }), null);
-    });
+    }, { stream: true });   // ITEM 3: stream OCR too -- several screenshots can push it past the 26s gateway 504
   }
   function derivePrompt(reviewsChunk){
     var revs = reviewsChunk.map(function(r, i){
@@ -15310,7 +15354,7 @@ function transcribeTikTokLink(url){
       // misleading "no response" -- include the actual reply so the cause is visible.
       if (!obj){ cb(null, { status: 200, message: "the model reply could not be read as JSON (likely cut off). Reply started: " + String(text || "").replace(/\s+/g, " ").slice(0, 200) }); return; }
       cb(obj, null);
-    });
+    }, { stream: true });   // ITEM 3: stream so bytes keep flowing -- a 40-review chunk was hitting the 26s gateway 504
   }
   // Unified cleanup pass. Pains and objections are combined into ONE numbered list so a concept that was
   // emitted into both lands in exactly ONE cluster with ONE category, instead of being duplicated across
@@ -15347,7 +15391,7 @@ function transcribeTikTokLink(url){
     claudeCall({ model: DERIVE_MODEL, max_tokens: 1800, messages: [{ role: "user", content: consolidatePrompt(pains, objections, features) }] }, function(text, err){
       if (err){ cb(null, err); return; }
       cb(parseJson(text, "{", "}"), null);
-    });
+    }, { stream: true });   // ITEM 3: stream to dodge the 26s gateway 504 on a large consolidation
   }
   // Apply the feature clusters from consolidation: one deduped feature per cluster, keeping edited pairs.
   function applyFeatureClusters(features, clusters){
@@ -15409,7 +15453,7 @@ function transcribeTikTokLink(url){
             nums.forEach(function(n){ SB.addHit(finds[n|0], it.id, ch); });
           });
           bi++; next();
-        });
+        }, { stream: true });   // ITEM 3: stream so classify batches never trip the gateway 504 either
       })();
     })();
   }
@@ -19275,11 +19319,16 @@ function transcribeTikTokLink(url){
       const angles=(JSON.parse(raw).angles||[]).slice(0,5);
       angleOpts.innerHTML='';
       angles.forEach(an=>{ const c=document.createElement('button'); c.type='button'; c.className='btn ghost sm'; c.textContent=an; c.style.textAlign='left'; c.addEventListener('click',()=>{angleInput.value=an;angleStatusEl.textContent='Angle set. Edit it or add another if you like.';}); angleOpts.appendChild(c); });
-      angleStatusEl.textContent='Tap one to use it, or edit the field.';
+      angleStatusEl.textContent='Tap one to use it, or type your own in the field above.';
     }catch(e){ angleStatusEl.textContent='Could not get suggestions right now.'; }
     sgBtn.disabled=false;
   }
   sgBtn.addEventListener('click',suggestAngles);
+  // Typing your OWN angle needs the same confirmation a tapped suggestion gets -- otherwise the field looks
+  // like it only accepts a pick from the list below. Confirm on every edit; clear when emptied.
+  angleInput.addEventListener('input',function(){
+    angleStatusEl.textContent = angleInput.value.trim() ? 'Angle set — every slide will build toward this.' : '';
+  });
   const statusEl=document.getElementById('genstatus'), angleEl=document.getElementById('angle');
   const shotsEl=document.getElementById('shots'), shotDrop=document.getElementById('shotdrop');
   let shots=[];
