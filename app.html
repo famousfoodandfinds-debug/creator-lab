@@ -16382,6 +16382,7 @@ function transcribeTikTokLink(url){
     L.push("- NEVER write in a mistake to sound casual: never misstate the product's name and correct it, never apologise for what you just said, never fake a slip of the tongue (\"sorry, I keep saying that\", \"I mean X, not Y\"). Say the name right the first time.");
     L.push("- NO absolute durability or permanence promise: never claim it will never wear, warp, dull, crack, or fade, or that it lasts forever or a lifetime or is indestructible. \"Durable\" in a listing is not a promise it cannot wear. If upkeep is what keeps it in shape, say the upkeep (\"a quick oil keeps it from warping\") -- that honest, conditional answer is welcome; the absolute is not. Enthusiasm about how solid or well made it feels is fine.");
     L.push("- Scarcity only if it is genuinely real and in the material, framed as honest uncertainty (\"I don't know how long this stays up\") -- never an invented countdown, stock count, or deadline.");
+    L.push("- PLATFORM-NEUTRAL: the CTA (and every line) points to \"the link\" or \"the link below\" and NEVER names a platform, app, or store, or its buy button -- no \"TikTok\", \"TikTok Shop\", \"the shop\", or \"orange cart\". These scripts get repurposed to other platforms.");
     L.push("");
     L.push("THE BRIEF -- your intelligence about the buyer. Every line tells you what to SHOW, never a phrase to paste back:");
     L.push(block("PRODUCT", ctx.name) + block("WHO BUYS IT", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning) + block("WHAT OTHERS SAY (draw on it, never cite it)", ctx.socialProof) + block("THE CREATOR'S REAL STANDING", ctx.owns ? ctx.authority : ""));
@@ -16399,7 +16400,7 @@ function transcribeTikTokLink(url){
     if (ctx.description){ L.push("THE LISTING (the ONLY source for any number or spec you use): " + ctx.description); }
     L.push("");
     if (ctx.mustInclude){ L.push("ONE POINT MUST BE MADE IN EVERY SCRIPT, in that script's own words (convey the point, never paste the sentence; a typo in it does not matter): \"" + ctx.mustInclude + "\"."); L.push(""); }
-    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the opening that puts THIS buyer in the moment and makes them feel seen in one second (a frustration for a PAIN-LED script, or the wanting / the object / the identity for a DESIRE-LED one -- never a flat "liking the product"); body1 = the setup: for pain-led, TWIST THE KNIFE (stack the old way before the product); for desire-led, deepen the wanting and the justification; body2 = the payoff -- the product as the answer (pain-led) or the thing she now gets to have and where it lives in her life (desire-led), with the transformation it brings; preclose = "" unless one objection truly fits, then ONE sentence that answers it without naming the doubt; cta = point them to the link in this script\'s own voice. About 60 to 110 spoken words each. No em dashes.');
+    L.push('Return ONLY a JSON array of ' + GEN_COUNT + ' objects, nothing else. Each: {"hook":"","body1":"","preclose":"","body2":"","cta":""}. hook = the opening that puts THIS buyer in the moment and makes them feel seen in one second (a frustration for a PAIN-LED script, or the wanting / the object / the identity for a DESIRE-LED one -- never a flat "liking the product"); body1 = the setup: for pain-led, TWIST THE KNIFE (stack the old way before the product); for desire-led, deepen the wanting and the justification; body2 = the payoff -- the product as the answer (pain-led) or the thing she now gets to have and where it lives in her life (desire-led), with the transformation it brings; preclose = "" unless one objection truly fits, then ONE sentence that answers it without naming the doubt; cta = point them to the link in this script\'s own voice, PLATFORM-NEUTRAL (never name TikTok, a shop, or a store). About 60 to 110 spoken words each. No em dashes.');
     return L.join("\n");
   }
   // Lean single-script rewrite -- reuses the lean batch prompt (framework + floor + brief) and asks for ONE script
@@ -16448,7 +16449,7 @@ function transcribeTikTokLink(url){
     var audienceNote = (typeof audienceTargetingNote === "function") ? audienceTargetingNote() : "";
     var altPains = (ctx.pains || []).filter(function(p){ return String(p.about || "") === "alternative"; });
     L.push("First, name " + GEN_COUNT + " DIFFERENT buyers for this product from the brief -- different people with different reasons to want it, not " + GEN_COUNT + " angles on one person. Then write ONE script to each buyer, as if you are talking to that specific person.");
-    L.push("Write each as a TikTok Shop script that sounds like a person telling a friend about something they love, not an ad. Structure each as hook, setup, payoff, call to action.");
+    L.push("Write each as a short shoppable video script that sounds like a person telling a friend about something they love, not an ad. Structure each as hook, setup, payoff, call to action.");
     L.push("Here are hooks that have actually worked. Do NOT copy them, and do NOT copy their subjects. Write something in this RANGE for your buyer:");
     L.push([
       '"WOW, this is massive."',
@@ -16469,6 +16470,7 @@ function transcribeTikTokLink(url){
     if (voiceNote || audienceNote) L.push("");
     L.push("Hard limits: invent nothing that is not in the brief or listing below (no made-up number, figure, or feature); no health, safety, or contamination claim; no absolute durability or permanence promise (never say it will never warp, wear, dull, crack, or fade, or that it lasts forever or a lifetime -- if upkeep keeps it in shape, say the upkeep, like a quick oil, instead); no price or money; never write in a mistake to sound casual (never misstate the product's name and then correct it, never apologise for what you just said, never fake a slip of the tongue like \"sorry, I keep saying that\" -- say the name right the first time); " + (ctx.usedOverTime ? "you have used this over time, so first person is fine, including how it held up." : "you have it in hand (a sample): first person about what you can see and do NOW is fine, but never claim you have used it over time (no \"I've had this for months\").") + " No em dashes.");
     L.push("NEVER cite or quote the reviews, and never attribute anything to an outside party -- no \"reviewers say\", no \"one person said\", no \"a buyer wrote\", no \"someone commented\". You speak from YOUR OWN experience and observation; social proof is fine only as something you noticed yourself (\"my friends keep asking about it\"), never as what a reviewer wrote.");
+    L.push("The CALL TO ACTION and every line must be PLATFORM-NEUTRAL: point to \"the link\" or \"the link below\" and NEVER name a platform, app, or store, or describe its buy button -- no \"TikTok\", no \"TikTok Shop\", no \"the shop\", no \"orange cart\". These scripts get repurposed to other platforms, so anything platform-specific breaks them.");
     L.push("");
     L.push("THE BRIEF:");
     L.push(block("PRODUCT", ctx.name) + block("WHO BUYS IT", ctx.who) + block("WHAT THEY FEEL", ctx.emotion) + block("WHAT THEY WANT", ctx.desire) + block("THE CORE PROBLEM", ctx.problem) + block("WHAT MAKES IT DIFFERENT", ctx.positioning) + block("WHAT OTHERS SAY", ctx.socialProof) + block("THE CREATOR'S STANDING", ctx.owns ? ctx.authority : ""));
@@ -19898,14 +19900,14 @@ Return ONLY valid JSON, no markdown, exactly:
     }
     for(const f of files){ downloadFile(f); await new Promise(r=>setTimeout(r,250)); }
   }
-  // EXPORT GATE (the slice that matters): carousel copy is editable after generation, so the real protection is
-  // here -- the images are what actually leave the app. Re-scan the exact slide(s) being exported against the
-  // host's liability guard and HARD-BLOCK on a hit. Fails open (no host / slow / error) by design.
+  // EXPORT WARNING (not a block): carousel copy is editable after generation, so this is where a member's OWN
+  // edits surface. If they wrote something themselves, that is their call and their account -- the tool names
+  // what tripped and lets them proceed; it never stops them exporting what they wrote. (Generate-time still
+  // regenerates a model draft; this warning covers the editable copy that actually leaves the app.) Fails open.
   async function guardExport(slides){
     const g=await checkCarouselCopy(slidesToText(slides));
     if(g.codes && g.codes.length){
-      window.alert('Hold on — this could get your post flagged:\n\n• '+((g.reasons&&g.reasons.length?g.reasons:g.codes).join('\n• '))+'\n\nDouble-click the line(s) on the slide to fix them, then export again.');
-      return false;
+      return window.confirm('Heads up — this could get your post flagged:\n\n• '+((g.reasons&&g.reasons.length?g.reasons:g.codes).join('\n• '))+'\n\nThis is your call. Export anyway?');
     }
     return true;
   }
