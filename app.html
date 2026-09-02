@@ -13053,7 +13053,8 @@ function transcribeTikTokLink(url){
     lib: [], counts: {}, q: '',
     links: [], iter: 'fresh', perProd: 2, perDay: 4,
     takes: {}, order: [], board: { days: [] }, layout: 'weekly', activeDay: 0,
-    posted: {}, filmed: {}, generating: false, restoring: false
+    posted: {}, filmed: {}, generating: false, restoring: false,
+    carriedOver: false   // true when the current counts are carried from last time (New plan / a reopen), until edited
   };
   var IID = 1;
   var COUNT_MAX = 21;   // per-product weekly cap (3/day * 7) -- a sane ceiling, not a product limit
@@ -13088,10 +13089,18 @@ function transcribeTikTokLink(url){
     loadLibraryProducts().then(function(list){ S.lib = list || []; if(cb) cb(); }, function(){ S.lib=[]; if(cb) cb(); });
   }
   function onSearch(v){ S.q = (v || '').trim(); renderPicker(); }
-  function pickerRow(p){
+  // ITEM 3a: a name is shown truncated (CSS ellipsis for normal names + a hard character cap so one pathological
+  // entry -- e.g. a whole description pasted into the name -- can never blow out the row). Full name on hover.
+  function shortName(nm){ nm = String(nm || '(unnamed)'); return nm.length > 72 ? (nm.slice(0, 72).trim() + '…') : nm; }
+  function pickerRow(p, inPlan){
     var row = document.createElement('div'); row.className='trow';
-    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:0.5px solid var(--border);';
-    var name = document.createElement('div'); name.style.cssText='flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;'; name.textContent = p.name||'(unnamed)';
+    // ITEM 2: plan rows and library rows must look obviously different. Plan rows get a tinted background, the
+    // count in the accent colour, and no hard divider (the section container carries the frame instead).
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:7px 6px;' + (inPlan
+      ? 'background:rgba(206,154,128,0.12);border-radius:7px;margin-bottom:3px;'
+      : 'border-bottom:0.5px solid var(--border);');
+    var name = document.createElement('div'); name.style.cssText='flex:1;min-width:0;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;' + (inPlan ? 'font-weight:600;' : '');
+    name.textContent = shortName(p.name); name.title = String(p.name || '');
     // ITEM 2b: a build-brief entry beside every product. Opens the product's setup (reviews + Build brief), which
     // is entirely optional -- add the product now, build its brief whenever you choose.
     var setup = document.createElement('button'); setup.type='button'; setup.className='btn ghost'; setup.textContent='Set up →'; setup.style.cssText='font-size:11px;padding:2px 8px;flex:none;white-space:nowrap;';
@@ -13100,14 +13109,15 @@ function transcribeTikTokLink(url){
     // How many videos to film for this product this week. A plain stepper -- this is the whole plan input now.
     var stepper = document.createElement('div'); stepper.style.cssText='display:flex;align-items:center;gap:8px;flex:none;';
     var minus = document.createElement('button'); minus.type='button'; minus.className='btn ghost'; minus.textContent='−'; minus.style.cssText='font-size:15px;padding:2px 10px;line-height:1;';
-    var num = document.createElement('span'); num.style.cssText='min-width:16px;text-align:center;font-size:14px;font-weight:600;'; num.textContent = String(countFor(p.id));
+    var num = document.createElement('span'); num.style.cssText='min-width:16px;text-align:center;font-size:14px;font-weight:600;' + (inPlan ? 'color:var(--gold,var(--rose));' : ''); num.textContent = String(countFor(p.id));
     var plus = document.createElement('button'); plus.type='button'; plus.className='btn ghost'; plus.textContent='+'; plus.style.cssText='font-size:15px;padding:2px 10px;line-height:1;';
     function bump(d){
       var before = countFor(p.id) > 0;
       setCount(p.id, countFor(p.id) + d);
       var after = countFor(p.id) > 0;
+      var wasCarried = S.carriedOver; S.carriedOver = false;   // ITEM 1: any edit makes it YOUR plan, not last week's
       num.textContent = String(countFor(p.id)); minus.disabled = countFor(p.id) <= 0;
-      if(before !== after) renderPicker();   // crossed in/out of the plan -> re-group so it rises to (or leaves) the top
+      if(before !== after || wasCarried) renderPicker();   // re-group (in/out of plan) or refresh the header label
       syncGenBtn(); save();
     }
     minus.disabled = countFor(p.id) <= 0;
@@ -13117,7 +13127,7 @@ function transcribeTikTokLink(url){
     row.appendChild(name); row.appendChild(setup); row.appendChild(stepper);
     return row;
   }
-  function pickerHeader(t){ var h=document.createElement('div'); h.textContent=t; h.style.cssText='font-size:11px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:12px 2px 4px;font-weight:600;'; return h; }
+  function pickerHeader(t, accent){ var h=document.createElement('div'); h.textContent=t; h.style.cssText='font-size:11px;letter-spacing:.04em;text-transform:uppercase;margin:0 2px 6px;font-weight:700;color:' + (accent ? 'var(--gold,var(--rose))' : 'var(--muted)') + ';'; return h; }
   function renderPicker(){
     var box = el('plProductPicker'); if(!box) return;
     box.innerHTML = '';
@@ -13130,11 +13140,18 @@ function transcribeTikTokLink(url){
     var chosen = shown.filter(function(p){ return countFor(p.id) > 0; });
     var rest   = shown.filter(function(p){ return countFor(p.id) <= 0; });
     if(chosen.length){
-      box.appendChild(pickerHeader('In your plan (' + chosen.length + ')'));
-      chosen.forEach(function(p){ box.appendChild(pickerRow(p)); });
+      // ITEM 2: the plan is its own framed, tinted block so it never reads as more library rows.
+      var planWrap = document.createElement('div');
+      planWrap.style.cssText = 'border:1px solid var(--gold,var(--rose));border-radius:10px;padding:8px 8px 4px;margin-bottom:8px;background:rgba(206,154,128,0.06);';
+      // ITEM 1: say WHERE the pre-set numbers came from. Carried-over counts (New plan, or a reopen) are labelled
+      // "Last week's plan" with a hint; once you edit any count it becomes "In your plan".
+      planWrap.appendChild(pickerHeader((S.carriedOver ? "Last week's plan" : 'In your plan') + ' (' + chosen.length + ')', true));
+      if(S.carriedOver){ var hint=document.createElement('div'); hint.textContent='Carried over from last time — adjust or keep, then build your week.'; hint.style.cssText='font-size:11px;color:var(--muted);margin:-2px 2px 6px;'; planWrap.appendChild(hint); }
+      chosen.forEach(function(p){ planWrap.appendChild(pickerRow(p, true)); });
+      box.appendChild(planWrap);
       if(rest.length) box.appendChild(pickerHeader('Your library'));
     }
-    rest.forEach(function(p){ box.appendChild(pickerRow(p)); });
+    rest.forEach(function(p){ box.appendChild(pickerRow(p, false)); });
     syncGenBtn();
   }
   function weeklyGoal(){ return Math.max(1, (parseInt(S.perDay, 10) || 4) * 7); }   // ITEM 6b: videos per day x 7
@@ -13264,8 +13281,8 @@ function transcribeTikTokLink(url){
       var p = prod(pid), n = countFor(pid);
       var row = document.createElement('div'); row.className='trow';
       row.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border);flex-wrap:wrap;';
-      var left = document.createElement('div');
-      left.innerHTML = '<span style="font-size:13px;">' + esc(p ? p.name : '(product)') + '</span> <span class="muted small" data-count-for="' + esc(pid) + '">· ' + n + ' video' + (n===1?'':'s') + ' this week</span>';
+      var left = document.createElement('div'); left.style.cssText = 'flex:1;min-width:0;';
+      left.innerHTML = '<span style="font-size:13px;" title="' + esc(p ? p.name : '') + '">' + esc(shortName(p ? p.name : '(product)')) + '</span> <span class="muted small" data-count-for="' + esc(pid) + '">· ' + n + ' video' + (n===1?'':'s') + ' this week</span>';
       var b = document.createElement('button'); b.type='button'; b.className='btn ghost sm'; b.textContent='Scripts →';
       b.title='Open this product to read, edit, or generate scripts';
       b.addEventListener('click', function(){ goToScripts(pid); });
@@ -13400,6 +13417,9 @@ function transcribeTikTokLink(url){
   }
   function respread(){ dealDays(); renderDays(); save(); }
   function startOver(){
+    // New plan keeps last week's counts on purpose (you often push the same product again). Flag them as
+    // carried over so the picker header says "Last week's plan" until you edit something. ITEM 1.
+    S.carriedOver = weekTotal() > 0;
     el('plResults').classList.add('hidden'); el('plSetup').classList.remove('hidden');
     renderPicker(); renderLinks(); syncGenBtn(); window.scrollTo(0,0);
   }
@@ -13440,6 +13460,10 @@ function transcribeTikTokLink(url){
     function showErr(m){ if(er){ er.textContent = m; er.classList.remove('hidden'); } }
     if(er) er.classList.add('hidden');
     if(!name){ showErr('Give the sample a name.'); return; }
+    // ITEM 3b: a name is a short label, not a paragraph. Without this guard a description pasted into the NAME box
+    // saved verbatim and became a paragraph-long "name" that broke the picker layout. Keep names short; the
+    // details go in the description box below.
+    if(name.length > 140){ showErr('That looks like a description, not a name — give the product a short name (a few words) and paste the details in the description box below.'); return; }
     if(!currentUser || !sb){ showErr('Please sign in first.'); return; }
     if(sv){ sv.disabled = true; sv.textContent = 'Adding...'; }
     // Write the description to BOTH the top-level column AND raw.description. The product-setup listing field is
@@ -13452,6 +13476,7 @@ function transcribeTikTokLink(url){
       S.lib.push(p);
       S.lib.sort(function(a,b){ return String(a.name||'').toLowerCase().localeCompare(String(b.name||'').toLowerCase()); });
       setCount(p.id, 1);
+      S.carriedOver = false;   // ITEM 1: adding a product means you're building THIS week's plan, not last week's
       var ov = el('overlay'); if(ov) ov.classList.add('hidden');
       S.q = ''; var srch = el('plProdSearch'); if(srch) srch.value = '';
       renderPicker(); syncGenBtn(); save();
@@ -13499,6 +13524,9 @@ function transcribeTikTokLink(url){
       S.takes = obj(d.takes); S.order = arr(d.order);
       S.board = (d.board && arr(d.board.days).length) ? { days: arr(d.board.days) } : { days: [] };
       S.posted = obj(d.posted); S.filmed = obj(d.filmed); IID = d.iid || IID;
+      // ITEM 1: restored counts are carried over from before, so the picker labels them "Last week's plan" until
+      // the member edits one. Cleared as soon as they change a count (in bump) or add a product.
+      S.carriedOver = Object.keys(S.counts).some(function(id){ return countFor(id) > 0; });
       var perD = el('plPerDay'); if(perD) perD.value = S.perDay;
       if(S.order.length){
         el('plSetup').classList.add('hidden'); el('plResults').classList.remove('hidden');
