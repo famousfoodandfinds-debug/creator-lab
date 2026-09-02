@@ -609,7 +609,7 @@
       {photo:null,iw:0,ih:0,elements:[
         {id:id(),type:'caps',text:'Grab the bundle',x:.07,y:.60,size:.090,color:'#ffffff',align:'left',scrim:true},
         {id:id(),type:'script',text:'before it sells out',x:.07,y:.74,size:.080,color:'#ED5A98',align:'left',scrim:true},
-        {id:id(),type:'body',text:'Tap the orange cart',x:.07,y:.85,size:.038,color:'#CE9A80',align:'left',scrim:true},
+        {id:id(),type:'body',text:'Tap the cart to grab yours',x:.07,y:.85,size:.038,color:'#CE9A80',align:'left',scrim:true},
       ]},
     ];
   }
@@ -1545,7 +1545,7 @@ Each slide has a layout from this vocabulary:
 - "statement": headline (bold caps claim), script (cursive accent), sub (optional).
 - "benefits": heading (short uppercase), benefits (3 to 5 rows, each with icon, label, desc).
 - "feature": headline (bold caps), script (cursive accent), features (3 or 4 items, each with icon, label).
-- "cta": line (bold caps drive line), script (cursive accent), cart (must include an action word like tap, grab or snag and point to the orange cart).
+- "cta": line (bold caps drive line), script (cursive accent), cart (an action CTA: an action word like tap, grab or snag that names the want from the hook and sends her to the cart or the link. NEVER write the phrase "orange cart" -- it is banned; say "the cart" or "the link" instead. Never state a price or a dollar amount.).
 
 The first slide is a hook or statement. The last slide is a cta. Put benefits, feature and statement slides in the middle. Vary the layouts so it is not repetitive.
 
@@ -1575,7 +1575,9 @@ Return ONLY valid JSON, no markdown, exactly:
 {"desire":"...","slides":[{"layout":"hook","kicker":"...","headline":"...","script":"...","sub":"..."}]}`;
   }
 
-  function clean(s){return (s||'').replace(/[\u2014\u2013]/g,'-').trim();}
+  // clean() runs on every carousel line, so it doubles as the CTA scrub: "orange cart" is banned app-wide and
+  // this path has no scriptViolations guard, so strip it in code. em/en dashes are also banned.
+  function clean(s){return (s||'').replace(/[\u2014\u2013]/g,'-').replace(/\borange\s+cart\b/gi,'cart').trim();}
 
   function buildSlideElements(sl){
     const els=[]; const add=o=>els.push({id:id(),scrim:false,align:'left',outlineW:0.06,outlineColor:'#111111',...o});
@@ -1598,7 +1600,7 @@ Return ONLY valid JSON, no markdown, exactly:
     } else if(sl.layout==='cta'){
       if(sl.line)add({type:'caps',text:clean(sl.line),x:.07,y:.58,size:.090,color:'#ffffff'});
       if(sl.script)add({type:'script',text:clean(sl.script),x:.07,y:.72,size:.080,color:'#ED5A98'});
-      add({type:'body',text:clean(sl.cart||'Tap the orange cart'),x:.07,y:.85,size:.038,color:'#CE9A80'});
+      add({type:'body',text:clean(sl.cart||'Tap the cart to grab yours'),x:.07,y:.85,size:.038,color:'#CE9A80'});
     } else {
       if(sl.headline)add({type:'caps',text:clean(sl.headline),x:.07,y:.12,size:.09,color:'#ffffff'});
     }

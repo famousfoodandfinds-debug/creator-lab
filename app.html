@@ -17827,7 +17827,7 @@ function transcribeTikTokLink(url){
       {photo:null,iw:0,ih:0,elements:[
         {id:id(),type:'caps',text:'Grab the bundle',x:.07,y:.60,size:.090,color:'#ffffff',align:'left',scrim:true},
         {id:id(),type:'script',text:'before it sells out',x:.07,y:.74,size:.080,color:'#ED5A98',align:'left',scrim:true},
-        {id:id(),type:'body',text:'Tap the orange cart',x:.07,y:.85,size:.038,color:'#CE9A80',align:'left',scrim:true},
+        {id:id(),type:'body',text:'Tap the cart to grab yours',x:.07,y:.85,size:.038,color:'#CE9A80',align:'left',scrim:true},
       ]},
     ];
   }
@@ -18247,7 +18247,7 @@ function transcribeTikTokLink(url){
         }
       }
     });
-    meta.innerHTML='<b>Slide '+(state.active+1)+' of '+state.slides.length+'</b> · rules on: no prices, no competing brands, action CTA, no em dashes';
+    meta.innerHTML='<b>Slide '+(state.active+1)+' of '+state.slides.length+'</b> · rules on: no prices, no competing brands, action CTA (no orange cart), no em dashes';
     // Move-photo controls: reorder the IMAGE across positions; the copy for each slide stays put (the story holds).
     if(state.slides.length>1 && cur().photo){
       var mv=document.createElement('span'); mv.style.cssText='margin-left:10px;white-space:nowrap;';
@@ -19389,7 +19389,7 @@ Build a progressive selling sequence, each slide moving the viewer one step clos
 1. Open with a scroll-stopping hook on the first slide.
 2. Build desire and prove value in the middle: the core benefit, what it does, why it is worth it, a standout feature, a reason to trust it.
 3. Handle the obvious hesitation if there is room (ease of use, who it is for, what makes it different).
-4. Close the last slide with a clear CTA to the cart.
+4. Close the last slide with a clear action CTA that sends her to grab it (see the cta layout rule for the wording ban).
 Spread one idea per slide so the carousel reads like a story that ends in a sale. One core desire across the whole carousel.
 
 Each slide has a layout from this vocabulary:
@@ -19397,7 +19397,7 @@ Each slide has a layout from this vocabulary:
 - "statement": headline (bold caps claim), script (cursive accent), sub (optional).
 - "benefits": heading (short uppercase), benefits (3 to 5 rows, each with icon, label, desc).
 - "feature": headline (bold caps), script (cursive accent), features (3 or 4 items, each with icon, label).
-- "cta": line (bold caps drive line), script (cursive accent), cart (must include an action word like tap, grab or snag and point to the orange cart).
+- "cta": line (bold caps drive line), script (cursive accent), cart (an action CTA: an action word like tap, grab or snag that names the want from the hook and sends her to the cart or the link. NEVER write the phrase "orange cart" -- it is banned; say "the cart" or "the link" instead. Never state a price or a dollar amount.).
 
 The first slide is a hook or statement. The last slide is a cta. Put benefits, feature and statement slides in the middle. Vary the layouts so it is not repetitive.
 
@@ -19427,7 +19427,10 @@ Return ONLY valid JSON, no markdown, exactly:
 {"desire":"...","slides":[{"layout":"hook","kicker":"...","headline":"...","script":"...","sub":"..."}]}`;
   }
 
-  function clean(s){return (s||'').replace(/[\u2014\u2013]/g,'-').trim();}
+  // clean() runs on EVERY carousel line, so it is also the last-line CTA scrub. The carousel path has no
+  // scriptViolations guard (that runs only on the main script generator), so "orange cart" -- banned everywhere
+  // in the app -- is stripped here in code, not merely discouraged in the prompt. em/en dashes are also banned.
+  function clean(s){return (s||'').replace(/[\u2014\u2013]/g,'-').replace(/\borange\s+cart\b/gi,'cart').trim();}
 
   function buildSlideElements(sl){
     const els=[]; const add=o=>els.push({id:id(),scrim:false,align:'left',outlineW:0.06,outlineColor:'#111111',...o});
@@ -19454,7 +19457,7 @@ Return ONLY valid JSON, no markdown, exactly:
       // ITEM 6: the cart line is bright white (max contrast) and gets the clean outline from the art pass.
       if(sl.line)add({type:'caps',text:clean(sl.line),x:.07,y:.28,size:.098,color:'#ffffff'});
       if(sl.script)add({type:'script',text:clean(sl.script),x:.07,y:.47,size:.082,color:'#ED5A98'});
-      add({type:'body',text:clean(sl.cart||'Tap the orange cart'),x:.07,y:.61,size:.044,color:'#ffffff'});
+      add({type:'body',text:clean(sl.cart||'Tap the cart to grab yours'),x:.07,y:.61,size:.044,color:'#ffffff'});
     } else {
       if(sl.headline)add({type:'caps',text:clean(sl.headline),x:.07,y:.13,size:.10,color:'#ffffff'});
     }
