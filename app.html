@@ -12264,6 +12264,31 @@ window.addEventListener("message", function(ev){
     // The studio can pick a product from its OWN library (not the Scripts-tab product), so it asks the host for
     // that product's saved carousels by id. Scoped to the user inside pushCarouselsFor.
     if (d.type === "saxe-request-carousels") { pushCarouselsFor(d.product_id); return; }
+    // LIABILITY GUARD FOR CAROUSELS. The studio is an isolated iframe with no access to window.SaxeBrief, so it
+    // posts its copy here and the host runs the SAME scriptViolations guard the scripts path uses -- one source
+    // of truth, no duplicated guard. Only the LIABILITY tier blocks a carousel (health, price, moderation,
+    // durability, name-stumble); everything else is left off carousels for now. All five are pure text checks,
+    // so the copy is joined into one field and no opts are needed.
+    if (d.type === "saxe-carousel-guard") {
+      var gCodes = [], gReasons = [];
+      try {
+        if (window.SaxeBrief && typeof window.SaxeBrief.scriptViolations === "function") {
+          var LIAB = { "health-claim":1, "durability-overclaim":1, "name-stumble":1, "moderation":1, "price":1, "generation-failed":1 };
+          var LAB = {
+            "price": "mentions price, cost, a discount, or a dollar amount",
+            "moderation": "uses a flagged word (kill / dead / deadly and the like)",
+            "health-claim": "makes a health, medical, or contamination claim",
+            "durability-overclaim": "an absolute lasts-forever / never-wears / indestructible promise",
+            "name-stumble": "misstates the product name or writes in a spoken mistake",
+            "generation-failed": "the writer could not produce it"
+          };
+          var all = window.SaxeBrief.scriptViolations({ body1: String(d.text || "") }, {}) || [];
+          all.forEach(function(c){ if (LIAB[c] && gCodes.indexOf(c) < 0) { gCodes.push(c); gReasons.push(LAB[c] || c); } });
+        }
+      } catch (e) {}
+      try { cf.contentWindow.postMessage({ type: "saxe-carousel-guard-result", nonce: d.nonce, codes: gCodes, reasons: gReasons }, "*"); } catch (e) {}
+      return;
+    }
     if (d.type !== "saxe-carousel-save") return;
     saveCarouselFromStudio(d.value || {}, function(saved){
       try { cf.contentWindow.postMessage({ type: "saxe-carousel-saved", ok: !!saved, id: saved ? saved.id : null }, "*"); } catch (e) {}
@@ -19368,6 +19393,7 @@ function transcribeTikTokLink(url){
       if(d.type==='saxe-products'){ populateLibrary(d.value); return; }
       if(d.type==='saxe-carousels'){ renderSaved(d.value); return; }
       if(d.type==='saxe-carousel-saved'){ if(d.ok){ if(d.id) currentCarouselId=d.id; setSaveStatus('Saved'); } else { setSaveStatus('Could not save — try again'); } return; }
+      if(d.type==='saxe-carousel-guard-result'){ var w=guardWaiters[d.nonce]; if(w){ delete guardWaiters[d.nonce]; w({codes:Array.isArray(d.codes)?d.codes:[], reasons:Array.isArray(d.reasons)?d.reasons:[]}); } return; }
       if(d.type!=='saxe-product')return;
       if(typeof d.id !== 'undefined') hostProductId = d.id || null;
       if(briefEl && !briefEl.value.trim() && d.value){ briefEl.value=String(d.value); }
@@ -19375,6 +19401,50 @@ function transcribeTikTokLink(url){
   });
 
   function photoCount(){return state.slides.filter(s=>s.photo).length;}
+
+  // ---------- liability guard (Option A: run the host's scriptViolations on carousel copy) ----------
+  // The carousel path had NO guards; the guard lives on window.SaxeBrief in the HOST, which this isolated iframe
+  // cannot see. So the studio posts its copy to the host, the host runs the SAME guard (liability tier only) and
+  // posts back the blocking reasons. Two moments are covered: generate-time (regenerate once, then warn) and
+  // export-time (a hard block -- that is the copy that actually leaves the app, and it is editable after a gen).
+  // Fails OPEN everywhere (no host, timeout, or error -> allow): a soft miss is the intended bias, never a hang.
+  var guardWaiters = {}, guardSeq = 0;
+  function checkCarouselCopy(text){
+    return new Promise(function(resolve){
+      // Standalone studio (no host frame) or empty copy: nothing to check -> pass.
+      if(!window.parent || window.parent===window || !String(text||'').trim()){ resolve({codes:[],reasons:[]}); return; }
+      var n = ++guardSeq; guardWaiters[n] = resolve;
+      var done=false; function finish(r){ if(done)return; done=true; delete guardWaiters[n]; resolve(r); }
+      guardWaiters[n] = function(r){ finish(r); };
+      try{ parent.postMessage({ type:'saxe-carousel-guard', nonce:n, text:String(text) }, '*'); }
+      catch(e){ finish({codes:[],reasons:[]}); return; }
+      setTimeout(function(){ finish({codes:[],reasons:[]}); }, 4000);   // host slow/absent -> fail open
+    });
+  }
+  // Pull every visible line out of built slides (the copy that would export). Covers text elements plus the
+  // label/desc inside benefit and feature lists.
+  function slidesToText(slides){
+    var parts=[];
+    (slides||state.slides).forEach(function(s){
+      (s && s.elements || []).forEach(function(el){
+        if(el && typeof el.text==='string' && el.text.trim()) parts.push(el.text);
+        if(el && Array.isArray(el.items)) el.items.forEach(function(it){ if(it){ if(it.label)parts.push(it.label); if(it.desc)parts.push(it.desc); } });
+      });
+    });
+    return parts.join('\n');
+  }
+  // Pull the copy straight out of the model's JSON (before it becomes slide elements), so a generate-time check
+  // can run without first rendering the draft to screen.
+  function parsedToText(parsed){
+    var parts=[];
+    ((parsed && parsed.slides) || []).forEach(function(sl){
+      if(!sl) return;
+      ['kicker','headline','script','sub','line','cart','heading'].forEach(function(k){ if(sl[k]) parts.push(String(sl[k])); });
+      (sl.benefits||[]).forEach(function(b){ if(b){ if(b.label)parts.push(b.label); if(b.desc)parts.push(b.desc); } });
+      (sl.features||[]).forEach(function(f){ if(f && f.label) parts.push(String(f.label)); });
+    });
+    return parts.join('\n');
+  }
 
   // Verbatim copy of the main app's FRAMEWORK_RULES. The carousel renders in an isolated iframe and
   // cannot read the parent's variable, so the persuasion-lever menu is duplicated here (and kept in
@@ -19740,26 +19810,52 @@ Return ONLY valid JSON, no markdown, exactly:
       }
       if(angle){ content.push({type:'text',text:'Build the entire carousel around this ONE angle: "'+angle+'". Every slide must ladder up to this single promise. Do not introduce other angles.'}); }
       content.push({type:'text',text:(desc?('Product description:\n\n'+desc+'\n\n'):'The product description is in the attached screenshots.\n\n')+'Write the carousel now. Return only the JSON.'});
-      const payload=JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,system:sys(targetN,matchOn,angle),messages:[{role:'user',content}]});
-      let res, lastErr;
-      for(let attempt=1; attempt<=3; attempt++){
-        try{
-          if(attempt>1) statusEl.textContent='Connection hiccup. Retrying ('+attempt+' of 3)...';
-          res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-user-id':(window.__SAXE_USER_ID__||''),'Authorization':'Bearer '+(window.__SAXE_TOKEN__||'')},body:payload});
-          break;
-        }catch(e){ lastErr=e; await new Promise(r=>setTimeout(r, 900*attempt)); }
+      // One model call + parse, keeping the 3x connection retry. Returns {parsed} or {error}.
+      async function runOnce(pl){
+        let res, lastErr;
+        for(let attempt=1; attempt<=3; attempt++){
+          try{
+            if(attempt>1) statusEl.textContent='Connection hiccup. Retrying ('+attempt+' of 3)...';
+            res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json','x-user-id':(window.__SAXE_USER_ID__||''),'Authorization':'Bearer '+(window.__SAXE_TOKEN__||'')},body:pl});
+            break;
+          }catch(e){ lastErr=e; await new Promise(r=>setTimeout(r, 900*attempt)); }
+        }
+        if(!res){ throw lastErr||new Error('Failed to fetch'); }
+        const data=await res.json();
+        if(data && data.error){ return {error:(data.error.message||data.error.type||'request rejected')}; }
+        const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
+        if(!txt){ return {error:'No response came back. Try again in a moment.'}; }
+        let raw=txt.replace(/```json|```/g,'').trim();
+        const a=raw.indexOf('{'), b=raw.lastIndexOf('}');
+        if(a>=0 && b>a) raw=raw.slice(a,b+1);
+        return {parsed: JSON.parse(raw)};
       }
-      if(!res){ throw lastErr||new Error('Failed to fetch'); }
-      const data=await res.json();
-      if(data && data.error){ statusEl.textContent='Error: '+(data.error.message||data.error.type||'request rejected'); genBtn.disabled=false; showGenLoading(false); updateGenLabel(); return; }
-      const txt=(data.content||[]).filter(b=>b.type==='text').map(b=>b.text).join('\n');
-      if(!txt){ statusEl.textContent='No response came back. Try again in a moment.'; genBtn.disabled=false; showGenLoading(false); updateGenLabel(); return; }
-      let raw=txt.replace(/```json|```/g,'').trim();
-      const a=raw.indexOf('{'), b=raw.lastIndexOf('}');
-      if(a>=0 && b>a) raw=raw.slice(a,b+1);
-      const parsed=JSON.parse(raw);
+      const payload=JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,system:sys(targetN,matchOn,angle),messages:[{role:'user',content}]});
+      const r1=await runOnce(payload);
+      if(r1.error){ statusEl.textContent='Error: '+r1.error; genBtn.disabled=false; showGenLoading(false); updateGenLabel(); return; }
+      let parsed=r1.parsed, flaggedReasons=[];
+      // LIABILITY GUARD (generate-time): the host runs scriptViolations on the copy. On a blocking hit, regenerate
+      // ONCE with an explicit avoidance note. A second failure still renders (the copy is editable) but is flagged,
+      // and the export gate is the hard stop. Fails open, so a slow/absent guard never blocks a legit generation.
+      const g1=await checkCarouselCopy(parsedToText(parsed));
+      if(g1.codes && g1.codes.length){
+        statusEl.textContent='Tightening the copy to stay within the rules…';
+        const content2=content.slice();
+        content2.push({type:'text',text:'IMPORTANT: the previous draft broke platform rules ('+g1.reasons.join('; ')+'). Rewrite the WHOLE carousel so NONE of these appear anywhere: no price, cost, discount, or dollar amount; no health, medical, or contamination claims; no violent words (kill, dead, deadly); no absolute lasts-forever / never-wears / indestructible promises; and state the product name correctly. Keep it selling and vivid within those limits. Return only the JSON.'});
+        const payload2=JSON.stringify({model:'claude-sonnet-4-6',max_tokens:4000,system:sys(targetN,matchOn,angle),messages:[{role:'user',content:content2}]});
+        let r2; try{ r2=await runOnce(payload2); }catch(e){ r2=null; }
+        if(r2 && r2.parsed){
+          parsed=r2.parsed;
+          const g2=await checkCarouselCopy(parsedToText(parsed));
+          if(g2.codes && g2.codes.length) flaggedReasons=g2.reasons;
+        } else {
+          flaggedReasons=g1.reasons;   // retry did not return -> keep the first draft, keep its flags
+        }
+      }
       applyCopy(parsed);
-      statusEl.textContent='Done. Move, restyle, and rewrite anything, then export.';
+      statusEl.textContent = flaggedReasons.length
+        ? ('Heads up — this copy may still: '+flaggedReasons.join('; ')+'. Fix the flagged line(s); export stays blocked until it is clean.')
+        : 'Done. Move, restyle, and rewrite anything, then export.';
     }catch(err){statusEl.textContent='Could not reach the writer: '+(err&&err.message?err.message:'unknown')+'. Please try again in a moment.';console.error(err);}
     genBtn.disabled=false; showGenLoading(false); updateGenLabel();
   }
@@ -19802,12 +19898,25 @@ Return ONLY valid JSON, no markdown, exactly:
     }
     for(const f of files){ downloadFile(f); await new Promise(r=>setTimeout(r,250)); }
   }
+  // EXPORT GATE (the slice that matters): carousel copy is editable after generation, so the real protection is
+  // here -- the images are what actually leave the app. Re-scan the exact slide(s) being exported against the
+  // host's liability guard and HARD-BLOCK on a hit. Fails open (no host / slow / error) by design.
+  async function guardExport(slides){
+    const g=await checkCarouselCopy(slidesToText(slides));
+    if(g.codes && g.codes.length){
+      window.alert('Hold on — this could get your post flagged:\n\n• '+((g.reasons&&g.reasons.length?g.reasons:g.codes).join('\n• '))+'\n\nDouble-click the line(s) on the slide to fix them, then export again.');
+      return false;
+    }
+    return true;
+  }
   async function exportSlide(i){
+    if(!(await guardExport([state.slides[i]]))) return;
     const f=await renderSlideFile(i);
     if(f) await shareOrDownload([f]);
   }
   document.getElementById('export').addEventListener('click',()=>exportSlide(state.active));
   document.getElementById('exportAll').addEventListener('click',async()=>{
+    if(!(await guardExport(state.slides))) return;
     const files=[];
     for(let i=0;i<state.slides.length;i++){ const f=await renderSlideFile(i); if(f) files.push(f); }
     await shareOrDownload(files);
