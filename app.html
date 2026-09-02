@@ -862,6 +862,11 @@ body.home-landing #homeLanding { display: block !important; }
     <!-- My products opens this inline picker (single search + rename/delete). Hidden until requested. -->
     <div id="homePicker" style="display:none;margin-top:18px;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;">
       <input id="homePickerSearch" type="text" placeholder="Search your products..." autocomplete="off" style="width:100%;box-sizing:border-box;background:var(--surface);border:1px solid var(--border-md);border-radius:var(--radius-sm);color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:9px 12px;outline:none;margin-bottom:10px;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+        <button type="button" id="homeManageBtn" onclick="if(window.ProductScreen)ProductScreen.toggleHomeManage()" style="background:none;border:1px solid var(--border-md);border-radius:7px;color:var(--white-dim);font-family:'Instrument Sans',sans-serif;font-size:12px;padding:6px 12px;cursor:pointer;flex-shrink:0;">Select to delete</button>
+        <span id="homeDeleteCount" style="display:none;flex:1;font-size:12px;color:var(--muted);"></span>
+        <button type="button" id="homeDeleteBtn" onclick="if(window.ProductScreen)ProductScreen.deleteHomeSelected()" style="display:none;background:var(--red);color:white;border:none;border-radius:7px;padding:6px 14px;font-size:12px;cursor:pointer;flex-shrink:0;">Delete selected</button>
+      </div>
       <div id="homePickerList" style="max-height:320px;overflow-y:auto;"></div>
     </div>
   </div>
@@ -13135,7 +13140,11 @@ function transcribeTikTokLink(url){
       var after = countFor(p.id) > 0;
       var wasCarried = S.carriedOver; S.carriedOver = false;   // ITEM 1: any edit makes it YOUR plan, not last week's
       num.textContent = String(countFor(p.id)); minus.disabled = countFor(p.id) <= 0;
-      if(before !== after || wasCarried) renderPicker();   // re-group (in/out of plan) or refresh the header label
+      // Once you set a count while searching, clear the search so you drop back to the FULL list and see your
+      // whole plan -- the filtered view made it look like everything else had disappeared.
+      var wasSearching = !!(S.q && S.q.length);
+      if(wasSearching){ S.q = ''; var srch = el('plProdSearch'); if(srch) srch.value = ''; }
+      if(before !== after || wasCarried || wasSearching) renderPicker();   // re-group, refresh header, or un-filter
       syncGenBtn(); save();
     }
     minus.disabled = countFor(p.id) <= 0;
@@ -15081,9 +15090,43 @@ function transcribeTikTokLink(url){
   // not the library has products. New product is how you reach the blank setup form -- never sign-in.
   function renderHome(){ showForm(false); }
 
-  // "My products": one inline picker with search + open + rename + delete (folds in Manage). Single path.
+  // "My products": one inline picker with search + open + rename + delete, and a multi-select "Select to delete"
+  // mode so the library can be cleaned up from the home landing without opening a product first.
+  var homeManageMode = false, homeSelected = {};
+  function syncHomeDeleteBar(){
+    var cnt = el("homeDeleteCount"), db = el("homeDeleteBtn"), btn = el("homeManageBtn");
+    var n = Object.keys(homeSelected).filter(function(id){ return homeSelected[id]; }).length;
+    if(btn) btn.textContent = homeManageMode ? "Done" : "Select to delete";
+    if(cnt){ cnt.style.display = homeManageMode ? "" : "none"; cnt.textContent = n + " selected"; }
+    if(db){ db.style.display = homeManageMode ? "" : "none"; db.disabled = n === 0; db.style.opacity = n === 0 ? "0.5" : "1"; }
+  }
+  function toggleHomeManage(){
+    homeManageMode = !homeManageMode; homeSelected = {};
+    syncHomeDeleteBar();
+    renderHomePicker(val("homePickerSearch"));
+  }
+  function deleteHomeSelected(){
+    var ids = Object.keys(homeSelected).filter(function(id){ return homeSelected[id]; });
+    if(!ids.length) return;
+    var n = ids.length, they = n > 1 ? "their" : "its", them = n > 1 ? "them" : "it";
+    if(!window.confirm("Delete " + n + " product" + (n > 1 ? "s" : "") + "?\n\nThis also permanently deletes " + they + " brief" + (n > 1 ? "s" : "") + " and every saved script and carousel for " + them + ". This cannot be undone.")) return;
+    // Children first (error-tolerant; RLS limits each delete to the member's own rows), then the products.
+    Promise.all([
+      sb.from("scripts").delete().in("product_id", ids).then(function(r){ return r; }, function(){ return null; }),
+      sb.from("carousels").delete().in("product_id", ids).then(function(r){ return r; }, function(){ return null; })
+    ]).then(function(){
+      Promise.all(ids.map(function(id){ return sb.from("products").delete().eq("id", id); })).then(function(){
+        if(currentProductId && ids.indexOf(currentProductId) > -1){ currentProductId = null; currentProductName = ""; }
+        homeManageMode = false; homeSelected = {};
+        syncHomeDeleteBar();
+        renderHomePicker(val("homePickerSearch"));
+        if (typeof buildSelect === "function"){ try { buildSelect(); } catch(e){} }
+      });
+    });
+  }
   function openPicker(){
     var hp = el("homePicker"); if (hp) hp.style.display = "";
+    homeManageMode = false; homeSelected = {}; syncHomeDeleteBar();   // always open in normal (not manage) mode
     renderHomePicker("");
     var s = el("homePickerSearch"); if (s){ s.value = ""; try { s.focus(); } catch(e){} }
   }
@@ -15102,6 +15145,25 @@ function transcribeTikTokLink(url){
     }, function(){ box.innerHTML = "<div style='font-size:13px;color:var(--red);padding:8px 2px;'>Could not load products.</div>"; });
   }
   function homePickerRow(p){
+    // MANAGE MODE: a whole-row toggle with a round check, no open/rename/delete -- just selection for a bulk delete.
+    if(homeManageMode){
+      var on = !!homeSelected[p.id];
+      var mrow = document.createElement("div");
+      mrow.style.cssText = "display:flex;align-items:center;gap:10px;padding:9px 8px;border-radius:8px;margin-bottom:4px;cursor:pointer;background:" + (on ? "rgba(220,50,50,0.15)" : "var(--surface)") + ";border:1px solid " + (on ? "rgba(220,50,50,0.4)" : "var(--border)") + ";";
+      var check = document.createElement("div");
+      check.style.cssText = "width:20px;height:20px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:white;font-size:11px;font-weight:700;border:2px solid " + (on ? "var(--red)" : "var(--border-md)") + ";background:" + (on ? "var(--red)" : "transparent") + ";";
+      check.textContent = on ? "✓" : "";
+      var mname = document.createElement("div"); mname.style.cssText = "flex:1;min-width:0;font-size:14px;color:var(--white);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"; mname.textContent = p.name || "Untitled product"; mname.title = p.name || "";
+      mrow.appendChild(check); mrow.appendChild(mname);
+      mrow.addEventListener("click", function(){
+        homeSelected[p.id] = !homeSelected[p.id]; var s = !!homeSelected[p.id];
+        mrow.style.background = s ? "rgba(220,50,50,0.15)" : "var(--surface)";
+        mrow.style.borderColor = s ? "rgba(220,50,50,0.4)" : "var(--border)";
+        check.style.background = s ? "var(--red)" : "transparent"; check.style.borderColor = s ? "var(--red)" : "var(--border-md)"; check.textContent = s ? "✓" : "";
+        syncHomeDeleteBar();
+      });
+      return mrow;
+    }
     var row = document.createElement("div"); row.style.cssText = "display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:0.5px solid var(--border);";
     var name = document.createElement("button"); name.type = "button";
     name.style.cssText = "flex:1;min-width:0;text-align:left;background:none;border:none;color:var(--white);font-family:'Instrument Sans',sans-serif;font-size:14px;padding:2px 0;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;";
@@ -17238,7 +17300,7 @@ function transcribeTikTokLink(url){
     if (el("homePickerSearch")) el("homePickerSearch").addEventListener("input", function(){ renderHomePicker(this.value); });
   }
   // Export FIRST, so a throw inside init() can never leave window.ProductScreen undefined.
-  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome, openPicker: openPicker, openSetup: openSetup, generateScripts: generateScripts, rebuildFromScratch: rebuildFromScratch,
+  window.ProductScreen = { init: init, renderBlank: renderBlank, fill: fill, renderHome: renderHome, openPicker: openPicker, openSetup: openSetup, toggleHomeManage: toggleHomeManage, deleteHomeSelected: deleteHomeSelected, generateScripts: generateScripts, rebuildFromScratch: rebuildFromScratch,
     // test hooks: the available hook pool for a ctx (independent of which GEN_COUNT the rotation shows), and
     // the chosen architecture, so the field-filling and gating can be asserted without depending on rotation.
     __availableHooks: function(ctx){ return availableHookSources(ctx, SB.causedObjection(ctx.objections)); },
