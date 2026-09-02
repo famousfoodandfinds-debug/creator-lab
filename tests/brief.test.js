@@ -801,6 +801,18 @@ ok(B.scriptViolations({ body1: "runs a twenty-four hour timer" }, { listingText:
 ok(B.scriptViolations({ body2: "holds twenty-five ounces" }, { listingText: digitListing }).indexOf("asserted-number") < 0, 'provenance reverse: script "twenty-five ounces" clears against listing "25 ounces"');
 ok(B.scriptViolations({ body1: "a two hundred watt motor" }, { listingText: digitListing }).indexOf("asserted-number") < 0, 'provenance reverse: script "two hundred watt" clears against listing "200 watt"');
 ok(B.scriptViolations({ body1: "a thirty-one ounce basket" }, { listingText: digitListing }).indexOf("asserted-number") >= 0, 'provenance reverse: a word compound NOT in the listing (thirty-one) is still blocked');
+// HUNDREDS + REMAINDER: "hundred and fifty" (150) is a different shape than "twenty-four" -- hundreds plus a
+// tens remainder joined by "and". It must compose to the COMPOSITE only, and clear against a "150-oz" listing.
+ok(B.numbersIn("hundred and fifty ounces")["150"], 'numbersIn: "hundred and fifty" composes to 150');
+ok(!B.numbersIn("hundred and fifty ounces")["100"] && !B.numbersIn("hundred and fifty ounces")["50"], 'numbersIn: "hundred and fifty" is 150 only, not its parts (100, 50)');
+ok(B.numbersIn("one hundred and fifty")["150"], 'numbersIn: "one hundred and fifty" composes to 150');
+ok(B.numbersIn("a hundred and fifty")["150"], 'numbersIn: "a hundred and fifty" composes to 150');
+ok(B.numbersIn("two hundred and fifty")["250"] && !B.numbersIn("two hundred and fifty")["200"], 'numbersIn: "two hundred and fifty" composes to 250');
+ok(B.numbersIn("one hundred and five")["105"], 'numbersIn: "one hundred and five" composes to 105');
+ok(B.numbersIn("two hundred")["200"] && !B.numbersIn("two hundred")["2"] && !B.numbersIn("two hundred")["100"], 'numbersIn: bare "two hundred" is still 200 only (no regression)');
+ok(B.numbersIn("twenty-four")["24"] && !B.numbersIn("twenty-four")["20"], 'numbersIn: "twenty-four" still composes to 24 (no regression)');
+ok(B.numberUnits("a hundred and fifty ounce tank")[0] === "hundred and fifty ounce", 'numberUnits: reads "hundred and fifty ounce" as one compound figure');
+ok(B.scriptViolations({ body2: "a hundred and fifty ounce capacity" }, { listingText: "150-oz capacity" }).indexOf("asserted-number") < 0, 'provenance: script "hundred and fifty ounce" clears against listing "150-oz"');
 // stripLeadingHook: the minimal engine's hook is sometimes echoed as the setup's first sentence -- peel that one repeat.
 ok(B.stripLeadingHook("FINALLY a board that lasts.", "FINALLY a board that lasts. I went through three cheap ones this year.") === "I went through three cheap ones this year.", 'stripLeadingHook: removes the echoed hook sentence from the setup');
 ok(B.stripLeadingHook("WOW this is massive", "WOW, this is massive! The box barely fit on my counter.") === "The box barely fit on my counter.", 'stripLeadingHook: matches normalized (case + punctuation) and strips');

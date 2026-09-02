@@ -14606,22 +14606,35 @@ function transcribeTikTokLink(url){
   // hours" must allow a script's "33 pounds a day" (same number, reworded unit), and a dimension list like
   // "16.33 x 6.7 x 13.58 inches" must contribute all three numbers even though only one sits next to a unit.
   var WORD_NUM = { once:"1", twice:"2", one:"1", two:"2", three:"3", four:"4", five:"5", six:"6", seven:"7", eight:"8", nine:"9", ten:"10", eleven:"11", twelve:"12", thirteen:"13", fourteen:"14", fifteen:"15", sixteen:"16", seventeen:"17", eighteen:"18", nineteen:"19", twenty:"20", thirty:"30", forty:"40", fifty:"50", sixty:"60", seventy:"70", eighty:"80", ninety:"90", hundred:"100" };
+  // Compose ONE English cardinal (up to 999, which covers listing specs) starting at toks[i]. Returns
+  // { val, next } or null, consuming only number words so it stops at a unit or any non-number token and never
+  // merges two separate figures. Handles: "twenty four" (24), "two hundred" (200), "a/one hundred" (100), AND
+  // the hundreds+remainder shape the old one-token lookahead missed -- "hundred and fifty" (150), "two hundred
+  // and fifty" (250). It records the COMPOSITE only (150), never its parts (100, 50): recording parts breaks
+  // provenance both ways (over-requiring the parts on the script side, falsely clearing on the listing side).
+  function composeNumber(toks, i){
+    function nv(w){ return (w && WORD_NUM[w]) ? parseInt(WORD_NUM[w], 10) : null; }
+    function isOnes(w){ var v = nv(w); return v != null && v >= 1 && v <= 9; }
+    function isTens(w){ var v = nv(w); return v != null && v >= 20 && v <= 90 && v % 10 === 0; }
+    var j = i, total = 0, matched = false, hundreds = null;
+    if (toks[j] === "hundred"){ hundreds = 100; j++; }                                                        // "hundred" (implied one)
+    else if ((isOnes(toks[j]) || toks[j] === "a") && toks[j + 1] === "hundred"){ hundreds = (toks[j] === "a" ? 1 : nv(toks[j])) * 100; j += 2; }   // "two hundred" / "a hundred"
+    if (hundreds != null){ total = hundreds; matched = true; if (toks[j] === "and") j++; }                    // optional "and" before the remainder
+    var w = toks[j];
+    if (isTens(w)){ var t = nv(w); j++; if (isOnes(toks[j])){ t += nv(toks[j]); j++; } total += t; matched = true; }   // "fifty" / "fifty five"
+    else { var v = nv(w); if (v != null && v >= 1 && v <= 19 && w !== "hundred"){ total += v; j++; matched = true; } }  // teen or ones
+    return matched ? { val: total, next: j } : null;
+  }
   function numbersIn(text){
     var out = {}, t = str(text).toLowerCase();
     (t.match(/\d[\d.,]*/g) || []).forEach(function(n){ n = n.replace(/,/g, "").replace(/\.+$/, ""); if (n) out[n] = true; });
-    // Word numbers, and COMPOUNDS. A tens word beside a units word is ONE value ("twenty-four" = 24), and
-    // "<units> hundred" is units*100 ("two hundred" = 200). A compound canonicalizes to its COMPOSITE value
-    // ONLY -- the parts are consumed, not recorded -- because a figure means the composite a person says (24),
-    // never 24 AND 20 AND 4. Recording the parts breaks the provenance check both ways: on the script side the
-    // every()-in-listing test would over-require the parts (a legit "twenty-four hours" wrongly blocked), and
-    // on the listing side a stray "20 minutes" would wrongly clear against a listing that only said 24.
+    // Word numbers, and COMPOUNDS, composed to their COMPOSITE value only (see composeNumber).
     var toks = t.replace(/[^a-z ]/g, " ").split(/\s+/);
     for (var i = 0; i < toks.length; i++){
-      var w = toks[i]; if (!WORD_NUM[w]) continue;
-      var val = parseInt(WORD_NUM[w], 10), nxt = toks[i + 1], nval = (nxt && WORD_NUM[nxt]) ? parseInt(WORD_NUM[nxt], 10) : null;
-      if (val >= 20 && val <= 90 && val % 10 === 0 && nval != null && nval >= 1 && nval <= 9){ out[String(val + nval)] = true; i++; continue; }   // twenty-four -> 24
-      if (val >= 1 && val <= 9 && nxt === "hundred"){ out[String(val * 100)] = true; i++; continue; }                                            // two hundred -> 200
-      out[WORD_NUM[w]] = true;                                                                                                                    // plain word number
+      var w = toks[i];
+      if (!WORD_NUM[w] && !(w === "a" && toks[i + 1] === "hundred")) continue;
+      var r = composeNumber(toks, i);
+      if (r){ out[String(r.val)] = true; i = r.next - 1; }
     }
     return out;
   }
