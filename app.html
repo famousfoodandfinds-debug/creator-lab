@@ -926,12 +926,12 @@ body.home-landing #homeLanding { display: block !important; }
            reviews is always empty so it is never ambiguous whether you are editing or adding. -->
       <div id="psReviewBox" style="margin-bottom:16px;">
         <div class="field-label" style="margin-bottom:7px;">Customer reviews</div>
-        <div class="field-hints-line" style="margin-bottom:8px;">Your whole brief is built from these. Paste a mix: the happy reviews give the emotion and desire, and the critical ones (3-star and below) are where the objections come from.</div>
+        <div class="field-hints-line" style="margin-bottom:8px;">Your whole brief is built from these. Paste up to 100 of your 4&ndash;5&#9733; reviews &mdash; the tool picks the most useful and drops near-duplicates and content-free ones like &ldquo;I love it.&rdquo; The happy reviews carry the emotion and desire; the little &ldquo;love it, but&hellip;&rdquo; asides are where the objections come from.</div>
         <div id="psReviewCount" style="font-size:13px;color:var(--muted);margin-bottom:8px;">No reviews yet.</div>
         <div id="psReviewList" style="max-height:260px;overflow-y:auto;margin-bottom:8px;"></div>
         <div id="psReviewAddArea" style="display:none;margin-bottom:8px;">
           <div class="field-hints-line" style="margin-bottom:8px;">Paste new reviews only. These are added to your set, not replacing it. Separate reviews with a blank line.</div>
-          <textarea id="psReviewNew" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste new customer reviews here. Separate each review with a blank line."></textarea>
+          <textarea id="psReviewNew" style="-webkit-user-select:text;user-select:text;touch-action:manipulation;cursor:text;pointer-events:auto;position:relative;z-index:1;" placeholder="Paste up to 100 of your 4-5 star reviews, one per blank line. The tool keeps the most useful."></textarea>
           <div style="display:flex;gap:8px;margin-top:8px;">
             <button type="button" id="psReviewAddConfirm" style="flex:1;background:var(--purple);border:none;border-radius:10px;color:var(--surface);font-family:'Instrument Sans',sans-serif;font-size:13px;font-weight:700;padding:11px;cursor:pointer;">Add these reviews</button>
             <button type="button" id="psReviewAddCancel" style="background:transparent;border:1px solid var(--border-md);border-radius:10px;color:var(--muted);font-family:'Instrument Sans',sans-serif;font-size:13px;padding:11px 14px;cursor:pointer;">Cancel</button>
@@ -13925,6 +13925,50 @@ function transcribeTikTokLink(url){
   function newReviews(raw){ return arr(raw && raw.reviews).filter(function(r){ return !(r && r.derived); }); }
   function markReviewsDerived(raw){ var r = normalizeRaw(raw); r.reviews.forEach(function(rv){ rv.derived = true; }); return r; }
 
+  // FREE review selection, before any model call: from a big paste, keep the ~cap MOST USEFUL reviews and drop
+  // the noise, so derivation cost is bounded without a length-only heuristic that discards the very reviews the
+  // brief is built on. Length alone over-keeps long gushing and over-drops short specific complaints -- and
+  // complaints/objections are the scarce, load-bearing signal. So: (1) drop near-duplicates; (2) drop content-
+  // free reviews (boilerplate like "I love it", or too few distinct content words AND no complaint/figure);
+  // (3) PROTECT every review that names a complaint or a figure (never dropped); (4) even-stride across the rest
+  // to fill the cap, preserving paste-order coverage so scattered themes survive. All string/regex work, no model.
+  var REVIEW_STOP = { the:1,a:1,an:1,and:1,or:1,but:1,is:1,are:1,was:1,were:1,it:1,its:1,this:1,that:1,these:1,those:1,to:1,of:1,in:1,on:1,for:1,with:1,my:1,me:1,i:1,you:1,so:1,very:1,really:1,just:1,at:1,as:1,be:1,been:1,have:1,has:1,had:1,do:1,did:1,not:1,no:1,yes:1,all:1,too:1,she:1,he:1,they:1,we:1,them:1,our:1,your:1,their:1 };
+  var REVIEW_COMPLAINT = /\b(?:broke|broken|cracked?|crack(?:s|ing)|leak\w*|stop(?:ped|s|ping)?|died?|dies|dying|dead|return(?:ed|ing|s)?|refund\w*|disappoint\w*|wish\w*|however|only (?:issue|problem|complaint|downside|thing)|hard to|difficult|doesn'?t|does not|won'?t|would ?n'?t|not (?:worth|great|good|happy|as)|flaw\w*|defect\w*|faulty|waste|regret\w*|rust\w*|warp\w*|chip\w*|fade\w*|peel\w*|scratch\w*|flimsy|cheaply|uncomfortable|missing|fell apart|falls apart|too (?:small|big|short|loud|heavy|weak|thin|tight|expensive))\b/;
+  var REVIEW_BOILER = /^(?:i )?(?:love|like|adore) (?:it|this|them|these)!*\.?$|^(?:great|good|nice|perfect|excellent|amazing|awesome|wonderful|fantastic|best|beautiful)(?: product| purchase| quality| buy| value| item| gift)?!*\.?$|^(?:as described|as expected|works? (?:great|well|perfectly|as expected)|highly recommend(?:ed)?|(?:five|5) stars?|would (?:buy|recommend)(?: again)?(?: and again)?|love it|so good|very (?:good|nice|happy|pleased)|thank you|thanks|good product|great value|no complaints|exactly (?:as|what) (?:described|i wanted|expected)|met expectations)!*\.?$/;
+  function selectReviewsForDerivation(reviews, cap){
+    cap = cap || 50;
+    var all = arr(reviews), total = all.length;
+    function txt(r){ return str(r && (r.full || r.quote || "")).trim(); }
+    function norm(s){ return String(s).toLowerCase().replace(/[’]/g, "'").replace(/[^a-z0-9' ]/g, " ").replace(/\s+/g, " ").trim(); }
+    function stats(sel, de, dd){ return { selected: sel, stats: { pasted: total, selected: sel.length, droppedEmpty: de | 0, droppedDup: dd | 0 } }; }
+    if (total <= cap) return stats(all.slice(), 0, 0);
+    // (1) near-duplicate drop (first 120 normalized chars as the key), keeping the first occurrence.
+    var seen = {}, deduped = [], droppedDup = 0;
+    all.forEach(function(r){ var key = norm(txt(r)).slice(0, 120); if (key && seen[key]) { droppedDup++; return; } if (key) seen[key] = 1; deduped.push(r); });
+    // (2) classify + drop content-free.
+    function classify(r){
+      var n = norm(txt(r)); var t = txt(r);
+      var protect = REVIEW_COMPLAINT.test(n) || /\d/.test(t);   // a complaint OR any figure = load-bearing, keep
+      var uniq = {}; n.split(" ").forEach(function(w){ if (w.length > 2 && !REVIEW_STOP[w]) uniq[w] = 1; });
+      var dcw = 0; for (var k in uniq) dcw++;
+      var empty = !n || REVIEW_BOILER.test(n) || (dcw < 3 && !protect);
+      return { protect: protect, empty: empty };
+    }
+    var kept = [], droppedEmpty = 0;
+    deduped.forEach(function(r){ var c = classify(r); if (c.empty) droppedEmpty++; else kept.push({ r: r, protect: c.protect }); });
+    if (kept.length <= cap) return stats(kept.map(function(x){ return x.r; }), droppedEmpty, droppedDup);
+    // (4) protect + even-stride fill, preserving paste order.
+    function evenStride(idxs, n){ var L = idxs.length; if (n >= L) return idxs.slice(); var out = []; for (var i = 0; i < n; i++) out.push(idxs[Math.floor(i * L / n)]); return out; }
+    var idxP = [], idxR = [];
+    kept.forEach(function(x, i){ (x.protect ? idxP : idxR).push(i); });
+    var chosen = {};
+    if (idxP.length >= cap) { evenStride(idxP, cap).forEach(function(i){ chosen[i] = 1; }); }
+    else { idxP.forEach(function(i){ chosen[i] = 1; }); evenStride(idxR, cap - idxP.length).forEach(function(i){ chosen[i] = 1; }); }
+    var selected = [];
+    kept.forEach(function(x, i){ if (chosen[i]) selected.push(x.r); });   // in-order -> coverage preserved
+    return stats(selected, droppedEmpty, droppedDup);
+  }
+
   // Split reviews into chunks for derivation so a single big paste is not one oversized model call.
   function chunkReviews(reviews, size){
     size = size || DERIVE_CHUNK;
@@ -14886,6 +14930,7 @@ function transcribeTikTokLink(url){
     reviewCount: reviewCount,
     addReviews: addReviews,
     newReviews: newReviews,
+    selectReviewsForDerivation: selectReviewsForDerivation,
     markReviewsDerived: markReviewsDerived,
     chunkReviews: chunkReviews,
     splitReviews: splitReviews,
@@ -15644,6 +15689,8 @@ function transcribeTikTokLink(url){
     // (the previous version cleared the brief up front, so a truncated build left the owner with nothing).
     var scratch = !!(opts && opts.scratch);
     var baseBrief = scratch ? SB.emptyBrief() : brief;
+    var DERIVE_SELECT_CAP = 50;   // send at most this many reviews to the model per build (cost bound); see below
+    var selectionNote = "";       // set when a big paste is sampled down, shown to the member on commit
     deriving = true; renderBrief();
     function fail(where, err){
       deriving = false; renderBrief();
@@ -15663,7 +15710,7 @@ function transcribeTikTokLink(url){
       saveBriefAndRaw(function(okSave){
         if (!okSave){ brief = prevBrief; raw = prevRaw; deriving = false; renderBrief(); renderReviewList(); deriveStatus("Brief built but could not be saved. Your previous brief is kept. Try again.", "var(--red)"); return; }
         deriving = false; renderBrief();
-        deriveStatus(isFirstOrChanged ? "Brief updated." : "Nothing new to read. Counts refreshed.", "var(--green)");
+        deriveStatus((isFirstOrChanged ? "Brief updated." : "Nothing new to read. Counts refreshed.") + selectionNote, "var(--green)");
       });
     }
     function consolidateAndCommit(mergedBrief, changed){
@@ -15728,7 +15775,21 @@ function transcribeTikTokLink(url){
         commit(baseBrief, false);
         return;
       }
-      var chunks = SB.chunkReviews(fresh, DERIVE_BATCH);
+      // FREE pre-model selection: from a big paste, discover themes from the most useful ~50 (drop
+      // near-duplicates and content-free reviews, always keep complaints/figures, even-stride the rest). The
+      // COUNTS are unaffected -- recountFindings (below) recounts every finding's terms across ALL stored
+      // reviews -- so this bounds cost without changing the numbers the brief reports.
+      var sel = SB.selectReviewsForDerivation(fresh, DERIVE_SELECT_CAP);
+      if (sel.stats.selected < sel.stats.pasted){
+        var dd = sel.stats.droppedDup, de = sel.stats.droppedEmpty;
+        var bits = [];
+        if (dd) bits.push(dd + " near-duplicate" + (dd === 1 ? "" : "s"));
+        if (de) bits.push(de + " content-free");
+        selectionNote = " Derived from the " + sel.stats.selected + " most useful of your " + sel.stats.pasted + " reviews"
+          + (bits.length ? " (" + bits.join(" and ") + " dropped)" : "")
+          + " — the counts still reflect all of them.";
+      }
+      var chunks = SB.chunkReviews(sel.selected, DERIVE_BATCH);
       // No new reviews but new comments (or a first build): run ONE pass so the comments are actually read.
       // derivePrompt attaches the comments as context, so an empty-review chunk still mines them.
       if (!chunks.length) chunks = [[]];

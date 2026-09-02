@@ -941,5 +941,37 @@ let goMany = [];
 for (let i = 0; i < 9; i++) goMany.push({ value: 'obj ' + i, count: 9 - i, ccount: 0, added: false });
 ok(B.groundedObjections(goMany).length === 5, 'groundedObjections: caps the pool at 5');
 
+// selectReviewsForDerivation: free pre-model selection -- drop dupes + content-free, PROTECT complaints/figures,
+// even-stride the rest to the cap. The protect-list is the point: short specific complaints must never be dropped.
+(function(){
+  function rv(t){ return { full: t }; }
+  function tag(j){ return String.fromCharCode(65 + Math.floor(j/26)) + String.fromCharCode(65 + (j%26)); }
+  // Under the cap -> everything is returned untouched.
+  var small = []; for (var i=0;i<30;i++) small.push(rv(tag(i) + " genuine review about the product working well in my kitchen every day."));
+  var os = B.selectReviewsForDerivation(small, 50);
+  ok(os.selected.length === 30 && os.stats.pasted === 30 && os.stats.selected === 30, 'select: under the cap returns everything');
+  // Over the cap: complaints + figures survive, content-free and dupes are dropped, capped at 50.
+  var input = [];
+  var complaints = ["Lid cracked after two washes.", "Only issue is the motor is loud.", "It stopped working after a month.", "Wish the handle were longer.", "Too small for a family."];
+  complaints.forEach(function(c){ input.push(rv(c)); });
+  var figures = ["Makes 33 pounds of ice a day, exactly as listed.", "Ran it for 6 months with no trouble here.", "Holds 150 oz which is plenty for us."];
+  figures.forEach(function(f){ input.push(rv(f)); });
+  var boiler = ["I love it","Great product","Five stars","Works great","Highly recommend","As described","Love it!","So good"];
+  for (var b=0;b<40;b++) input.push(rv(boiler[b%8]));                                   // 40 boilerplate -> 8 unique, all empty
+  for (var j=0;j<60;j++) input.push(rv(tag(j) + " this piece fits our counter and looks nice each morning and we reach for it often."));  // 60 distinct fillers, no digits
+  var out = B.selectReviewsForDerivation(input, 50);
+  var texts = out.selected.map(function(r){ return r.full; });
+  ok(out.selected.length === 50, 'select: caps the selection at 50');
+  ok(complaints.every(function(c){ return texts.indexOf(c) >= 0; }), 'select: PROTECTS every short complaint');
+  ok(figures.every(function(f){ return texts.indexOf(f) >= 0; }), 'select: PROTECTS every review with a figure');
+  ok(texts.indexOf("I love it") < 0 && texts.indexOf("Five stars") < 0 && texts.indexOf("So good") < 0, 'select: drops content-free reviews');
+  ok(out.stats.droppedEmpty > 0 && out.stats.droppedDup > 0, 'select: reports both content-free and duplicate drops');
+  ok(out.stats.pasted === input.length && out.stats.selected === 50, 'select: stats carry the pasted and selected totals for the member message');
+  // Near-duplicates: 60 identical reviews collapse to one kept + the rest reported as dropped.
+  var dupes = []; for (var d=0;d<60;d++) dupes.push(rv("This is the exact same review text pasted over and over identically here."));
+  var od = B.selectReviewsForDerivation(dupes, 50);
+  ok(od.stats.droppedDup >= 59 && od.selected.length === 1, 'select: collapses near-duplicates to one');
+})();
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
