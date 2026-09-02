@@ -597,6 +597,8 @@ ok(durFires({ body1: "it will never warp, never crack" }), 'durability: "never w
 ok(durFires({ hook: "this board is basically indestructible" }), 'durability: the permanence superlative "indestructible" is caught');
 ok(durFires({ body2: "it lasts a lifetime" }), 'durability: "lasts a lifetime" is caught');
 ok(durFires({ body2: "you will never have to replace it" }), 'durability: "never have to replace it" is caught');
+ok(durFires({ hook: "Enamel that never quits" }), 'durability: "never quits" (permanence idiom) is caught');
+ok(durFires({ body2: "this workhorse never gives out on you" }), 'durability: "never gives out" is caught');
 // Enthusiasm is NOT a promise -- these all pass.
 ok(!durFires({ body2: "this thing feels so solid" }), 'durability: "feels so solid" (enthusiasm) passes');
 ok(!durFires({ body2: "it is really durable and well made" }), 'durability: "really durable and well made" (describing, not promising) passes');

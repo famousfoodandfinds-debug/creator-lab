@@ -43,6 +43,8 @@ has(carouselGuard('Metal flakes are scraping into your food'), 'health-claim', '
 // 4. Durability / permanence overclaim.
 has(carouselGuard('This one never wears out no matter how hard you run it'), 'durability-overclaim', 'never wears out');
 has(carouselGuard('Basically indestructible'), 'durability-overclaim', 'indestructible');
+has(carouselGuard('Enamel that never quits'), 'durability-overclaim', 'never quits');
+has(carouselGuard('This workhorse never gives out on you'), 'durability-overclaim', 'never gives out');
 
 // 5. Moderation word.
 has(carouselGuard('This deal is deadly good'), 'moderation', 'deadly');

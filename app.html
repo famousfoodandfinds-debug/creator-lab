@@ -14471,7 +14471,7 @@ function transcribeTikTokLink(url){
     // are normalized first so "won't"/"won't" both match. Performance claims are deliberately OUT of scope.
     var DUR_FAIL = /\b(?:warp(?:s|ed|ing)?|crack(?:s|ed|ing)?|chip(?:s|ped|ping)?|splinter(?:s|ed|ing)?|fade(?:s|d)?|fading|rust(?:s|ed|ing)?|corrode(?:s|d)?|corroding|tarnish(?:es|ed|ing)?|peel(?:s|ed|ing)?|deteriorate(?:s|d)?|deteriorating|degrade(?:s|d)?|degrading|dent(?:s|ed|ing)?|scratch(?:es|ed|ing)?|stains?|stained|staining)\b|\bfall(?:s|ing)?\s+apart\b|\bbreaks?\s+down\b|\bbreaking\s+down\b|\bdulls?\s+out\b|\bdull(?:s|ed|ing)?\s+(?:your|the|any)?\s*(?:knives?|blades?|edges?)\b|\bwears?\s+(?:out|down|thin)\b|\bwearing\s+(?:out|down|thin)\b|\bshow(?:s|ing)?\s+(?:any\s+|much\s+|signs?\s+of\s+)?wear\b|\bsigns?\s+of\s+wear\b|\bwear\s+and\s+tear\b|\blos(?:e|es|ing)\s+(?:its?\s+)?(?:shape|edge|shine|finish|grip|colou?r|luster|lustre)\b/;
     var DUR_NEG = /\bnever\b|\bnothing\b|\bwon'?t\b|\bwill\s+never\b|\bwill\s+not\b|\bdoesn'?t\b|\bdoes\s+not\b|\bcan'?t\b|\bcannot\b|\bno\s+matter\b|\bnot\s+going\s+to\b|\bzero\b|\bwithout\b/;
-    var DUR_PERMA = /\bindestructible\b|\blasts?\s+(?:you\s+)?forever\b|\blast(?:s|ing)?\s+(?:you\s+)?a\s+lifetime\b|\bhold(?:s)?\s+up\s+forever\b|\ba\s+lifetime\s+of\s+(?:use|wear|cooking|cutting|prep)\b|\bbuilt\s+to\s+last\s+(?:a\s+lifetime|forever|for\s+life)\b|\boutlast(?:s|ed)?\s+(?:everything|anything|them\s+all|you)\b|\bnever\s+(?:needs?|need|have\s+to)\s+(?:to\s+)?(?:be\s+)?(?:replac\w+|buy\s+another|replace)\b/;
+    var DUR_PERMA = /\bindestructible\b|\blasts?\s+(?:you\s+)?forever\b|\blast(?:s|ing)?\s+(?:you\s+)?a\s+lifetime\b|\bhold(?:s)?\s+up\s+forever\b|\ba\s+lifetime\s+of\s+(?:use|wear|cooking|cutting|prep)\b|\bbuilt\s+to\s+last\s+(?:a\s+lifetime|forever|for\s+life)\b|\boutlast(?:s|ed)?\s+(?:everything|anything|them\s+all|you)\b|\bnever\s+(?:needs?|need|have\s+to)\s+(?:to\s+)?(?:be\s+)?(?:replac\w+|buy\s+another|replace)\b|\bnever\s+quits?\b|\bwon'?t\s+quit\b|\bnever\s+gives?\s+(?:up|out)\b/;
     var DUR_CARE = /\b(?:oil|oils|oiled|oiling|re-?oil\w*|season|seasons|seasoned|seasoning|wax|waxes|waxed|waxing)\b|\bcondition(?:ed|ing)\b|\bcondition\s+(?:it|them|the|your)\b|\bhand[-\s]?wash\w*\b|\bmaintain\w*\b|\bupkeep\b|\b(?:if|as\s+long\s+as|so\s+long\s+as|provided)\s+you\b|\bwith\s+(?:a\s+)?(?:little|basic|minimal|occasional|some|regular)\b|\bkeep\s+(?:it|them)\s+(?:oiled|seasoned|conditioned|clean|dry)\b|\bnow\s+and\s+(?:then|again)\b|\bevery\s+so\s+often\b|\bonce\s+in\s+a\s+while\b/;
     if (whole.split(/[.!?\n]+/).some(function(sen){
       var s = sen.toLowerCase().replace(/’/g, "'");
@@ -19731,14 +19731,27 @@ Return ONLY valid JSON, no markdown, exactly:
         const isPlainStack = texts.length && s.elements.every(function(e){ return !isTextish(e)||TEXT_TYPES.includes(e.type); });
         const isLast = si===state.slides.length-1;
         if(isPlainStack && !isLast){
-          const topBusy=busy(0,cw, 0.08*ch, 0.52*ch);
-          const botBusy=busy(0,cw, 0.46*ch, 0.82*ch);
-          if(topBusy > botBusy + 9){
-            // top is notably busier -> slide the whole stack down into the cleaner lower band
-            let minY=1,maxY=0; texts.forEach(function(e){ minY=Math.min(minY,e.y); maxY=Math.max(maxY,e.y+blockH(e)); });
-            const target=Math.min(LAY_BOTTOM-0.04, 0.80) - (maxY-minY);
-            const dy=target-minY;
-            if(dy>0.02) texts.forEach(function(e){ e.y=Math.max(LAY_TOP, Math.min(e.y+dy, LAY_BOTTOM-0.06)); });
+          // Place the whole stack where the photo is CLEAREST. The old pass only compared a top band to a
+          // bottom band across the FULL width and could only slide down, so copy still landed on a logo or a
+          // bag when the busy spot was mid-slide, low, or off to one side. Now: measure busyness under the
+          // copy's OWN column (left-aligned stacks sit in the left ~70%, so a logo on the right the text never
+          // touches does not skew it) and scan candidate positions top-to-bottom, picking the least-busy one.
+          let minY=1,maxY=0; texts.forEach(function(e){ minY=Math.min(minY,e.y); maxY=Math.max(maxY,e.y+blockH(e)); });
+          const H=Math.max(0.08, maxY-minY);
+          let tx0=1, tx1=0; texts.forEach(function(e){ tx0=Math.min(tx0,e.x); tx1=Math.max(tx1, e.x+(e.w||0.62)); });
+          if(!(tx1>tx0)){ tx0=0.05; tx1=0.72; }
+          tx0=Math.max(0,tx0-0.02); tx1=Math.min(1,tx1+0.02);
+          const bandTop=LAY_TOP, bandBot=Math.min(LAY_BOTTOM-0.04, 0.86);
+          if(bandBot-H > bandTop+0.001){
+            let bestY=minY, best=Infinity; const STEPS=12;
+            for(let k=0;k<=STEPS;k++){
+              const y0=bandTop + (bandBot-H-bandTop)*(k/STEPS);
+              // + a small stability penalty so a hook is only moved when a band is CLEARLY cleaner, not for a hair.
+              const score=busy(tx0*cw, tx1*cw, y0*ch, (y0+H)*ch) + Math.abs(y0-minY)*7;
+              if(score<best){ best=score; bestY=y0; }
+            }
+            const dy=bestY-minY;
+            if(Math.abs(dy)>0.03) texts.forEach(function(e){ e.y=Math.max(LAY_TOP, Math.min(e.y+dy, LAY_BOTTOM-0.06)); });
           }
         }
         // ITEM 1: containers are RARE. Only a dense benefit/feature LIST gets one, and only when it sits
