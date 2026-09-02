@@ -135,3 +135,45 @@ restore `main` — see the headline above.
 - [ ] Watch the first real generations after merge. The owner-only escape hatch
       (flip the engine/guards toggles) changes only what the owner sees and does not
       restore `main`; changing what MEMBERS get is a code change, not a toggle.
+
+---
+
+## Deferred (future list)
+
+Explicitly parked this cycle, in priority-ish order:
+
+- **Carousel text readability — strengthen the scrim, do NOT move the text.**
+  Two attempts to *move* copy off busy parts of the photo (the top/bottom band
+  slide, then a least-busy-band scan) both misfired: luminance standard deviation
+  is a poor proxy for a text-safe area — a uniform product surface scores "clean"
+  and the copy lands right on the product. The band-scan version was rolled back
+  (commit `e5fd32a`; placement code is now byte-identical to `5c600ac`). The
+  agreed approach when we return: **leave the text where the design puts it and
+  strengthen the scrim/shade behind the copy** on busy photos, so it reads without
+  being relocated. Moving text is what keeps regressing — the fix is contrast,
+  not position. Must be built with the rendered slides visible, not one-shot.
+
+- **Multi-product carousels.** One carousel selling several products, each photo
+  associated with its own product so that slide's copy comes from that product.
+  Sized earlier as Medium (the studio already holds every product's brief in
+  `libProducts`); the tension is the single-brief UX and whether a carousel shows
+  under all its products or one primary (the latter needs no migration).
+
+- **Carousel liability lever 3 (entailment pass).** The five liability guards now
+  run on carousel copy (generate-time regenerate + export-time warning). Lever 3 —
+  a model pass that checks each claim against the listing for capability overreach —
+  was held; add only if the prompt-level scope discipline leaks in testing. Costs
+  one model call per generation.
+
+- **The other ~10 script guards on carousels.** Only the liability tier runs on
+  carousel copy; provenance/figures, doubt-naming, viewer-owns, etc. need `opts`
+  (listing numbers, doubt vocabulary) the studio does not have. Larger job.
+
+- **Superlative market-superiority claims — prompt rule only, no guard.** Rule is
+  in all engines + the carousel prompt (commit `65f4560`). A hard guard was
+  declined: on the carousel path the guard never sees the listing, so it could
+  only blanket-ban and would kill a legitimately substantiated claim. Revisit as a
+  generate-time lever only if the prompt rule leaks.
+
+- **Monthly dollar spend ceiling.** Reported earlier (~$20/member recommended),
+  not built. The per-user daily call ceiling is the current backstop.
