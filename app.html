@@ -13081,6 +13081,21 @@ function transcribeTikTokLink(url){
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 
   function prod(id){ for(var i=0;i<S.lib.length;i++) if(S.lib[i].id===id) return S.lib[i]; return null; }
+  // A slot's card gets its product name from the library (S.lib). A product added through the Planner can be
+  // missing from S.lib at render time (a loadLibrary refresh that queried BEFORE the insert committed overwrites
+  // S.lib and drops the just-added product -- the same add-product path as the description bug), so the card fell
+  // back to "(product)". displayNameFor tries S.lib, then a name cache, then null; the slot also stores the name
+  // at build time, and backfillNames fetches any still-missing names once so existing built weeks self-heal.
+  var nameCache = {};
+  function displayNameFor(pid){ var p = prod(pid); if(p && p.name) return p.name; if(nameCache[pid]) return nameCache[pid]; return null; }
+  function backfillNames(){
+    if(!currentUser || !sb) return;
+    var need = {}; for(var iid in S.takes){ var t = S.takes[iid]; if(t && t.productId && !displayNameFor(t.productId) && !t.productName) need[t.productId] = 1; }
+    var ids = Object.keys(need); if(!ids.length) return;
+    sb.from('products').select('id, name').in('id', ids).then(function(r){
+      if(r && !r.error && r.data && r.data.length){ r.data.forEach(function(row){ if(row && row.id) nameCache[row.id] = row.name || ''; }); renderResults(); }
+    }, function(){});
+  }
   function countFor(pid){ var n = parseInt(S.counts[pid], 10) || 0; return n < 0 ? 0 : (n > COUNT_MAX ? COUNT_MAX : n); }   // videos this week for a product (0 = not in the plan)
   function setCount(pid, n){ n = Math.max(0, Math.min(COUNT_MAX, n|0)); if(n) S.counts[pid] = n; else delete S.counts[pid]; }
   function productsInPlan(){ return Object.keys(S.counts).filter(function(id){ return countFor(id) > 0; }).sort(function(a,b){ var pa=prod(a), pb=prod(b); return String(pa?pa.name:'').toLowerCase().localeCompare(String(pb?pb.name:'').toLowerCase()); }); }
@@ -13255,7 +13270,8 @@ function transcribeTikTokLink(url){
     S.takes = {}; S.order = []; S.board = { days: [] }; S.posted = {}; S.filmed = {};
     ids.forEach(function(pid){
       var n = countFor(pid);
-      for(var i=0;i<n;i++){ var iid = nid(); S.takes[iid] = { iid: iid, productId: pid }; S.order.push(iid); }
+      var pnm = displayNameFor(pid) || '';   // snapshot the name so the card never depends on a live S.lib lookup
+      for(var i=0;i<n;i++){ var iid = nid(); S.takes[iid] = { iid: iid, productId: pid, productName: pnm }; S.order.push(iid); }
     });
     el('plSetup').classList.add('hidden'); el('plResults').classList.remove('hidden');
     dealDays(); renderResults(); save(); window.scrollTo(0,0);
@@ -13291,6 +13307,7 @@ function transcribeTikTokLink(url){
     if(wv) wv.classList.toggle('hidden', S.layout!=='weekly');
     if(S.layout==='daily') renderDaily();
     else renderDays();
+    backfillNames();   // fetch any product names S.lib is missing, then this re-renders once with them resolved
   }
   function renderSummary(){
     var total = weekTotal(), prods = productsInPlan().length, goal = weeklyGoal();
@@ -13309,7 +13326,8 @@ function transcribeTikTokLink(url){
       var row = document.createElement('div'); row.className='trow';
       row.style.cssText = 'display:flex;align-items:center;gap:8px;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border);flex-wrap:wrap;';
       var left = document.createElement('div'); left.style.cssText = 'flex:1;min-width:0;';
-      left.innerHTML = '<span style="font-size:13px;" title="' + esc(p ? p.name : '') + '">' + esc(shortName(p ? p.name : '(product)')) + '</span> <span class="muted small" data-count-for="' + esc(pid) + '">· ' + n + ' video' + (n===1?'':'s') + ' this week</span>';
+      var pdn = displayNameFor(pid) || '(product)';
+      left.innerHTML = '<span style="font-size:13px;" title="' + esc(pdn) + '">' + esc(shortName(pdn)) + '</span> <span class="muted small" data-count-for="' + esc(pid) + '">· ' + n + ' video' + (n===1?'':'s') + ' this week</span>';
       var b = document.createElement('button'); b.type='button'; b.className='btn ghost sm'; b.textContent='Scripts →';
       b.title='Open this product to read, edit, or generate scripts';
       b.addEventListener('click', function(){ goToScripts(pid); });
@@ -13332,11 +13350,23 @@ function transcribeTikTokLink(url){
     var c = document.createElement('div'); c.className = 'cardv' + (S.posted[iid] ? ' posted' : ''); c.setAttribute('data-iid', iid);
     var handle = document.createElement('div'); handle.className='handle'; handle.textContent='⠿';
     var body = document.createElement('div'); body.className='cbody'; body.style.cursor='pointer';
-    var nm = document.createElement('div'); nm.className='cname'; nm.textContent = (p ? p.name : '(product)');
+    var nm = document.createElement('div'); nm.className='cname'; nm.textContent = displayNameFor(t.productId) || t.productName || '(product)';
     var hint = document.createElement('div'); hint.className='cangle'; hint.textContent = 'Tap to open scripts';
     body.appendChild(nm); body.appendChild(hint);
     body.addEventListener('click', function(){ goToScripts(t.productId); });
     c.appendChild(handle); c.appendChild(body);
+    return c;
+  }
+  // An empty slot when the plan is short of the weekly goal: a dashed "add a product" card so a short week does
+  // not look finished and gives you somewhere to click. NOT class 'cardv' and no data-iid/handle, so the weekly
+  // drag (syncDaysFromDOM reads .cardv) ignores it entirely.
+  function placeholderCard(){
+    var c = document.createElement('div'); c.className='slot-empty';   // NOT .cardv -> the drag sync ignores it
+    c.style.cssText = 'border:1px dashed var(--border-md);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:transparent;cursor:pointer;opacity:0.9;';
+    var nm = document.createElement('div'); nm.className='cname'; nm.style.color='var(--muted)'; nm.textContent='＋ Add a product';
+    var hint = document.createElement('div'); hint.className='cangle'; hint.style.marginTop='2px'; hint.textContent='Empty slot — finish your plan';
+    c.appendChild(nm); c.appendChild(hint);
+    c.addEventListener('click', function(){ startOver(); });   // back to the setup (counts kept) to add more, then rebuild
     return c;
   }
 
@@ -13368,12 +13398,13 @@ function transcribeTikTokLink(url){
     next.addEventListener('click', function(){ if(S.activeDay<days-1){ S.activeDay++; renderDaily(); save(); } });
     nav.appendChild(prev); nav.appendChild(title); nav.appendChild(next); wrap.appendChild(nav);
     var card = document.createElement('div'); card.className='card';
-    if(!day.items.length){ card.innerHTML = '<div class="note" style="margin:6px 0;">Nothing to film this day. On the Weekly view you can drag videos onto any day.</div>'; }
-    else {
-      var list = document.createElement('div'); list.className='list';
-      day.items.forEach(function(iid){ var c = takeCard(iid); if(c) list.appendChild(c); });
-      card.appendChild(list);
-    }
+    var shortWeek = weekTotal() < weeklyGoal();
+    var list = document.createElement('div'); list.className='list';
+    day.items.forEach(function(iid){ var c = takeCard(iid); if(c) list.appendChild(c); });
+    // ITEM 2: when the week is short of the goal, fill this day up to the per-day target with add-a-product slots.
+    if(shortWeek){ var addN = Math.max(0, S.perDay - day.items.length); for(var i=0;i<addN;i++) list.appendChild(placeholderCard()); }
+    if(!list.children.length){ card.innerHTML = '<div class="note" style="margin:6px 0;">Nothing to film this day. On the Weekly view you can drag videos onto any day.</div>'; }
+    else { card.appendChild(list); }
     wrap.appendChild(card);
   }
 
@@ -13390,6 +13421,9 @@ function transcribeTikTokLink(url){
     resp.addEventListener('click', function(){ respread(); });
     bar.appendChild(hint); bar.appendChild(resp); wrap.appendChild(bar);
     var board = document.createElement('div'); board.className='days';
+    // ITEM 2: total add-a-product slots to show = how far the plan is under the weekly goal. Spread across days,
+    // filling each up to the per-day target, so a short week reads as unfinished with somewhere to click.
+    var placeBudget = Math.max(0, weeklyGoal() - weekTotal());
     S.board.days.forEach(function(day,di){
       var col = document.createElement('div'); col.className='daycol';
       var dh = document.createElement('div'); dh.className='dh';
@@ -13398,6 +13432,7 @@ function transcribeTikTokLink(url){
       dh.appendChild(d); dh.appendChild(c);
       var list = document.createElement('div'); list.className='list'; list.setAttribute('data-di', di); list.style.minHeight='40px';
       day.items.forEach(function(iid){ var card = takeCard(iid); if(card) list.appendChild(card); });
+      if(placeBudget > 0){ var addN = Math.max(0, Math.min(S.perDay - day.items.length, placeBudget)); for(var i=0;i<addN;i++) list.appendChild(placeholderCard()); placeBudget -= addN; }
       col.appendChild(dh); col.appendChild(list); board.appendChild(col);
     });
     wrap.appendChild(board);
@@ -13407,7 +13442,7 @@ function transcribeTikTokLink(url){
     sorters.forEach(function(s){ try{ s.destroy(); }catch(e){} }); sorters = [];
     if(typeof Sortable === 'undefined') return;
     [].slice.call(wrap.querySelectorAll('.list')).forEach(function(list){
-      sorters.push(Sortable.create(list, { group: 'plannerdays', handle: '.handle', animation: 150, ghostClass: 'ghost', onEnd: syncDaysFromDOM }));
+      sorters.push(Sortable.create(list, { group: 'plannerdays', handle: '.handle', filter: '.slot-empty', animation: 150, ghostClass: 'ghost', onEnd: syncDaysFromDOM }));
     });
   }
   // Cross-day drag: rebuild each day's item list from the DOM, then persist.
