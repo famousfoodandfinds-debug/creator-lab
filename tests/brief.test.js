@@ -114,6 +114,36 @@ ok(mcEmpty.lines.who.value === '' && Array.isArray(mcEmpty.lines.pains), 'merge:
 let am = B.applyDerivation(B.emptyBrief(), mc);
 ok(am.brief.lines.who.count === 9 && am.brief.lines.who.total === 50, 'merge -> applyDerivation carries counts');
 
+// 9b-2. mergeChunkDerivations preserves the CLASSIFICATION fields (about/cause/need) -- the fold used to
+// rebuild each finding without them, so the derived brief lost every label and every pain defaulted to
+// "product" (nothing could open a script). First non-empty label wins when chunks disagree on emptiness.
+let lc1 = { lines: { pains: [ { value:'trays never keep up', count:3, about:'alternative', need:'convenience' },
+                              { value:'first batch is watery', count:2 } ],   // unlabelled in this chunk
+                     objections: [ { value:'cubes look hollow', count:4 } ] } };   // no cause here
+let lc2 = { lines: { pains: [ { value:'trays never keep up', count:2 },        // same pain, no label this chunk
+                              { value:'first batch is watery', count:1, about:'product', need:'safety' } ],
+                     objections: [ { value:'cubes look hollow', count:3, cause:'the mold cavity is oversized' } ] } };
+let lm = B.mergeChunkDerivations([lc1, lc2], 30);
+let alt = lm.lines.pains.find(p => p.value === 'trays never keep up');
+ok(alt && alt.about === 'alternative' && alt.need === 'convenience', 'merge: carries about+need from the chunk that had them (survives an unlabelled duplicate)');
+ok(alt.count === 5, 'merge: labelled finding still sums counts across chunks (3+2=5)');
+let prodPain = lm.lines.pains.find(p => p.value === 'first batch is watery');
+ok(prodPain && prodPain.about === 'product' && prodPain.need === 'safety', 'merge: carries a label that only appears in the SECOND chunk');
+let hollow = lm.lines.objections.find(o => o.value === 'cubes look hollow');
+ok(hollow && hollow.cause === 'the mold cavity is oversized', 'merge: carries the objection cause across chunks');
+// resolve (the action that answers an objection) rides through the same paths as cause -- normalize, merge,
+// both cluster helpers, and the gen adapter -- so generation can SHOW the action without naming the doubt.
+ok(B.normalizeBrief({lines:{objections:[{value:'worried about mold',resolve:'rinse with vinegar and water'}]}}).lines.objections[0].resolve === 'rinse with vinegar and water', 'normalize: objection resolve round-trips');
+let ro1 = { lines: { objections: [ { value:'worried about mold', count:3, resolve:'rinse with vinegar and water' } ] } };
+let ro2 = { lines: { objections: [ { value:'worried about mold', count:2 } ] } };
+let rmerge = B.mergeChunkDerivations([ro1, ro2], 20);
+ok(rmerge.lines.objections[0].resolve === 'rinse with vinegar and water' && rmerge.lines.objections[0].count === 5, 'merge: carries objection resolve across chunks and still sums count');
+let roClust = B.applyClusters([{ value:'mold worry', count:2, resolve:'rinse it out' }, { value:'mildew worry', count:1 }], { groups:[{ value:'mold', members:[0,1] }], dropped:[] }, 10);
+ok(roClust[0].resolve === 'rinse it out', 'applyClusters: representative carries the first resolving action');
+let roUni = B.applyUnifiedClusters([], [{ value:'mold worry', count:2, resolve:'rinse it out' }], { clusters:[{ value:'mold', category:'objection', members:[0] }], dropped:[] }, 10);
+ok(roUni.objections[0].resolve === 'rinse it out', 'applyUnifiedClusters: objection carries the resolving action');
+ok(B.briefToGenContext(B.normalizeBrief({lines:{objections:[{value:'worried about mold',resolve:'rinse with vinegar and water'}]}}), B.emptyRaw()).objections[0].resolve === 'rinse with vinegar and water', 'adapter: exposes objection resolve to generation');
+
 // 9c. applyClusters: semantic merge sums member counts (capped at total), drops non-members, keeps forgotten
 let clItems = [
   { value:'dull knives', count:3, words:['blunt'] },
@@ -493,8 +523,8 @@ gcBrief.lines.who = B.normalizeBrief({lines:{who:{value:'busy parents', words:['
 gcBrief.lines.emotion = B.normalizeBrief({lines:{emotion:{value:'overwhelmed'}}}).lines.emotion;
 gcBrief.lines.desire = B.normalizeBrief({lines:{desire:{value:'a calm kitchen'}}}).lines.desire;
 gcBrief.lines.pains = B.normalizeBrief({lines:{pains:[
-  {value:'knives dull fast', count:4, words:['goes dull'], claims:['ruined my tomatoes']},
-  {value:'blocks wear out', count:9, words:['fell apart']}
+  {value:'knives dull fast', count:4, words:['goes dull'], claims:['ruined my tomatoes'], about:'alternative'},
+  {value:'blocks wear out', count:9, words:['fell apart'], about:'alternative'}
 ]}}).lines.pains;
 gcBrief.lines.objections = B.normalizeBrief({lines:{objections:[
   {value:'too pricey', count:2, words:['not worth it']},
@@ -503,7 +533,7 @@ gcBrief.lines.objections = B.normalizeBrief({lines:{objections:[
 gcBrief.features = [{feature:'German steel', benefit:'holds an edge'}];
 let gctx = B.briefToGenContext(gcBrief, { description: 'a knife set', winningAngles: [] });
 ok(gctx.who === 'busy parents' && gctx.desire === 'a calm kitchen', 'adapter: single lines carried across');
-ok(gctx.leadPain && gctx.leadPain.value === 'blocks wear out', 'adapter: default lead pain is the HIGHEST-count pain (9 > 4)');
+ok(gctx.leadPain && gctx.leadPain.value === 'blocks wear out', 'adapter: default lead pain is the highest-count ALTERNATIVE pain (9 > 4); a product flaw can never be the lead');
 ok(gctx.defuseObjection && gctx.defuseObjection.value === 'will it fit my drawer', 'adapter: default defuse objection is the highest-count objection (6 > 2)');
 ok(gctx.pains.length === 2 && gctx.features.length === 1, 'adapter: lists and features carried');
 // compliance split preserved: words are safe, claims are separate
@@ -524,19 +554,177 @@ let clean = { hook: "Your fur baby isn't the problem, it's your vacuum", body1: 
 ok(B.scriptViolations(clean, { priceAllowed: false }).length === 0, 'validator: a clean script (no figures, no bans) passes');
 ok(B.scriptViolations({ preclose: "Shark's customer service will point you to the right one" }, {}).indexOf("company") >= 0, 'validator: catches company customer-service defuse');
 ok(B.scriptViolations({ body2: "the warranty covers it and returns are easy" }, {}).indexOf("company") >= 0, 'validator: catches warranty/returns');
-ok(B.scriptViolations({ preclose: "The price is hard to justify at first" }, { priceAllowed: false }).indexOf("price") >= 0, 'validator: catches invented price doubt');
-ok(B.scriptViolations({ preclose: "It costs less than what you already waste" }, { priceAllowed: true }).indexOf("price") < 0, 'validator: price allowed when price IS an objection');
+ok(B.scriptViolations({ preclose: "The price is hard to justify at first" }, {}).indexOf("price") >= 0, 'validator: catches a price doubt');
+// Money is now UNCONDITIONAL: the tool cannot know a price or discount, so no money reference is allowed in
+// any slot, even when price IS an objection (a price doubt is answered by showing the outcome, never money).
+ok(B.scriptViolations({ preclose: "It costs less than what you already waste" }, { priceAllowed: true }).indexOf("price") >= 0, 'validator: money is banned even when price is an objection (priceAllowed no longer exempts)');
+ok(B.scriptViolations({ cta: "You get real ice without spending a fortune" }, {}).indexOf("price") >= 0, 'validator: catches value-in-money framing ("without spending a fortune")');
+ok(B.scriptViolations({ body2: "honestly it is worth every penny" }, {}).indexOf("price") >= 0, 'validator: catches "worth every penny"');
+ok(B.scriptViolations({ cta: "at this point it is a steal" }, {}).indexOf("price") >= 0, 'validator: catches "a steal"');
+ok(B.scriptViolations({ body2: "that is real bang for your buck" }, {}).indexOf("price") >= 0, 'validator: catches "bang for your buck"');
+ok(B.scriptViolations({ body2: "the ice is finally clear and crunchy" }, {}).indexOf("price") < 0, 'validator: an outcome line with no money is not flagged');
+// names-doubt: the objection turn may not NAME a doubt (its distinctive PHRASE), only SHOW the fix. doubtVocab
+// is multiword only, so it catches "hard water" but a benefit line that merely shares a common token passes.
+ok(B.scriptViolations({ preclose: "hard water just needs a vinegar rinse now and then" }, { doubtVocab: ["hard water"] }).indexOf("names-doubt") >= 0, 'validator: catches the objection turn NAMING a doubt phrase ("hard water")');
+ok(B.scriptViolations({ preclose: "run bottled water through it and it stays clean" }, { doubtVocab: ["hard water"] }).indexOf("names-doubt") < 0, 'validator: the fix ("bottled water") does not trip the "hard water" doubt');
+ok(B.scriptViolations({ preclose: "the first cubes are smaller and softer than the rest" }, { doubtVocab: ["smaller and softer"] }).indexOf("names-doubt") >= 0, 'validator: catches a multiword buyer doubt phrase in the turn');
+ok(B.scriptViolations({ body1: "it tucks into a small corner of the kitchen" }, { doubtVocab: ["hard water", "too small"] }).indexOf("names-doubt") < 0, 'validator: a benefit line ("small corner") is not flagged and names-doubt is preclose-only');
+// viewer-owns: a hook or setup that presupposes the viewer already owns the product.
+ok(B.scriptViolations({ hook: "there's a reason people end up with one in two different rooms" }, {}).indexOf("viewer-owns") >= 0, 'validator: catches a hook that assumes the viewer already owns it ("two different rooms")');
+ok(B.scriptViolations({ body1: "first one stays on the counter, then you grab one for the patio" }, {}).indexOf("viewer-owns") >= 0, 'validator: catches a setup that assumes ownership ("one for the patio")');
+ok(B.scriptViolations({ hook: "your ice runs out before the guests even arrive", body1: "you keep refilling the same tray" }, {}).indexOf("viewer-owns") < 0, 'validator: a normal problem-first hook/setup is not flagged as ownership');
+// moved-on: the ownership assumption pointed the other way -- a hook/setup must not presuppose the viewer has
+// already replaced or stopped using the thing the script is about ("your old X", "you used to", "back when you").
+ok(B.scriptViolations({ hook: "your old air fryer left that plastic taste in everything" }, {}).indexOf("moved-on") >= 0, 'validator: catches "your old X" (writes off anyone still using it)');
+ok(B.scriptViolations({ hook: "you used to dread scrubbing the burnt-on bits" }, {}).indexOf("moved-on") >= 0, 'validator: catches "you used to" (past tense assumes they stopped)');
+ok(B.scriptViolations({ body1: "back when you fought with a warping pan every night" }, {}).indexOf("moved-on") >= 0, 'validator: catches "back when you" in the setup');
+ok(B.scriptViolations({ hook: "the burnt-on bits never scrub off your baking dish", body1: "you scrape at the same corner every night" }, {}).indexOf("moved-on") < 0, 'validator: a present-tense problem hook/setup is not flagged as moved-on');
+// health-claim: the model manufacturing its own contamination/leaching claim. Assertions and questions are both
+// the claim; the worry-framed form is the carve-out (speaks to a worry, asserts nothing).
+ok(B.scriptViolations({ body1: "metal flakes are going into your family's food every meal" }, {}).indexOf("health-claim") >= 0, 'validator: catches a contamination assertion ("metal flakes ... into your food")');
+ok(B.scriptViolations({ hook: "is your pan leaving metal flakes in your food" }, {}).indexOf("health-claim") >= 0, 'validator: catches the QUESTION form of the same claim');
+ok(B.scriptViolations({ body2: "no chemicals leaching into your family's food" }, {}).indexOf("health-claim") >= 0, 'validator: catches a leaching assertion in the payoff (script-wide, not hook-only)');
+ok(B.scriptViolations({ hook: "are you worried about your pan flaking into your food" }, {}).indexOf("health-claim") < 0, 'validator: the worry-framed version is allowed (speaks to a worry, claims nothing)');
+ok(B.scriptViolations({ hook: "have you ever wondered what your nonstick is leaching into your dinner" }, {}).indexOf("health-claim") < 0, 'validator: a "have you wondered" worry frame is allowed even with leaching');
+ok(B.scriptViolations({ hook: "the sauce slides right off the glass", body1: "you serve straight from the dish to the table" }, {}).indexOf("health-claim") < 0, 'validator: an ordinary food line with no contamination band is not flagged');
+// durability-overclaim: an ABSOLUTE promise of permanence/durability the material cannot support. The three real
+// failures, permanence superlatives -- all drop. Normal enthusiasm and the conditional maintenance answer pass.
+function durFires(o){ return B.scriptViolations(o, {}).indexOf("durability-overclaim") >= 0; }
+ok(durFires({ body2: "nothing dulls out over time" }), 'durability: "nothing dulls out over time" (the real failure) is caught');
+ok(durFires({ body2: "built to last through years of real use without showing wear" }), 'durability: "built to last through years ... without showing wear" is caught');
+ok(durFires({ body2: "it handles full meal prep without warping" }), 'durability: "without warping" is caught');
+ok(durFires({ body1: "it will never warp, never crack" }), 'durability: "never warp, never crack" is caught');
+ok(durFires({ hook: "this board is basically indestructible" }), 'durability: the permanence superlative "indestructible" is caught');
+ok(durFires({ body2: "it lasts a lifetime" }), 'durability: "lasts a lifetime" is caught');
+ok(durFires({ body2: "you will never have to replace it" }), 'durability: "never have to replace it" is caught');
+ok(durFires({ hook: "Enamel that never quits" }), 'durability: "never quits" (permanence idiom) is caught');
+ok(durFires({ body2: "this workhorse never gives out on you" }), 'durability: "never gives out" is caught');
+// Enthusiasm is NOT a promise -- these all pass.
+ok(!durFires({ body2: "this thing feels so solid" }), 'durability: "feels so solid" (enthusiasm) passes');
+ok(!durFires({ body2: "it is really durable and well made" }), 'durability: "really durable and well made" (describing, not promising) passes');
+ok(!durFires({ body2: "it holds up so well" }), 'durability: "holds up so well" passes');
+ok(!durFires({ body2: "built to last" }), 'durability: bare "built to last" (marketing enthusiasm) passes -- only explicit permanence fires');
+// The CONDITIONAL maintenance answer is the honest form and is deliberately allowed.
+ok(!durFires({ body2: "oil it now and then and it won't warp" }), 'durability: the conditional maintenance answer ("oil it and it won\'t warp") passes');
+ok(!durFires({ preclose: "season it once in a while and it will never crack" }), 'durability: conditioned on seasoning, "never crack" passes');
+ok(!durFires({ body2: "a quick oil keeps it from warping" }), 'durability: positive maintenance phrasing (no absolute negator) passes');
+// Out-of-scope / false-positive guards.
+ok(!durFires({ cta: "you will never want to wear anything else" }), 'durability: apparel "never want to wear" is not a durability claim');
+ok(!durFires({ body1: "never a dull moment in this kitchen" }), 'durability: the idiom "never a dull moment" does not fire');
+ok(!durFires({ hook: "no more warped cutting boards" }), 'durability: a before/after "no more warped boards" is not an overclaim');
+ok(!durFires({ body2: "it won't slip around on the counter" }), 'durability: a performance claim ("won\'t slip") is out of scope');
+// name-stumble: the model writing IN a mistake to sound casual -- misstate the product name then correct it.
+function stumbleFires(o){ return B.scriptViolations(o, {}).indexOf("name-stumble") >= 0; }
+ok(stumbleFires({ hook: "This is the Shark BlastBoom. BlastBoss, sorry, I keep saying that" }), 'name-stumble: the real failure ("sorry, I keep saying that") is caught');
+ok(stumbleFires({ body1: "I mean BlastBoss, not BlastBoom" }), 'name-stumble: an "I mean X, not Y" name self-correction is caught');
+ok(stumbleFires({ body2: "wait, it is actually called the BlastBoss" }), 'name-stumble: "wait, it is actually called" is caught');
+ok(stumbleFires({ preclose: "sorry, wrong name" }), 'name-stumble: "wrong name" is caught');
+ok(stumbleFires({ cta: "I keep calling it that by mistake" }), 'name-stumble: "I keep calling it that" is caught');
+// Normal casual copy is NOT a stumble.
+ok(!stumbleFires({ hook: "okay I have to tell you about this like we are friends" }), 'name-stumble: ordinary casual talk passes');
+ok(!stumbleFires({ body1: "I mean it, this thing is genuinely good" }), 'name-stumble: "I mean it" (emphasis, no name swap) passes');
+ok(!stumbleFires({ body2: "you are going to want this before they sell out" }), 'name-stumble: a plain line passes');
 ok(B.scriptViolations({ body1: "It shuts off and the plant is dead by morning" }, {}).indexOf("moderation") >= 0, 'validator: catches a moderation word (dead)');
-ok(B.scriptViolations({ body2: "so good I use it every single day now" }, {}).indexOf("ownership") >= 0, 'validator: catches first-person ownership (I use)');
-ok(B.scriptViolations({ preclose: "my wrist finally stopped aching" }, {}).indexOf("ownership") >= 0, 'validator: catches ownership possessive (my)');
+// TWO-STATE ownership: both "hand" and "used" are first-person states (a TikTok Shop creator must have the
+// product to film), so first person is ALWAYS allowed -- there is no "ownership" (first-person block) code anymore.
+ok(B.scriptViolations({ body2: "so good I use it every single day now" }, { ownershipState:"hand" }).indexOf("ownership") < 0, 'validator: first-person ("I use") is allowed in the hand state');
+ok(B.scriptViolations({ preclose: "my wrist finally stopped aching" }, { ownershipState:"hand" }).indexOf("ownership") < 0, 'validator: first-person possessive ("my") is allowed in the hand state');
+ok(B.scriptViolations({ body2: "mine sits on the counter and never clogs" }, { ownershipState:"hand" }).indexOf("ownership") < 0, 'validator: the possessive "mine" is allowed in the hand state');
+ok(B.scriptViolations({ body2: "I'm never going back to bagged ice" }, { ownershipState:"hand" }).indexOf("ownership") < 0, 'validator: the contraction "I\'m" is allowed in the hand state');
 ok(B.scriptViolations({ hook: "It shouldn't take 15 minutes — set up your vacuum" }, {}).indexOf("em-dash") >= 0, 'validator: flags an em dash');
-// the hook may confess with "I"; ownership check is body-only
-ok(B.scriptViolations({ hook: "I almost talked myself out of this", body1: "You clean the corner over and over", preclose: "Tap the filter out and it breathes again", body2: "The floor stays clear", cta: "Grab one today" }, {}).indexOf("ownership") < 0, 'validator: a confession hook with "I" is allowed (ownership is body-only)');
+// TIME-OF-USE. ownershipState "hand" blocks a claim of use OVER TIME (has the sample, not the history); "used" allows it.
+// "hand": present-tense first person is fine; a duration/history claim is blocked as ownership-time.
+ok(B.scriptViolations({ body2: "I'm holding it right now and it feels heavy" }, { ownershipState:"hand" }).indexOf("ownership-time") < 0, 'hand: present-tense first person ("I\'m holding it") is allowed');
+ok(B.scriptViolations({ body2: "honestly I use it every morning" }, { ownershipState:"hand" }).indexOf("ownership-time") < 0, 'hand: habitual present ("I use it every morning") is let through -- errs toward present tense');
+ok(B.scriptViolations({ preclose: "I've had this for months and it still looks new" }, { ownershipState:"hand" }).indexOf("ownership-time") >= 0, 'hand: a duration claim ("I\'ve had this for months") is blocked as ownership-time');
+ok(B.scriptViolations({ body2: "over the past year it has not let me down" }, { ownershipState:"hand" }).indexOf("ownership-time") >= 0, 'hand: "over the past year" is blocked as ownership-time');
+ok(B.scriptViolations({ body2: "ever since I got it my mornings changed" }, { ownershipState:"hand" }).indexOf("ownership-time") >= 0, 'hand: "ever since I got it" is blocked as ownership-time');
+// "used": the same duration claim is allowed (that is the whole point of the state).
+ok(B.scriptViolations({ preclose: "I've had this for months and it still looks new" }, { ownershipState:"used" }).indexOf("ownership-time") < 0, 'used: a duration claim is allowed');
+// Migration to two states: old bool true -> "used", false -> "hand"; old "none" -> "hand"; new raw defaults to "hand".
+ok(B.normalizeRaw({ ownsProduct: true }).ownership === "used", 'normalizeRaw: legacy ownsProduct true -> "used"');
+ok(B.normalizeRaw({ ownsProduct: false }).ownership === "hand", 'normalizeRaw: legacy ownsProduct false -> "hand"');
+ok(B.normalizeRaw({ ownership: "none" }).ownership === "hand", 'normalizeRaw: legacy "none" state -> "hand"');
+ok(B.emptyRaw().ownership === "hand", 'emptyRaw: a new product defaults to "hand"');
+ok(B.normalizeRaw({ ownership: "used" }).ownership === "used", 'normalizeRaw: an explicit ownership state is kept');
+ok(B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ ownership:"hand" })).owns === true && B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ ownership:"hand" })).usedOverTime === false, 'briefToGenContext: hand -> owns true, usedOverTime false');
+ok(B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ ownership:"used" })).owns === true && B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ ownership:"used" })).usedOverTime === true, 'briefToGenContext: used -> owns true, usedOverTime true');
+// generic second-person copy with no first person is still clean (no over-block of "you"/"your")
+ok(B.scriptViolations({ body1: "You pour a glass without a second thought", body2: "Your counter stays clear", cta: "Grab one today" }, {}).indexOf("ownership") < 0, 'validator: pure second-person recommender copy is not flagged');
 // batch repetition: same objection-turn opening or near-identical CTA
 let acc = [{ preclose: "Pull the filter and tap it out", cta: "Grab yours from the orange cart" }];
 ok(B.scriptRepeats({ preclose: "Pull the filter, then wipe the housing", cta: "Get one before they sell out" }, acc) === true, 'repeats: same first words of the objection turn is a repeat');
 ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Grab yours from the orange cart today" }, acc) === true, 'repeats: near-identical CTA opening is a repeat');
 ok(B.scriptRepeats({ preclose: "Charge it by the door instead", cta: "Add it to your cart now" }, acc) === false, 'repeats: a genuinely different turn and CTA passes');
+// repeatDetail: names the colliding slot and hands back the exact prefixes already used, so the retry can steer
+let detPc = B.repeatDetail({ preclose: "Pull the filter, then wipe the housing", cta: "Get one before they sell out" }, acc);
+ok(detPc.length === 1 && detPc[0].slot === "pre-close", 'repeatDetail: reports the pre-close as the colliding slot');
+ok(detPc[0].prefix === "pull the filter" && detPc[0].used.indexOf("pull the filter") >= 0, 'repeatDetail: hands back the normalized 3-word pre-close prefix already used');
+let detCta = B.repeatDetail({ preclose: "Charge it by the door instead", cta: "Grab yours from the orange cart today" }, acc);
+ok(detCta.length === 1 && detCta[0].slot === "CTA", 'repeatDetail: reports the CTA as the colliding slot');
+ok(detCta[0].used.indexOf("grab yours from the") >= 0, 'repeatDetail: hands back the normalized 4-word CTA prefix already used');
+ok(B.repeatDetail({ preclose: "Charge it by the door instead", cta: "Add it to your cart now" }, acc).length === 0, 'repeatDetail: a genuinely different turn and CTA reports no collision');
+// the repetition guard now also covers the SETUP opening (body1) -- the near-identical-openings issue in the setup slot
+let accB1 = [{ body1: "You reach for the board and it slides", preclose: "x", cta: "y" }];
+ok(B.scriptRepeats({ body1: "You reach for the good knife" }, accB1) === true, 'repeats: same first words of the SETUP opening ("you reach for") is a repeat');
+ok(B.scriptRepeats({ body1: "The onions are half chopped already" }, accB1) === false, 'repeats: a genuinely different setup opening passes');
+let detB1 = B.repeatDetail({ body1: "You reach for the good knife" }, accB1);
+ok(detB1.length === 1 && detB1[0].slot === "setup opening" && detB1[0].used.indexOf("you reach for") >= 0, 'repeatDetail: reports the setup opening as the colliding slot with its prefix');
+
+// defusePool: threshold DEPENDS on resolve -- resolvable needs 2 mentions, defuse-only (empty resolve) needs 1
+let dpObjs = B.normalizeBrief({lines:{objections:[
+  { value:'worried it warps in the dishwasher', count:1, resolve:'you hand wash it and it stays flat' }, // resolvable, only 1 mention -> excluded
+  { value:'the board slides on the counter', count:1 },                                                  // defuse-only, 1 mention -> KEPT
+  { value:'needs oiling now and then', count:2, resolve:'you rub oil in once a month' }                  // resolvable, 2 mentions -> kept
+]}}).lines.objections;
+let pool = B.defusePool(dpObjs, []);
+ok(pool.some(function(o){ return o.value === 'the board slides on the counter'; }), 'defusePool: a single-mention DEFUSE-ONLY objection (empty resolve) is grounded');
+ok(!pool.some(function(o){ return o.value === 'worried it warps in the dishwasher'; }), 'defusePool: a single-mention RESOLVABLE objection (has resolve) is still excluded (needs 2)');
+ok(pool.some(function(o){ return o.value === 'needs oiling now and then'; }), 'defusePool: a two-mention resolvable objection is kept');
+// A product FLAW must never enter the objection pool. Generation now passes [] for product-pains, so even a
+// heavily-reviewed defect ("arrives damaged", 7 mentions) can never be assigned, named, or become a subject.
+let flawObjs = B.normalizeBrief({lines:{objections:[{value:'will it warp over time', count:3}]}}).lines.objections;
+let poolNoFlaw = B.defusePool(flawObjs, []);   // the exact call generation now makes
+ok(!poolNoFlaw.some(function(o){ return /arrives damaged/.test(o.value); }), 'defusePool([]): a product flaw is excluded entirely (it was never passed in)');
+ok(poolNoFlaw.some(function(o){ return o.value === 'will it warp over time'; }), 'defusePool([]): a real buyer objection is still curated');
+// social-proof: invented claims about what OTHER buyers do (the recurring "buy a second one" fabrication).
+ok(B.scriptViolations({ body2: "people end up buying a second one for the other bathroom" }, {}).indexOf("social-proof") >= 0, 'validator: catches the invented "people end up buying a second one" social claim');
+ok(B.scriptViolations({ cta: "most people grab another one before they run out" }, {}).indexOf("social-proof") >= 0, 'validator: catches "most people grab another one"');
+ok(B.scriptViolations({ body2: "you reach for it every single morning and never look back" }, {}).indexOf("social-proof") < 0, 'validator: a first-person/second-person outcome line is not a social-proof claim');
+ok(B.scriptViolations({ preclose: "it just works, quietly, in the corner" }, {}).indexOf("social-proof") < 0, 'validator: an ordinary benefit line is not flagged');
+// cites-source: a script must never reference the reviews or the brief as a source.
+ok(B.scriptViolations({ body1: "the reviews talk about the packaging being impossibly thin" }, {}).indexOf("cites-source") >= 0, 'validator: catches a script that cites "the reviews"');
+ok(B.scriptViolations({ preclose: "reviewers keep mentioning how quiet it is" }, {}).indexOf("cites-source") >= 0, 'validator: catches "reviewers"');
+ok(B.scriptViolations({ body2: "it runs quiet enough to forget it is on" }, {}).indexOf("cites-source") < 0, 'validator: an ordinary line that does not cite a source is fine');
+// The general failure: citation by ATTRIBUTION to an anonymous third party, even without the word "reviews".
+ok(B.scriptViolations({ body2: "one person said it was the best Amazon purchase they ever made" }, {}).indexOf("cites-source") >= 0, 'validator: catches "one person said" (the review-citation shape that leaked)');
+ok(B.scriptViolations({ preclose: "a buyer wrote that it changed her mornings" }, {}).indexOf("cites-source") >= 0, 'validator: catches "a buyer wrote"');
+ok(B.scriptViolations({ body1: "someone commented that it never slips" }, {}).indexOf("cites-source") >= 0, 'validator: catches "someone commented"');
+ok(B.scriptViolations({ body2: "people who bought it keep saying the same thing" }, {}).indexOf("cites-source") >= 0, 'validator: catches "people who bought it"');
+// Social proof the creator EXPERIENCED is NOT a citation and must stay allowed.
+ok(B.scriptViolations({ body2: "my friends keep asking me where I got it" }, {}).indexOf("cites-source") < 0, 'validator: the creator\'s own social proof ("my friends") is not a citation');
+ok(B.scriptViolations({ body2: "everyone who comes over notices it right away" }, {}).indexOf("cites-source") < 0, 'validator: "everyone who comes over" (real-life observation) is not a citation');
+// isDefectConcern: a shipping / packaging / delivery-damage concern is filtered out of the context entirely,
+// whether it was classified as a pain OR an objection -- so it can never drive a script.
+ok(B.isDefectConcern({ value: 'the board arrives damaged in shipping' }) === true, 'isDefectConcern: flags an arrival/shipping-damage complaint');
+ok(B.isDefectConcern({ value: 'the packaging is impossibly thin', words: ['brown paper','oversized box'] }) === true, 'isDefectConcern: flags a packaging complaint');
+ok(B.isDefectConcern({ value: 'will it crack over time' }) === false, 'isDefectConcern: a durability doubt is NOT a defect concern (still curates)');
+ok(B.isDefectConcern({ value: 'worried it is too small' }) === false, 'isDefectConcern: an ordinary size objection is not flagged');
+// the filter runs inside briefToGenContext, so a shipping-damage objection never reaches the generation context
+let defBrief = B.normalizeBrief({lines:{objections:[{value:'the packaging is too thin and it arrives damaged', count:7},{value:'will it fit my drawer', count:4}]}});
+let defCtx = B.briefToGenContext(defBrief, B.emptyRaw());
+ok(!defCtx.objections.some(function(o){ return /arrives damaged|packaging/.test(o.value); }), 'briefToGenContext: a shipping-damage OBJECTION is filtered out of the context (the leak past the pool exclusion)');
+ok(defCtx.objections.some(function(o){ return o.value === 'will it fit my drawer'; }), 'briefToGenContext: a real buyer objection survives the defect filter');
+
+// matchObjectionsToThreads: an objection goes to the script whose SCENARIO shares words with it, not by position
+let mObjs = [{ value:'the board slides around on the counter', words:['slides','sliding'] }, { value:'it arrives already oiled and ready', words:['oiled','ready'] }];
+let threadA = B.fitTokens('the cutting board slides while you chop');   // shares "slides"/"board"
+let threadB = B.fitTokens('you have to keep re-oiling the wood');       // shares "oil"
+let mAssign = B.matchObjectionsToThreads([threadA, threadB], mObjs);
+ok(mAssign[0] && mAssign[0].value.indexOf('slides') >= 0, 'match: the sliding objection goes to the sliding-thread script');
+ok(mAssign[1] && mAssign[1].value.indexOf('oiled') >= 0, 'match: the oiling objection goes to the oiling-thread script (not by position)');
+let noFit = B.matchObjectionsToThreads([B.fitTokens('the sauce wipes right off the glass')], [{ value:'it arrives in the original packaging', words:['packaging','unboxing'] }]);
+ok(noFit[0] === null, 'match: an objection that shares no words with the thread is NOT forced in (null -> close mode)');
 
 // 20. asserted-number quarantine: ANY specific figure in the SCRIPT is caught, whether it came from the
 // seller, a buyer, or was invented -- the creator measured none of them. This is the fix for figures that
@@ -573,11 +761,70 @@ ok(B.scriptViolations({ body2: "Just 13.58 inches of counter and it fits" }, { l
 ok(B.scriptViolations({ body2: "Only 6.7 inches wide on the shelf" }, { listingText: specListing }).indexOf("asserted-number") < 0, 'validator: a mid-dimension number (6.7) with no adjacent unit is still recognized from the listing');
 ok(B.scriptViolations({ preclose: "Ready every six or seven minutes" }, { listingText: specListing }).indexOf("asserted-number") >= 0, 'validator: a review figure (6 or 7 minutes) is still blocked -- those numbers are not in the listing');
 ok(B.scriptViolations({ hook: "Descale it once a month" }, { listingText: specListing }).indexOf("asserted-number") >= 0, 'validator: "once a month" (1) blocked -- 1 is not a listing number (1.8 is)');
+// CONVERSATIONAL FIGURES (lean/minimal): a bare time/quantity phrase is speech, not an unverifiable spec.
+// Percent and price stay hard; a physical spec unit not in the listing is still blocked.
+let convOn = { listingText: specListing, conversationalFigures: true };
+ok(B.scriptViolations({ body1: "I have not hidden a cutting board under my sink in two years" }, convOn).indexOf("asserted-number") < 0, 'conversational: "in two years" is speech, allowed in lean/minimal');
+ok(B.scriptViolations({ body1: "I have not hidden a cutting board under my sink in two years" }, { listingText: specListing }).indexOf("asserted-number") >= 0, 'conversational OFF (current): "in two years" is still blocked (2 not in listing)');
+ok(B.scriptViolations({ hook: "It chills a drink in seconds", body2: "ready every six or seven minutes" }, convOn).indexOf("asserted-number") < 0, 'conversational: time phrases ("in seconds", "six or seven minutes") pass in lean/minimal');
+ok(B.scriptViolations({ preclose: "I have said this a hundred times" }, convOn).indexOf("asserted-number") < 0, 'conversational: a frequency ("a hundred times") passes in lean/minimal');
+ok(B.scriptViolations({ cta: "You get 20 percent more ice" }, convOn).indexOf("asserted-number") >= 0, 'conversational: percent STAYS hard even in lean/minimal');
+ok(B.scriptViolations({ hook: "It survives 90-degree heat" }, convOn).indexOf("asserted-number") >= 0, 'conversational: a physical spec unit (90-degree) not in the listing is STILL blocked');
+ok(B.scriptViolations({ body1: "It holds 25 ounces" }, convOn).indexOf("asserted-number") >= 0, 'conversational: a fabricated spec (25 ounces, not in listing) is STILL blocked');
+ok(B.scriptViolations({ body1: "It makes 33 pounds of ice a day" }, convOn).indexOf("asserted-number") < 0, 'conversational: a real listing spec (33 pounds) stays allowed as before');
+// blockedFigures mirrors the guard: it must not name a conversational figure as blocked in lean/minimal.
+ok((B.blockedFigures({ body1: "in two years" }, convOn)["asserted-number"] || []).length === 0, 'blockedFigures: does not name "in two years" in lean/minimal');
+ok((B.blockedFigures({ hook: "90-degree heat" }, convOn)["asserted-number"] || []).length >= 1, 'blockedFigures: still names a spec figure (90-degree) in lean/minimal');
 // numbersIn: the shared helper, digit and word form.
 ok(B.numbersIn("33 lbs per 24 hours")["33"] && B.numbersIn("33 lbs per 24 hours")["24"], 'numbersIn: pulls 33 and 24 from a spec');
 ok(B.numbersIn("16.33 x 6.7 x 13.58")["16.33"] && B.numbersIn("16.33 x 6.7 x 13.58")["6.7"] && B.numbersIn("16.33 x 6.7 x 13.58")["13.58"], 'numbersIn: pulls all three dimension numbers');
 ok(B.numbersIn("six or seven minutes")["6"] && B.numbersIn("six or seven minutes")["7"], 'numbersIn: converts word numbers to digits');
 ok(!B.numbersIn("1.8 L tank")["1"], 'numbersIn: "1.8" is one number, not also "1"');
+// Compound word numbers: a tens word beside a units word composes to one value (was split into 20 and 4).
+ok(B.numbersIn("twenty-four hour timer")["24"], 'numbersIn: "twenty-four" composes to 24');
+ok(B.numbersIn("holds twenty-five ounces")["25"], 'numbersIn: "twenty-five" composes to 25');
+ok(B.numbersIn("two hundred watt motor")["200"], 'numbersIn: "two hundred" composes to 200');
+ok(B.numbersIn("twenty-four hour timer")["24"] && !B.numbersIn("twenty-four hour timer")["20"] && !B.numbersIn("twenty-four hour timer")["4"], 'numbersIn: a compound is the COMPOSITE value only (24), not its parts (20, 4)');
+ok(B.numbersIn("two hundred watts")["200"] && !B.numbersIn("two hundred watts")["2"] && !B.numbersIn("two hundred watts")["100"], 'numbersIn: "two hundred" is 200 only, not 2 and 100');
+// Provenance, FORWARD: the listing states the figure as a WORD, the script writes the DIGIT.
+let wordListing = "Twenty-four hour programmable timer. Basket holds twenty-five ounces. Two hundred watt motor.";
+ok(B.scriptViolations({ body1: "runs on a 24 hour timer" }, { listingText: wordListing }).indexOf("asserted-number") < 0, 'provenance forward: script "24 hours" clears against listing "twenty-four hour"');
+ok(B.scriptViolations({ body2: "the basket holds 25 ounces" }, { listingText: wordListing }).indexOf("asserted-number") < 0, 'provenance forward: script "25 ounces" clears against listing "twenty-five ounces"');
+ok(B.scriptViolations({ body1: "a 200 watt motor" }, { listingText: wordListing }).indexOf("asserted-number") < 0, 'provenance forward: script "200 watts" clears against listing "two hundred watt"');
+ok(B.scriptViolations({ body1: "it has a 26 hour timer" }, { listingText: wordListing }).indexOf("asserted-number") >= 0, 'provenance: a figure NOT in the listing (26) is still blocked');
+// Provenance, REVERSE: the listing states the DIGIT, the script writes the WORD compound. numberUnits must read
+// "twenty-four hours" as one figure (24), not as "four hours".
+let digitListing = "24 hour timer. Holds 25 ounces. 200 watt motor.";
+ok(B.numberUnits("a twenty-four hour timer")[0] === "twenty-four hour", 'numberUnits: reads "twenty-four hour" as one compound figure (not "four hour")');
+ok(B.numberUnits("two hundred watt")[0] === "two hundred watt", 'numberUnits: reads "two hundred watt" as one compound figure');
+ok(B.scriptViolations({ body1: "runs a twenty-four hour timer" }, { listingText: digitListing }).indexOf("asserted-number") < 0, 'provenance reverse: script "twenty-four hour" clears against listing "24 hour"');
+ok(B.scriptViolations({ body2: "holds twenty-five ounces" }, { listingText: digitListing }).indexOf("asserted-number") < 0, 'provenance reverse: script "twenty-five ounces" clears against listing "25 ounces"');
+ok(B.scriptViolations({ body1: "a two hundred watt motor" }, { listingText: digitListing }).indexOf("asserted-number") < 0, 'provenance reverse: script "two hundred watt" clears against listing "200 watt"');
+ok(B.scriptViolations({ body1: "a thirty-one ounce basket" }, { listingText: digitListing }).indexOf("asserted-number") >= 0, 'provenance reverse: a word compound NOT in the listing (thirty-one) is still blocked');
+// HUNDREDS + REMAINDER: "hundred and fifty" (150) is a different shape than "twenty-four" -- hundreds plus a
+// tens remainder joined by "and". It must compose to the COMPOSITE only, and clear against a "150-oz" listing.
+ok(B.numbersIn("hundred and fifty ounces")["150"], 'numbersIn: "hundred and fifty" composes to 150');
+ok(!B.numbersIn("hundred and fifty ounces")["100"] && !B.numbersIn("hundred and fifty ounces")["50"], 'numbersIn: "hundred and fifty" is 150 only, not its parts (100, 50)');
+ok(B.numbersIn("one hundred and fifty")["150"], 'numbersIn: "one hundred and fifty" composes to 150');
+ok(B.numbersIn("a hundred and fifty")["150"], 'numbersIn: "a hundred and fifty" composes to 150');
+ok(B.numbersIn("two hundred and fifty")["250"] && !B.numbersIn("two hundred and fifty")["200"], 'numbersIn: "two hundred and fifty" composes to 250');
+ok(B.numbersIn("one hundred and five")["105"], 'numbersIn: "one hundred and five" composes to 105');
+ok(B.numbersIn("two hundred")["200"] && !B.numbersIn("two hundred")["2"] && !B.numbersIn("two hundred")["100"], 'numbersIn: bare "two hundred" is still 200 only (no regression)');
+ok(B.numbersIn("twenty-four")["24"] && !B.numbersIn("twenty-four")["20"], 'numbersIn: "twenty-four" still composes to 24 (no regression)');
+ok(B.numberUnits("a hundred and fifty ounce tank")[0] === "hundred and fifty ounce", 'numberUnits: reads "hundred and fifty ounce" as one compound figure');
+ok(B.scriptViolations({ body2: "a hundred and fifty ounce capacity" }, { listingText: "150-oz capacity" }).indexOf("asserted-number") < 0, 'provenance: script "hundred and fifty ounce" clears against listing "150-oz"');
+// stripLeadingHook: the minimal engine's hook is sometimes echoed as the setup's first sentence -- peel that one repeat.
+ok(B.stripLeadingHook("FINALLY a board that lasts.", "FINALLY a board that lasts. I went through three cheap ones this year.") === "I went through three cheap ones this year.", 'stripLeadingHook: removes the echoed hook sentence from the setup');
+ok(B.stripLeadingHook("WOW this is massive", "WOW, this is massive! The box barely fit on my counter.") === "The box barely fit on my counter.", 'stripLeadingHook: matches normalized (case + punctuation) and strips');
+ok(B.stripLeadingHook("A clean hook", "A totally different setup that shares a word.") === "A totally different setup that shares a word.", 'stripLeadingHook: leaves a setup that does not open with the hook untouched');
+ok(B.stripLeadingHook("Only the hook", "Only the hook.") === "Only the hook.", 'stripLeadingHook: never blanks the field (nothing left -> unchanged)');
+ok(B.stripLeadingHook("Some hook", "") === "", 'stripLeadingHook: empty body is safe');
+// CONTINUATION echo: the setup repeats the hook, then keeps the SAME sentence going (comma or dash) instead of
+// restarting. The old code compared the whole first sentence to the hook, so a continuation never matched and
+// the echo survived. The prefix match peels the hook words and stands the remainder up as its own sentence.
+ok(B.stripLeadingHook("If dragging out the vacuum for every little mess is your version of a punishment.", "If dragging out the vacuum for every little mess is your version of a punishment, then this changes everything.") === "Then this changes everything.", 'stripLeadingHook: peels a hook the setup CONTINUES past with a comma');
+ok(B.stripLeadingHook("You keep reaching for it", "You keep reaching for it -- and that is the point.") === "And that is the point.", 'stripLeadingHook: peels a hook continued with a dash');
+ok(B.stripLeadingHook("WOW this is massive", "WOW, this is massive, and it barely fit.") === "And it barely fit.", 'stripLeadingHook: continuation with normalized punctuation still peels');
 ok(B.scriptViolations({ cta: "Grab it for just $40 today" }, {}).indexOf("price") >= 0, 'validator: a currency figure ($40) is blocked as price');
 ok(B.scriptViolations({ cta: "Only 40 bucks right now" }, {}).indexOf("price") >= 0, 'validator: "40 bucks" is blocked as price');
 ok(B.scriptViolations({ body2: "The ice is ready before you know it" }, { listingText: listing }).indexOf("asserted-number") < 0, 'validator: a figure-free script with a listing still passes');
@@ -641,6 +888,11 @@ ok(B.scriptViolations({ hook: "You're still making ice by hand in 2026" }, { now
 ok(B.scriptViolations({ hook: "This isn't 2010, your ice should be instant" }, { nowYear: 2026 }).indexOf("current-year") < 0, 'validator: a PAST year as contrast (2010) is allowed');
 ok(B.scriptViolations({ cta: "The future is 2027, get yours" }, { nowYear: 2026 }).indexOf("current-year") >= 0, 'validator: a future year is blocked too');
 ok(B.scriptViolations({ hook: "Still doing this in 2026" }, {}).indexOf("current-year") < 0, 'validator: with no nowYear passed, the year guard does not fire');
+// market-claim: an invented sweeping trend ("nobody wants X anymore") is blocked; ordinary lines are not.
+ok(B.scriptViolations({ hook: "Nobody wants regular ice cubes anymore" }, {}).indexOf("market-claim") >= 0, 'validator: catches an invented market trend (nobody wants ... anymore)');
+ok(B.scriptViolations({ hook: "Everyone is switching these days" }, {}).indexOf("market-claim") >= 0, 'validator: catches "everyone is switching these days"');
+ok(B.scriptViolations({ hook: "Everyone needs cold drinks in summer" }, {}).indexOf("market-claim") < 0, 'validator: an ordinary "everyone needs" line is NOT a market claim');
+ok(B.scriptViolations({ hook: "We're not waiting on the cart girl anymore" }, {}).indexOf("market-claim") < 0, 'validator: a "we" cultural-moment line is allowed (not nobody/everyone)');
 // cause survives normalize + adapter, and consolidation carries it on the representative.
 let bWithCause = B.normalizeBrief({ lines:{ objections:[{ value:'it shuts off', count:4, classified:true, cause:'the filter clogs' }] } });
 ok(bWithCause.lines.objections[0].cause === 'the filter clogs', 'normalizeBrief: preserves objection.cause');
@@ -648,10 +900,78 @@ let ctxC = B.briefToGenContext(bWithCause, B.emptyRaw());
 ok(ctxC.objections[0].cause === 'the filter clogs', 'briefToGenContext: exposes objection.cause');
 let clusteredC = B.applyClusters([{ value:'shuts off', count:2, cause:'the filter clogs' }, { value:'stops early', count:3, cause:'' }], { groups:[{ value:'shuts off early', members:[0,1] }] }, 10);
 ok(clusteredC[0].cause === 'the filter clogs', 'applyClusters: representative carries the first grounded cause through consolidation');
+// pain `about`: alternative (old way) may lead; product (this product's flaw) is a doubt only. Round-trips.
+let bAbout = B.normalizeBrief({ lines:{ pains:[{ value:'my old vacuum was too heavy', count:4, about:'alternative' }, { value:'the first batch is watery', count:3, about:'product' }] } });
+ok(bAbout.lines.pains[0].about === 'alternative' && bAbout.lines.pains[1].about === 'product', 'normalizeBrief: preserves pain.about');
+let ctxA = B.briefToGenContext(bAbout, B.emptyRaw());
+ok(ctxA.pains[0].about === 'alternative' && ctxA.pains[1].about === 'product', 'briefToGenContext: exposes pain.about');
+let clusteredA = B.applyClusters([{ value:'old vacuum too heavy', count:2, about:'alternative' }, { value:'lugging it upstairs', count:3, about:'' }], { groups:[{ value:'the old way was heavy', members:[0,1] }] }, 10);
+ok(clusteredA[0].about === 'alternative', 'applyClusters: representative carries the first pain.about through consolidation');
+let uni = B.applyUnifiedClusters([{ value:'watery first batch', count:2, about:'product' }], [{ value:'worth it', count:2 }], { clusters:[{ value:'watery first batch', category:'pain', members:[0] }] }, 10);
+ok(uni.pains[0].about === 'product', 'applyUnifiedClusters: pain.about survives the unified merge');
+// Maslow `need` on pains and desire round-trips through normalize, adapter, and consolidation.
+let bNeed = B.normalizeBrief({ lines:{ desire:{ value:'everyone asks', need:'esteem' }, pains:[{ value:'kid could choke on sharp ice', count:5, need:'safety' }] } });
+ok(bNeed.lines.pains[0].need === 'safety' && bNeed.lines.desire.need === 'esteem', 'normalizeBrief: preserves pain.need and desire.need');
+let ctxN = B.briefToGenContext(bNeed, B.emptyRaw());
+ok(ctxN.pains[0].need === 'safety' && ctxN.desireNeed === 'esteem', 'briefToGenContext: exposes pain.need and desireNeed');
+// product name is threaded into the context so a script can actually say what the product is (not just "it")
+ok(B.briefToGenContext(B.emptyBrief(), B.emptyRaw(), 'Shark WANDVAC').name === 'Shark WANDVAC', 'briefToGenContext: threads the product name into ctx.name');
+ok(B.briefToGenContext(B.emptyBrief(), B.emptyRaw()).name === '', 'briefToGenContext: name defaults to empty when none is passed (old 2-arg callers unaffected)');
+// Must-include (the creator's non-negotiable): survives normalizeRaw round-trip and reaches ctx.mustInclude.
+ok(B.emptyRaw().mustInclude === '', 'emptyRaw: mustInclude defaults to empty');
+ok(B.normalizeRaw({ mustInclude: 'folds flat to two inches' }).mustInclude === 'folds flat to two inches', 'normalizeRaw: preserves mustInclude');
+ok(B.normalizeRaw({ mustInclude: 99 }).mustInclude === '99', 'normalizeRaw: coerces mustInclude to a string');
+ok(B.briefToGenContext(B.emptyBrief(), B.normalizeRaw({ mustInclude: 'say it folds flat' })).mustInclude === 'say it folds flat', 'briefToGenContext: threads the creator non-negotiable into ctx.mustInclude');
+ok(B.briefToGenContext(B.emptyBrief(), B.emptyRaw()).mustInclude === '', 'briefToGenContext: mustInclude is empty when the field is blank (generation unchanged)');
+// blockedFigures: names the EXACT text the figure/price guards trip on, mirroring scriptViolations, for the drop diagnostic.
+let bfListing = 'Ninja Crispi Pro. 4 quart and 6 quart glass bowls.';
+let bf1 = B.blockedFigures({ hook:'it saves you twenty minutes', body2:'crispy in 8 minutes' }, { listingText: bfListing });
+ok(bf1['asserted-number'].indexOf('twenty minutes') >= 0 && bf1['asserted-number'].indexOf('8 minutes') >= 0, 'blockedFigures: names time figures not in the listing');
+let bf2 = B.blockedFigures({ hook:'you dirty three pans', body2:'six different things at once' }, { listingText: bfListing });
+ok(bf2['asserted-number'].length === 0, 'blockedFigures: unit-less counts of objects are not figures (three pans, six things pass)');
+let bf3 = B.blockedFigures({ body2:'a 6 quart bowl' }, { listingText: bfListing });
+ok(bf3['asserted-number'].length === 0, 'blockedFigures: a figure whose number IS in the listing is not blocked');
+let bf4 = B.blockedFigures({ hook:'cuts cook time by 30 percent', body2:'only 40 dollars' }, { listingText: bfListing });
+ok(bf4['asserted-number'].indexOf('30 percent') >= 0, 'blockedFigures: percent is always named');
+ok(bf4.price.indexOf('40 dollars') >= 0, 'blockedFigures: a currency figure is named under price');
+let clN = B.applyClusters([{ value:'sharp ice', count:2, need:'safety' }, { value:'kids around', count:3, need:'' }], { groups:[{ value:'sharp ice near kids', members:[0,1] }] }, 10);
+ok(clN[0].need === 'safety', 'applyClusters: representative carries the first need through consolidation');
 // Cap at 5 so a giant brief never floods the batch.
 let goMany = [];
 for (let i = 0; i < 9; i++) goMany.push({ value: 'obj ' + i, count: 9 - i, ccount: 0, added: false });
 ok(B.groundedObjections(goMany).length === 5, 'groundedObjections: caps the pool at 5');
+
+// selectReviewsForDerivation: free pre-model selection -- drop dupes + content-free, PROTECT complaints/figures,
+// even-stride the rest to the cap. The protect-list is the point: short specific complaints must never be dropped.
+(function(){
+  function rv(t){ return { full: t }; }
+  function tag(j){ return String.fromCharCode(65 + Math.floor(j/26)) + String.fromCharCode(65 + (j%26)); }
+  // Under the cap -> everything is returned untouched.
+  var small = []; for (var i=0;i<30;i++) small.push(rv(tag(i) + " genuine review about the product working well in my kitchen every day."));
+  var os = B.selectReviewsForDerivation(small, 50);
+  ok(os.selected.length === 30 && os.stats.pasted === 30 && os.stats.selected === 30, 'select: under the cap returns everything');
+  // Over the cap: complaints + figures survive, content-free and dupes are dropped, capped at 50.
+  var input = [];
+  var complaints = ["Lid cracked after two washes.", "Only issue is the motor is loud.", "It stopped working after a month.", "Wish the handle were longer.", "Too small for a family."];
+  complaints.forEach(function(c){ input.push(rv(c)); });
+  var figures = ["Makes 33 pounds of ice a day, exactly as listed.", "Ran it for 6 months with no trouble here.", "Holds 150 oz which is plenty for us."];
+  figures.forEach(function(f){ input.push(rv(f)); });
+  var boiler = ["I love it","Great product","Five stars","Works great","Highly recommend","As described","Love it!","So good"];
+  for (var b=0;b<40;b++) input.push(rv(boiler[b%8]));                                   // 40 boilerplate -> 8 unique, all empty
+  for (var j=0;j<60;j++) input.push(rv(tag(j) + " this piece fits our counter and looks nice each morning and we reach for it often."));  // 60 distinct fillers, no digits
+  var out = B.selectReviewsForDerivation(input, 50);
+  var texts = out.selected.map(function(r){ return r.full; });
+  ok(out.selected.length === 50, 'select: caps the selection at 50');
+  ok(complaints.every(function(c){ return texts.indexOf(c) >= 0; }), 'select: PROTECTS every short complaint');
+  ok(figures.every(function(f){ return texts.indexOf(f) >= 0; }), 'select: PROTECTS every review with a figure');
+  ok(texts.indexOf("I love it") < 0 && texts.indexOf("Five stars") < 0 && texts.indexOf("So good") < 0, 'select: drops content-free reviews');
+  ok(out.stats.droppedEmpty > 0 && out.stats.droppedDup > 0, 'select: reports both content-free and duplicate drops');
+  ok(out.stats.pasted === input.length && out.stats.selected === 50, 'select: stats carry the pasted and selected totals for the member message');
+  // Near-duplicates: 60 identical reviews collapse to one kept + the rest reported as dropped.
+  var dupes = []; for (var d=0;d<60;d++) dupes.push(rv("This is the exact same review text pasted over and over identically here."));
+  var od = B.selectReviewsForDerivation(dupes, 50);
+  ok(od.stats.droppedDup >= 59 && od.selected.length === 1, 'select: collapses near-duplicates to one');
+})();
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

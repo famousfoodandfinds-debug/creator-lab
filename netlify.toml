@@ -2,12 +2,16 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-[functions."claude"]
-  timeout = 60
-
 [[redirects]]
   from = "/api/claude"
   to = "/.netlify/functions/claude"
+  status = 200
+
+# Streaming sibling of /api/claude, used ONLY by Minimal-on-Sonnet. Streaming functions get the 60s budget a
+# slower model needs; /api/claude (synchronous, ~26s cap) is untouched for Current, Lean, and everything else.
+[[redirects]]
+  from = "/api/claude-stream"
+  to = "/.netlify/functions/claude-stream"
   status = 200
 
 [[redirects]]

@@ -4,76 +4,96 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Psych Lab · FAQ</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<title>Saxe · FAQ</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+PHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMTIiIGZpbGw9IiMyNjI0MUYiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNTYsMjU2KSBzY2FsZSgzLjMpIj48ZyB0cmFuc2Zvcm09InJvdGF0ZSgtMjIpIj48cGF0aCBkPSJNMzkuMzkgMi42MDUgQTQwIDE1IDAgMSAxIDM0LjY0IC03LjUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0NFOUE4MCIgc3Ryb2tlLXdpZHRoPSIxLjEiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxwYXRoIGQ9Ik0zMi4xNCAtMTIuNDEgTDM0LjY0IC03LjUgTDI5LjE0IC03Ljc5IiBmaWxsPSJub25lIiBzdHJva2U9IiNDRTlBODAiIHN0cm9rZS13aWR0aD0iMS40IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L2c+PHBvbHlnb24gcG9pbnRzPSIwLC0zNCAzLC0zIDIyLDAgMywzIDAsMzQgLTMsMyAtMjIsMCAtMywtMyIgZmlsbD0iI0NFOUE4MCIvPjwvZz48L3N2Zz4=">
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+/* Saxe palette, copied from app.html's :root so this page shares the app's exact tokens. Rose gold (#CE9A80)
+   is the one accent -- no green, purple, or orange. */
 :root {
-  --black: #080808; --surface: #111111; --surface2: #181818; --surface3: #222222;
-  --border: rgba(255,255,255,0.07); --border-md: rgba(255,255,255,0.14); --border-strong: rgba(255,255,255,0.25);
-  --silver: #C0C0C0; --silver-bright: #E8E8E8; --silver-dim: rgba(192,192,192,0.12);
-  --white: #F0F0F0; --white-dim: rgba(240,240,240,0.55); --muted: #666666; --muted2: #404040;
-  --green: #2DC98A; --green-dim: rgba(45,201,138,0.1);
-  --purple: #A0A0C0; --purple-dim: rgba(160,160,192,0.1);
-  --orange: rgba(255,165,0,0.9); --orange-dim: rgba(255,165,0,0.08);
-  --radius: 14px; --radius-sm: 9px;
+  --black: #1A1714;
+  --surface: #232019;
+  --surface2: #2B2A27;
+  --surface3: #34302A;
+  --border: rgba(244,238,232,0.08);
+  --border-md: rgba(244,238,232,0.15);
+  --border-strong: rgba(244,238,232,0.26);
+  --white: #F4EEE8;
+  --white-dim: rgba(244,238,232,0.6);
+  --muted: #9A9082;
+  --muted2: #6B6459;
+  --gold: #CE9A80;
+  --gold-dim: rgba(206,154,128,0.12);
+  --gold-glow: rgba(206,154,128,0.22);
+  --radius: 14px; --radius-sm: 9px; --radius-xs: 6px;
 }
 html, body { background: var(--black); color: var(--white); font-family: 'Instrument Sans', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
 body { padding-bottom: 80px; }
 
-.header { padding: 16px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(8,8,8,0.95); backdrop-filter: blur(20px); z-index: 100; }
-.header-logo { width: 120px; height: 44px; object-fit: contain; mix-blend-mode: lighten; }
+.header { padding: 16px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(26,23,20,0.95); backdrop-filter: blur(20px); z-index: 100; }
+.header-logo { display: block; height: 52px; width: auto; }
 .header-label { margin-left: auto; font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
 
-.hero { padding: 40px 20px 32px; text-align: center; border-bottom: 1px solid var(--border); }
-.hero-title { font-family: 'Playfair Display', serif; font-size: clamp(30px, 7vw, 42px); font-weight: 900; line-height: 1.05; color: var(--white); margin-bottom: 10px; }
-.hero-title em { font-style: italic; color: var(--silver-bright); }
-.hero-sub { font-size: 14px; color: var(--white-dim); font-weight: 300; max-width: 360px; margin: 0 auto; line-height: 1.7; }
+.hero { padding: 44px 20px 28px; text-align: center; border-bottom: 1px solid var(--border); }
+.hero-title { font-family: 'Marcellus', serif; font-size: clamp(30px, 7vw, 42px); font-weight: 400; line-height: 1.05; color: var(--white); margin-bottom: 10px; }
+.hero-title .wordmark { text-transform: uppercase; letter-spacing: 0.14em; }
+.hero-title .wordmark .x { color: var(--gold); }
+.hero-sub { font-size: 14px; color: var(--white-dim); font-weight: 300; max-width: 380px; margin: 0 auto; line-height: 1.7; }
+
+/* SEARCH */
+.search-wrap { padding: 16px 20px 4px; position: sticky; top: 85px; background: rgba(26,23,20,0.95); backdrop-filter: blur(20px); z-index: 90; }
+.search-box { position: relative; max-width: 640px; margin: 0 auto; }
+.search-input { width: 100%; background: var(--surface); border: 1px solid var(--border-md); border-radius: 999px; color: var(--white); font-family: 'Instrument Sans', sans-serif; font-size: 14px; padding: 12px 40px 12px 42px; outline: none; -webkit-user-select: text; user-select: text; }
+.search-input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px var(--gold-dim); }
+.search-input::placeholder { color: var(--muted2); }
+.search-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.search-clear { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 6px 10px; display: none; }
+.search-clear:hover { color: var(--gold); }
+.search-box.has-text .search-clear { display: block; }
 
 /* NAV */
-.section-nav { padding: 14px 20px; display: flex; gap: 6px; overflow-x: auto; border-bottom: 1px solid var(--border); scrollbar-width: none; background: var(--surface); }
+.section-nav { padding: 12px 20px; display: flex; gap: 6px; overflow-x: auto; border-bottom: 1px solid var(--border); scrollbar-width: none; background: var(--surface); }
 .section-nav::-webkit-scrollbar { display: none; }
 .nav-pill { flex-shrink: 0; background: var(--surface2); border: 1px solid var(--border-md); border-radius: 999px; padding: 6px 14px; font-size: 12px; font-weight: 500; color: var(--muted); text-decoration: none; transition: all 0.2s; cursor: pointer; }
-.nav-pill:hover, .nav-pill.active { border-color: var(--silver); color: var(--silver-bright); background: var(--silver-dim); }
+.nav-pill:hover, .nav-pill.active { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
 
 /* SECTIONS */
-.faq-section { padding: 32px 20px; border-bottom: 1px solid var(--border); }
+.faq-section { padding: 30px 20px; border-bottom: 1px solid var(--border); }
 .faq-section:last-child { border-bottom: none; }
-.section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-.section-icon { font-size: 20px; flex-shrink: 0; }
-.section-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--white); }
-.section-title em { font-style: italic; color: var(--silver-bright); }
+.section-title { font-family: 'Marcellus', serif; font-size: 20px; font-weight: 400; color: var(--white); margin-bottom: 18px; }
+.section-title em { font-style: normal; color: var(--gold); }
 
 /* Q&A */
-.qa-list { display: flex; flex-direction: column; gap: 4px; }
+.qa-list { display: flex; flex-direction: column; gap: 6px; max-width: 760px; }
 .qa-item { border: 1px solid var(--border-md); border-radius: var(--radius-sm); overflow: hidden; }
 .qa-question { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--white); line-height: 1.4; background: var(--surface2); transition: background 0.15s; user-select: none; -webkit-user-select: none; }
 .qa-question:hover { background: var(--surface3); }
 .qa-arrow { font-size: 12px; color: var(--muted); transition: transform 0.2s; flex-shrink: 0; }
 .qa-item.open .qa-arrow { transform: rotate(90deg); }
-.qa-answer { display: none; padding: 14px 16px; background: var(--surface); font-size: 13px; color: var(--white-dim); line-height: 1.75; font-weight: 300; border-top: 1px solid var(--border); }
+.qa-answer { display: none; padding: 15px 16px; background: var(--surface); font-size: 13px; color: var(--white-dim); line-height: 1.75; font-weight: 300; border-top: 1px solid var(--border); }
 .qa-item.open .qa-answer { display: block; }
-.qa-answer strong { color: var(--white); font-weight: 600; }
-.qa-answer em { font-style: italic; color: var(--silver-bright); }
+.qa-answer strong { color: var(--white); font-weight: 500; }
+.qa-answer em { font-style: normal; color: var(--gold); }
+
+/* Two-source contrast cards inside an answer */
+.src-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+@media (max-width: 520px) { .src-grid { grid-template-columns: 1fr; } }
+.src-card { background: var(--surface2); border: 1px solid rgba(206,154,128,0.4); border-radius: var(--radius-sm); padding: 12px 14px; background-image: linear-gradient(135deg, rgba(206,154,128,0.1), rgba(206,154,128,0.03)); }
+.src-flag { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin-bottom: 5px; }
+.src-name { font-size: 13px; font-weight: 600; color: var(--white); margin-bottom: 5px; }
+.src-desc { font-size: 12px; color: var(--white-dim); line-height: 1.6; font-weight: 300; }
+.src-desc strong { color: var(--white); font-weight: 500; }
 
 /* CALLOUT within answers */
-.qa-callout { background: var(--silver-dim); border: 1px solid rgba(192,192,192,0.2); border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 10px; font-size: 12px; color: var(--white-dim); line-height: 1.65; }
-.qa-callout strong { color: var(--white); font-weight: 600; }
+.qa-callout { background: var(--gold-dim); border: 1px solid rgba(206,154,128,0.3); border-radius: var(--radius-sm); padding: 12px 14px; margin-top: 12px; font-size: 12px; color: var(--white); line-height: 1.65; }
+.qa-callout strong { color: var(--gold); font-weight: 600; }
 
-/* FORMAT GRID */
-.format-mini-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
-.format-mini { background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 10px 12px; }
-.format-mini-name { font-size: 12px; font-weight: 600; color: var(--white); margin-bottom: 2px; }
-.format-mini-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
-
-/* PSYCHOLOGY GRID */
-.psych-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 10px; }
-.psych-card { background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 10px 12px; }
-.psych-name { font-size: 12px; font-weight: 600; color: var(--silver-bright); margin-bottom: 3px; }
-.psych-desc { font-size: 11px; color: var(--muted); line-height: 1.4; }
+.no-results { display: none; text-align: center; padding: 40px 20px; color: var(--muted); font-size: 14px; }
+.no-results strong { color: var(--white-dim); }
 
 .back-link { display: block; text-align: center; padding: 28px 20px 0; font-size: 13px; color: var(--muted); text-decoration: none; }
-.back-link:hover { color: var(--silver-bright); }
+.back-link:hover { color: var(--gold); }
 
 .footer { text-align: center; padding: 24px 20px 16px; font-size: 12px; color: var(--muted); }
 .footer strong { color: var(--white-dim); }
@@ -82,240 +102,266 @@ body { padding-bottom: 80px; }
 <body>
 
 <div class="header">
-  <img class="header-logo" src="https://i.ibb.co/TDxsM31g/Psych-Lab-Cropped.png" alt="Psych Lab">
+  <svg class="header-logo" viewBox="0 0 300 120" role="img" aria-label="Saxe">
+    <g transform="translate(66,60) scale(0.9)">
+      <g transform="rotate(-22)">
+        <path d="M39.39 2.605 A40 15 0 1 1 34.64 -7.5" fill="none" stroke="#CE9A80" stroke-width="1.1" stroke-linecap="round"/>
+        <path d="M32.14 -12.41 L34.64 -7.5 L29.14 -7.79" fill="none" stroke="#CE9A80" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <polygon points="0,-34 3,-3 22,0 3,3 0,34 -3,3 -22,0 -3,-3" fill="#CE9A80"/>
+    </g>
+    <text x="135" y="74" text-anchor="middle" font-family="Marcellus, serif" font-size="40" fill="#F4EEE8">S</text>
+    <text x="172" y="74" text-anchor="middle" font-family="Marcellus, serif" font-size="40" fill="#F4EEE8">A</text>
+    <text x="209" y="74" text-anchor="middle" font-family="Marcellus, serif" font-size="40" fill="#CE9A80">X</text>
+    <text x="246" y="74" text-anchor="middle" font-family="Marcellus, serif" font-size="40" fill="#F4EEE8">E</text>
+  </svg>
   <div class="header-label">FAQ</div>
 </div>
 
 <div class="hero">
-  <div class="hero-title">Psych Lab <em>FAQ</em></div>
-  <div class="hero-sub">Deeper answers for when you want to understand the why behind the tool.</div>
+  <div class="hero-title"><span class="wordmark">Sa<span class="x">x</span>e</span> FAQ</div>
+  <div class="hero-sub">Straight answers about the one workflow: reviews and comments in, scripts out.</div>
+</div>
+
+<div class="search-wrap">
+  <div class="search-box" id="searchBox">
+    <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+    <input class="search-input" id="faqSearch" type="text" placeholder="Search the FAQ&hellip;" autocomplete="off" aria-label="Search the FAQ">
+    <button class="search-clear" id="faqSearchClear" aria-label="Clear search">&times;</button>
+  </div>
 </div>
 
 <div class="section-nav">
   <a href="#getting-started" class="nav-pill">Getting Started</a>
-  <a href="#script-modes" class="nav-pill">Script Modes</a>
-  <a href="#buyer-psychology" class="nav-pill">Buyer Intent</a>
-  <a href="#voice-performance" class="nav-pill">Voice &amp; Performance</a>
+  <a href="#two-sources" class="nav-pill">Your Two Sources</a>
+  <a href="#profile" class="nav-pill">Your Profile</a>
+  <a href="#scripts" class="nav-pill">Scripts</a>
+  <a href="#planner-carousels" class="nav-pill">Planner &amp; Carousels</a>
 </div>
 
 <!-- SECTION 1: GETTING STARTED -->
 <div id="getting-started" class="faq-section">
-  <div class="section-header">
-    <div class="section-icon">🚀</div>
-    <div class="section-title">Getting <em>Started</em></div>
-  </div>
+  <div class="section-title">Getting <em>Started</em></div>
   <div class="qa-list">
 
     <div class="qa-item">
-      <div class="qa-question">I just purchased -- how do I create my account?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Check your inbox for a welcome email from hello@psychscriptlab.app. It has everything you need. Go to psychscriptlab.app and click <strong>Create Account</strong>. Use the same email address you used to purchase -- this is important. If your email does not work, reply to the welcome email and we will sort it out.</div>
+      <div class="qa-question">I just purchased &mdash; how do I create my account?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">Check your inbox for your welcome email &mdash; it has everything you need. Go to <strong>saxe.app</strong>, tap <strong>Create Account</strong>, and use the <strong>same email address you purchased with</strong>. If that email does not work, email us at <strong>hello@saxe.app</strong> and we will sort it out.</div>
     </div>
 
     <div class="qa-item">
-      <div class="qa-question">I forgot my password -- how do I get in?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">On the sign in screen, enter your email address and click <strong>Forgot your password?</strong> We will send you a one-click login link. Tap the link in your email and you will land directly in the app. Once you are in, go to Profile in the top right corner and set a new password so you can sign in directly next time.</div>
+      <div class="qa-question">I forgot my password &mdash; how do I get in?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">On the sign-in screen, enter your email and tap <strong>Forgot your password?</strong> We send a one-click login link. Tap it and you land straight in the app. Once you are in, open <strong>Profile</strong> in the top corner and set a new password for next time.</div>
     </div>
 
     <div class="qa-item">
-      <div class="qa-question">What are the four product fields and why do they matter?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">When you add a new product you will see four fields. The first three feed your hooks directly. The fourth feeds your body lines.<br><br>
-        <strong>Field 1 -- Who is buying this and why?</strong> Describe the buyer and what they are feeling before they find this product. Not demographics -- the actual emotional situation.<br><br>
-        <strong>Field 2 -- What made YOU want this product?</strong> Say it like you are texting a friend. The moment you knew you needed it. This is where your most authentic hooks come from.<br><br>
-        <strong>Field 3 -- What would surprise someone about this product?</strong> Something unexpected that only someone who has actually seen it would know. This is what makes your hook different from every other creator promoting the same product.<br><br>
-        <strong>Field 4 -- Product details.</strong> Brand name, key features, specs. This becomes the proof in your body lines.<br><br>
-        The more specific and honest you are in the first three fields, the more scroll-stopping your hooks will be. A vague answer produces a vague hook.
-        <div class="qa-callout"><strong>Example for Field 2:</strong> "I kept buying real plants and losing them within a month. When I saw these I literally could not tell they were fake."</div>
-      </div>
+      <div class="qa-question">How do I save a product so I don't re-enter everything?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">Products save automatically under their name. Everything you added &mdash; the listing, your reviews and comments, the brief, your saved scripts, and the ownership and must-include settings &mdash; is stored with it. Next time, find it in the <strong>search box at the top</strong> and pick it to pick up where you left off.</div>
     </div>
 
     <div class="qa-item">
-      <div class="qa-question">Can I edit a script after it is generated?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Yes. Every saved script is fully editable. Go to your product hub, tap any saved script, and every line becomes an editable text field. Make your changes and tap <strong>Save edits</strong> -- it writes back to your library instantly. The text hook options, caption, and hashtags are also visible on the saved script screen.</div>
+      <div class="qa-question">How many generations do I get each month?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer"><strong>150 generations a month</strong>, and the counter resets on the 1st. One generation is one press of Generate &mdash; a batch of four scripts &mdash; and it counts as one, not four. The counter beside the button always shows how many you have left, so the limit is never a surprise.</div>
     </div>
 
     <div class="qa-item">
-      <div class="qa-question">Why do I have to select a price range every time?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Price completely changes how a script should feel. An under $25 impulse buy needs energy and immediacy -- the viewer shouldn't have to think. A $150+ aspirational product needs a slower, identity-driven frame -- the viewer needs to feel like this is the right decision, not an indulgence. Selecting the wrong tier is one of the most common reasons scripts feel off. The tool requires it because it shapes every single line.</div>
-    </div>
-
-    <div class="qa-item">
-      <div class="qa-question">How do I save a product so I don't have to re-enter everything?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Every time you generate, the product is saved automatically to your library under the product name. Next time you open the app, select it from the dropdown at the top. Your saved scripts, buyer insight, and product details are all stored. You can also edit the product info from inside the product hub if you want to update anything.</div>
-    </div>
-
-    <div class="qa-item">
-      <div class="qa-question">How many scripts can I generate per day?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">50 scripts per day. The counter resets at midnight. Each individual script counts as one -- so a batch of 5 counts as 5. If you hit your limit, the tool will let you know and your count resets the next day.</div>
+      <div class="qa-question">Can I edit a script after it is generated?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">Yes &mdash; every line is editable, both on a fresh batch and in your saved library. Tap into any field and rewrite it; the field grows to fit as you type. On a saved script, make your changes and tap <strong>Save edits</strong> and it writes back to your library instantly. Nothing you generate is locked.</div>
     </div>
 
   </div>
 </div>
 
-<!-- SECTION 2: SCRIPT MODES -->
-<div id="script-modes" class="faq-section">
-  <div class="section-header">
-    <div class="section-icon">⚡</div>
-    <div class="section-title">Script <em>Modes</em></div>
-  </div>
+<!-- SECTION 2: YOUR TWO SOURCES -->
+<div id="two-sources" class="faq-section">
+  <div class="section-title">Your Two <em>Sources</em></div>
   <div class="qa-list">
 
     <div class="qa-item">
-      <div class="qa-question">What is the difference between Curated and Batch?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer"><strong>Curated</strong> lets you build one script step by step -- you pick the hook, body lines, pre-close, and CTA individually from a bank of options. It takes longer but gives you maximum control and helps you learn what good looks like for each section.<br><br><strong>Batch</strong> generates up to 5 complete scripts at once, each targeting a different buyer angle. It's faster and great for building out a full day of content in one session. Use Curated when you want to be deliberate. Use Batch when you need volume.</div>
-    </div>
-
-    <div class="qa-item">
-      <div class="qa-question">What is a Filming Session and when should I use it?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Filming Session creates different content styles for the same product. Pick up to 5 filming formats -- unboxing, honest take, voice over, before and after, and more -- and get a complete script for each one. Best when you are sitting down to film multiple videos and want variety in format and energy.<br><br><strong>How it differs from Batch:</strong> Batch reaches different buyers with different emotional angles on the same product. Filming Session creates different video styles for the same product. Use Batch when you want to speak to different people. Use Filming Session when you want different types of content.
-        <div class="format-mini-grid">
-          <div class="format-mini"><div class="format-mini-name">📦 Unboxing</div><div class="format-mini-desc">First impressions, sensory details</div></div>
-          <div class="format-mini"><div class="format-mini-name">❤️ Why You'll Love It</div><div class="format-mini-desc">3 feelings, not 3 features</div></div>
-          <div class="format-mini"><div class="format-mini-name">🔧 It Fixed This For Me</div><div class="format-mini-desc">Specific problem, real solution</div></div>
-          <div class="format-mini"><div class="format-mini-name">✨ Before vs After</div><div class="format-mini-desc">Real before, specific after</div></div>
-          <div class="format-mini"><div class="format-mini-name">🎯 My Honest Take</div><div class="format-mini-desc">Skepticism plus real verdict</div></div>
-          <div class="format-mini"><div class="format-mini-name">👀 Watch Me Use It</div><div class="format-mini-desc">Demo in action, mid-moment</div></div>
-          <div class="format-mini"><div class="format-mini-name">🔄 Expected vs Got</div><div class="format-mini-desc">Built-in pattern interrupt</div></div>
-          <div class="format-mini"><div class="format-mini-name">🧪 I Tried It For You</div><div class="format-mini-desc">Creator as scout</div></div>
-          <div class="format-mini"><div class="format-mini-name">☀️ A Day With This</div><div class="format-mini-desc">Woven into real life</div></div>
-          <div class="format-mini"><div class="format-mini-name">🎙️ Voice Over</div><div class="format-mini-desc">Narrate over footage</div></div>
+      <div class="qa-question">What do I paste, and what is each source for?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">Two sources, two different jobs. This is the most important thing to get right in the whole tool &mdash; mix them up and the scripts drift off the product.
+        <div class="src-grid">
+          <div class="src-card">
+            <div class="src-flag">What to say</div>
+            <div class="src-name">Reviews &mdash; 4 and 5 star</div>
+            <div class="src-desc">The happy reviews are the source of <strong>what to say</strong>: the emotion, the desire, the real reasons people love it.</div>
+          </div>
+          <div class="src-card">
+            <div class="src-flag">What to answer</div>
+            <div class="src-name">Comments on viral videos</div>
+            <div class="src-desc">Comments from viral or competitor videos are the source of <strong>objections</strong> &mdash; the doubts of people who have not bought yet.</div>
+          </div>
         </div>
       </div>
     </div>
 
     <div class="qa-item">
-      <div class="qa-question">What is a Skit Script and how does the relationship type affect it?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Skit mode generates a two-person dialogue script. A monologue tells the viewer something. A scene shows them something. When the second person in the skit voices the exact skepticism the viewer is feeling, the viewer stops watching an ad and starts watching themselves.<br><br>The relationship type changes the tone and dynamic completely. <strong>Friends</strong> is casual sharing energy. <strong>Couple</strong> is one skeptic, one believer -- domestic humor. <strong>Strangers</strong> feels overheard and organic. <strong>Expert</strong> is one person who knows everything teaching someone who just found out about it.</div>
+      <div class="qa-question">Which reviews should I paste &mdash; and which should I skip?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer"><strong>4 and 5 star only.</strong> They tell Saxe what is genuinely good about the product, in real buyers' words &mdash; that is what a script is built to say.<br><br><strong>Paste up to 100.</strong> Saxe picks the most useful and drops the rest &mdash; near-duplicates, and content-free ones like &ldquo;I love it&rdquo; that say nothing &mdash; so you can paste freely without diluting the brief. The counts still reflect all the reviews you added.<br><br>Skip 1 and 2 star reviews entirely. A one-star complaint about a dented box or a slow courier is not a buyer objection &mdash; it is a shipping problem &mdash; and feeding it in is how a script ends up <em>about the product arriving damaged</em>. Do not use low-star reviews to find objections. That is what comments are for.</div>
     </div>
 
     <div class="qa-item">
-      <div class="qa-question">What is a pre-close and why does it come before Body 2?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">The pre-close is a single honest human moment between your two body lines. It's not a CTA. It's not urgency. It's the quiet admission a real person would make -- slightly vulnerable, slightly self-aware. It makes the viewer feel understood before you close.<br><br>It comes before Body 2 because the structure is designed to: hook the viewer, give them proof, create a human connection, give them a second proof point, then close. The pre-close is the connection moment. Swapping it with Body 2 kills the rhythm.</div>
-    </div>
-
-    <div class="qa-item">
-      <div class="qa-question">What is "Sell the Urgency" mode?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">This mode is for products where the viewer already knows and wants the brand -- you're not educating them, you're activating demand that already exists. It generates short urgency scripts around either a sale price or low inventory. The scripts never name the price or say how many are left -- the curiosity about the number is what drives the tap.</div>
-    </div>
-
-  </div>
-</div>
-
-<!-- SECTION 3: BUYER INTENT -->
-<div id="buyer-psychology" class="faq-section">
-  <div class="section-header">
-    <div class="section-icon">🧠</div>
-    <div class="section-title">Buyer <em>Intent</em></div>
-  </div>
-  <div class="qa-list">
-
-    <div class="qa-item">
-      <div class="qa-question">What are buyer desire angles and how do I pick one?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">After you fill in your product details, Psych Lab generates 5 buyer desire angles -- different ways of framing who this product is for and what they want. Each angle targets a different type of person. Pick the one that matches who you want to speak to in this specific video. You can also shuffle any angle for a fresh one, or type your own custom angle if you know exactly who you're targeting.</div>
-    </div>
-
-    <div class="qa-item">
-      <div class="qa-question">What are the buyer intent categories?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Every script is built around one of these core purchase drivers:
-        <div class="psych-grid">
-          <div class="psych-card"><div class="psych-name">Pain / Problem Relief</div><div class="psych-desc">People spend to stop hurting. Most urgent driver.</div></div>
-          <div class="psych-card"><div class="psych-name">Emotion / Identity</div><div class="psych-desc">Who does this product make me?</div></div>
-          <div class="psych-card"><div class="psych-name">Dopamine / Instant Gratification</div><div class="psych-desc">Novelty and quick wins. Low friction impulse.</div></div>
-          <div class="psych-card"><div class="psych-name">Urgency / Scarcity</div><div class="psych-desc">Deadlines override rational thinking.</div></div>
-          <div class="psych-card"><div class="psych-name">Status / Upgrade</div><div class="psych-desc">Signals who they are becoming.</div></div>
-          <div class="psych-card"><div class="psych-name">Habit / Routine</div><div class="psych-desc">Embedded in daily life. Hard to quit.</div></div>
-          <div class="psych-card"><div class="psych-name">Convenience</div><div class="psych-desc">Saves time, removes effort.</div></div>
-          <div class="psych-card"><div class="psych-name">Social Proof / Belonging</div><div class="psych-desc">Others like me already have this.</div></div>
-          <div class="psych-card"><div class="psych-name">Transformation</div><div class="psych-desc">Identity-level before and after.</div></div>
-          <div class="psych-card"><div class="psych-name">Fear of Future Regret</div><div class="psych-desc">What if I miss this and later wish I hadn't?</div></div>
-        </div>
+      <div class="qa-question">Where do objections come from?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">From the <strong>comments on viral and competitor videos</strong> &mdash; not from your reviews. Those commenters are the people you are trying to convert: they have <em>not bought yet</em>, and their hesitations and doubts are exactly what a script has to answer. Your happy reviews cannot tell you what is holding the next buyer back; the comments can.
+        <div class="qa-callout"><strong>Rule of thumb:</strong> reviews are what to say, comments are what to answer.</div>
       </div>
     </div>
 
     <div class="qa-item">
-      <div class="qa-question">What is pain vs aspiration framing?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Before writing your hook, Psych Lab decides whether to lead with pain or aspiration. <strong>Pain mode</strong> is used when the buyer has a real frustration they feel every day -- the hook surfaces it and the product becomes the relief. <strong>Aspiration mode</strong> is used when the buyer isn't broken, they're upgrading -- the hook paints the life they could be living. <strong>Both mode</strong> leads with the aspiration, then closes with the quiet cost of not acting. The tool chooses automatically based on the product and buyer angle -- you don't have to decide.</div>
+      <div class="qa-question">My objections section came back empty. What went wrong?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">You did not paste comments. Objections come from the viral-video comments, so if that source is thin or missing, the brief has nothing to build objections from. Go back and add comments from people who have not bought yet, then build again. <strong>Do not reach for low-star reviews to fill it</strong> &mdash; that is the one move that pulls a script off the product.</div>
     </div>
 
     <div class="qa-item">
-      <div class="qa-question">How do the price tiers affect scripts?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Each price tier applies a different buyer intent frame to every line of the script.<br><br><strong>Under $25:</strong> Immediate and fun. The viewer shouldn't have to think. Hook creates instant want, body seals it, CTA is direct and confident.<br><br><strong>$25-75:</strong> The buyer wants to feel smart. Hook names a specific frustration. Body shows what makes this one different. Pre-close is a real honest moment.<br><br><strong>$75-150:</strong> The buyer is upgrading from good enough. Hook names the gap. Body gives specific reasons this is worth it. Pre-close matches the real hesitation at this price point.<br><br><strong>$150+:</strong> The buyer is not solving a problem -- they are completing a vision. Hook names something that doesn't match the rest of the life they've built. Every line speaks to identity. CTA is a soft invitation, never a push.</div>
+      <div class="qa-question">Do I need the product listing too?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">Yes. Paste the listing when you start the product &mdash; brand, materials, sizes, real features. It is where Saxe gets the verifiable specs, so a script can name a real number and never invent one. The reviews and comments say how buyers feel; the listing is the ground truth about the product itself.</div>
     </div>
 
     <div class="qa-item">
-      <div class="qa-question">What are text hooks and how do they work?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Text hooks are short phrases (under 6 words) that appear as on-screen text overlays while you speak your script. They work independently of your spoken words -- they're designed to stop the scroll visually before the viewer even processes what you're saying. Each one calls out a specific dimension of the viewer's life: something about their time, their habits, or how they come across to others. Psych Lab generates them automatically for every script. Tap any one to copy it.</div>
+      <div class="qa-question">What is the must-include field?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">Your one non-negotiable &mdash; the thing that must never be left out of any script, usually the single feature that actually sells it. It is optional but strongly recommended. When you fill it in, every script works it in, <strong>in its own words</strong> &mdash; it makes the point, it does not paste your sentence in verbatim.</div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">What does the ownership setting do?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">It sets how far a script can speak from your own experience, so nothing overclaims. Two options:<br><br><strong>I have it in hand</strong> (the default) &mdash; scripts can show it, feel it, and react to it in the present, but never claim months of use.<br><br><strong>I've been using it</strong> &mdash; scripts can speak from real experience over time, including how it has held up. Pick whichever is true for you.</div>
     </div>
 
   </div>
 </div>
 
-<!-- SECTION 4: VOICE & PERFORMANCE -->
-<div id="voice-performance" class="faq-section">
-  <div class="section-header">
-    <div class="section-icon">🎙️</div>
-    <div class="section-title">Voice <em>&amp; Performance</em></div>
-  </div>
+<!-- SECTION 3: YOUR PROFILE -->
+<div id="profile" class="faq-section">
+  <div class="section-title">Your <em>Profile</em></div>
   <div class="qa-list">
 
     <div class="qa-item">
-      <div class="qa-question">How does voice learning actually work?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Every time you rate a line with thumbs up or down, Psych Lab records which buyer intent categories and writing styles you respond to. Over time it builds a profile of your voice -- what you actually say versus what you'd never say. Future generations pull toward the styles you've rated up and away from the ones you've rated down. The more you rate, the more the output sounds like you specifically, not just a generic creator.</div>
+      <div class="qa-question">What is the profile and why does it matter?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">Open <strong>Profile</strong> in the top corner. It has two parts, you fill it in once, and it shapes every script you ever generate &mdash; so it is worth five minutes before your first product. One part teaches Saxe how <em>you</em> sound; the other tells it who your <em>buyers</em> are.</div>
     </div>
 
     <div class="qa-item">
-      <div class="qa-question">What should I rate and what should I skip?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Rate a line when it genuinely reflects how you talk (thumbs up) or definitely doesn't (thumbs down). Skip it when the style is fine but it's just wrong for this specific product. If you thumbs-down lines that are good but don't fit the product, you're teaching the tool the wrong lesson about your voice.</div>
+      <div class="qa-question">How does the voice part work?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">A short questionnaire. Each item shows two ways of saying the same thing &mdash; thumbs up the one that sounds like you, thumbs down the one that never would, and leave it blank if you are unsure. Both can be right, or neither. This is what makes scripts come out in your voice instead of a generic creator's.</div>
     </div>
 
     <div class="qa-item">
-      <div class="qa-question">What does Top Performer mean and when should I use it?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">The 🏆 Top Performer button marks a saved script as one of your best. It adds a star to the script card in your library so you can find it easily later. Use it for scripts that drove strong sales or high engagement -- the ones you'd want to reference, adapt, or run again. It's purely for your own organization right now.</div>
-    </div>
-
-    <div class="qa-item">
-      <div class="qa-question">How does the posting tracker work?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Set your daily posting goal in Profile (tap the Profile button in the header). Once set, a meter appears at the top of the app showing your progress for the day and your current streak. Tap <strong>Mark as Posted</strong> on any script after you publish it. The tracker counts it, updates your streak, and logs the product to your history tab. You can also manually log posts in the History tab if you filmed content outside the app.</div>
-    </div>
-
-    <div class="qa-item">
-      <div class="qa-question">Why does my streak matter?<span class="qa-arrow">›</span></div>
-      <div class="qa-answer">Consistency is the single most leveraged behavior in short-form commerce. Creators who post every day compound their results faster than anyone else -- not because they're more talented, but because platforms reward reliability. A consistent 3 videos a day beats an inconsistent 6 every time. Set a goal you can hit even on your worst day and protect the streak.</div>
+      <div class="qa-question">What is the audience part for?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">Your buyers' gender, age, and life stage. Pull these from your shop's creator analytics, under Audience &mdash; and use <strong>Customers, not Followers</strong>, the people actually buying from you. This changes what a script is <em>about</em>: which pains it leads with, which life it pictures. It never names an age or a gender in the script itself.</div>
     </div>
 
   </div>
 </div>
+
+<!-- SECTION 4: SCRIPTS -->
+<div id="scripts" class="faq-section">
+  <div class="section-title">From Brief to <em>Scripts</em></div>
+  <div class="qa-list">
+
+    <div class="qa-item">
+      <div class="qa-question">What is the brief, and do I have to check it?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">When you tap <strong>Build brief</strong>, Saxe reads everything you pasted and writes it up: who the buyer is, what they feel and want, and the objections holding the next buyer back. It is the source every script is written from.<br><br>Read it and correct it. It is a draft of what buyers said, not the final word &mdash; you know your product and a handful of reviews do not. Every line is editable, and you can revert if you change your mind. A few minutes here is the difference between scripts that land and scripts that are slightly off.</div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">Why do I get four scripts, and should I post them as-is?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">Each press gives you four, and each one is written to a <strong>different buyer</strong> &mdash; four angles on the same product, not four finished posts. Treat them as a strong starting point: take the hook from one, the payoff from another, reword them so they sound like you, then tap <strong>Save to scripts</strong> to keep the ones you want. Saved scripts stay fully editable in your library.</div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">Why does a script never mention the price?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">Because a price stated in a script is an <strong>unverifiable claim</strong>, and that is a compliance problem. Prices and discounts change, and a script that names one can be wrong or misleading the moment it is watched &mdash; the kind of claim that gets a video pulled. So scripts sell on what the product does and what it means for the buyer, never on cost, and let the shop page carry the live price.</div>
+    </div>
+
+  </div>
+</div>
+
+<!-- SECTION 5: PLANNER & CAROUSELS -->
+<div id="planner-carousels" class="faq-section">
+  <div class="section-title">Planner &amp; <em>Carousels</em></div>
+  <div class="qa-list">
+
+    <div class="qa-item">
+      <div class="qa-question">What is the Planner?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">The <strong>Content Planner</strong> builds a whole week of scripts from your product library in one pass, instead of one product at a time. You assign products to <strong>buckets</strong> &mdash; top sellers (filmed the most), focus products (this week's push), and incoming samples (new tests) &mdash; and you can add a sample that is not in your library yet without leaving the tab.<br><br>Optionally paste up to <strong>two winning-video links</strong>; their transcripts guide the structure of every script that week. Then choose <em>New angles</em> or <em>Same angle, fresh wording</em>, and how many videos per product and per day. Saxe writes all the scripts, saves them to your library, and groups them <strong>By bucket</strong>. Switch to <strong>Daily</strong> to see one day at a time, or <strong>Weekly</strong> to see the whole week and drag cards between days.</div>
+    </div>
+
+    <div class="qa-item">
+      <div class="qa-question">What are Carousels?<span class="qa-arrow">&rsaquo;</span></div>
+      <div class="qa-answer">The <strong>Carousel Studio</strong> builds a swipeable multi-image post &mdash; the photo carousels creators run alongside video. It writes the whole set as one selling sequence built on a single angle: a <strong>hook</strong> slide first, <strong>benefit</strong> slides (rows of concrete, product-specific points, each with an icon), a <strong>feature</strong> slide or two, and a <strong>CTA</strong> slide last &mdash; one idea per slide, one desire across the set.<br><br>It also <strong>art-directs</strong> the look, choosing a font pairing and accent colours for the whole carousel. Attach your own product photos in order and it reads each one and writes that slide's copy about the exact product shown. Every slide stays editable in the studio.</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="no-results" id="faqNoResults">No answers match <strong id="faqQuery"></strong>. Try a different word.</div>
 
 <a class="back-link" href="tutorial.html">&larr; Back to Getting Started</a>
 
-<div class="footer">Built by <strong>Famous</strong> &nbsp;·&nbsp; Psych Lab &nbsp;·&nbsp; © 2026</div>
+<div class="footer">&copy; 2026 Saxe. All rights reserved.</div>
 
 <script>
-// Accordion
-document.querySelectorAll('.qa-question').forEach(q => {
-  q.addEventListener('click', () => {
-    const item = q.closest('.qa-item');
-    const wasOpen = item.classList.contains('open');
-    document.querySelectorAll('.qa-item.open').forEach(i => i.classList.remove('open'));
+// Accordion: click a question to open it; opening one closes the others.
+document.querySelectorAll('.qa-question').forEach(function(q){
+  q.addEventListener('click', function(){
+    var item = q.closest('.qa-item');
+    var wasOpen = item.classList.contains('open');
+    document.querySelectorAll('.qa-item.open').forEach(function(i){ i.classList.remove('open'); });
     if (!wasOpen) item.classList.add('open');
   });
 });
 
-// Nav active on scroll
-const navPills = document.querySelectorAll('.nav-pill');
-const faqSections = document.querySelectorAll('.faq-section[id]');
-window.addEventListener('scroll', () => {
-  let current = '';
-  faqSections.forEach(s => { if (window.scrollY >= s.offsetTop - 140) current = s.id; });
-  navPills.forEach(p => p.classList.toggle('active', p.getAttribute('href') === '#' + current));
+// Nav pills: smooth-scroll, and highlight the section in view.
+var navPills = document.querySelectorAll('.nav-pill');
+var faqSections = document.querySelectorAll('.faq-section[id]');
+window.addEventListener('scroll', function(){
+  var current = '';
+  faqSections.forEach(function(s){ if (s.style.display !== 'none' && window.scrollY >= s.offsetTop - 200) current = s.id; });
+  navPills.forEach(function(p){ p.classList.toggle('active', p.getAttribute('href') === '#' + current); });
 }, { passive: true });
-
-navPills.forEach(p => {
-  p.addEventListener('click', e => {
+navPills.forEach(function(p){
+  p.addEventListener('click', function(e){
     e.preventDefault();
-    const t = document.querySelector(p.getAttribute('href'));
+    var t = document.querySelector(p.getAttribute('href'));
     if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 });
+
+// Client-side search: filter every Q&A by question + answer text, auto-expand the matches, hide the rest,
+// hide a section once it has no visible items, and show a "no results" line when nothing matches.
+var searchInput = document.getElementById('faqSearch');
+var searchBox = document.getElementById('searchBox');
+var searchClear = document.getElementById('faqSearchClear');
+var noResults = document.getElementById('faqNoResults');
+var queryEl = document.getElementById('faqQuery');
+var allItems = Array.prototype.slice.call(document.querySelectorAll('.qa-item'));
+var allSections = Array.prototype.slice.call(document.querySelectorAll('.faq-section'));
+
+function runSearch(){
+  var q = searchInput.value.trim().toLowerCase();
+  searchBox.classList.toggle('has-text', q.length > 0);
+  if (!q){
+    allItems.forEach(function(i){ i.style.display = ''; i.classList.remove('open'); });
+    allSections.forEach(function(s){ s.style.display = ''; });
+    noResults.style.display = 'none';
+    return;
+  }
+  var any = false;
+  allItems.forEach(function(i){
+    var hit = i.textContent.toLowerCase().indexOf(q) >= 0;
+    i.style.display = hit ? '' : 'none';
+    i.classList.toggle('open', hit);
+    if (hit) any = true;
+  });
+  allSections.forEach(function(s){
+    var visible = Array.prototype.slice.call(s.querySelectorAll('.qa-item')).some(function(i){ return i.style.display !== 'none'; });
+    s.style.display = visible ? '' : 'none';
+  });
+  queryEl.textContent = searchInput.value.trim();
+  noResults.style.display = any ? 'none' : 'block';
+}
+searchInput.addEventListener('input', runSearch);
+searchClear.addEventListener('click', function(){ searchInput.value = ''; runSearch(); searchInput.focus(); });
 </script>
 </body>
 </html>

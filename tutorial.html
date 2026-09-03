@@ -4,73 +4,88 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Psych Lab · Getting Started</title>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,700;0,900;1,400;1,700&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<title>Saxe · Getting Started</title>
+<!-- Same fonts as the app: Marcellus for display, Instrument Sans for body. -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIiB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiI+PHJlY3Qgd2lkdGg9IjUxMiIgaGVpZ2h0PSI1MTIiIHJ4PSIxMTIiIGZpbGw9IiMyNjI0MUYiLz48ZyB0cmFuc2Zvcm09InRyYW5zbGF0ZSgyNTYsMjU2KSBzY2FsZSgzLjMpIj48ZyB0cmFuc2Zvcm09InJvdGF0ZSgtMjIpIj48cGF0aCBkPSJNMzkuMzkgMi42MDUgQTQwIDE1IDAgMSAxIDM0LjY0IC03LjUiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI0NFOUE4MCIgc3Ryb2tlLXdpZHRoPSIxLjEiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIvPjxwYXRoIGQ9Ik0zMi4xNCAtMTIuNDEgTDM0LjY0IC03LjUgTDI5LjE0IC03Ljc5IiBmaWxsPSJub25lIiBzdHJva2U9IiNDRTlBODAiIHN0cm9rZS13aWR0aD0iMS40IiBzdHJva2UtbGluZWNhcD0icm91bmQiIHN0cm9rZS1saW5lam9pbj0icm91bmQiLz48L2c+PHBvbHlnb24gcG9pbnRzPSIwLC0zNCAzLC0zIDIyLDAgMywzIDAsMzQgLTMsMyAtMjIsMCAtMywtMyIgZmlsbD0iI0NFOUE4MCIvPjwvZz48L3N2Zz4=">
+<!-- Saxe compass mark on the charcoal app tile, inline so no asset file is needed. -->
+<link href="https://fonts.googleapis.com/css2?family=Marcellus&family=Instrument+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+/* These tokens are copied from app.html's :root so the page shares the app's exact palette and cannot drift
+   into off-brand colours again. The accent is rose gold (#CE9A80) -- there is no indigo, amber, or green. */
 :root {
-  --black: #080808; --surface: #111111; --surface2: #181818; --surface3: #222222;
-  --border: rgba(255,255,255,0.07); --border-md: rgba(255,255,255,0.14); --border-strong: rgba(255,255,255,0.25);
-  --silver: #C0C0C0; --silver-bright: #E8E8E8; --silver-dim: rgba(192,192,192,0.12);
-  --white: #F0F0F0; --white-dim: rgba(240,240,240,0.55); --muted: #666666;
-  --green: #2DC98A; --purple: #9090F0; --gold: #C8A84A;
-  --radius: 14px; --radius-sm: 9px;
+  --black: #1A1714;
+  --surface: #232019;
+  --surface2: #2B2A27;
+  --surface3: #34302A;
+  --border: rgba(244,238,232,0.08);
+  --border-md: rgba(244,238,232,0.15);
+  --border-strong: rgba(244,238,232,0.26);
+  --white: #F4EEE8;
+  --white-dim: rgba(244,238,232,0.6);
+  --white-faint: rgba(244,238,232,0.22);
+  --muted: #9A9082;
+  --muted2: #6B6459;
+  --gold: #CE9A80;            /* rose gold -- the one accent */
+  --gold-dim: rgba(206,154,128,0.12);
+  --gold-glow: rgba(206,154,128,0.22);
+  --rose-bright: #E6CDBC;
+  --radius: 14px; --radius-sm: 9px; --radius-xs: 6px;
 }
 html, body { background: var(--black); color: var(--white); font-family: 'Instrument Sans', sans-serif; min-height: 100vh; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
 body { padding-bottom: 80px; }
 
-.header { padding: 16px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(8,8,8,0.95); backdrop-filter: blur(20px); z-index: 100; }
-.header-logo { width: 120px; height: 44px; object-fit: contain; mix-blend-mode: lighten; }
+.header { padding: 16px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: rgba(26,23,20,0.95); backdrop-filter: blur(20px); z-index: 100; }
+/* Saxe horizontal logo, inline SVG so it stays crisp: rose-gold compass mark, cream wordmark, rose-gold X. */
+.header-logo { display: block; height: 52px; width: auto; }
 .header-label { margin-left: auto; font-size: 11px; font-weight: 500; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; }
 
 .hero { padding: 48px 20px 40px; text-align: center; border-bottom: 1px solid var(--border); }
-.hero-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border-md); border-radius: 999px; padding: 5px 14px; font-size: 11px; font-weight: 500; color: var(--silver); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 20px; }
-.hero-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s ease-in-out infinite; }
+.hero-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border-md); border-radius: 999px; padding: 5px 14px; font-size: 11px; font-weight: 500; color: var(--gold); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 20px; }
+.hero-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--gold); animation: pulse 2s ease-in-out infinite; }
 @keyframes pulse { 0%,100%{opacity:0.5;transform:scale(1)} 50%{opacity:1;transform:scale(1.3)} }
-.hero-title { font-family: 'Playfair Display', serif; font-size: clamp(32px, 8vw, 46px); font-weight: 900; line-height: 1.05; color: var(--white); margin-bottom: 12px; }
-.hero-title em { font-style: italic; color: var(--silver-bright); }
+.hero-title { font-family: 'Marcellus', serif; font-size: clamp(30px, 7.5vw, 42px); font-weight: 400; line-height: 1.1; color: var(--white); margin-bottom: 12px; }
+/* The name set as the logo wordmark: Marcellus spaced capitals, cream with the X in rose gold, no compass. */
+.hero-title .wordmark { font-style: normal; text-transform: uppercase; letter-spacing: 0.14em; }
+.hero-title .wordmark .x { color: var(--gold); }
 .hero-sub { font-size: 15px; color: var(--white-dim); font-weight: 300; max-width: 360px; margin: 0 auto; line-height: 1.7; }
 
 .steps { padding: 0 20px; }
 .step { padding: 32px 0; border-bottom: 1px solid var(--border); opacity: 0; transform: translateY(16px); transition: opacity 0.5s ease, transform 0.5s ease; }
 .step.visible { opacity: 1; transform: translateY(0); }
 .step-num-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-.step-circle { width: 32px; height: 32px; flex-shrink: 0; background: var(--silver-dim); border: 1px solid rgba(192,192,192,0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; font-size: 14px; font-weight: 700; font-style: italic; color: var(--silver-bright); }
-.step-title { font-family: 'Playfair Display', serif; font-size: 20px; font-weight: 700; color: var(--white); }
-.step-title em { font-style: italic; color: var(--silver-bright); }
+.step-circle { width: 32px; height: 32px; flex-shrink: 0; background: var(--gold-dim); border: 1px solid rgba(206,154,128,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'Marcellus', serif; font-size: 15px; font-weight: 400; color: var(--gold); }
+/* Step 0 wears the compass mark itself instead of a numeral -- it is the one idea, not a numbered step. The
+   circle chrome is dropped so the mark stands on its own and reads clearly; the 32px slot keeps the row aligned. */
+.step-circle.bare { background: none; border: none; }
+.step-mark { width: 30px; height: 30px; display: block; }
+.step-title { font-family: 'Marcellus', serif; font-size: 20px; font-weight: 400; color: var(--white); }
+.step-title em { font-style: normal; color: var(--gold); }
 .step-body { font-size: 14px; color: var(--white-dim); line-height: 1.75; font-weight: 300; }
-.step-body strong { color: var(--white); font-weight: 600; }
+.step-body strong { color: var(--white); font-weight: 500; }
 
-.callout { background: var(--silver-dim); border: 1px solid rgba(192,192,192,0.25); border-radius: var(--radius-sm); padding: 16px; margin-top: 14px; font-size: 14px; color: var(--white); line-height: 1.7; font-weight: 300; font-style: italic; }
+.callout { background: var(--gold-dim); border: 1px solid rgba(206,154,128,0.25); border-radius: var(--radius-sm); padding: 16px; margin-top: 14px; font-size: 14px; color: var(--white); line-height: 1.7; font-weight: 300; }
+/* The empty-objections warning is the single most likely first-run mistake, so it stands out -- but in the
+   brand's rose gold, by weight not by a foreign colour: full accent border, glow, and a bold rose heading. */
+.callout.warn { border: 1px solid var(--gold); box-shadow: 0 0 30px var(--gold-glow); }
+.callout.warn strong { color: var(--gold); font-weight: 600; }
 
 .input-cards { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
 .input-card { background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 14px 16px; }
-.input-card.hook { border-color: rgba(144,144,240,0.4); background: linear-gradient(135deg,rgba(144,144,240,0.1),rgba(144,144,240,0.03)); }
-.input-card.details { border-color: var(--border-md); }
-.input-card-flag { font-size: 9px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--purple); margin-bottom: 5px; }
-.input-card-flag.gold { color: var(--gold); }
+.input-card.key { border-color: rgba(206,154,128,0.4); background: linear-gradient(135deg, rgba(206,154,128,0.1), rgba(206,154,128,0.03)); }
+.input-card-flag { font-size: 9px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; color: var(--gold); margin-bottom: 5px; }
 .input-card-name { font-size: 13px; font-weight: 600; color: var(--white); margin-bottom: 5px; }
 .input-card-desc { font-size: 12px; color: var(--white-dim); line-height: 1.6; font-weight: 300; }
-.input-card-desc strong { color: var(--white); font-weight: 600; }
-
-.hook-banner { background: linear-gradient(135deg,rgba(144,144,240,0.15),rgba(144,144,240,0.05)); border: 1px solid rgba(144,144,240,0.3); border-radius: var(--radius-sm); padding: 14px 16px; margin-top: 14px; }
-.hook-banner-title { font-size: 12px; font-weight: 700; color: var(--purple); margin-bottom: 4px; }
-.hook-banner-body { font-size: 12px; color: var(--white-dim); line-height: 1.6; font-weight: 300; }
-
-.mode-list { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
-.mode-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 14px; background: var(--surface2); border: 1px solid var(--border-md); border-radius: var(--radius-sm); }
-.mode-emoji { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
-.mode-name { font-size: 13px; font-weight: 600; color: var(--white); margin-bottom: 2px; }
-.mode-desc { font-size: 12px; color: var(--muted); font-weight: 300; line-height: 1.5; }
+.input-card-desc strong { color: var(--white); font-weight: 500; }
 
 .note { background: var(--surface); border: 1px solid var(--border-md); border-radius: var(--radius-sm); padding: 14px 16px; margin-top: 14px; font-size: 13px; color: var(--white-dim); line-height: 1.65; font-weight: 300; }
-.note a { color: var(--silver-bright); }
+.note a { color: var(--gold); }
 
 .cta-wrap { margin: 40px 20px 0; text-align: center; }
-.cta-btn { display: inline-block; background: linear-gradient(135deg, #C0C0C0, #E8E8E8); color: #080808; border: none; border-radius: var(--radius); font-family: 'Instrument Sans', sans-serif; font-size: 15px; font-weight: 600; padding: 18px 40px; text-decoration: none; transition: all 0.2s; }
-.cta-btn:hover { transform: scale(1.03); box-shadow: 0 0 40px rgba(232,232,232,0.2); }
+.cta-btn { display: inline-block; background: var(--gold); color: var(--black); border: none; border-radius: var(--radius); font-family: 'Instrument Sans', sans-serif; font-size: 15px; font-weight: 600; padding: 18px 40px; text-decoration: none; transition: all 0.2s; }
+.cta-btn:hover { transform: scale(1.03); box-shadow: 0 0 40px var(--gold-glow); }
 .faq-link { display: block; margin-top: 16px; font-size: 13px; color: var(--muted); text-decoration: none; transition: color 0.2s; }
-.faq-link:hover { color: var(--silver-bright); }
+.faq-link:hover { color: var(--gold); }
 
 .footer { text-align: center; padding: 32px 20px 16px; font-size: 12px; color: var(--muted); }
 .footer strong { color: var(--white-dim); }
@@ -79,132 +94,157 @@ body { padding-bottom: 80px; }
 <body>
 
 <div class="header">
-  <img class="header-logo" src="https://i.ibb.co/TDxsM31g/Psych-Lab-Cropped.png" alt="Psych Lab">
+  <svg class="header-logo" viewBox="0 0 300 120" role="img" aria-label="Saxe">
+    <g transform="translate(66,60) scale(0.9)">
+      <g transform="rotate(-22)">
+        <path d="M39.39 2.605 A40 15 0 1 1 34.64 -7.5" fill="none" stroke="#CE9A80" stroke-width="1.1" stroke-linecap="round"/>
+        <path d="M32.14 -12.41 L34.64 -7.5 L29.14 -7.79" fill="none" stroke="#CE9A80" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
+      <polygon points="0,-34 3,-3 22,0 3,3 0,34 -3,3 -22,0 -3,-3" fill="#CE9A80"/>
+    </g>
+    <text x="135" y="74" text-anchor="middle" font-family="Marcellus, serif" font-size="40" fill="#F4EEE8">S</text>
+    <text x="172" y="74" text-anchor="middle" font-family="Marcellus, serif" font-size="40" fill="#F4EEE8">A</text>
+    <text x="209" y="74" text-anchor="middle" font-family="Marcellus, serif" font-size="40" fill="#CE9A80">X</text>
+    <text x="246" y="74" text-anchor="middle" font-family="Marcellus, serif" font-size="40" fill="#F4EEE8">E</text>
+  </svg>
   <div class="header-label">Getting Started</div>
 </div>
 
 <div class="hero">
-  <div class="hero-tag"><span class="hero-dot"></span> 5 steps · read once · go generate</div>
-  <div class="hero-title">Welcome to <em>Psych Lab</em></div>
-  <div class="hero-sub">Everything you need to know before your first script.</div>
+  <div class="hero-tag"><span class="hero-dot"></span> read it once, then go build</div>
+  <div class="hero-title">How <span class="wordmark">Sa<span class="x">x</span>e</span> works</div>
+  <div class="hero-sub">Everything you need before your first script.</div>
 </div>
 
 <div class="steps">
 
   <div class="step">
     <div class="step-num-row">
-      <div class="step-circle">1</div>
-      <div class="step-title">The <em>one idea</em> behind everything</div>
+      <div class="step-circle bare"><svg class="step-mark" viewBox="-44 -44 88 88" role="img" aria-label="Saxe compass mark"><g transform="rotate(-22)"><path d="M39.39 2.605 A40 15 0 1 1 34.64 -7.5" fill="none" stroke="#CE9A80" stroke-width="1.1" stroke-linecap="round"/><path d="M32.14 -12.41 L34.64 -7.5 L29.14 -7.79" fill="none" stroke="#CE9A80" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></g><polygon points="0,-34 3,-3 22,0 3,3 0,34 -3,3 -22,0 -3,-3" fill="#CE9A80"/></svg></div>
+      <div class="step-title">The <em>one idea</em></div>
     </div>
-    <div class="step-body">Psych Lab does not write about your product. It writes about your <strong>buyer</strong> -- who they are, what they feel, and what would make them stop scrolling and tap the cart.</div>
-    <div class="callout">Sell the person they become, not the product they buy.</div>
+    <div class="step-body">Saxe does not write about your product. It writes about your <strong>buyer</strong>, in the exact words real buyers used. You feed it two very different sources, each with one job, it builds a brief, and the brief feeds every script.</div>
+    <div class="callout">The two sources are not interchangeable. <strong>Reviews are what to say. Comments are what to answer.</strong> Get that split right and everything downstream works. Get it wrong and the scripts drift off the product.</div>
+  </div>
+
+  <div class="step">
+    <div class="step-num-row">
+      <div class="step-circle">1</div>
+      <div class="step-title">Set up your <em>profile</em> once</div>
+    </div>
+    <div class="step-body">Before your first product, tap <strong>Profile</strong> in the top corner. It has two parts, and you fill it in once. It shapes every script you ever generate, so it is worth five minutes now.</div>
+    <div class="input-cards">
+      <div class="input-card">
+        <div class="input-card-flag">How you sound</div>
+        <div class="input-card-name">Your voice</div>
+        <div class="input-card-desc">A short questionnaire. For each pair, thumbs up the phrasing that sounds like you, thumbs down the one that never would. Leave it blank if you are unsure. This is how scripts come out in your voice instead of a generic one.</div>
+      </div>
+      <div class="input-card">
+        <div class="input-card-flag">Who you sell to</div>
+        <div class="input-card-name">Your audience</div>
+        <div class="input-card-desc">Your buyers' gender, age, and life stage. Pull these from your shop's creator analytics, under Audience, and <strong>use Customers, not Followers</strong> &mdash; the people actually buying. This changes what a script is about; it never names an age or gender in the script itself.</div>
+      </div>
+    </div>
   </div>
 
   <div class="step">
     <div class="step-num-row">
       <div class="step-circle">2</div>
-      <div class="step-title">Add a product with <em>four fields</em></div>
+      <div class="step-title">Start a <em>product</em></div>
     </div>
-    <div class="step-body">Tap <strong>+ New</strong> to add a product. You will see four fields. <strong>This is the most important thing you do in Psych Lab.</strong> The AI cannot write a hook that stops a real person scrolling if it does not know who that person is and why this product matters to them. Generic input produces generic scripts. What you write here is the difference.</div>
-
-    <div class="hook-banner">
-      <div class="hook-banner-title">Your hooks live entirely in these three answers</div>
-      <div class="hook-banner-body">The tool does not guess. It writes from what you give it. A vague answer produces a vague hook. A specific, honest answer produces a hook that makes someone stop mid-scroll and think -- that is exactly me. Take two extra minutes here. It changes everything that comes out.</div>
-    </div>
-
-    <div class="input-cards">
-      <div class="input-card hook">
-        <div class="input-card-flag">Hook field 1</div>
-        <div class="input-card-name">Who is buying this and why?</div>
-        <div class="input-card-desc">Describe the buyer -- who they are and what they are feeling before they find this product. Not demographics. The actual emotional situation. <strong>Wrong: women who like home decor. Right: someone who keeps losing plants and feels embarrassed when guests come over.</strong></div>
-      </div>
-      <div class="input-card hook">
-        <div class="input-card-flag">Hook field 2</div>
-        <div class="input-card-name">What made YOU want this product?</div>
-        <div class="input-card-desc">Say it like you are texting a friend. The moment you knew you needed it. <strong>This is where your most authentic hooks come from -- your real reason is almost always the buyer's real reason too.</strong></div>
-      </div>
-      <div class="input-card hook">
-        <div class="input-card-flag">Hook field 3</div>
-        <div class="input-card-name">What would surprise someone about this product?</div>
-        <div class="input-card-desc">Something unexpected about how it looks, works, or feels that only someone who has actually seen it would know. <strong>This is what makes your hook different from every other creator promoting the same product.</strong></div>
-      </div>
-      <div class="input-card details">
-        <div class="input-card-flag gold">Body lines</div>
-        <div class="input-card-name">Product details</div>
-        <div class="input-card-desc">Brand name, key features, specs. This becomes the proof in your body lines. Be specific -- real numbers and real details build trust.</div>
-      </div>
-    </div>
-    <div class="note" style="margin-top:14px;">When you are done tap <strong>Save Product</strong> and select a price range. You will land on your product hub where you choose how to generate.</div>
+    <div class="step-body">On the home screen tap <strong>+ New</strong>, then add the product name and paste the listing. The listing is where Saxe gets the real specs, so a script never invents a number.</div>
   </div>
 
   <div class="step">
     <div class="step-num-row">
       <div class="step-circle">3</div>
-      <div class="step-title">Pick a <em>price range</em> on the hub</div>
+      <div class="step-title">Paste your <em>two sources</em></div>
     </div>
-    <div class="step-body">After saving your product you land on the product hub. The first thing you will see is the price range selector. This is required before generating anything.</div>
-    <div class="callout" style="font-style:normal;">Price shapes the buyer intent behind every line. An impulse buy script feels completely different from a premium upgrade script. Select the tier that matches your product.</div>
-    <div class="note">Once you select a price the four generate buttons activate. You only need to pick price once per session -- if you come back to the same product it remembers.</div>
+    <div class="step-body">This is the step that decides everything. Two sources, two jobs &mdash; do not mix them up.</div>
+    <div class="input-cards">
+      <div class="input-card key">
+        <div class="input-card-flag">What to say</div>
+        <div class="input-card-name">Reviews &mdash; 4 and 5 star only</div>
+        <div class="input-card-desc">The happy reviews are the source of what to <strong>say</strong>: the emotion, the desire, the real reasons people love it. <strong>Paste up to 100</strong> and the tool picks the most useful, dropping near-duplicates and content-free ones like &ldquo;I love it&rdquo; &mdash; so you can paste freely without watering the brief down. <strong>Skip 1 and 2 star reviews entirely</strong> &mdash; they are not buyer objections, and feeding them in is how a script ends up about a product arriving damaged.</div>
+      </div>
+      <div class="input-card key">
+        <div class="input-card-flag">What to answer</div>
+        <div class="input-card-name">Comments on viral videos</div>
+        <div class="input-card-desc">Objections come from here, not from your reviews. Paste comments from viral or competitor videos &mdash; the hesitations and doubts of people who have <strong>not bought yet</strong>. That is what a script has to answer to convert them.</div>
+      </div>
+    </div>
+    <div class="note">On your phone, screenshot the comments and upload them. On a computer, paste or drag the screenshot straight in. Saxe reads either.</div>
   </div>
 
   <div class="step">
     <div class="step-num-row">
       <div class="step-circle">4</div>
-      <div class="step-title">Choose your <em>mode</em></div>
+      <div class="step-title">Two settings that keep scripts <em>honest</em></div>
     </div>
-    <div class="step-body">Four ways to generate depending on what you need today.</div>
-    <div class="mode-list">
-      <div class="mode-row">
-        <div class="mode-emoji">🎯</div>
-        <div>
-          <div class="mode-name">Curated Script</div>
-          <div class="mode-desc">Build one script step by step. Pick your hook, body lines, pre-close, and CTA one at a time. Best when you want full control over a specific angle.</div>
-        </div>
+    <div class="step-body">Below your material are two small settings worth getting right.</div>
+    <div class="input-cards">
+      <div class="input-card">
+        <div class="input-card-flag">How far you can speak</div>
+        <div class="input-card-name">Ownership</div>
+        <div class="input-card-desc"><strong>I have it in hand</strong> (the default) lets scripts show it, feel it, and react to it in the present &mdash; but not claim months of use. <strong>I've been using it</strong> lets them speak from real experience over time. Pick the true one so no script overclaims.</div>
       </div>
-      <div class="mode-row">
-        <div class="mode-emoji">⚡</div>
-        <div>
-          <div class="mode-name">Batch Scripts</div>
-          <div class="mode-desc">Reach different buyers with the same product. Five complete scripts, each speaking to a different buyer angle. Best when you need a full week of content fast.</div>
-        </div>
-      </div>
-      <div class="mode-row">
-        <div class="mode-emoji">🎬</div>
-        <div>
-          <div class="mode-name">Filming Session</div>
-          <div class="mode-desc">Create different content styles for the same product. Unboxing, honest take, voice over, before and after, and more. Best when you are sitting down to film multiple videos.</div>
-        </div>
-      </div>
-      <div class="mode-row">
-        <div class="mode-emoji">🎭</div>
-        <div>
-          <div class="mode-name">Skit Script</div>
-          <div class="mode-desc">Two-person dialogue script. Pick a relationship type -- friends, spouses, coworkers -- and get a full natural conversation. Best for creators who film with another person.</div>
-        </div>
+      <div class="input-card">
+        <div class="input-card-flag">The non-negotiable</div>
+        <div class="input-card-name">Must-include</div>
+        <div class="input-card-desc">Optional, but strongly recommended: the one thing that must never be left out &mdash; the feature that actually sells it. When it is filled in, every script works it in, in its own words.</div>
       </div>
     </div>
   </div>
 
-  <div class="step" style="border-bottom:none;">
+  <div class="step">
     <div class="step-num-row">
       <div class="step-circle">5</div>
-      <div class="step-title">Save, edit, and <em>rate your lines</em></div>
+      <div class="step-title">Build the <em>brief</em></div>
     </div>
-    <div class="step-body">Every script you generate is automatically saved to your product library. Tap any saved script to see the full script, text hook options, caption, and hashtags. You can edit any line directly and save your changes.</div>
-    <div class="note" style="margin-top:14px;">Tap <strong>thumbs up</strong> on lines that sound like you. Tap <strong>thumbs down</strong> on ones that do not. The tool learns your voice over time and adjusts every future generation to match.</div>
-    <div class="note" style="margin-top:8px;">When a script performs well, tap <strong>Top Performer</strong> to flag it. This helps you track what is converting. When you post a video, tap <strong>Mark as Posted</strong> to log it in your history.</div>
-    <div class="note" style="margin-top:8px;">Psych Lab gives every script a strong psychological foundation. What the algorithm does with it is up to the platform.</div>
-    <div class="note" style="margin-top:8px;">Have more questions? The <a href="faq.html">FAQ</a> covers buyer intent, script structure, modes, and more.</div>
+    <div class="step-body">Tap <strong>Build brief</strong>. Saxe reads everything you pasted and writes it up: who the buyer is, what they feel and want, and the objections holding the next buyer back.</div>
+    <div class="callout warn"><strong>&#9888; An empty objections section means you did not paste comments.</strong> Objections come from the viral-video comments, not from your reviews. If that section comes back thin, go back and add comments from people who have not bought yet, then build again. Do not reach for low-star reviews to fill it &mdash; that is what pulls a script off the product.</div>
+  </div>
+
+  <div class="step">
+    <div class="step-num-row">
+      <div class="step-circle">6</div>
+      <div class="step-title">Read and <em>correct</em> the brief</div>
+    </div>
+    <div class="step-body">The brief is a draft of what buyers said, not the final word. Read it and fix anything you know better than they do &mdash; you know your product and a handful of reviews do not. Every line is editable, and you can revert if you change your mind.</div>
+  </div>
+
+  <div class="step">
+    <div class="step-num-row">
+      <div class="step-circle">7</div>
+      <div class="step-title">Generate <em>four</em></div>
+    </div>
+    <div class="step-body">Tap <strong>Generate scripts</strong> to get four at a time, each written to a different buyer. You get <strong>150 generations a month</strong> and they reset on the 1st &mdash; one generation is one press, four scripts. The counter by the button shows how many you have left, so the limit is never a surprise.</div>
+  </div>
+
+  <div class="step">
+    <div class="step-num-row">
+      <div class="step-circle">8</div>
+      <div class="step-title">Edit and <em>save</em></div>
+    </div>
+    <div class="step-body">The four are different angles on the same product, a starting point, not a finished post. Every line on a card is an editable field &mdash; tap in and rewrite it so it sounds like you; the field grows as you type. Reword a hook, tighten a payoff, then tap <strong>Save to scripts</strong> to keep the ones you want in your library, where they stay editable.</div>
+  </div>
+
+  <div class="step" style="border-bottom:none;">
+    <div class="step-num-row">
+      <div class="step-circle">9</div>
+      <div class="step-title">Two more <em>tools</em></div>
+    </div>
+    <div class="step-body">Up top you will also find <strong>Planner</strong> and <strong>Carousels</strong>. Planner helps you decide what to post and when; Carousels art-directs image posts. You do not need them to write scripts, but they are there when you want them.</div>
   </div>
 
 </div>
 
 <div class="cta-wrap">
-  <a class="cta-btn" href="https://psychscriptlab.app">🧠 &nbsp;Open Psych Lab</a>
-  <a class="faq-link" href="faq.html">Read the FAQ &rarr;</a>
+  <a class="cta-btn" href="https://saxe.app">Open Saxe</a>
+  <a class="faq-link" href="/faq.html">Read the FAQ &rarr;</a>
 </div>
 
-<div class="footer">Built by <strong>Famous</strong> &nbsp;·&nbsp; Psych Lab &nbsp;·&nbsp; © 2026 Psych Lab by Famous. All rights reserved.</div>
+<div class="footer">&copy; 2026 Saxe. All rights reserved.</div>
 
 <script>
 const steps = document.querySelectorAll('.step');
